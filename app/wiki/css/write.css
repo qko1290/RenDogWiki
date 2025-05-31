@@ -1,0 +1,160 @@
+.write-container {
+  padding: 2rem;
+}
+
+.write-title {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 1.5rem;
+}
+
+.write-input {
+  display: block;
+  width: 100%;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  background-color: #1f2937;
+  color: #f9fafb;
+  border: none;
+  border-radius: 0.375rem;
+}
+
+.write-save-button {
+  margin-top: 1rem;
+  padding: 0.75rem 1.5rem;
+  background-color: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.write-save-button:hover {
+  background-color: #1e40af;
+}
+
+/* === 🔥 추가한 블럭 스타일 === */
+
+.custom-buttons {
+  margin-bottom: 1rem;
+}
+
+.custom-button {
+  margin-right: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: #4b5563;
+  color: white;
+  border-radius: 0.375rem;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.custom-button:hover {
+  background-color: #374151;
+}
+
+.custom-editor {
+  min-height: 400px; /* 기존 300px보다 키움 */
+  padding: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background-color: #fff;
+  margin-top: 1rem;
+  font-size: 16px;
+}
+
+.custom-editor:empty::before {
+  content: attr(data-placeholder);
+  color: #aaa;
+  pointer-events: none;
+  display: block;
+}
+
+/* 예시 블럭 스타일 */
+.indent-block {
+  padding-left: 1rem;
+  border-left: 4px solid #888;
+  margin: 0.5rem 0;
+  color: #444;
+}
+
+.alert-block {
+  background-color: #fff4e5;
+  border: 1px solid #ffa726;
+  padding: 0.75rem;
+  margin: 0.5rem 0;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.alert-icon {
+  margin-right: 0.5rem;
+}
+
+.editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #ddd;
+  margin-bottom: 1rem;
+}
+
+.editor-toolbar button {
+  background: #f2f2f2;
+  border: 1px solid #ccc;
+  padding: 5px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.toolbar-dropdown {
+  position: relative;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 110%;
+  left: 0;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  z-index: 999;
+}
+
+.dropdown-menu button {
+  background: none;
+  border: none;
+  padding: 4px 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.dropdown-menu button:hover {
+  background-color: #eee;
+}
+
+.mark-button {
+  padding: 6px 10px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  background-color: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.mark-button:hover {
+  background-color: #f0f0f0;
+}
+
+.mark-button.active {
+  background-color: #dbeafe;
+  font-weight: bold;
+  border-color: #60a5fa;
+}
