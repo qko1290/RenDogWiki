@@ -27,7 +27,7 @@ type MinecraftProfileResponse = {
   name: string;
 };
 
-export const authOptions: NextAuthOptions = {
+const authOptions: NextAuthOptions = {
   providers: [
     AzureADProvider({
       id: "microsoft",
