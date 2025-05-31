@@ -1,9 +1,10 @@
 'use client';
 
+import { Suspense } from "react";
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
-export default function LoginErrorPage() {
+function LoginErrorPageInner() {
   const params = useSearchParams();
   const error = params.get('error'); 
 
@@ -34,5 +35,13 @@ export default function LoginErrorPage() {
         <p>알 수 없는 이유로 로그인에 실패했습니다.</p>
       )}
     </div>
+  );
+}
+
+export default function LoginErrorPage() {
+  return (
+    <Suspense>
+      <LoginErrorPageInner />
+    </Suspense>
   );
 }

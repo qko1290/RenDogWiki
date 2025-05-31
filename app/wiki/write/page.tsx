@@ -7,6 +7,7 @@
 
 'use client';
 
+import { Suspense } from "react";
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import SlateEditor from '@/components/editor/SlateEditor';
@@ -22,7 +23,8 @@ type DocType = {
   content: Descendant[];
 };
 
-export default function WritePage() {
+// 내부 함수 컴포넌트
+function WritePageInner() {
   const searchParams = useSearchParams();
   const path = searchParams.get('path');
   const title = searchParams.get('title');
@@ -66,5 +68,14 @@ export default function WritePage() {
     <div className="max-w-[90%] mx-auto py-10">
       <SlateEditor initialDoc={doc} />
     </div>
+  );
+}
+
+// 최상위에서 Suspense로 감싸기
+export default function WritePage() {
+  return (
+    <Suspense>
+      <WritePageInner />
+    </Suspense>
   );
 }
