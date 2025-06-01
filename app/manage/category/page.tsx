@@ -48,11 +48,13 @@ function SortableCategoryItem({
   node,
   selected,
   onClick,
+  onToggleOpen,
   children,
 }: {
   node: Category;
   selected: Category | null;
   onClick: () => void;
+  onToggleOpen: (id: number) => void;
   children?: React.ReactNode;
 }) {
   const {
@@ -74,7 +76,6 @@ function SortableCategoryItem({
         listStyle: "none",
       }}
       {...attributes}
-      {...listeners}
     >
       <div
         className={`flex items-center justify-between px-2 py-1 cursor-pointer ${
@@ -83,19 +84,15 @@ function SortableCategoryItem({
         onClick={onClick}
         style={{ userSelect: "none" }}
       >
-        <span className="flex-1">
+        {/* 드래그 핸들만 listeners 부착 */}
+        <span className="flex-1" {...listeners}>
           {node.icon ?? ''} {node.name}
         </span>
-        {/* 드래그핸들: 노드 전체가 핸들 */}
         {node.children.length > 0 && (
           <button
-            onClick={(e) => {
+            onClick={e => {
               e.stopPropagation();
-              if (typeof window !== 'undefined') {
-                // toggleOpen은 상위에서 전달
-                const event = new CustomEvent('toggleOpen', { detail: node.id });
-                window.dispatchEvent(event);
-              }
+              onToggleOpen(node.id);
             }}
             className="text-gray-500 ml-2"
             tabIndex={-1}
@@ -252,6 +249,7 @@ export default function CategoryManager() {
                 node={node}
                 selected={selected}
                 onClick={() => handleCategorySelect(node, path)}
+                onToggleOpen={toggleOpen}
               >
                 {open.has(node.id) && node.children.length > 0 && (
                   <div className="ml-4">
