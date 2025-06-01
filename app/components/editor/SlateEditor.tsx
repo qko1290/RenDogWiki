@@ -83,6 +83,7 @@ export default function SlateEditor({ initialDoc }: Props) {
   const [isIconModalOpen, setIsIconModalOpen] = useState(false);
   const [iconEditTarget, setIconEditTarget] = useState<CustomElement | null>(null);
 
+  // 🔥 핵심: 최초 initialDoc만을 기준으로 doc을 세팅, 이후엔 상태로만 유지
   const [doc, setDoc] = useState<DocState>({
     title: initialDoc.title,
     path: initialDoc.path,
@@ -91,40 +92,19 @@ export default function SlateEditor({ initialDoc }: Props) {
     content: initialDoc.content ?? EMPTY_INITIAL_VALUE,
   });
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
-  // 문서 로딩
+  // 🔥 최초 mount 혹은 initialDoc.path/title이 바뀔 때만 doc 상태를 재설정한다.
   useEffect(() => {
-    if (!path || !doc.title) return;
-    fetch(`/api/documents?path=${encodeURIComponent(path)}&title=${encodeURIComponent(doc.title)}`)
-      .then((res) => (res.status === 204 ? null : res.json()))
-      .then((data) => {
-        if (!data) {
-          setDoc({
-            title: '',
-            path,
-            icon: '',
-            tags: [],
-            content: EMPTY_INITIAL_VALUE,
-          });
-        } else {
-          setDoc({
-            title: data.title ?? '',
-            path: data.path ?? '',
-            icon: data.icon ?? '',
-            tags: Array.isArray(data.tags) ? data.tags : [],
-            content: Array.isArray(data.content) ? data.content : EMPTY_INITIAL_VALUE,
-          });
-        }
-        setEditorKey((prev) => prev + 1);
-      })
-      .catch((err) => {
-        console.error('문서 로딩 실패:', err);
-        alert('문서를 불러올 수 없습니다.');
-      })
-      .finally(() => setLoading(false));
-    // eslint-disable-next-line
-  }, [path, doc.title]);
+    setDoc({
+      title: initialDoc.title ?? '',
+      path: initialDoc.path ?? '',
+      icon: initialDoc.icon ?? '',
+      tags: Array.isArray(initialDoc.tags) ? initialDoc.tags : [],
+      content: Array.isArray(initialDoc.content) ? initialDoc.content : EMPTY_INITIAL_VALUE,
+    });
+    setEditorKey((prev) => prev + 1);
+  }, [initialDoc.path, initialDoc.title]);
 
   // 뒤로가기 방지(Backspace)
   useEffect(() => {

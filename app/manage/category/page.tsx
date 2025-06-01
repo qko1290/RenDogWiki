@@ -21,8 +21,10 @@ import {
   arrayMove,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
-// 타입 선언
+// --- 타입 선언
 type Category = {
   id: number;
   name: string;
@@ -41,9 +43,74 @@ type Document = {
   updated_at: string;
 };
 
-// 메인 카테고리 관리자 컴포넌트
+// --- Sortable Category Item(핸들)
+function SortableCategoryItem({
+  node,
+  selected,
+  onClick,
+  children,
+}: {
+  node: Category;
+  selected: Category | null;
+  onClick: () => void;
+  children?: React.ReactNode;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: node.id.toString() });
+
+  return (
+    <li
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+        listStyle: "none",
+      }}
+      {...attributes}
+      {...listeners}
+    >
+      <div
+        className={`flex items-center justify-between px-2 py-1 cursor-pointer ${
+          selected?.id === node.id ? 'bg-blue-100' : ''
+        }`}
+        onClick={onClick}
+        style={{ userSelect: "none" }}
+      >
+        <span className="flex-1">
+          {node.icon ?? ''} {node.name}
+        </span>
+        {/* 드래그핸들: 노드 전체가 핸들 */}
+        {node.children.length > 0 && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (typeof window !== 'undefined') {
+                // toggleOpen은 상위에서 전달
+                const event = new CustomEvent('toggleOpen', { detail: node.id });
+                window.dispatchEvent(event);
+              }
+            }}
+            className="text-gray-500 ml-2"
+            tabIndex={-1}
+          >
+            ▼
+          </button>
+        )}
+      </div>
+      {children}
+    </li>
+  );
+}
+
+// --- 메인 컴포넌트
 export default function CategoryManager() {
-  // 상태 정의
   const [tree, setTree] = useState<Category[]>([]);
   const [open, setOpen] = useState<Set<number>>(new Set());
   const [selected, setSelected] = useState<Category | null>(null);
@@ -53,26 +120,34 @@ export default function CategoryManager() {
 
   const sensors = useSensors(useSensor(PointerSensor));
 
-  // 전체 카테고리/문서 불러오기
-  useEffect(() => { fetchCategories(); }, []);
+  useEffect(() => {
+    fetchCategories();
+    // 열림 이벤트 window 단위로 전달 받음
+    window.addEventListener("toggleOpen", (e: any) => {
+      if (e.detail) toggleOpen(e.detail);
+    });
+    return () => {
+      window.removeEventListener("toggleOpen", () => {});
+    };
+    // eslint-disable-next-line
+  }, []);
+
   useEffect(() => {
     fetch('/api/documents?all=1')
       .then(res => res.json())
       .then(data => setAllDocuments(data));
   }, []);
 
-  // 카테고리 선택시 경로 추적
   const handleCategorySelect = (node: Category, currentPath: number[]) => {
     setSelected(node);
     setSelectedDoc(null);
     setSelectedCategoryPath(currentPath);
   };
 
-  // 경로 기준 문서 필터
   const realPath = selectedCategoryPath.slice(1).join('/');
   const filteredDocs = allDocuments.filter(doc => String(doc.path) === realPath);
 
-  // 카테고리 트리 생성/관리
+  // --- 카테고리 트리 fetch
   const fetchCategories = async () => {
     const res = await fetch('/api/categories');
     const flat: Category[] = await res.json();
@@ -90,7 +165,7 @@ export default function CategoryManager() {
     ]);
   };
 
-  // flat -> 트리로 변환
+  // --- flat -> 트리 변환
   const buildTree = (list: Category[]): Category[] => {
     const map = new Map<number, Category>();
     list.forEach((item) => map.set(item.id, { ...item, children: [] }));
@@ -107,7 +182,7 @@ export default function CategoryManager() {
     return roots.sort((a, b) => a.order - b.order);
   };
 
-  // 카테고리 열림/닫힘
+  // --- 열림/닫힘
   const toggleOpen = (id: number) => {
     setOpen((prev) => {
       const copy = new Set(prev);
@@ -116,7 +191,7 @@ export default function CategoryManager() {
     });
   };
 
-  // 트리 드래그 & 정렬
+  // --- 트리 드래그 & 정렬 (동일)
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -144,7 +219,6 @@ export default function CategoryManager() {
     });
   };
 
-  // 트리 검색/부모 찾기
   const findCategoryById = (nodes: Category[], id: number): Category | null => {
     for (const node of nodes) {
       if (node.id === id) return node;
@@ -162,50 +236,37 @@ export default function CategoryManager() {
     return null;
   };
 
-  // 트리 렌더링(경로 추적)
-  const renderTree = (nodes: Category[], currentPath: number[] = [], depth = 0): JSX.Element => (
-    <ul className="space-y-1">
-      {nodes.map((node) => {
-        const path = [...currentPath, node.id];
-        return (
-          <li key={node.id}>
-            <div
-              className={`flex items-center justify-between px-2 py-1 cursor-pointer ${selected?.id === node.id ? 'bg-blue-100' : ''}`}
-              style={{ paddingLeft: `${depth * 16}px` }}
-              onClick={() => handleCategorySelect(node, path)}
-            >
-              <span className="flex-1">
-                {node.icon ?? ''} {node.name}
-              </span>
-              {node.children.length > 0 && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleOpen(node.id);
-                  }}
-                  className="text-gray-500 ml-2"
-                >
-                  {open.has(node.id) ? '▼' : '▶'}
-                </button>
-              )}
-            </div>
-            {open.has(node.id) && (
-              <SortableContext
-                items={node.children.map((child) => child.id.toString())}
-                strategy={verticalListSortingStrategy}
+  // --- 트리 렌더링 (핸들 적용)
+  const renderTree = (nodes: Category[], currentPath: number[] = [], depth = 0): JSX.Element => {
+    return (
+      <SortableContext
+        items={nodes.map((node) => node.id.toString())}
+        strategy={verticalListSortingStrategy}
+      >
+        <ul className="space-y-1">
+          {nodes.map((node) => {
+            const path = [...currentPath, node.id];
+            return (
+              <SortableCategoryItem
+                key={node.id}
+                node={node}
+                selected={selected}
+                onClick={() => handleCategorySelect(node, path)}
               >
-                <div className="ml-4">
-                  {renderTree(node.children, path, depth + 1)}
-                </div>
-              </SortableContext>
-            )}
-          </li>
-        );
-      })}
-    </ul>
-  );
+                {open.has(node.id) && node.children.length > 0 && (
+                  <div className="ml-4">
+                    {renderTree(node.children, path, depth + 1)}
+                  </div>
+                )}
+              </SortableCategoryItem>
+            );
+          })}
+        </ul>
+      </SortableContext>
+    );
+  };
 
-  // 렌더 (트리/문서/설정 등)
+  // --- 렌더링
   return (
     <div className="flex h-screen">
       {/* 왼쪽: 카테고리 트리 */}
@@ -224,7 +285,9 @@ export default function CategoryManager() {
             {filteredDocs.map((doc) => (
               <li
                 key={doc.id}
-                className={`cursor-pointer px-2 py-1 rounded hover:bg-gray-100 ${selectedDoc?.id === doc.id ? 'bg-blue-100' : ''}`}
+                className={`cursor-pointer px-2 py-1 rounded hover:bg-gray-100 ${
+                  selectedDoc?.id === doc.id ? 'bg-blue-100' : ''
+                }`}
                 onClick={() => setSelectedDoc(doc)}
               >
                 📄 {doc.title}
