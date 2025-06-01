@@ -34,7 +34,10 @@ function WritePageInner() {
 
   // 문서 fetch & 초기값 로딩
   useEffect(() => {
-    if (!path || !title) return;
+    if (!path || !title) {
+      setLoading(false);
+      return;
+    }
     fetch(`/api/documents?path=${encodeURIComponent(path)}&title=${encodeURIComponent(title)}`)
       .then(async (res) => {
         if (res.status === 204) {

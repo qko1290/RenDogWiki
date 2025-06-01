@@ -82,6 +82,7 @@ export default function SlateEditor({ initialDoc }: Props) {
   const [editorKey, setEditorKey] = useState(0);
   const [isIconModalOpen, setIsIconModalOpen] = useState(false);
   const [iconEditTarget, setIconEditTarget] = useState<CustomElement | null>(null);
+  const [tagInput, setTagInput] = useState(doc.tags.join(', '));
 
   // 🔥 핵심: 최초 initialDoc만을 기준으로 doc을 세팅, 이후엔 상태로만 유지
   const [doc, setDoc] = useState<DocState>({
@@ -104,7 +105,8 @@ export default function SlateEditor({ initialDoc }: Props) {
       content: Array.isArray(initialDoc.content) ? initialDoc.content : EMPTY_INITIAL_VALUE,
     });
     setEditorKey((prev) => prev + 1);
-  }, [initialDoc.path, initialDoc.title]);
+  }, [initialDoc]);
+
 
   // 뒤로가기 방지(Backspace)
   useEffect(() => {
@@ -321,9 +323,10 @@ export default function SlateEditor({ initialDoc }: Props) {
             <label className="block font-semibold mb-1">태그 (쉼표로 구분)</label>
             <input
               type="text"
-              value={doc.tags.join(', ')}
-              onChange={(e) => {
-                const parts = e.target.value.split(',').map(tag => tag.trim());
+              value={tagInput}
+              onChange={e => setTagInput(e.target.value)}
+              onBlur={() => {
+                const parts = tagInput.split(',').map(t => t.trim());
                 const formatted = parts.filter(Boolean).map(tag => tag.startsWith('#') ? tag : `#${tag}`);
                 setDoc(prev => ({ ...prev, tags: formatted }));
               }}

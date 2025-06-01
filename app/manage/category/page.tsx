@@ -97,7 +97,7 @@ function SortableCategoryItem({
             className="text-gray-500 ml-2"
             tabIndex={-1}
           >
-            ▼
+            {open.has(node.id) ? '▼' : '▶'}
           </button>
         )}
       </div>
