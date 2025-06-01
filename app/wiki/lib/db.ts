@@ -2,7 +2,7 @@ import mysql from 'mysql2/promise';
 import fs from 'fs';
 import path from 'path';
 
-const ca = fs.readFileSync(path.join(process.cwd(), 'isrgrootx1.pem'));
+const ca = fs.readFileSync(path.join(process.cwd(), 'app', 'wiki', 'lib', 'isrgrootx1.pem'))
 
 export const db = mysql.createPool({
   host: process.env.DB_HOST!,
