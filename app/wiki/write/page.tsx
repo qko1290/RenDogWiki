@@ -63,7 +63,7 @@ function WritePageInner() {
         alert('문서를 불러올 수 없습니다.');
       })
       .finally(() => setLoading(false));
-  }, [path, title]);
+  }, [path]);
 
   // 렌더링
   if (loading) return <div>불러오는 중...</div>;
