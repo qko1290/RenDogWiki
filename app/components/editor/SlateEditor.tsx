@@ -25,6 +25,7 @@ import type { CustomElement } from '@/types/slate';
 import { renderSlateToHtml } from '@/wiki/lib/renderSlateToHtml';
 
 type DocState = {
+  id?: number;
   title: string;
   path: string;
   icon: string;
