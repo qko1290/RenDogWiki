@@ -77,15 +77,9 @@ function SortableCategoryItem({
       }}
       {...attributes}
     >
-      <div
-        className={`flex items-center justify-between px-2 py-1 cursor-pointer ${
-          selected?.id === node.id ? 'bg-blue-100' : ''
-        }`}
-        onClick={onClick}
-        style={{ userSelect: "none" }}
-      >
-        {/* 드래그 핸들만 listeners 부착 */}
-        <span className="flex-1" {...listeners}>
+      <div className="flex items-center justify-between px-2 py-1">
+        <span className="grab-handle mr-2" {...listeners} style={{cursor: "grab"}}>⠿</span>
+        <span className="flex-1 cursor-pointer" onClick={onClick}>
           {node.icon ?? ''} {node.name}
         </span>
         {node.children.length > 0 && (
