@@ -146,8 +146,13 @@ export default function SlateEditor({ initialDoc }: Props) {
   // 저장
   const handleSave = async () => {
     const res = await fetch(`/api/documents?path=${encodeURIComponent(doc.path)}`);
-    const docsInPath = await res.json() as { id: number; title: string }[];
-    const isDuplicate = docsInPath.some(d => d.title === doc.title && d.id !== initialDoc?.id);
+    const docsInPath = await res.json();
+    if (!Array.isArray(docsInPath)) {
+      console.error('API 반환값이 배열이 아닙니다:', docsInPath);
+      alert('서버 오류: 문서 목록 조회 실패');
+      return;
+    }
+    const isDuplicate = docsInPath.some(d => d.title === doc.title);
 
     if (isDuplicate) {
       alert('같은 카테고리(경로)에 동일한 제목의 문서가 존재합니다.');
