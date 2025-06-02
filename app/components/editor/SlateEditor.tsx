@@ -147,7 +147,11 @@ export default function SlateEditor({ initialDoc }: Props) {
   const handleSave = async () => {
     const res = await fetch(`/api/document?all=1`);
     const allDocs = await res.json();
-    if (!Array.isArray(allDocs)) { ... }
+    if (!Array.isArray(allDocs)) { 
+      console.error('API 반환값이 배열이 아닙니다:', allDocs);
+      alert('서버 오류: 문서 목록 조회 실패');
+      return; 
+    }
     const isDuplicate = allDocs.some(d => d.path === doc.path && d.title === doc.title && d.id !== doc.id);
 
     if (isDuplicate) {
