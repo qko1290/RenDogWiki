@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
   // 전체 문서 조회인지, 단일 문서서인지 구분
   const all = req.nextUrl.searchParams.get('all');
   const path = req.nextUrl.searchParams.get('path');
+  const title = req.nextUrl.searchParams.get('title');
 
   // 1. 전체 문서 리스트 조회 (위키/카테고리/검색 등 트리 렌더링)
   //    - GET /api/document?all=1
@@ -51,12 +52,20 @@ export async function GET(req: NextRequest) {
 
   try {
     // 단일 문서 메타데이터 조회
-    const [docRows] = await db.query<RowDataPacket[]>(
-      'SELECT * FROM documents WHERE path = ?',
-      [path]
-    );
+    let docRows;
+    if (title) {
+      [docRows] = await db.query<RowDataPacket[]>(
+        'SELECT * FROM documents WHERE path = ? AND title = ?',
+        [path, title]
+      );
+    } else {
+      [docRows] = await db.query<RowDataPacket[]>(
+        'SELECT * FROM documents WHERE path = ?',
+        [path]
+      );
+    }
     if (docRows.length === 0) {
-      // 존재하지 않으면 204 에러 반환환
+      // 존재하지 않으면 204 에러 반환
       return new NextResponse(null, { status: 204 });
     }
     const document = docRows[0];
