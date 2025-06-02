@@ -145,7 +145,7 @@ export default function SlateEditor({ initialDoc }: Props) {
 
   // 저장
   const handleSave = async () => {
-    const res = await fetch(`/api/document?all=1`);
+    const res = await fetch(`/api/documents?all=1`);
     const allDocs = await res.json();
     if (!Array.isArray(allDocs)) { 
       console.error('API 반환값이 배열이 아닙니다:', allDocs);
