@@ -67,7 +67,7 @@ function WritePageInner() {
 
   // 렌더링
   if (loading) return <div>불러오는 중...</div>;
-  if (!path || !title) return <div>잘못된 접근입니다.</div>;
+  if (!path) return <div>잘못된 접근입니다.</div>;
 
   return (
     <div className="max-w-[90%] mx-auto py-10">
