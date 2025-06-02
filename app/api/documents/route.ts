@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
       // 존재하지 않으면 204 에러 반환
       return new NextResponse(null, { status: 204 });
     }
-    const document = docRows[0];
+    const document = docRows[0]; // 배열의 첫 번째 객체만 사용!
 
     // 본문 테이블 조회
     const [contentRows] = await db.query<RowDataPacket[]>(
