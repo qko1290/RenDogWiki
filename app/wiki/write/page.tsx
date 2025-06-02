@@ -18,7 +18,6 @@ const EMPTY_INITIAL_VALUE: Descendant[] = [
   { type: 'paragraph', children: [{ text: '' }] },
 ];
 
-// 타입 정의
 type DocType = {
   title: string;
   path: string;
@@ -27,45 +26,60 @@ type DocType = {
   content: Descendant[];
 };
 
-// 내부 함수 컴포넌트
 function WritePageInner() {
   const searchParams = useSearchParams();
   const path = searchParams.get('path');
+  const title = searchParams.get('title'); // title 없으면 '작성 모드', 있으면 '수정 모드'
 
   const [doc, setDoc] = useState<DocType | null>(null);
   const [loading, setLoading] = useState(true);
-  
-  // 문서 fetch & 초기값 로딩
+
   useEffect(() => {
+    // path 없으면 접근 불가
     if (!path) {
       setLoading(false);
       return;
     }
-    fetch(`/api/documents?path=${encodeURIComponent(path)}`)
-      .then(async (res) => {
-        if (res.status === 204) {
-          // 새 문서 초기값
-          return {
-            path,
-            icon: '',
-            tags: [],
-            content: EMPTY_INITIAL_VALUE,
-          };
-        } else if (res.ok) {
-          return res.json();
-        } else {
-          throw new Error('문서 불러오기 실패');
-        }
-      })
-      .then((data) => setDoc(data))
-      .catch((err) => {
-        console.error('문서 로딩 실패:', err);
-        alert('문서를 불러올 수 없습니다.');
-      })
-      .finally(() => setLoading(false));
-  }, [path]);
 
-  // 렌더링
+    // title이 있으면 해당 path+title 문서 조회 (수정 모드)
+    // title 없으면 새 문서 (작성 모드)
+    if (title) {
+      fetch(`/api/documents?path=${encodeURIComponent(path)}&title=${encodeURIComponent(title)}`)
+        .then(async (res) => {
+          if (res.status === 204) {
+            // 문서 없음 = 새 문서로 진입 (이 경우 거의 없음)
+            return {
+              title: title,
+              path: path,
+              icon: '',
+              tags: [],
+              content: EMPTY_INITIAL_VALUE,
+            };
+          } else if (res.ok) {
+            return res.json();
+          } else {
+            throw new Error('문서 불러오기 실패');
+          }
+        })
+        .then((data) => setDoc(data))
+        .catch((err) => {
+          console.error('문서 로딩 실패:', err);
+          alert('문서를 불러올 수 없습니다.');
+        })
+        .finally(() => setLoading(false));
+    } else {
+      // title 없으면 무조건 새 문서
+      setDoc({
+        title: '',      // 빈 제목
+        path: path,
+        icon: '',
+        tags: [],
+        content: EMPTY_INITIAL_VALUE,
+      });
+      setLoading(false);
+    }
+  }, [path, title]);
+
   if (loading) return <div>불러오는 중...</div>;
   if (!path) return <div>잘못된 접근입니다.</div>;
 
@@ -76,7 +90,6 @@ function WritePageInner() {
   );
 }
 
-// 최상위에서 Suspense로 감싸기
 export default function WritePage() {
   return (
     <Suspense>
