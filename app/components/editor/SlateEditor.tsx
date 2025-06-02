@@ -96,16 +96,13 @@ export default function SlateEditor({ initialDoc }: Props) {
   const [loading, setLoading] = useState(false);
 
   // 🔥 최초 mount 혹은 initialDoc.path/title이 바뀔 때만 doc 상태를 재설정한다.
-  useEffect(() => {
-    setDoc({
-      title: initialDoc.title ?? '',
-      path: initialDoc.path ?? '',
-      icon: initialDoc.icon ?? '',
-      tags: Array.isArray(initialDoc.tags) ? initialDoc.tags : [],
-      content: Array.isArray(initialDoc.content) ? initialDoc.content : EMPTY_INITIAL_VALUE,
-    });
-    setEditorKey((prev) => prev + 1);
-  }, [initialDoc]);
+  const [doc, setDoc] = useState<DocState>(() => ({
+    title: initialDoc?.title ?? '',
+    path: initialDoc?.path ?? '',
+    icon: initialDoc?.icon ?? '',
+    tags: Array.isArray(initialDoc?.tags) ? initialDoc.tags : [],
+    content: Array.isArray(initialDoc?.content) ? initialDoc.content : EMPTY_INITIAL_VALUE,
+  }));
 
 
   // 뒤로가기 방지(Backspace)
@@ -326,9 +323,11 @@ export default function SlateEditor({ initialDoc }: Props) {
               value={tagInput}
               onChange={e => setTagInput(e.target.value)}
               onBlur={() => {
-                const parts = tagInput.split(',').map(t => t.trim());
-                const formatted = parts.filter(Boolean).map(tag => tag.startsWith('#') ? tag : `#${tag}`);
-                setDoc(prev => ({ ...prev, tags: formatted }));
+                const tags = tagInput.split('#')
+                  .map(t => t.trim())
+                  .filter(Boolean)
+                  .map(t => '#'+t);
+                setDoc(prev => ({ ...prev, tags }));
               }}
               placeholder="#태그1, #태그2"
               className="border px-3 py-1 rounded w-full"
