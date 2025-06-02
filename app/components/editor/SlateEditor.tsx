@@ -144,6 +144,15 @@ export default function SlateEditor({ initialDoc }: Props) {
 
   // 저장
   const handleSave = async () => {
+    const res = await fetch(`/api/documents?path=${encodeURIComponent(doc.path)}`);
+    const docsInPath = await res.json();
+    const isDuplicate = docsInPath.some(d => d.title === doc.title && d.id !== initialDoc?.id);
+
+    if (isDuplicate) {
+      alert('같은 카테고리(경로)에 동일한 제목의 문서가 존재합니다.');
+      return;
+    }
+
     try {
       const res = await fetch('/api/save', {
         method: 'POST',

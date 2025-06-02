@@ -22,8 +22,8 @@ export async function POST(req: NextRequest) {
 
   // path는 유니크 값 -> 같은 path가 있으면 업데이트, 없으면 새로 생성
   const [rows] = await db.query<RowDataPacket[]>(
-    'SELECT id FROM documents WHERE path = ?',
-    [path]
+    'SELECT id FROM documents WHERE path = ? AND title = ?',
+    [path, title]
   );
   const existing = rows[0] as { id: number } | undefined;
 
