@@ -31,18 +31,17 @@ type DocType = {
 function WritePageInner() {
   const searchParams = useSearchParams();
   const path = searchParams.get('path');
-  const title = searchParams.get('title');
 
   const [doc, setDoc] = useState<DocType | null>(null);
   const [loading, setLoading] = useState(true);
   
   // 문서 fetch & 초기값 로딩
   useEffect(() => {
-    if (!path || !title) {
+    if (!path) {
       setLoading(false);
       return;
     }
-    fetch(`/api/documents?path=${encodeURIComponent(path)}&title=${encodeURIComponent(title)}`)
+    fetch(`/api/documents?path=${encodeURIComponent(path)}`)
       .then(async (res) => {
         if (res.status === 204) {
           // 새 문서 초기값

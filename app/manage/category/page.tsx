@@ -412,9 +412,8 @@ export default function CategoryManager() {
                   onClick={() => {
                     if (!selected) return alert('카테고리를 먼저 선택하세요');
                     const basePath = selected.document_path ?? `${selected.id}`;
+                    location.href = `/wiki/write?path=${encodeURIComponent(basePath)}`;
                     const timestamp = Date.now();
-                    const title = prompt('문서 제목을 입력하세요') || `untitled-${timestamp}`;
-                    location.href = `/wiki/write?path=${encodeURIComponent(basePath)}&title=${encodeURIComponent(title)}`;
                   }}
                 >
                   📄 하위 문서 추가
