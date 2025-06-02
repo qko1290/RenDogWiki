@@ -46,7 +46,6 @@ function WritePageInner() {
         if (res.status === 204) {
           // 새 문서 초기값
           return {
-            title,
             path,
             icon: '',
             tags: [],
