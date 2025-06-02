@@ -83,16 +83,6 @@ export default function SlateEditor({ initialDoc }: Props) {
   const [isIconModalOpen, setIsIconModalOpen] = useState(false);
   const [iconEditTarget, setIconEditTarget] = useState<CustomElement | null>(null);
   const [tagInput, setTagInput] = useState(doc.tags.join(', '));
-
-  // 🔥 핵심: 최초 initialDoc만을 기준으로 doc을 세팅, 이후엔 상태로만 유지
-  const [doc, setDoc] = useState<DocState>({
-    title: initialDoc.title,
-    path: initialDoc.path,
-    icon: initialDoc.icon,
-    tags: initialDoc.tags,
-    content: initialDoc.content ?? EMPTY_INITIAL_VALUE,
-  });
-
   const [loading, setLoading] = useState(false);
 
   // 🔥 최초 mount 혹은 initialDoc.path/title이 바뀔 때만 doc 상태를 재설정한다.
