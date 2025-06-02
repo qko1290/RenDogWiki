@@ -145,7 +145,7 @@ export default function SlateEditor({ initialDoc }: Props) {
   // 저장
   const handleSave = async () => {
     const res = await fetch(`/api/documents?path=${encodeURIComponent(doc.path)}`);
-    const docsInPath = await res.json();
+    const docsInPath = await res.json() as { id: number; title: string }[];
     const isDuplicate = docsInPath.some(d => d.title === doc.title && d.id !== initialDoc?.id);
 
     if (isDuplicate) {
