@@ -29,7 +29,6 @@ export async function POST(req: NextRequest) {
 
   let documentId: number;
 
-  // ========== 분기: 업데이트 vs 신규 ==========
   if (existing) {
     // 기존 문서 업데이트
     documentId = existing.id;

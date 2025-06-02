@@ -85,7 +85,7 @@ export default function SlateEditor({ initialDoc }: Props) {
   const [iconEditTarget, setIconEditTarget] = useState<CustomElement | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // 🔥 최초 mount 혹은 initialDoc.path/title이 바뀔 때만 doc 상태를 재설정한다.
+  // 최초 mount 혹은 initialDoc.path/title이 바뀔 때만 doc 상태를 재설정
   const [doc, setDoc] = useState<DocState>(() => ({
     title: initialDoc?.title ?? '',
     path: initialDoc?.path ?? '',
@@ -121,7 +121,7 @@ export default function SlateEditor({ initialDoc }: Props) {
       const [node] = Editor.nodes(editor, {
         match: n => SlateElement.isElement(n) && Editor.isBlock(editor, n),
       });
-      console.log('📌 현재 블록 노드:', node);
+      console.log('현재 블록 노드:', node);
     }
   }, [doc.content, editor.selection]);
 
@@ -298,7 +298,7 @@ export default function SlateEditor({ initialDoc }: Props) {
             }
           }
         } catch (e) {
-          console.warn('💥 Backspace prevPath 접근 실패:', e);
+          console.warn(' Backspace prevPath 접근 실패:', e);
         }
       }
     }

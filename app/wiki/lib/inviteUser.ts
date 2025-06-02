@@ -53,7 +53,7 @@ export async function inviteUser(email: string, displayName: string) {
       }
     );
 
-    console.log("✅ 초대 성공:", inviteRes.data);
+    console.log("초대 성공:", inviteRes.data);
     return inviteRes.data;
   } catch (err) {
     console.error("초대 실패:", err);

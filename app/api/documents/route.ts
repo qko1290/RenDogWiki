@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(docs);
     } catch (err) {
       // DB 조회 실패시 서버 에러
-      console.error('📛 전체 문서 리스트 조회 실패:', err);
+      console.error(' 전체 문서 리스트 조회 실패:', err);
       return NextResponse.json({ error: 'Server error' }, { status: 500 });
     }
   }
@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
       // 존재하지 않으면 204 에러 반환
       return new NextResponse(null, { status: 204 });
     }
-    const document = docRows[0]; // 배열의 첫 번째 객체만 사용!
+    const document = docRows[0]; // 배열의 첫 번째 객체만 사용
 
     // 본문 테이블 조회
     const [contentRows] = await db.query<RowDataPacket[]>(
@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     // DB 조회 실패시 서버 에러
-    console.error('📛 문서 조회 실패:', err);
+    console.error(' 문서 조회 실패:', err);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
