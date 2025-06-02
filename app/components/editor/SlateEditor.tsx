@@ -82,7 +82,6 @@ export default function SlateEditor({ initialDoc }: Props) {
   const [editorKey, setEditorKey] = useState(0);
   const [isIconModalOpen, setIsIconModalOpen] = useState(false);
   const [iconEditTarget, setIconEditTarget] = useState<CustomElement | null>(null);
-  const [tagInput, setTagInput] = useState(doc.tags.join(', '));
   const [loading, setLoading] = useState(false);
 
   // 🔥 최초 mount 혹은 initialDoc.path/title이 바뀔 때만 doc 상태를 재설정한다.
@@ -93,7 +92,8 @@ export default function SlateEditor({ initialDoc }: Props) {
     tags: Array.isArray(initialDoc?.tags) ? initialDoc.tags : [],
     content: Array.isArray(initialDoc?.content) ? initialDoc.content : EMPTY_INITIAL_VALUE,
   }));
-
+  
+  const [tagInput, setTagInput] = useState(doc.tags.join(', '));
 
   // 뒤로가기 방지(Backspace)
   useEffect(() => {
