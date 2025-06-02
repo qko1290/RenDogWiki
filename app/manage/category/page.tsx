@@ -47,12 +47,14 @@ type Document = {
 function SortableCategoryItem({
   node,
   selected,
+  open,
   onClick,
   onToggleOpen,
   children,
 }: {
   node: Category;
   selected: Category | null;
+  open: Set<number>; 
   onClick: () => void;
   onToggleOpen: (id: number) => void;
   children?: React.ReactNode;
@@ -242,6 +244,7 @@ export default function CategoryManager() {
                 key={node.id}
                 node={node}
                 selected={selected}
+                open={open}
                 onClick={() => handleCategorySelect(node, path)}
                 onToggleOpen={toggleOpen}
               >
