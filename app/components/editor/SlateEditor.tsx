@@ -90,7 +90,10 @@ export default function SlateEditor({ initialDoc }: Props) {
     path: initialDoc?.path ?? '',
     icon: initialDoc?.icon ?? '',
     tags: Array.isArray(initialDoc?.tags) ? initialDoc.tags : [],
-    content: Array.isArray(initialDoc?.content) ? initialDoc.content : EMPTY_INITIAL_VALUE,
+    content:
+    Array.isArray(initialDoc.content) && initialDoc.content.length > 0
+      ? initialDoc.content
+      : EMPTY_INITIAL_VALUE,
   }));
   
   const [tagInput, setTagInput] = useState(doc.tags.join(', '));
@@ -341,7 +344,11 @@ export default function SlateEditor({ initialDoc }: Props) {
           <Slate
             key={editorKey}
             editor={editor}
-            value={doc.content}
+            value={
+              Array.isArray(doc.content) && doc.content.length > 0
+                ? doc.content
+                : EMPTY_INITIAL_VALUE
+            }
             onChange={(newValue) => {
               setDoc(prev => ({ ...prev, content: newValue }));
               if (editor.selection) {

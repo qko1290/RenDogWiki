@@ -47,7 +47,7 @@ function WritePageInner() {
             path,
             icon: '',
             tags: [],
-            content: [],
+            content: EMPTY_INITIAL_VALUE,
           };
         } else if (res.ok) {
           return res.json();
