@@ -14,6 +14,10 @@ import SlateEditor from '@/components/editor/SlateEditor';
 import '../css/write.css';
 import type { Descendant } from 'slate';
 
+const EMPTY_INITIAL_VALUE: Descendant[] = [
+  { type: 'paragraph', children: [{ text: '' }] },
+];
+
 // 타입 정의
 type DocType = {
   title: string;
@@ -31,7 +35,7 @@ function WritePageInner() {
 
   const [doc, setDoc] = useState<DocType | null>(null);
   const [loading, setLoading] = useState(true);
-
+  
   // 문서 fetch & 초기값 로딩
   useEffect(() => {
     if (!path || !title) {
