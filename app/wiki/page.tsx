@@ -12,8 +12,8 @@ import { useState, useEffect } from 'react';
 import { renderSlateToHtml } from './lib/renderSlateToHtml';
 import Link from 'next/link';
 import HamburgerMenu from '../components/common/HamburgerMenu';
-import { useSession } from 'next-auth/react';
 import { buildCategoryTree } from '../wiki/lib/buildCategoryTree';
+import { getAuthUser } from './lib/auth';
 
 // 타입 정의
 type CategoryNode = {
@@ -36,8 +36,8 @@ export default function WikiPage() {
   const [selectedDocTitle, setSelectedDocTitle] = useState<string | null>(null);
   const [docContent, setDocContent] = useState<string>('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { data: session } = useSession();
   const [allDocuments, setAllDocuments] = useState<Document[]>([]);
+  const user = getAuthUser();
 
   // 전체 문서 불러오기
   useEffect(() => {
@@ -197,9 +197,9 @@ export default function WikiPage() {
       {isMenuOpen && (
         <HamburgerMenu
           onClose={() => setIsMenuOpen(false)}
-          isLoggedIn={!!session?.minecraft}
-          username={session?.minecraft?.name || ''}
-          uuid={session?.minecraft?.uuid || ''}
+          isLoggedIn={!!user}
+          username={user?.minecraft_name || ''}
+          uuid="" // 필요하면 나중에 uuid 필드 추가
         />
       )}
     </div>

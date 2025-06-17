@@ -51,9 +51,9 @@ export default function HamburgerMenu({
             <span className="text-white/70">환영합니다</span>
           ) : (
             <>
-              <span className="cursor-pointer hover:underline">로그인</span>
+              <Link href="/login" className="cursor-pointer hover:underline">로그인</Link>
               <span className="mx-1">|</span>
-              <span className="cursor-pointer hover:underline">회원가입</span>
+              <Link href="/register" className="cursor-pointer hover:underline">회원가입</Link>
             </>
           )}
         </div>
