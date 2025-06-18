@@ -2,7 +2,7 @@
 
 'use client';
 
-import './WikiPageInner.css';
+// import './WikiPageInner.css';
 import { useState, useEffect } from 'react';
 import { renderSlateToHtml } from '@wiki/lib/renderSlateToHtml'; 
 import Link from 'next/link';
