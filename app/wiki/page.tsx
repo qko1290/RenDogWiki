@@ -2,6 +2,7 @@
 
 import { getAuthUser } from './lib/auth';
 import dynamic from 'next/dynamic';
+import './wiki.css';
 
 const WikiPageInner = dynamic(() => import('@/components/WikiPageInner'), { ssr: false });
 
