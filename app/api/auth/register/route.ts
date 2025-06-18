@@ -1,3 +1,5 @@
+// C:\next\rdwiki\app\api\auth\register\route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/wiki/lib/db';
 import bcrypt from 'bcryptjs';

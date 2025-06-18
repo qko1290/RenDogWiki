@@ -12,7 +12,7 @@ export default function VerifyPage({ params }: { params: { token: string } }) {
 
   useEffect(() => {
     const verify = async () => {
-      const res = await fetch(`/api/verify/${params.token}`);
+      const res = await fetch(`/api/verify/auth/${params.token}`);
       const data = await res.json();
 
       if (res.ok) {

@@ -1,3 +1,5 @@
+// C:\next\rdwiki\app\register\page.tsx
+
 'use client';
 
 import { useState } from 'react';
@@ -21,7 +23,7 @@ export default function RegisterPage() {
     setLoading(true);
     setMessage('');
 
-    const res = await fetch('/api/register', {
+    const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form),
