@@ -29,7 +29,8 @@
     ],
     "paths": {
       "@/*": ["./*", "./app/*"],
-      "@lib/*": ["./app/wiki/lib/*"]
+      "@lib/*": ["./app/wiki/lib/*"],
+      "@wiki/*": ["app/wiki/*"],           // wiki 내부 전용
     }
   },
   "include": [
