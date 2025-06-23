@@ -1,3 +1,5 @@
+// C:\next\rdwiki\app\wiki\lib\sendVerificationMail.ts
+
 import nodemailer from 'nodemailer';
 
 export async function sendVerificationMail(email: string, token: string) {
