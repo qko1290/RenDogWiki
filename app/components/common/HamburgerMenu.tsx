@@ -28,21 +28,18 @@ export default function HamburgerMenu({
   const [resolvedUUID, setResolvedUUID] = useState<string | null>(uuid || null);
 
   useEffect(() => {
-    // 닉네임은 있는데 uuid가 없을 경우만 호출
-    if (username && !uuid) {
-      fetch(`https://api.mojang.com/users/profiles/minecraft/${username}`)
-        .then(res => {
-          if (!res.ok) throw new Error('닉네임에 해당하는 UUID 없음');
-          return res.json();
-        })
-        .then(data => {
-          setResolvedUUID(data.id); // UUID 저장
-        })
-        .catch(() => {
-          setResolvedUUID(null); // 오류시 기본 스킨
-        });
-    }
-  }, [username, uuid]);
+  if (username && !uuid) {
+    fetch(`/api/mojang/uuid?name=${username}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.uuid) setResolvedUUID(data.uuid);
+        else throw new Error();
+      })
+      .catch(() => {
+        setResolvedUUID(null);
+      });
+  }
+}, [username, uuid]);
 
   // 유저 스킨 이미지 URL(디폴트: 스티브)
   const skinUrl = resolvedUUID
