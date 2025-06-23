@@ -58,9 +58,17 @@ export default function HamburgerMenu({
 
         {/* 유저 정보(스킨+닉네임) */}
         <div className="flex flex-col items-center gap-1 mb-3">
-          <img src={skinUrl} className="rounded-md w-16 h-16" alt="마인크래프트 프로필 스킨" />
+          {resolvedUUID === null && username ? (
+            <div className="w-16 h-16 rounded-md bg-zinc-800 animate-pulse" />
+          ) : (
+            <img
+              src={`https://crafatar.com/avatars/${resolvedUUID}?overlay&size=64`}
+              className="rounded-md w-16 h-16"
+              alt="마인크래프트 프로필"
+            />
+          )}
           <p className="text-sm text-cyan-400">
-            {username || "마인크래프트 머리 프로필"}
+            {username || "마인크래프트 유저"}
           </p>
         </div>
 
