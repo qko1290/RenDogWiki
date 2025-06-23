@@ -10,6 +10,8 @@
 import React from "react";
 import Link from 'next/link';
 
+import { useEffect, useState } from "react";
+
 // 타입 및 Props 선언
 interface HamburgerMenuProps {
   onClose: () => void;      // 메뉴 닫기 콜백
@@ -22,9 +24,29 @@ interface HamburgerMenuProps {
 export default function HamburgerMenu({
   onClose, isLoggedIn, username, uuid
 }: HamburgerMenuProps) {
+
+  const [resolvedUUID, setResolvedUUID] = useState<string | null>(uuid || null);
+
+  useEffect(() => {
+    // 닉네임은 있는데 uuid가 없을 경우만 호출
+    if (username && !uuid) {
+      fetch(`https://api.mojang.com/users/profiles/minecraft/${username}`)
+        .then(res => {
+          if (!res.ok) throw new Error('닉네임에 해당하는 UUID 없음');
+          return res.json();
+        })
+        .then(data => {
+          setResolvedUUID(data.id); // UUID 저장
+        })
+        .catch(() => {
+          setResolvedUUID(null); // 오류시 기본 스킨
+        });
+    }
+  }, [username, uuid]);
+
   // 유저 스킨 이미지 URL(디폴트: 스티브)
-  const skinUrl = uuid
-    ? `https://crafatar.com/avatars/${uuid}?overlay&size=64`
+  const skinUrl = resolvedUUID
+    ? `https://crafatar.com/avatars/${resolvedUUID}?overlay&size=64`
     : "https://crafatar.com/avatars/8667ba71-b85a-4004-af54-457a9734eed7?overlay&size=64";
 
   return (
