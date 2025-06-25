@@ -135,6 +135,18 @@ export default function WikiPageInner({ user }: Props) {
     </ul>
   );
 
+  const getCategoryNamesFromPath = (tree: CategoryNode[], path: number[]): string[] => {
+    const names: string[] = [];
+    let currentTree = tree;
+    for (const id of path) {
+      const match = currentTree.find(node => node.id === id);
+      if (!match) break;
+      names.push(match.name);
+      currentTree = match.children || [];
+    }
+    return names;
+  };
+
   return (
     <div className="wiki-container">
       <header className="wiki-header">
@@ -179,7 +191,7 @@ export default function WikiPageInner({ user }: Props) {
                   >
                     ←
                   </button>
-                  <span>{selectedDocPath.join(' > ')}</span>
+                  <span>{getCategoryNamesFromPath(categories, selectedDocPath).join(' > ')}</span>
                 </div>
               ) : (
                 <span>렌독 위키 - 문서 목록</span>
