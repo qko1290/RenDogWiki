@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { renderSlateToHtml } from '@wiki/lib/renderSlateToHtml';
 import { extractHeadings } from '@/wiki/lib/extractHeadings';
 import TableOfContents from '@/components/editor/TableOfContents';
+import '@wiki/css/WikiPageInner.css';
 import Link from 'next/link';
 import HamburgerMenu from '@/components/common/HamburgerMenu';
 import { Descendant } from 'slate';
@@ -180,24 +181,6 @@ export default function WikiPageInner({ user }: Props) {
             {selectedDocTitle || '렌독 위키'}
           </h2>
 
-          {/* ✅ 목차 표시 */}
-          {tableOfContents.length > 0 && (
-            <div className="wiki-toc">
-              <ul>
-                {tableOfContents.map((heading, idx) => (
-                  <li
-                    key={idx}
-                    style={{ marginLeft: `${(heading.level - 1) * 16}px`, lineHeight: 1.8 }}
-                  >
-                    <a href={`#${heading.id}`}>
-                      {heading.icon} {heading.text}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
           {selectedDocPath && selectedDocPath.length > 0 && selectedDocTitle && (
             <div style={{ marginBottom: '1rem' }}>
               <Link
@@ -213,6 +196,23 @@ export default function WikiPageInner({ user }: Props) {
             dangerouslySetInnerHTML={{ __html: docContent || '오른쪽 본문 영역입니다.' }}
           />
         </main>
+        {/* ✅ 목차 표시 */}
+        {tableOfContents.length > 0 && (
+          <div className="wiki-toc">
+            <ul>
+              {tableOfContents.map((heading, idx) => (
+                <li
+                  key={idx}
+                  style={{ marginLeft: `${(heading.level - 1) * 16}px`, lineHeight: 1.8 }}
+                >
+                  <a href={`#${heading.id}`}>
+                    {heading.icon} {heading.text}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
       {isMenuOpen && (
         <HamburgerMenu
