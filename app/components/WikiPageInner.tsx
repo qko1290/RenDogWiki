@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 import { renderSlateToHtml } from '@wiki/lib/renderSlateToHtml';
 import { extractHeadings } from '@/wiki/lib/extractHeadings';
 import TableOfContents from '@/components/editor/TableOfContents';
-import '@wiki/css/WikiPageInner.css';
+import '@wiki/css/wiki.css';
 import Link from 'next/link';
 import HamburgerMenu from '@/components/common/HamburgerMenu';
 import { Descendant } from 'slate';
