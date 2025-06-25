@@ -41,8 +41,9 @@ function renderNode(node: Descendant): string {
     case 'heading-three': {
       const el = node as any;
       const icon = el.icon ? `${el.icon} ` : '';
-      const textContent = stripHtml(children); // plain 텍스트 추출
-      const id = slugify(textContent);
+      const textContent = stripHtml(children).trim(); // 텍스트에서 HTML 태그 제거 후 공백 제거
+      const slug = slugify(textContent);
+      const id = `heading-${slug}`;
       const level = node.type === 'heading-one' ? '1' : node.type === 'heading-two' ? '2' : '3';
       return `<h${level} id="${id}">${icon}${children}</h${level}>`;
     }
