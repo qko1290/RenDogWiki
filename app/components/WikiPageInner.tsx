@@ -148,62 +148,79 @@ export default function WikiPageInner({ user }: Props) {
             />
           </div>
         </div>
-        <button onClick={() => setIsMenuOpen(true)} className="text-white text-2xl absolute top-4 right-4">☰</button>
+        <button
+          onClick={() => setIsMenuOpen(true)}
+          className="text-white text-2xl absolute top-4 right-4"
+        >
+          ☰
+        </button>
       </header>
 
-      <div className="wiki-main">
-        <aside className="wiki-sidebar">
-          <h2 className="wiki-sidebar-title">카테고리</h2>
-          {renderTree(categories)}
-        </aside>
+      {/* ✅ 스크롤/레이아웃 구조 수정됨 */}
+      <div className="wiki-layout">
+        {/* 왼쪽: 사이드바 + 본문 (스크롤 가능) */}
+        <div className="wiki-main-scrollable">
+          <aside className="wiki-sidebar">
+            <h2 className="wiki-sidebar-title">카테고리</h2>
+            {renderTree(categories)}
+          </aside>
 
-        <main className="wiki-content">
-          <div className="wiki-breadcrumb">
-            {selectedDocPath ? (
-              <div className="wiki-breadcrumb-flex">
-                <button
-                  className="wiki-back-button"
-                  onClick={() => {
-                    setSelectedDocPath(null);
-                    setSelectedDocTitle(null);
-                    setDocContent('');
-                  }}
-                >
-                  ←
-                </button>
-                <span>{selectedDocPath.join(' > ')}</span>
-              </div>
-            ) : (
-              <span>렌독 위키 - 문서 목록</span>
-            )}
-          </div>
-          <h2 className="wiki-content-title">
-            {selectedDocTitle || '렌독 위키'}
-          </h2>
-
-          {selectedDocPath && selectedDocPath.length > 0 && selectedDocTitle && (
-            <div style={{ marginBottom: '1rem' }}>
-              <Link
-                href={`/wiki/write?path=${selectedDocPath.join('/')}&title=${encodeURIComponent(selectedDocTitle)}`}
-                className="edit-button"
-              >
-                수정
-              </Link>
+          <main className="wiki-content">
+            <div className="wiki-breadcrumb">
+              {selectedDocPath ? (
+                <div className="wiki-breadcrumb-flex">
+                  <button
+                    className="wiki-back-button"
+                    onClick={() => {
+                      setSelectedDocPath(null);
+                      setSelectedDocTitle(null);
+                      setDocContent('');
+                    }}
+                  >
+                    ←
+                  </button>
+                  <span>{selectedDocPath.join(' > ')}</span>
+                </div>
+              ) : (
+                <span>렌독 위키 - 문서 목록</span>
+              )}
             </div>
-          )}
-          <div
-            className="wiki-content-body"
-            dangerouslySetInnerHTML={{ __html: docContent || '오른쪽 본문 영역입니다.' }}
-          />
-        </main>
-        {/* ✅ 목차 표시 */}
+            <h2 className="wiki-content-title">
+              {selectedDocTitle || '렌독 위키'}
+            </h2>
+
+            {selectedDocPath && selectedDocPath.length > 0 && selectedDocTitle && (
+              <div style={{ marginBottom: '1rem' }}>
+                <Link
+                  href={`/wiki/write?path=${selectedDocPath.join(
+                    '/'
+                  )}&title=${encodeURIComponent(selectedDocTitle)}`}
+                  className="edit-button"
+                >
+                  수정
+                </Link>
+              </div>
+            )}
+            <div
+              className="wiki-content-body"
+              dangerouslySetInnerHTML={{
+                __html: docContent || '오른쪽 본문 영역입니다.',
+              }}
+            />
+          </main>
+        </div>
+
+        {/* 오른쪽 고정 목차 */}
         {tableOfContents.length > 0 && (
-          <div className="wiki-toc">
+          <aside className="wiki-toc-sidebar">
             <ul>
               {tableOfContents.map((heading, idx) => (
                 <li
                   key={idx}
-                  style={{ marginLeft: `${(heading.level - 1) * 16}px`, lineHeight: 1.8 }}
+                  style={{
+                    marginLeft: `${(heading.level - 1) * 16}px`,
+                    lineHeight: 1.8,
+                  }}
                 >
                   <a href={`#${heading.id}`}>
                     {heading.icon} {heading.text}
@@ -211,9 +228,10 @@ export default function WikiPageInner({ user }: Props) {
                 </li>
               ))}
             </ul>
-          </div>
+          </aside>
         )}
       </div>
+
       {isMenuOpen && (
         <HamburgerMenu
           onClose={() => setIsMenuOpen(false)}
