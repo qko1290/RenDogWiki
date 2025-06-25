@@ -5,6 +5,7 @@
  */
 
 import { Descendant, Text } from 'slate';
+import { slugify } from '@/wiki/lib/slugify';
 
 // 메인 변환 함수
 export function renderSlateToHtml(value: Descendant[]): string {
@@ -36,11 +37,15 @@ function renderNode(node: Descendant): string {
     case 'paragraph':
       return `<p>${children}</p>`;
     case 'heading-one':
-      return `<h1>${children}</h1>`;
     case 'heading-two':
-      return `<h2>${children}</h2>`;
-    case 'heading-three':
-      return `<h3>${children}</h3>`;
+    case 'heading-three': {
+      const el = node as any;
+      const icon = el.icon ? `${el.icon} ` : '';
+      const textContent = stripHtml(children); // plain 텍스트 추출
+      const id = slugify(textContent);
+      const level = node.type === 'heading-one' ? '1' : node.type === 'heading-two' ? '2' : '3';
+      return `<h${level} id="${id}">${icon}${children}</h${level}>`;
+    }
     case 'link':
       return `<a href="${(node as any).url}" target="_blank" rel="noopener noreferrer">${children}</a>`;
     case 'divider':
@@ -84,4 +89,8 @@ function renderNode(node: Descendant): string {
 // XSS 방지
 function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>?/gm, '').trim();
 }
