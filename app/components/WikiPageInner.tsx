@@ -4,9 +4,12 @@
 
 // import './WikiPageInner.css';
 import { useState, useEffect } from 'react';
-import { renderSlateToHtml } from '@wiki/lib/renderSlateToHtml'; 
+import { renderSlateToHtml } from '@wiki/lib/renderSlateToHtml';
+import { extractHeadings } from '@/wiki/lib/extractHeadings';
+import TableOfContents from '@/components/editor/TableOfContents';
 import Link from 'next/link';
 import HamburgerMenu from '@/components/common/HamburgerMenu';
+import { Descendant } from 'slate';
 
 type CategoryNode = {
   id: number;
@@ -37,6 +40,7 @@ export default function WikiPageInner({ user }: Props) {
   const [docContent, setDocContent] = useState<string>('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [allDocuments, setAllDocuments] = useState<Document[]>([]);
+  const [tableOfContents, setTableOfContents] = useState<any[]>([]);
 
   useEffect(() => {
     fetch('/api/documents?all=1')
@@ -76,7 +80,13 @@ export default function WikiPageInner({ user }: Props) {
         if (!res.ok) throw new Error('문서를 찾을 수 없습니다.');
         return res.json();
       })
-      .then((data) => setDocContent(renderSlateToHtml(data.content)))
+      .then((data) => {
+        const content: Descendant[] = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
+        const html = renderSlateToHtml(content);
+
+        setDocContent(html);
+        setTableOfContents(extractHeadings(content));
+      })
       .catch(() => setDocContent('<p>문서를 찾을 수 없습니다.</p>'));
   };
 
@@ -169,6 +179,25 @@ export default function WikiPageInner({ user }: Props) {
           <h2 className="wiki-content-title">
             {selectedDocTitle || '렌독 위키'}
           </h2>
+
+          {/* ✅ 목차 표시 */}
+          {tableOfContents.length > 0 && (
+            <div className="wiki-toc">
+              <ul>
+                {tableOfContents.map((heading, idx) => (
+                  <li
+                    key={idx}
+                    style={{ marginLeft: `${(heading.level - 1) * 16}px`, lineHeight: 1.8 }}
+                  >
+                    <a href={`#${heading.id}`}>
+                      {heading.icon} {heading.text}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {selectedDocPath && selectedDocPath.length > 0 && selectedDocTitle && (
             <div style={{ marginBottom: '1rem' }}>
               <Link
