@@ -23,7 +23,9 @@
 .wiki-logo {
   font-size: 1.5rem;
   font-weight: bold;
-  color: #222;
+  background: linear-gradient(90deg, #4caf50, #8bc34a); /* 밝은 초록~연두 계열 그라데이션 */
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .wiki-search-container {
