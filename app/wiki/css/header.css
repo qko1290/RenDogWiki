@@ -1,0 +1,44 @@
+/* /app/wiki/css/wiki-header.css */
+
+.wiki-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #fff;
+  padding: 0.5rem 1.5rem;
+  border-bottom: 1px solid #ddd;
+  height: 64px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+}
+
+.wiki-logo {
+  font-size: 2.5rem;
+  font-weight: 900;
+  background: linear-gradient(90deg, #4caf50, #8bc34a);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+.wiki-search-container {
+  flex: 1;
+  margin: 0 1.5rem;
+}
+.wiki-search-container input {
+  width: 50%;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+  background-color: #fff;
+}
+
+.text-black { color: #222; }
+.absolute { position: absolute; }
+.top-4 { top: 1rem; }
+.right-4 { right: 1rem; }

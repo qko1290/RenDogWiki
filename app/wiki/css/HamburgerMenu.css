@@ -1,0 +1,126 @@
+/* HamburgerMenu 전체 컨테이너 */
+.hamburger-menu {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 16rem; /* 64px * 4 = 256px */
+  height: 100%;
+  background-color: #18181b; /* bg-zinc-900 */
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-left: 1px solid white;
+  z-index: 1000;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+/* 상단 패딩 영역 */
+.hamburger-menu-header {
+  padding: 1rem;
+}
+
+/* 상단 로고 + 닫기버튼 */
+.hamburger-menu-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.hamburger-menu-logo {
+  font-weight: bold;
+  font-size: 1.25rem;
+}
+
+.hamburger-menu-close-btn {
+  font-size: 1.5rem;
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+}
+
+/* 유저 정보 */
+.hamburger-user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.hamburger-user-image {
+  border-radius: 0.375rem;
+  width: 4rem;
+  height: 4rem;
+}
+
+.hamburger-user-placeholder {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 0.375rem;
+  background-color: #27272a; /* bg-zinc-800 */
+  animation: pulse 2s infinite;
+}
+
+.hamburger-username {
+  font-size: 0.875rem;
+  color: #22d3ee; /* text-cyan-400 */
+}
+
+/* 로그인 안내 */
+.hamburger-login-info {
+  text-align: center;
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+}
+
+.hamburger-login-info a {
+  cursor: pointer;
+  text-decoration: none;
+  color: white;
+}
+
+.hamburger-login-info a:hover {
+  text-decoration: underline;
+}
+
+/* 구분선 */
+.hamburger-divider {
+  border-color: rgba(255, 255, 255, 0.5);
+  margin: 0.75rem 0;
+}
+
+/* 메뉴 목록 */
+.hamburger-menu-list {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.hamburger-menu-item {
+  cursor: pointer;
+}
+
+.hamburger-menu-item:hover {
+  color: #22d3ee; /* text-cyan-400 */
+}
+
+/* 닫기 버튼 (사이드) */
+.hamburger-menu-toggle {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: #27272a; /* bg-zinc-800 */
+  border-radius: 0 0.375rem 0.375rem 0;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+}
+
+.hamburger-menu-toggle span {
+  font-size: 1.25rem;
+}
