@@ -1,7 +1,11 @@
+// =============================================
 // File: app/components/editor/index.tsx
+// =============================================
 /**
- * slate 에디터 메인 컴포넌트
- * - 에디터 상태, 툴바, 블록/인라인 렌더, 단축키, 목차, 아이콘 모달 등 전체 담당
+ * Slate 에디터 메인 컴포넌트
+ * - 에디터 인스턴스, 툴바, 블록/인라인 렌더, 단축키, 목차, 아이콘 모달 등 전체 담당
+ * - 본문 value, 목차, 아이콘 모달 등 관리
+ * - 아이콘 수정 모달/목차 컴포넌트 연결
  */
 
 'use client';
@@ -22,7 +26,7 @@ import type { CustomElement } from '@/types/slate';
 
 // 에디터 메인 컴포넌트
 export default function SlateEditor() {
-  // 에디터 인스턴스 + 커스텀 isVoid 확장
+  // 1. 에디터 인스턴스 생성(커스텀 isVoid: link-block/divider는 void 처리)
   const editor = useMemo(() => {
     const e = withHistory(withReact(createEditor()));
     const originalIsVoid = e.isVoid;
@@ -31,17 +35,17 @@ export default function SlateEditor() {
     return e;
   }, []);
 
-  // 커서(선택영역) 저장용 Ref
+  // 2. 커서(선택영역) 저장용 Ref
   const selectionRef = useRef<Range | null>(null);
 
-  // 에디터 값/목차/아이콘 모달 상태
+  // 3. 에디터 값/목차/아이콘 모달 상태
   const [value, setValue] = useState<Descendant[]>([
     { type: 'paragraph', children: [{ text: '' }] },
   ]);
   const [isIconModalOpen, setIsIconModalOpen] = useState(false);
   const [iconEditTarget, setIconEditTarget] = useState<CustomElement | null>(null);
 
-  // 단축키로 브라우저 뒤로가기 방지(백스페이스 동작 방지지)
+  // 4. 단축키로 브라우저 뒤로가기 방지(백스페이스 동작 방지)
   useEffect(() => {
     const preventBackspaceNavigation = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -59,23 +63,23 @@ export default function SlateEditor() {
     return () => window.removeEventListener('keydown', preventBackspaceNavigation);
   }, []);
 
-  // 목차(headings) 추출
+  // 5. 목차(headings) 추출
   const headings = useMemo(() => extractHeadings(value), [value]);
 
-  // heading 아이콘 클릭(모달 열기)
+  // 6. heading 아이콘 클릭 핸들러(모달 오픈)
   const handleIconClick = (element: CustomElement) => {
     setIconEditTarget(element);
     setIsIconModalOpen(true);
   };
 
-  // 렌더 함수(leaf, element)
+  // 7. leaf/element 렌더 함수(useCallback)
   const renderLeaf = useCallback((props: RenderLeafProps) => <Leaf {...props} />, []);
   const renderElement = useCallback(
     (props: RenderElementProps) => <Element {...props} editor={editor} onIconClick={handleIconClick} />,
     [editor]
   );
 
-  // 에디터 onKeyDown 핸들러
+  // 8. 에디터 onKeyDown 핸들러(단축키)
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     // 단축키(볼드/이탤릭/언더라인/취소선 등)
     const HOTKEYS: Record<string, string> = {
@@ -99,7 +103,7 @@ export default function SlateEditor() {
       }
     }
 
-    // heading 블록에서 Backspace시 단락 변환
+    // heading 블록에서 Backspace시 단락 변환(맨앞)
     if (event.key === 'Backspace') {
       const { selection } = editor;
       if (selection && Range.isCollapsed(selection)) {
@@ -143,12 +147,14 @@ export default function SlateEditor() {
     }
   };
 
-  // 렌더 (툴바, 에디터, 목차, 아이콘 모달)
+  // 렌더(툴바, 에디터, 목차, 아이콘 모달 등)
   return (
     <div style={{ display: 'flex' }}>
       <div style={{ flex: 1 }}>
         <Slate editor={editor} value={value} onChange={setValue}>
+          {/* 에디터 툴바 */}
           <Toolbar selectionRef={selectionRef} />
+          {/* 에디터 본문(Editable) */}
           <Editable
             renderLeaf={renderLeaf}
             renderElement={renderElement}
@@ -161,6 +167,7 @@ export default function SlateEditor() {
               borderRadius: '6px',
               minHeight: '300px',
             }}
+            // Blur 시 selectionRef에 저장
             onBlur={() => {
               selectionRef.current = editor.selection;
             }}
@@ -168,10 +175,10 @@ export default function SlateEditor() {
         </Slate>
       </div>
 
-      {/* 목차 */}
+      {/* 목차(TOC) */}
       <TableOfContents headings={headings} />
 
-      {/* 아이콘 수정 모달 */}
+      {/* heading 아이콘 수정 모달 */}
       {isIconModalOpen && iconEditTarget && (
         <div style={{
           position: 'fixed',

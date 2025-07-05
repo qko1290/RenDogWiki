@@ -1,42 +1,52 @@
+// =============================================
 // File: app/components/editor/TableOfContents.tsx
-
+// =============================================
 /**
- * Slate 기반 에디터/위키의 목차 컴포넌트
- * - heading(제목) 목록을 받아서 화면 우측에 트리처럼 출력
- * - 클릭 시 해당 heading id로 스크롤 이동(smooth)
- * - heading level(1/2/3)에 따라 들여쓰기 표시
+ * 에디터/위키의 목차 컴포넌트
+ * - heading(제목) 목록을 받아 화면 우측에 트리처럼 출력
+ * - 각 heading 클릭 시 해당 id로 스크롤 이동
+ * - heading 레벨(1/2/3)에 따라 자동 들여쓰기, 아이콘/텍스트 동시 표시
  */
 
 'use client';
 
 import React from 'react';
 
+// 타입 선언
 type Heading = {
-  text: string;
-  id: string;
-  level: 1 | 2 | 3;
-  icon: string;
+  text: string;          // 제목 텍스트
+  id: string;            // heading id
+  level: 1 | 2 | 3;      // heading 레벨
+  icon: string;          // heading 아이콘
 };
 
 type Props = {
-  headings: Heading[];
+  headings: Heading[];   // heading 배열(목차 데이터)
 };
 
-// 목차 컴포넌트
+// 목차 메인 컴포넌트
 const TableOfContents = ({ headings }: Props) => {
   return (
-    <div style={{ position: 'fixed', right: '20px', top: '100px', width: '200px' }}>
+    <div
+      style={{
+        position: 'fixed',
+        right: '20px',
+        top: '100px',
+        width: '200px',
+      }}
+    >
       <h3>📚 목차</h3>
       <ul style={{ listStyle: 'none', padding: 0 }}>
         {headings.map((heading) => (
           <li
             key={heading.id}
             style={{
-              marginLeft: `${(heading.level - 1) * 20}px`,
+              marginLeft: `${(heading.level - 1) * 20}px`,  // level별 들여쓰기
               marginBottom: '8px',
             }}
           >
             <button
+              // heading 클릭시 해당 id로 스크롤 이동
               onClick={e => {
                 e.preventDefault();
                 const el = document.getElementById(heading.id);
@@ -53,6 +63,7 @@ const TableOfContents = ({ headings }: Props) => {
                 fontSize: '14px',
               }}
             >
+              {/* 아이콘(이모지/이미지) + 텍스트 */}
               {heading.icon} {heading.text}
             </button>
           </li>

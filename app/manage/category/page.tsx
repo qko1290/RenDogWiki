@@ -1,5 +1,6 @@
+// =============================================
 // File: app/manage/category/page.tsx
-
+// =============================================
 /**
  * 카테고리 관리 페이지
  * - 트리형 카테고리(드래그 정렬), 문서 목록, 상세/수정/생성/삭제/하위 추가 등
@@ -24,7 +25,7 @@ import {
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-// --- 타입 선언
+// 타입 선언부 (카테고리/문서 타입)
 type Category = {
   id: number;
   name: string;
@@ -43,7 +44,8 @@ type Document = {
   updated_at: string;
 };
 
-// --- Sortable Category Item(핸들)
+// SortableCategoryItem (트리의 한 카테고리 행)
+// - 드래그 핸들, 카테고리명, 열림/닫힘, 아이콘
 function SortableCategoryItem({
   node,
   selected,
@@ -54,7 +56,7 @@ function SortableCategoryItem({
 }: {
   node: Category;
   selected: Category | null;
-  open: Set<number>; 
+  open: Set<number>;
   onClick: () => void;
   onToggleOpen: (id: number) => void;
   children?: React.ReactNode;
@@ -79,17 +81,15 @@ function SortableCategoryItem({
       }}
       {...attributes}
     >
+      {/* 카테고리 라인 (드래그핸들 + 이름 + 화살표) */}
       <div className="flex items-center justify-between px-2 py-1">
-        <span className="grab-handle mr-2" {...listeners} style={{cursor: "grab"}}>⠿</span>
+        <span className="grab-handle mr-2" {...listeners} style={{ cursor: "grab" }}>⠿</span>
         <span className="flex-1 cursor-pointer" onClick={onClick}>
           {node.icon ?? ''} {node.name}
         </span>
         {node.children.length > 0 && (
           <button
-            onClick={e => {
-              e.stopPropagation();
-              onToggleOpen(node.id);
-            }}
+            onClick={e => { e.stopPropagation(); onToggleOpen(node.id); }}
             className="text-gray-500 ml-2"
             tabIndex={-1}
           >
@@ -97,13 +97,18 @@ function SortableCategoryItem({
           </button>
         )}
       </div>
+      {/* 자식 트리 */}
       {children}
     </li>
   );
 }
 
-// --- 메인 컴포넌트
+// CategoryManager (메인 페이지)
+// - 왼쪽: 카테고리 트리
+// - 중앙: 문서 목록
+// - 오른쪽: 카테고리 정보/문서 정보
 export default function CategoryManager() {
+  // 상태 선언
   const [tree, setTree] = useState<Category[]>([]);
   const [open, setOpen] = useState<Set<number>>(new Set());
   const [selected, setSelected] = useState<Category | null>(null);
@@ -113,34 +118,37 @@ export default function CategoryManager() {
 
   const sensors = useSensors(useSensor(PointerSensor));
 
+  // 초기 데이터 fetch
   useEffect(() => {
     fetchCategories();
-    // 열림 이벤트 window 단위로 전달 받음
+    // window-level 열림 이벤트 지원
     window.addEventListener("toggleOpen", (e: any) => {
       if (e.detail) toggleOpen(e.detail);
     });
     return () => {
       window.removeEventListener("toggleOpen", () => {});
     };
-    // eslint-disable-next-line
   }, []);
 
+  // 문서 전체 목록 fetch
   useEffect(() => {
     fetch('/api/documents?all=1')
       .then(res => res.json())
       .then(data => setAllDocuments(data));
   }, []);
 
+  // 카테고리/문서 선택 로직
   const handleCategorySelect = (node: Category, currentPath: number[]) => {
     setSelected(node);
     setSelectedDoc(null);
     setSelectedCategoryPath(currentPath);
   };
 
+  // 선택된 카테고리 하위 문서 필터링
   const realPath = selectedCategoryPath.slice(1).join('/');
   const filteredDocs = allDocuments.filter(doc => String(doc.path) === realPath);
 
-  // --- 카테고리 트리 fetch
+  // 카테고리 트리 fetch & 변환
   const fetchCategories = async () => {
     const res = await fetch('/api/categories');
     const flat: Category[] = await res.json();
@@ -158,7 +166,7 @@ export default function CategoryManager() {
     ]);
   };
 
-  // --- flat -> 트리 변환
+  // flat -> 트리 변환
   const buildTree = (list: Category[]): Category[] => {
     const map = new Map<number, Category>();
     list.forEach((item) => map.set(item.id, { ...item, children: [] }));
@@ -175,7 +183,7 @@ export default function CategoryManager() {
     return roots.sort((a, b) => a.order - b.order);
   };
 
-  // --- 열림/닫힘
+  // 카테고리 열림/닫힘 토글
   const toggleOpen = (id: number) => {
     setOpen((prev) => {
       const copy = new Set(prev);
@@ -184,7 +192,7 @@ export default function CategoryManager() {
     });
   };
 
-  // --- 트리 드래그 & 정렬 (동일)
+  // 트리 드래그/정렬 핸들러
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -203,6 +211,7 @@ export default function CategoryManager() {
       const newSelected = findCategoryById(newTree, selected.id);
       if (newSelected) setSelected(newSelected);
     }
+    // 순서 DB 반영
     reordered.forEach((item, index) => {
       fetch(`/api/categories/${item.id}`, {
         method: 'POST',
@@ -212,6 +221,7 @@ export default function CategoryManager() {
     });
   };
 
+  // 트리 노드 탐색 유틸
   const findCategoryById = (nodes: Category[], id: number): Category | null => {
     for (const node of nodes) {
       if (node.id === id) return node;
@@ -229,7 +239,7 @@ export default function CategoryManager() {
     return null;
   };
 
-  // --- 트리 렌더링 (핸들 적용)
+  // 트리 렌더링
   const renderTree = (nodes: Category[], currentPath: number[] = [], depth = 0): JSX.Element => {
     return (
       <SortableContext
@@ -261,10 +271,10 @@ export default function CategoryManager() {
     );
   };
 
-  // --- 렌더링
+  // 렌더링
   return (
     <div className="flex h-screen">
-      {/* 왼쪽: 카테고리 트리 */}
+      {/* 1. 카테고리 트리 */}
       <div className="w-1/4 bg-gray-100 overflow-y-auto border-r p-4">
         <h2 className="text-lg font-bold mb-2">카테고리 구조</h2>
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -272,7 +282,7 @@ export default function CategoryManager() {
         </DndContext>
       </div>
 
-      {/* 중앙: 문서 목록 */}
+      {/* 2. 중앙: 문서 목록 */}
       <div className="w-1/4 bg-white border-r p-4 overflow-y-auto">
         <h2 className="text-lg font-bold mb-2">문서 목록</h2>
         {filteredDocs.length > 0 ? (
@@ -294,8 +304,9 @@ export default function CategoryManager() {
         )}
       </div>
 
-      {/* 오른쪽: 문서 정보 or 카테고리 설정 */}
+      {/* 3. 오른쪽: 문서 or 카테고리 정보/설정 */}
       <div className="flex-1 p-6 overflow-y-auto">
+        {/* 문서 정보 */}
         {selectedDoc ? (
           <div>
             <h2 className="text-xl font-bold mb-4">문서 정보</h2>
@@ -306,6 +317,7 @@ export default function CategoryManager() {
             <button className="mt-4 bg-blue-600 text-white px-4 py-2 rounded">수정하기</button>
           </div>
         ) : selected ? (
+          /* 카테고리 설정 */
           <div>
             <h2 className="text-xl font-bold mb-4">{selected.name} 설정</h2>
             <div className="space-y-4">
@@ -315,9 +327,7 @@ export default function CategoryManager() {
                 <input
                   className="border px-3 py-1 rounded w-96"
                   value={selected.name}
-                  onChange={(e) =>
-                    setSelected({ ...selected, name: e.target.value })
-                  }
+                  onChange={(e) => setSelected({ ...selected, name: e.target.value })}
                   disabled={selected.id === 0}
                 />
               </div>
@@ -327,9 +337,7 @@ export default function CategoryManager() {
                 <input
                   className="border px-3 py-1 rounded w-96"
                   value={selected.icon ?? ''}
-                  onChange={(e) =>
-                    setSelected({ ...selected, icon: e.target.value })
-                  }
+                  onChange={(e) => setSelected({ ...selected, icon: e.target.value })}
                   disabled={selected.id === 0}
                 />
               </div>
@@ -339,9 +347,7 @@ export default function CategoryManager() {
                 <input
                   className="border px-3 py-1 rounded w-96"
                   value={selected.document_path ?? ''}
-                  onChange={(e) =>
-                    setSelected({ ...selected, document_path: e.target.value })
-                  }
+                  onChange={(e) => setSelected({ ...selected, document_path: e.target.value })}
                   disabled={selected.id === 0}
                 />
               </div>
@@ -349,6 +355,7 @@ export default function CategoryManager() {
               <div className="flex gap-2">
                 {selected.id !== 0 && (
                   <>
+                    {/* 저장 */}
                     <button
                       className="bg-blue-600 text-white px-4 py-2 rounded"
                       onClick={async () => {
@@ -362,6 +369,7 @@ export default function CategoryManager() {
                     >
                       저장
                     </button>
+                    {/* 삭제 */}
                     <button
                       className="bg-red-600 text-white px-4 py-2 rounded"
                       onClick={async () => {
@@ -375,7 +383,7 @@ export default function CategoryManager() {
                     </button>
                   </>
                 )}
-
+                {/* 하위 카테고리 추가 */}
                 <button
                   className="bg-green-600 text-white px-4 py-2 rounded"
                   onClick={async () => {
@@ -397,6 +405,7 @@ export default function CategoryManager() {
                 >
                   하위 카테고리 추가
                 </button>
+                {/* 대표 문서 작성 */}
                 <button
                   className="bg-blue-500 text-white px-4 py-2 rounded"
                   onClick={() => {
@@ -407,13 +416,13 @@ export default function CategoryManager() {
                 >
                   📘 카테고리 대표 문서 작성
                 </button>
+                {/* 하위 문서 추가 */}
                 <button
                   className="bg-green-600 text-white px-4 py-2 rounded"
                   onClick={() => {
                     if (!selected) return alert('카테고리를 먼저 선택하세요');
                     const basePath = selected.document_path ?? `${selected.id}`;
                     location.href = `/wiki/write?path=${encodeURIComponent(basePath)}`;
-                    const timestamp = Date.now();
                   }}
                 >
                   📄 하위 문서 추가
@@ -422,6 +431,7 @@ export default function CategoryManager() {
             </div>
           </div>
         ) : (
+          // 선택 없음
           <p className="text-gray-500">좌측에서 카테고리를 선택해주세요</p>
         )}
       </div>

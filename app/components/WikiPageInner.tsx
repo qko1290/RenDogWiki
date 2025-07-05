@@ -1,4 +1,11 @@
-// File: app/wiki/components/WikiPageInner.tsx
+// =============================================
+// File: app/components/WikiPageInner.tsx
+// =============================================
+/**
+ * 위키 페이지 메인 영역 (본문/카테고리/목차/헤더 등)
+ * - 카테고리 트리, 문서 트리, 대표문서 클릭, 문서 내용 로딩
+ * - 목차 추출/브레드크럼/사이드바/수정 버튼
+ */
 
 'use client';
 
@@ -12,15 +19,17 @@ import Link from 'next/link';
 import HamburgerMenu from '@/components/common/HamburgerMenu';
 import { Descendant } from 'slate';
 
+// 카테고리 타입 정의
 type CategoryNode = {
   id: number;
   name: string;
   icon?: string;
   order?: number;
-  document_id?: number;
+  document_id?: number;         // 대표 문서 ID
   children?: CategoryNode[];
 };
 
+// 문서 타입 정의
 type Document = {
   id: number;
   title: string;
@@ -30,6 +39,7 @@ type Document = {
   is_featured?: boolean;
 };
 
+// Props: 로그인 유저 정보
 type Props = {
   user: {
     id: number;
@@ -39,7 +49,9 @@ type Props = {
   } | null;
 };
 
+// 메인 컴포넌트
 export default function WikiPageInner({ user }: Props) {
+  // 상태 선언
   const [categories, setCategories] = useState<CategoryNode[]>([]);
   const [openPaths, setOpenPaths] = useState<number[][]>([]);
   const [selectedDocPath, setSelectedDocPath] = useState<number[] | null>(null);
@@ -53,6 +65,7 @@ export default function WikiPageInner({ user }: Props) {
   const [selectedDocId, setSelectedDocId] = useState<number | null>(null);
   const [selectedCategoryPath, setSelectedCategoryPath] = useState<number[] | null>(null);
 
+  // 전체 문서 불러오기
   useEffect(() => {
     fetch('/api/documents?all=1')
       .then(res => res.json())
@@ -61,6 +74,7 @@ export default function WikiPageInner({ user }: Props) {
           setAllDocuments(data);
           return;
         }
+        // fullPath 붙여서 저장
         const mapped = data.map((doc: Document & { path: number }) => ({
           ...doc,
           fullPath: categoryIdToPathMap[doc.path] || [doc.path],
@@ -69,12 +83,14 @@ export default function WikiPageInner({ user }: Props) {
       });
   }, [categoryIdToPathMap]);
 
+  // 카테고리 -> path별 문서 리스트 필터
   const getDocumentsForCategory = (pathArr: number[]) => {
     return allDocuments.filter(
       (doc) => JSON.stringify(doc.fullPath) === JSON.stringify(pathArr) && !doc.is_featured
     );
   };
 
+  // 카테고리 트리/ID -> 경로 맵/ID -> 노드맵 빌드
   useEffect(() => {
     fetch('/api/categories')
       .then((res) => res.json())
@@ -102,43 +118,44 @@ export default function WikiPageInner({ user }: Props) {
       .catch((err) => console.error('카테고리 로딩 실패:', err));
   }, []);
 
+  // 카테고리 클릭(대표문서 있으면 본문 , 없으면 펼침/접힘만)
   const togglePath = async (path: number[]) => {
-  const catId = path.at(-1)!;
-  const category = categoryIdMap[catId];
+    const catId = path.at(-1)!;
+    const category = categoryIdMap[catId];
 
-  const isSamePath = selectedDocPath && JSON.stringify(selectedDocPath) === JSON.stringify(path);
-  const isSameDoc = selectedDocId === category?.document_id;
+    const isSamePath = selectedDocPath && JSON.stringify(selectedDocPath) === JSON.stringify(path);
+    const isSameDoc = selectedDocId === category?.document_id;
 
-  if (category?.document_id && (!isSamePath || !isSameDoc)) {
-    try {
-      const res = await fetch(`/api/documents?id=${category.document_id}`);
-      if (!res.ok) throw new Error('대표 문서를 찾을 수 없습니다');
-      const doc = await res.json();
+    if (category?.document_id && (!isSamePath || !isSameDoc)) {
+      try {
+        const res = await fetch(`/api/documents?id=${category.document_id}`);
+        if (!res.ok) throw new Error('대표 문서를 찾을 수 없습니다');
+        const doc = await res.json();
 
-      setSelectedDocId(doc.id);
-      setSelectedDocPath([...path]);
-      setSelectedDocTitle(doc.title);
-      setSelectedCategoryPath(path);
-      fetchDoc(path, doc.title, doc.id);
+        setSelectedDocId(doc.id);
+        setSelectedDocPath([...path]);
+        setSelectedDocTitle(doc.title);
+        setSelectedCategoryPath(path);
+        fetchDoc(path, doc.title, doc.id);
 
-      // 대표 문서를 연 직후 반드시 펼쳐진 상태로!
+        // 대표 문서 연 직후, 반드시 펼침
+        setOpenPaths((prev) => {
+          const alreadyOpen = prev.some((p) => JSON.stringify(p) === JSON.stringify(path));
+          return alreadyOpen ? prev : [...prev, path];
+        });
+      } catch (err) {
+        console.error('대표 문서 fetch 실패:', err);
+      }
+    } else {
+      // 대표 문서 없는 카테고리는 펼침/접힘만
       setOpenPaths((prev) => {
-        // 이미 열려있으면 그대로, 아니면 추가
-        const alreadyOpen = prev.some((p) => JSON.stringify(p) === JSON.stringify(path));
-        return alreadyOpen ? prev : [...prev, path];
+        const isExpanded = prev.some((p) => JSON.stringify(p) === JSON.stringify(path));
+        return isExpanded ? prev.filter((p) => JSON.stringify(p) !== JSON.stringify(path)) : [...prev, path];
       });
-    } catch (err) {
-      console.error('대표 문서 fetch 실패:', err);
     }
-  } else {
-    // 대표 문서 없는 카테고리는 기존대로(펼침/접힘만)
-    setOpenPaths((prev) => {
-      const isExpanded = prev.some((p) => JSON.stringify(p) === JSON.stringify(path));
-      return isExpanded ? prev.filter((p) => JSON.stringify(p) !== JSON.stringify(path)) : [...prev, path];
-    });
-  }
-};
+  };
 
+  // 화살표 클릭: 펼침/접힘만 (대표문서 열지 않음)
   const toggleArrowOnly = (path: number[]) => {
     setOpenPaths((prev) =>
       prev.some((p) => JSON.stringify(p) === JSON.stringify(path))
@@ -147,17 +164,19 @@ export default function WikiPageInner({ user }: Props) {
     );
   };
 
+  // 현재 경로가 열려있는지 여부
   const isPathOpen = (path: number[]) =>
     openPaths.some(p => JSON.stringify(p) === JSON.stringify(path));
 
+  // 문서 불러오기 (카테고리/제목/ID)
   const fetchDoc = (
     categoryPath: number[],
     docTitle: string,
     docId?: number,
-    options?: { clearCategoryPath?: boolean }  // ← 옵션 추가
+    options?: { clearCategoryPath?: boolean }
   ) => {
     if (options?.clearCategoryPath) {
-      setSelectedCategoryPath(null); // 문서 클릭에서만 카테고리 active 해제
+      setSelectedCategoryPath(null); // 일반 문서 클릭 시 카테고리 active 해제
     }
     setSelectedDocTitle(docTitle);
 
@@ -188,6 +207,7 @@ export default function WikiPageInner({ user }: Props) {
       .catch(() => setDocContent('<p>문서를 찾을 수 없습니다.</p>'));
   };
 
+  // 카테고리/문서 트리 재귀 렌더링
   const renderTree = (nodes: CategoryNode[], parentPath: number[] = []) => {
     const result: JSX.Element[] = [];
 
@@ -211,12 +231,12 @@ export default function WikiPageInner({ user }: Props) {
                   JSON.stringify(selectedCategoryPath) === JSON.stringify(currentPath);
 
                 if (!isActive) {
-                  await togglePath(currentPath); // 대표 문서만 열기
+                  await togglePath(currentPath); // 대표문서 열기
                 } else {
-                  toggleArrowOnly(currentPath); // 이미 열려 있으면 펼침/접힘
+                  toggleArrowOnly(currentPath); // 이미 열려 있으면 펼침/접힘만
                 }
               } else {
-                // 대표 문서가 없으면 바로 토글
+                // 대표 문서 없으면 펼침/접힘만
                 toggleArrowOnly(currentPath);
               }
             }}
@@ -235,29 +255,20 @@ export default function WikiPageInner({ user }: Props) {
               <span
                 className="wiki-category-arrow"
                 style={{
-                  cursor:
-                    node.document_id != null &&
-                    selectedCategoryPath &&
-                    JSON.stringify(selectedCategoryPath) === JSON.stringify(currentPath)
-                      ? 'pointer'
-                      : 'pointer', // 일단 pointer로 두고 비활성화는 시각적 효과만 주자(아래서 컨트롤)
-                  opacity:
-                    node.document_id != null ? 1 : 0.5,
+                  cursor: 'pointer',
+                  opacity: node.document_id != null ? 1 : 0.5,
                 }}
                 onClick={async (e) => {
                   e.stopPropagation();
-                  // 대표 문서가 있으면, 먼저 대표 문서가 열려 있는지 확인
+                  // 대표 문서가 있으면 먼저 대표 문서 열림 -> 펼침/접힘
                   if (node.document_id != null) {
                     const isActive =
                       selectedCategoryPath &&
                       JSON.stringify(selectedCategoryPath) === JSON.stringify(currentPath);
 
                     if (!isActive) {
-                      // 대표 문서가 안 열려있으면 먼저 연다!
                       await togglePath(currentPath);
-                      // 열고 나서 펼침/접힘 실행(이미 열려있는 경우라면 togglePath에서 처리됨)
                     } else {
-                      // 이미 열려 있으면 그냥 토글만
                       toggleArrowOnly(currentPath);
                     }
                   }
@@ -275,7 +286,7 @@ export default function WikiPageInner({ user }: Props) {
                   <li
                     key={`doc-${doc.title}`}
                     className={`wiki-doc-item ${isDocActive ? 'active' : ''}`}
-                    onClick={() => fetchDoc(currentPath, doc.title, doc.id, { clearCategoryPath: true })}  // ← 옵션 추가
+                    onClick={() => fetchDoc(currentPath, doc.title, doc.id, { clearCategoryPath: true })}
                   >
                     <span style={{ marginRight: '0.3em' }}>
                       {doc.icon?.startsWith('http') ? (
@@ -294,10 +305,10 @@ export default function WikiPageInner({ user }: Props) {
         </li>
       );
     }
-
     return result;
   };
 
+  // 현재 경로로 브레드크럼(카테고리 이름) 추출
   const getCategoryNamesFromPath = (tree: CategoryNode[], path: number[]): string[] => {
     const names: string[] = [];
     let currentTree = tree;
@@ -310,17 +321,21 @@ export default function WikiPageInner({ user }: Props) {
     return names;
   };
 
+  // 렌더: 헤더/사이드바/목차/본문/수정/햄버거
   return (
     <div className="wiki-container">
       <WikiHeader user={user} />
       <div className="wiki-layout">
         <div className="wiki-main-scrollable">
+          {/* 사이드바(카테고리) */}
           <aside className="wiki-sidebar">
             <h2 className="wiki-sidebar-title">카테고리</h2>
             <ul className="wiki-nav-list">{renderTree(categories)}</ul>
           </aside>
 
+          {/* 본문 영역 */}
           <main className="wiki-content">
+            {/* 브레드크럼 */}
             <div className="wiki-breadcrumb">
               {selectedDocPath ? (
                 <div className="wiki-breadcrumb-flex">
@@ -342,6 +357,7 @@ export default function WikiPageInner({ user }: Props) {
             </div>
             <h2 className="wiki-content-title">{selectedDocTitle || '렌독 위키'}</h2>
 
+            {/* 수정 버튼 */}
             {selectedDocPath && selectedDocPath.length > 0 && selectedDocTitle && (
               <div style={{ marginBottom: '1rem' }}>
                 <Link
@@ -352,6 +368,8 @@ export default function WikiPageInner({ user }: Props) {
                 </Link>
               </div>
             )}
+
+            {/* 본문 */}
             <div
               className="wiki-content-body"
               dangerouslySetInnerHTML={{ __html: docContent || '오른쪽 본문 영역입니다.' }}
@@ -359,6 +377,7 @@ export default function WikiPageInner({ user }: Props) {
           </main>
         </div>
 
+        {/* 목차(heading) */}
         {tableOfContents.length > 0 && (
           <aside className="wiki-toc-sidebar">
             <ul>
@@ -375,6 +394,7 @@ export default function WikiPageInner({ user }: Props) {
         )}
       </div>
 
+      {/* 우측 햄버거 메뉴 */}
       {isMenuOpen && (
         <HamburgerMenu
           onClose={() => setIsMenuOpen(false)}

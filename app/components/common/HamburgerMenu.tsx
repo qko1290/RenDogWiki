@@ -1,24 +1,22 @@
+// =============================================
 // File: components/common/HamburgerMenu.tsx
-
+// =============================================
 /**
- * 우측 사이드에서 햄버거 메뉴
+ * 우측 사이드 햄버거 메뉴 컴포넌트
  * - 로그인 상태/유저 정보(스킨, 닉네임, UUID) 표시
- * - 관리/탐색/유틸 메뉴 진입점
- * - 카테고리 관리, 문서 생성 등 관리자 메뉴뉴
+ * - 카테고리 관리, 문서 생성 등 관리 메뉴 진입용
  */
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from 'next/link';
-
-import { useEffect, useState } from "react";
 import '@wiki/css/HamburgerMenu.css';
 
-// 타입 및 Props 선언
+// Props 및 타입 선언
 interface HamburgerMenuProps {
   onClose: () => void;      // 메뉴 닫기 콜백
   isLoggedIn: boolean;      // 로그인 여부
   username?: string;        // 마크 닉네임
-  uuid?: string;            // 스킨 렌더링용 UUID
+  uuid?: string;            // 유저 프로필 렌더용 UUID
 }
 
 // 메인 컴포넌트
@@ -26,44 +24,51 @@ export default function HamburgerMenu({
   onClose, isLoggedIn, username, uuid
 }: HamburgerMenuProps) {
 
+  // 1. UUID 상태: props->state 동기화, username만 있을 때도 fetch로 조회
   const [resolvedUUID, setResolvedUUID] = useState<string | null>(uuid || null);
 
   useEffect(() => {
-  if (username && !uuid) {
-    fetch(`/api/mojang/uuid?name=${username}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.uuid) setResolvedUUID(data.uuid);
-        else throw new Error();
-      })
-      .catch(() => {
-        setResolvedUUID(null);
-      });
-  }
-}, [username, uuid]);
+    // uuid 미전달 + username 있으면 /api/mojang/uuid로 조회
+    if (username && !uuid) {
+      fetch(`/api/mojang/uuid?name=${username}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.uuid) setResolvedUUID(data.uuid);
+          else throw new Error();
+        })
+        .catch(() => {
+          setResolvedUUID(null);
+        });
+    }
+  }, [username, uuid]);
 
-  // 유저 스킨 이미지 URL(디폴트: 스티브)
+  // 2. 유저 스킨 이미지 URL(디폴트: 스티브 UUID)
   const skinUrl = resolvedUUID
     ? `https://crafatar.com/avatars/${resolvedUUID}?overlay&size=64`
     : "https://crafatar.com/avatars/8667ba71-b85a-4004-af54-457a9734eed7?overlay&size=64";
 
+  // 렌더링 (메뉴 헤더/유저 정보/메뉴/닫기버튼)
   return (
     <div className="hamburger-menu">
       {/* 상단: 로고, 닫기버튼, 유저 정보 */}
       <div className="hamburger-menu-header">
-        {/* 헤더 (로고+닫기) */}
+
+        {/* 헤더: 프로젝트 로고 + 닫기 */}
         <div className="hamburger-menu-top">
           <h2 className="hamburger-menu-logo">RDWIKI</h2>
           <button onClick={onClose} className="hamburger-menu-close-btn" aria-label="메뉴 닫기">×</button>
-      </div>
+        </div>
 
         {/* 유저 정보(스킨+닉네임) */}
         <div className="hamburger-user-info">
           {resolvedUUID === null && username ? (
+            // 스킨 로딩 전/실패: 플레이스홀더 출력
             <div className="hamburger-user-placeholder" />
           ) : (
-             <img src={skinUrl} className="hamburger-user-image" alt="마인크래프트 프로필" />
+            // 스킨 이미지(성공시)
+            <img src={skinUrl} className="hamburger-user-image" alt="마인크래프트 프로필" />
           )}
+          {/* 닉네임 없으면 기본 텍스트 */}
           <p className="hamburger-username">{username || "마인크래프트 유저"}</p>
         </div>
 
@@ -91,11 +96,12 @@ export default function HamburgerMenu({
           <li className="hamburger-menu-item">
             <Link href="/manage/category" className="menu-link">📂 카테고리 관리</Link>
           </li>
+          {/* 필요시 메뉴 추가 */}
         </ul>
       </div>
 
-      {/* 닫기 버튼*/}
-       <div className="hamburger-menu-toggle" onClick={onClose}>
+      {/* 메뉴 토글/닫기 버튼(화살표) */}
+      <div className="hamburger-menu-toggle" onClick={onClose}>
         <span>◀</span>
       </div>
     </div>

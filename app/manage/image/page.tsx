@@ -1,3 +1,13 @@
+// =============================================
+// File: app/manage/image/page.tsx
+// =============================================
+/**
+ * 이미지 관리(폴더/파일 탐색기) 메인 페이지
+ * - 폴더 트리 탐색, 이미지 업로드/미리보기/삭제/이름변경
+ * - 폴더 트리 , 컨텍스트 메뉴, 다중선택 지원
+ * - 좌측: 폴더/트리, 우측: 이미지 썸네일 리스트
+ */
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -7,7 +17,7 @@ import ImageUploadModal from "@/components/image/ImageUploadModal";
 import '@wiki/css/image.css';
 import Modal from "@/components/common/Modal";
 
-// 트리 접힘/펼침용 아이콘
+// 트리 펼침/접힘용 아이콘
 const ArrowIcon = ({ open }: { open: boolean }) => (
   <span style={{
     display: 'inline-block',
@@ -19,6 +29,7 @@ const ArrowIcon = ({ open }: { open: boolean }) => (
   }}>▶</span>
 );
 
+// FolderTree: 폴더 트리(재귀)
 function FolderTree({
   folders,
   parentId,
@@ -49,6 +60,7 @@ function FolderTree({
     folderId: number | null
   }>>;
 }) {
+  // 폴더 이름 편집 상태
   const [editName, setEditName] = useState("");
   useEffect(() => {
     if (editingId) {
@@ -57,6 +69,7 @@ function FolderTree({
     }
   }, [editingId, folders]);
 
+  // 현재 parentId 하위 폴더 리스트
   const list = folders.filter(f => {
     if (parentId === null) return f.parent_id == null;
     return Number(f.parent_id) === Number(parentId);
@@ -72,6 +85,7 @@ function FolderTree({
         return (
           <li key={folder.id} className="folder-item" style={{ position: "relative" }}>
             <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+              {/* ┃형 라인 */}
               {depth > 0 &&
                 <span
                   style={{
@@ -84,6 +98,7 @@ function FolderTree({
                   }}
                 />
               }
+              {/* 펼침/접힘 버튼 */}
               {hasChildren && (
                 <button
                   onClick={e => {
@@ -107,6 +122,7 @@ function FolderTree({
                   <ArrowIcon open={isOpen} />
                 </button>
               )}
+              {/* 이름 변경 input or 버튼 */}
               {editingId === folder.id ? (
                 <input
                   type="text"
@@ -161,6 +177,7 @@ function FolderTree({
                 </button>
               )}
             </div>
+            {/* 하위 폴더 재귀 */}
             {hasChildren && isOpen && (
               <FolderTree
                 folders={folders}
@@ -183,6 +200,7 @@ function FolderTree({
   );
 }
 
+// 현재 폴더 이미지 썸네일 리스트
 function FileList({
   images, currentFolderId, onSelect, selectedItems,
 }: {
@@ -252,14 +270,14 @@ function FileList({
   );
 }
 
+// 메인 페이지 컴포넌트 (ImageManagePage)
 export default function ImageManagePage() {
+  // 폴더/이미지/선택 상태
   const [folders, setFolders] = useState<any[]>([]);
   const [images, setImages] = useState<any[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<number | null>(null);
 
-  // === 변경됨 ===
   const [selectedItems, setSelectedItems] = useState<any[]>([]);
-  // 단일 이름변경만 유지
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingType, setEditingType] = useState<'folder' | 'image' | null>(null);
   const [imageEditName, setImageEditName] = useState('');
@@ -268,27 +286,17 @@ export default function ImageManagePage() {
   const [contextMenu, setContextMenu] = useState<{ visible: boolean, x: number, y: number, folderId: number | null }>({ visible: false, x: 0, y: 0, folderId: null });
   const [deletingType, setDeletingType] = useState<'folder' | 'image' | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-
-  // 새 폴더 만들기(컨텍스트 메뉴에서)
   const [createFolderAt, setCreateFolderAt] = useState<number | null>(null);
-  // 모달을 강제로 새로 띄우기 위한 리셋 키
   const [createFolderKey, setCreateFolderKey] = useState<number>(0);
 
-  // ===== 내부 함수 =====
-  const handleImagesUploaded = () => {
-    if (!selectedFolder) return;
-    fetch(`/api/image/view?folder_id=${selectedFolder}`)
-      .then(res => res.json())
-      .then(data => setImages(data));
-  }
-
-  // 폴더 목록 API 불러오기
+  // 폴더/이미지 데이터 fetch (API 연동)
+  // 폴더 전체 조회
   useEffect(() => {
     fetch('/api/image/folder/list')
       .then(res => res.json())
       .then(data => setFolders(data));
   }, []);
-
+  // 폴더 선택시 이미지 fetch
   useEffect(() => {
     if (!selectedFolder) {
       setImages([]);
@@ -300,11 +308,21 @@ export default function ImageManagePage() {
       .then(data => setImages(data));
   }, [selectedFolder]);
 
+  // 이미지 업로드 완료시 새로고침
+  const handleImagesUploaded = () => {
+    if (!selectedFolder) return;
+    fetch(`/api/image/view?folder_id=${selectedFolder}`)
+      .then(res => res.json())
+      .then(data => setImages(data));
+  }
+
+  // 폴더/이미지 생성/이름변경/삭제 핸들러
   const handleFolderCreated = (folder: any) => {
     setFolders(prev => [...prev, folder]);
-    setCreateFolderAt(null); // 무조건 모달 닫기!
+    setCreateFolderAt(null);
   };
 
+  // 폴더 이름변경
   const handleRename = async (id: number, newName: string) => {
     const res = await fetch('/api/image/folder/rename', {
       method: 'PATCH',
@@ -319,6 +337,7 @@ export default function ImageManagePage() {
     }
   };
 
+  // 폴더 삭제
   const handleDelete = async () => {
     if (!selectedFolder) return;
     const res = await fetch('/api/image/folder/delete', {
@@ -338,10 +357,9 @@ export default function ImageManagePage() {
     }
   };
 
-  // === 다중 이미지 삭제 함수 ===
+  // 다중 이미지 삭제
   const handleImageDelete = async () => {
     if (selectedItems.length === 0) return;
-    // API에 id 배열 전달 (한 번에)
     const res = await fetch('/api/image/delete', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -357,23 +375,20 @@ export default function ImageManagePage() {
     }
   };
 
-  // === 단일/다중 이름변경(1개 선택만 허용) ===
+  // 이름변경 버튼/단축키 처리
   const handleRenameClick = () => {
-    // 이미지 1개만 선택된 경우
     if (selectedItems.length === 1 && selectedItems[0].type === 'image') {
       setEditingId(selectedItems[0].id);
       setEditingType('image');
       setImageEditName(selectedItems[0].name);
-    } 
-    // 이미지가 선택되지 않고 폴더만 선택된 경우
-    else if (selectedItems.length === 0 && selectedFolder) {
+    } else if (selectedItems.length === 0 && selectedFolder) {
       setEditingId(selectedFolder);
       setEditingType('folder');
       setContextMenu(v => ({ ...v, visible: false }));
     }
   };
 
-  // === 다중/단일 삭제 컨트롤 ===
+  // 삭제 버튼/단축키 처리
   const handleDeleteClick = () => {
     if (selectedItems.length > 0) {
       setShowDeleteModal(true);
@@ -384,6 +399,7 @@ export default function ImageManagePage() {
     }
   };
 
+  // 이미지 이름변경 처리
   const handleImageRename = async () => {
     if (editingId == null) return;
     const res = await fetch('/api/image/rename', {
@@ -402,7 +418,7 @@ export default function ImageManagePage() {
     }
   };
 
-  // 폴더/이미지 다중 선택 핸들러
+  // 다중 선택/키보드 단축키(Del, F2) 지원
   const handleFileListSelect = (item: any, e: React.MouseEvent) => {
     if (e.ctrlKey || e.metaKey) {
       setSelectedItems(prev => {
@@ -417,7 +433,6 @@ export default function ImageManagePage() {
     setEditingType(null);
   };
 
-  // 키보드 Delete 지원 (다중)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (document.activeElement && ['INPUT', 'TEXTAREA'].includes((document.activeElement as HTMLElement).tagName)) return;
@@ -451,7 +466,7 @@ export default function ImageManagePage() {
     return () => window.removeEventListener("keydown", handleKeyDown, { capture: true });
   }, [selectedFolder, selectedItems, editingId]);
 
-  // 바깥 클릭 등 컨텍스트 메뉴 닫기
+  // 컨텍스트 메뉴(우클릭) 외부클릭 자동닫기
   useEffect(() => {
     if (!contextMenu.visible) return;
     const close = () => setContextMenu(v => ({ ...v, visible: false }));
@@ -468,6 +483,7 @@ export default function ImageManagePage() {
     };
   }, [contextMenu.visible]);
 
+  // 렌더링(좌:폴더, 우:이미지, 모달/컨텍스트 메뉴)
   return (
     <div className="wiki-container" style={{ background: "#f9f9f9", minHeight: "100vh" }}>
       <WikiHeader user={null} />
@@ -496,11 +512,12 @@ export default function ImageManagePage() {
               setContextMenu={setContextMenu}
             />
           </div>
-          {/* 우측: 제목+툴바+이미지 */}
+          {/* 우측: 이미지 목록/툴바 */}
           <div className="image-explorer-content">
             <div className="image-explorer-header-bar">
               <h1 className="image-explorer-title">이미지 업로드/관리</h1>
               <div className="image-explorer-header-btns">
+                {/* 폴더 생성 */}
                 <CreateFolder
                   parentId={selectedFolder ?? null}
                   onCreated={handleFolderCreated}
@@ -514,6 +531,7 @@ export default function ImageManagePage() {
                     forceOpen={true}
                   />
                 )}
+                {/* 이미지 업로드 */}
                 <button
                   type="button"
                   className="image-explorer-btn"
@@ -522,6 +540,7 @@ export default function ImageManagePage() {
                 >
                   업로드
                 </button>
+                {/* 삭제 */}
                 <button
                   className="image-explorer-btn danger"
                   onClick={handleDeleteClick}
@@ -529,6 +548,7 @@ export default function ImageManagePage() {
                 >
                   🗑 삭제
                 </button>
+                {/* 이름변경 */}
                 <button
                   className="image-explorer-btn"
                   onClick={handleRenameClick}
@@ -553,7 +573,7 @@ export default function ImageManagePage() {
         </div>
       </div>
 
-      {/* 컨텍스트 메뉴, 모달 등 이하 동일 */}
+      {/* 컨텍스트 메뉴 (우클릭) */}
       {contextMenu.visible && contextMenu.folderId && (
         <div
           style={{
@@ -585,7 +605,7 @@ export default function ImageManagePage() {
           >📁 새 폴더</button>
         </div>
       )}
-      {/* 이름변경 모달 */}
+      {/* 이름변경(이미지) 모달 */}
       {editingId && editingType === 'image' && (
         <Modal open={true} onClose={() => setEditingId(null)} title="이미지 이름 변경">
           <input
@@ -604,7 +624,7 @@ export default function ImageManagePage() {
           </div>
         </Modal>
       )}
-      {/* 이미지 삭제 */}
+      {/* 이미지 삭제 모달 */}
       {showDeleteModal && deletingType === 'image' && (
         <Modal open={true} onClose={() => { setShowDeleteModal(false); setDeletingType(null); }} title="이미지 삭제">
           <div className="mb-3">
@@ -629,7 +649,7 @@ export default function ImageManagePage() {
           </div>
         </Modal>
       )}
-      {/* 폴더 삭제 */}
+      {/* 폴더 삭제 모달 */}
       {showDeleteModal && deletingType === 'folder' && selectedFolder && (
         <Modal open={true} onClose={() => { setShowDeleteModal(false); setDeletingType(null); }} title="폴더 삭제">
           <div className="mb-3">
@@ -648,6 +668,7 @@ export default function ImageManagePage() {
           </div>
         </Modal>
       )}
+      {/* 이미지 업로드 모달 */}
       <ImageUploadModal
         open={uploadOpen}
         onClose={() => setUploadOpen(false)}

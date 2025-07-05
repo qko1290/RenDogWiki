@@ -1,5 +1,4 @@
-/* image-explorer.css - 이미지 관리(탐색기) UI 전용 */
-
+/* 이미지 탐색기 메인 레이아웃 컨테이너 */
 .image-explorer-container {
   max-width: 960px;
   margin: 0 auto;
@@ -9,12 +8,12 @@
   padding: 32px;
 }
 
+/* 상단 툴바 영역 */
 .image-explorer-header {
   display: flex;
   gap: 1rem;
   margin-bottom: 1rem;
 }
-
 .image-explorer-header button {
   border: 1px solid #ccc;
   border-radius: 8px;
@@ -29,6 +28,7 @@
   border-color: #4caf50;
 }
 
+/* 본문 전체 영역 (좌:폴더/우:파일) */
 .image-explorer-main {
   display: flex;
   border-radius: 8px;
@@ -38,6 +38,7 @@
   overflow: hidden;
 }
 
+/* 폴더 트리 영역 */
 .image-explorer-foldertree {
   width: 220px;
   border-right: 1px solid #eee;
@@ -66,12 +67,17 @@
   cursor: pointer;
   transition: background 0.08s;
 }
-.image-explorer-foldertree .folder-btn.active {
-  background: #e6f0ff;
-  color: #0070f3;
-  font-weight: bold;
+.image-explorer-foldertree .folder-btn.active,
+.folder-btn.active {
+  background: #e6f0ff !important;
+  color: #0070f3 !important;
+  font-weight: bold !important;
+  border: none !important;
+  box-shadow: 0 1px 8px 0 rgba(0,110,255,0.04);
+  outline: none;
 }
 
+/* 파일(썸네일) 리스트 영역 */
 .image-explorer-filelist {
   flex: 1;
   padding: 1.5rem;
@@ -82,48 +88,123 @@
   min-height: 360px;
   position: relative;
 }
+.image-explorer-filelist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px 24px;
+}
 
+/* 개별 이미지 썸네일 */
 .image-explorer-thumbnail {
-  width: 88px;
-  height: 110px;
+  width: 148px;
+  height: 168px;
+  margin: 0 0 16px 0;
+  background: #fcfcfd;
+  border-radius: 16px;
+  border: 1.5px solid #e5e8ef;
+  box-shadow: 0 2px 8px 0 rgba(80,90,140,0.09);
+  cursor: pointer;
+  transition: box-shadow 0.20s, border 0.18s, background 0.18s;
+  text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  border: 1px solid #eee;
-  border-radius: 10px;
-  background: #f4f9f6;
-  cursor: pointer;
-  transition: border 0.12s;
-  padding: 12px 0 0 0;
-  font-size: 14px;
+  padding: 20px 0 0 0;
   position: relative;
 }
 .image-explorer-thumbnail.selected {
-  border: 2px solid #5ac85a;
-  background: #e6ffe9;
+  border: 2.5px solid #75deaf;
+  background: #f2fffa;
+  box-shadow: 0 3px 20px 0 rgba(60,180,140,0.10);
 }
-
 .image-explorer-thumbnail img {
-  width: 52px;
-  height: 52px;
-  object-fit: cover;
-  border-radius: 6px;
-  margin-bottom: 6px;
+  width: 66px;
+  height: 66px;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 9px;
+  border: 1.2px solid #e1e5ef;
+  box-shadow: 0 2px 8px 0 rgba(90, 100, 140, 0.04);
+  margin-bottom: 12px;
+  display: block;
+  padding: 2px;
 }
-
+.thumbnail-label,
 .image-explorer-thumbnail .thumbnail-label {
-  text-align: center;
-  margin-top: 4px;
-  font-size: 13px;
-  color: #222;
+  margin-top: 10px;
+  font-size: 15px !important;
+  font-weight: 600;
+  color: #2e3250;
+  letter-spacing: -0.02em;
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;
-  max-width: 80px;
+  max-width: 120px;
+  text-shadow: 0 1px 0 #fff;
+  line-height: 1.3;
 }
 
-/* 공통 버튼 스타일 - 상단 관리 버튼 전용 */
+/* 전체 레이아웃 (좌측:폴더/우측:콘텐츠) */
+.image-explorer-layout {
+  display: flex;
+  width: 100%;
+  max-width: 1440px;
+  min-height: 720px;
+  margin: 0 auto;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 16px 0 rgba(0,0,0,0.07);
+  overflow: hidden;
+}
+
+/* 사이드(폴더) */
+.image-explorer-sidebar {
+  width: 250px;
+  background: #f6fafc;
+  border-right: 1.5px solid #e6eaf0;
+  padding: 28px 12px 18px 18px;
+  overflow-y: auto;
+}
+
+/* 콘텐츠(이미지리스트) */
+.image-explorer-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* 상단 바 + 제목 + 버튼 */
+.image-explorer-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32px 36px 8px 36px;
+  background: #fff;
+  border-bottom: 1.5px solid #f0f0f0;
+}
+.image-explorer-title {
+  font-size: 2.1rem;
+  font-weight: bold;
+  color: #274f35;
+  margin: 0;
+  letter-spacing: -1.5px;
+}
+.image-explorer-header-btns {
+  display: flex;
+  gap: 0.7rem;
+}
+
+/* 파일리스트 영역 (스크롤) */
+.image-explorer-filelist-outer {
+  flex: 1;
+  overflow-y: auto;
+  padding: 30px 40px 30px 40px;
+  background: #f7faf8;
+}
+
+/* 공통 버튼 (상단/모달) */
 .image-explorer-btn {
   border: 1px solid #ccc;
   border-radius: 8px;
@@ -156,142 +237,16 @@
   border-color: #c62828;
 }
 
-/* 트리 세로선과 가로선 강조 */
+/* 트리 세로선/가로선, 접힘/펼침 아이콘 버튼 */
 .folder-tree-vertline {
   border-left: 2px solid #b3b3b3 !important;
   background: none;
   pointer-events: none;
 }
-
-/* 트리 접힘/펼침 버튼 간격 */
 .folder-tree-arrowbtn {
   background: none;
   border: none;
   cursor: pointer;
   padding: 0;
   margin-right: 3px;
-}
-
-.image-explorer-filelist {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 28px 24px;
-}
-
-.image-explorer-thumbnail {
-  width: 148px;
-  height: 168px;
-  margin: 0 0 16px 0;
-  background: #fcfcfd; /* 카드 흰색/미색 */
-  border-radius: 16px;
-  border: 1.5px solid #e5e8ef; /* 연한 회색 테두리 */
-  box-shadow: 0 2px 8px 0 rgba(80,90,140,0.09);
-  cursor: pointer;
-  transition: box-shadow 0.20s, border 0.18s, background 0.18s;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 20px 0 0 0;
-  position: relative;
-}
-
-.image-explorer-thumbnail img {
-  width: 66px;
-  height: 66px;
-  object-fit: contain;
-  background: #fff;
-  border-radius: 9px;
-  border: 1.2px solid #e1e5ef;
-  box-shadow: 0 2px 8px 0 rgba(90, 100, 140, 0.04);
-  margin-bottom: 12px;
-  display: block;
-  padding: 2px;
-}
-
-.image-explorer-thumbnail.selected {
-  border: 2.5px solid #75deaf;
-  background: #f2fffa;  /* 연초록빛 */
-  box-shadow: 0 3px 20px 0 rgba(60,180,140,0.10);
-}
-
-.thumbnail-label {
-  margin-top: 10px;
-  font-size: 15px !important;
-  font-weight: 600;
-  color: #2e3250;
-  letter-spacing: -0.02em;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
-  max-width: 120px;
-  text-shadow: 0 1px 0 #fff;
-  line-height: 1.3;
-}
-
-.image-explorer-layout {
-  display: flex;
-  width: 100%;
-  max-width: 1440px;
-  min-height: 720px;
-  margin: 0 auto;
-  background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 2px 16px 0 rgba(0,0,0,0.07);
-  overflow: hidden;
-}
-
-.image-explorer-sidebar {
-  width: 250px;
-  background: #f6fafc;
-  border-right: 1.5px solid #e6eaf0;
-  padding: 28px 12px 18px 18px;
-  overflow-y: auto;
-}
-
-.image-explorer-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.image-explorer-header-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 32px 36px 8px 36px;
-  background: #fff;
-  border-bottom: 1.5px solid #f0f0f0;
-}
-
-.image-explorer-title {
-  font-size: 2.1rem;
-  font-weight: bold;
-  color: #274f35;
-  margin: 0;
-  letter-spacing: -1.5px;
-}
-
-.image-explorer-header-btns {
-  display: flex;
-  gap: 0.7rem;
-}
-
-.image-explorer-filelist-outer {
-  flex: 1;
-  overflow-y: auto;
-  padding: 30px 40px 30px 40px;
-  background: #f7faf8;
-}
-
-.folder-btn.active,
-.image-explorer-foldertree .folder-btn.active {
-  background: #e6f0ff !important;
-  color: #0070f3 !important;
-  font-weight: bold !important;
-  border: none !important;
-  box-shadow: 0 1px 8px 0 rgba(0,110,255,0.04);
-  outline: none;
 }

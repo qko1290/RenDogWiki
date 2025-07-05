@@ -1,21 +1,19 @@
-/* /app/wiki/css/wiki-header.css */
-
+/* 헤더 전체 영역 (상단 고정, 그림자) */
 .wiki-header {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: 0; left: 0; right: 0;
   z-index: 1000;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #fff;
+  background: #fff;
   padding: 0.5rem 1.5rem;
   border-bottom: 1px solid #ddd;
   height: 64px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
 
+/* 좌측 로고 (그라데이션 폰트) */
 .wiki-logo {
   font-size: 2.5rem;
   font-weight: 900;
@@ -25,6 +23,7 @@
   font-family: 'Segoe UI', sans-serif;
 }
 
+/* 중앙 검색창 영역 */
 .wiki-search-container {
   flex: 1;
   margin: 0 1.5rem;
@@ -35,9 +34,10 @@
   border-radius: 6px;
   border: 1px solid #ccc;
   font-size: 1rem;
-  background-color: #fff;
+  background: #fff;
 }
 
+/* 공통 텍스트/위치 유틸리티 */
 .text-black { color: #222; }
 .absolute { position: absolute; }
 .top-4 { top: 1rem; }

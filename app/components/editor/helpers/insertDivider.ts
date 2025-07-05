@@ -1,28 +1,36 @@
+// =============================================
 // File: app/components/editor/helpers/insertDivider.ts
-
+// =============================================
 /**
- * 에디터에 구분선(divider) 삽입 유틸
- * - 현재 커서 위치에 구분선(divider) 블록 + 빈 단락(paragraph) 삽입
- * - 에디터에서 "구분선" 버튼 클릭 시 호출
- * - paragraph 추가는 사용자 커서가 divider 내부에 머무르지 않도록 하기 위함
+ * 에디터에 구분선(divider) 블록 삽입 유틸리티
+ * - 현재 커서 위치에 divider(구분선) + 빈 단락(paragraph) 연속 삽입
+ * - paragraph를 추가하는 이유: 커서가 divider 내부에 머무르지 않고, 다음 줄로 자동 이동하게 유도
+ * - 추가하지 않으면 블럭 삽입 시 그 뒤에 커서를 놓을 수 없어요
+ * - DividerElement/ParagraphElement 타입: @/types/slate.ts 에서 정의
  */
 
 import { Editor, Transforms } from 'slate';
 import type { DividerElement, ParagraphElement } from '@/types/slate';
 
+/**
+ * [divider 삽입 함수]
+ * - 입력: 에디터 인스턴스(Editor)
+ * - 동작: divider 블록 -> 빈 단락(paragraph) 순서로 삽입
+ */
 export const insertDivider = (editor: Editor) => {
-  // 구분선 블록 객체
+  // 1. 구분선(divider) 블록 객체 생성
   const divider: DividerElement = {
     type: 'divider',
-    children: [{ text: '' }],
+    children: [{ text: '' }], // 텍스트는 항상 빈 문자열
   };
 
-  // 빈 단락(구분선 바로 아래 커서 이동 유도)
+  // 2. 빈 단락(paragraph) 블록 객체
   const paragraph: ParagraphElement = {
     type: 'paragraph',
-    children: [{ text: '' }],
+    children: [{ text: '' }], // 텍스트는 빈 문자열
   };
 
-  // 두 블록을 연속 삽입(divider 내 커서 방지)
+  // 3. 두 블록을 연속 삽입(커서가 divider 내에 남지 않도록 유도)
+  // 주의: divider 단독 삽입시 커서가 divider에 머물러 예상치 못한 입력/포커스 문제 발생할 수 있음
   Transforms.insertNodes(editor, [divider, paragraph]);
 };

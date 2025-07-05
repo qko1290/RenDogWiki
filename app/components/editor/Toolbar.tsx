@@ -1,10 +1,11 @@
+// =============================================
 // File: app/components/editor/Toolbar.tsx
-
+// =============================================
 /**
- * Slate 에디터의 툴바(마크, 색상, 정렬, heading, info-box) 컴포넌트
- * - Bold/Italic/Underline 등 마크 토글 버튼
+ * 에디터의 툴바(마크, 색상, 정렬, heading, info-box) 컴포넌트
+ * - Bold/Italic/Underline 등 텍스트 마크 토글
  * - 색상/폰트/배경 드롭다운, 링크/구분선/heading/정렬/InfoBox 삽입
- * - 드롭다운 열림 상태 관리 및 클릭 외부 감지
+ * - 드롭다운 열림 상태/클릭 외부 감지
  */
 
 'use client';
@@ -24,10 +25,10 @@ import { toggleMark } from './helpers/toggleMark';
 
 // Props 타입
 type ToolbarProps = {
-  selectionRef: React.RefObject<Range | null>;
+  selectionRef: React.RefObject<Range | null>; // 드롭다운/마크 적용용 selection ref
 };
 
-// 상수 선언 (색상, 폰트, heading 등)
+// 툴바 상수 정의 (색상/폰트/배경/헤딩/정렬 등)
 const COLORS = ['black', 'red', 'blue', 'green', 'orange'];
 const FONT_SIZES = ['11px', '15px', '19px', '24px', '30px'];
 const BACKGROUND_COLORS = ['yellow', 'lightgreen', 'lightblue', 'lightpink', 'lightgray'];
@@ -43,33 +44,33 @@ const ALIGNMENTS = [
   { label: '양쪽 정렬', value: 'justify' },
 ];
 
-// 툴바 컴포넌트
+// 툴바 메인 컴포넌트
 export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
   const editor = useSlate();
+  // 열려있는 드롭다운 id(state) - 한 번에 하나만 열림
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
-  // 링크 삽입 핸들러
+  // 링크 삽입
   const handleInsertLink = () => {
     const url = prompt('링크할 URL을 입력하세요');
     if (!url) return;
-
+    // 이미 링크 내부면 unwrap 먼저
     if (isLinkActive(editor)) unwrapLink(editor);
 
+    // 커서만(선택 없음): 링크 블록, 일부 선택: 인라인 링크
     const isCollapsed = Range.isCollapsed(editor.selection!);
     if (isCollapsed) insertLinkBlock(editor, url);
     else insertLink(editor, url);
   };
 
-  // 정렬 핸들러
+  // 블록 정렬(왼/가/오/양쪽)
   const setAlignment = (alignment: 'left' | 'center' | 'right' | 'justify') => {
     const { selection } = editor;
-
     if (!selection) {
       console.warn('정렬 실패: 선택된 영역 없음');
       return;
     }
-
-    // 선택 범위 내 블록에 정렬 적용
+    // 선택 범위 내 지원 블록만 정렬 적용
     const blocks = Editor.nodes(editor, {
       at: selection,
       match: n =>
@@ -79,7 +80,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
     });
 
     let hasMatched = false;
-
     for (const [node, path] of blocks) {
       hasMatched = true;
       Transforms.setNodes(
@@ -87,15 +87,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
         { textAlign: alignment },
         { at: path }
       );
-      console.log(`정렬 적용됨: ${alignment}`, node);
     }
-
     if (!hasMatched) {
       console.warn('정렬할 블록을 찾을 수 없음');
     }
   };
 
-  // 드롭다운 외부 클릭 시 닫기
+  // 외부 클릭 시 닫기
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const toolbar = document.getElementById('editor-toolbar');
@@ -103,23 +101,30 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
         setOpenDropdown(null);
       }
     };
-
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
 
-  // 렌더 (툴바 버튼/드롭다운/핸들러)
+  // 렌더링 -> 툴바 버튼/드롭다운/삽입/정렬
   return (
-    <div id="editor-toolbar" style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
-      {/* 마크(볼드/이탤릭 등) */}
+    <div
+      id="editor-toolbar"
+      style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '4px',
+        alignItems: 'center',
+      }}
+    >
+      {/* 텍스트 마크(볼드/이탤릭/언더라인/취소선) */}
       <MarkButton format="bold" icon="B" selectionRef={selectionRef} />
       <MarkButton format="italic" icon="I" selectionRef={selectionRef} />
       <MarkButton format="underline" icon="U" selectionRef={selectionRef} />
       <MarkButton format="strikethrough" icon="S" selectionRef={selectionRef} />
 
-      {/* 색상/폰트/배경 드롭다운 */}
+      {/* 색상/폰트/배경 드롭다운 (selectionRef 활용, onSelect로 마크 적용) */}
       <DropdownButton
         label="색상"
         items={COLORS}
@@ -148,10 +153,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
         onSelect={value => toggleMark(editor, 'backgroundColor', value)}
       />
 
-      {/* 링크 삽입 */}
-      <button onMouseDown={e => { e.preventDefault(); handleInsertLink(); }}>🔗 링크 삽입</button>
+      {/* 하이퍼링크/링크블럭 삽입 */}
+      <button onMouseDown={e => { e.preventDefault(); handleInsertLink(); }}>
+        🔗 링크 삽입
+      </button>
 
-      {/* 제목(heading) 드롭다운 */}
+      {/* 제목(heading) 드롭다운 (label->type 매핑, insertHeading으로 삽입) */}
       <DropdownButton
         label="제목 추가"
         items={HEADINGS.map(h => h.label)}
@@ -165,7 +172,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
         }}
       />
 
-      {/* 정렬 드롭다운 */}
+      {/* 정렬 드롭다운 (label->align value 매핑) */}
       <DropdownButton
         label="정렬"
         items={ALIGNMENTS.map(a => a.label)}
@@ -179,9 +186,18 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
         }}
       />
 
-      {/* 구분선/InfoBox 삽입 */}
-      <button onMouseDown={e => { e.preventDefault(); insertDivider(editor); }}>─ 구분선 삽입</button>
-      <InfoBoxDropdown selectionRef={selectionRef} dropdownId="info" openDropdown={openDropdown} setOpenDropdown={setOpenDropdown} />
+      {/* 구분선 삽입 */}
+      <button onMouseDown={e => { e.preventDefault(); insertDivider(editor); }}>
+        ─ 구분선 삽입
+      </button>
+
+      {/* InfoBox(정보/주의/경고) 삽입 드롭다운 */}
+      <InfoBoxDropdown
+        selectionRef={selectionRef}
+        dropdownId="info"
+        openDropdown={openDropdown}
+        setOpenDropdown={setOpenDropdown}
+      />
     </div>
   );
 };

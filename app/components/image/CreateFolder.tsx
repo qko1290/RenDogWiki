@@ -1,24 +1,38 @@
+// =============================================
+// File: app/components/image/CreateFolder.tsx
+// =============================================
+/**
+ * 이미지 폴더 생성 컴포넌트
+ * - 폴더 생성 버튼 + 모달로 구성
+ * - forceOpen 옵션: 버튼 없이 무조건 모달만 오픈
+ */
+
 import { useEffect, useState } from "react";
 import Modal from "@/components/common/Modal";
 
+// Props 타입
 type Props = {
-  parentId: number | null;
-  onCreated?: (folder: any) => void;
-  className?: string;
-  forceOpen?: boolean; // 추가!
+  parentId: number | null;                       // 부모 폴더 id (최상위면 null)
+  onCreated?: (folder: any) => void;             // 생성 성공 시 콜백
+  className?: string;                            // 버튼 커스텀 클래스
+  forceOpen?: boolean;                           // 버튼 없이 무조건 모달만 열기
 };
 
+// 메인 컴포넌트
 export default function CreateFolder({ parentId, onCreated, className, forceOpen }: Props) {
+  // 모달 오픈/이름/로딩/에러 상태
   const [open, setOpen] = useState(false);
   const [folderName, setFolderName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // forceOpen이 true로 바뀌면 자동 오픈
+
+  // forceOpen 옵션: true로 바뀌면 모달 자동 열기
   useEffect(() => {
     if (forceOpen) setOpen(true);
   }, [forceOpen]);
 
+  // 폴더 생성 핸들러
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -37,6 +51,7 @@ export default function CreateFolder({ parentId, onCreated, className, forceOpen
         setLoading(false);
         return;
       }
+      // 성공 시: 모달 닫기/입력 초기화/로딩 해제/콜백 호출
       setOpen(false);
       setFolderName("");
       setLoading(false);
@@ -47,13 +62,16 @@ export default function CreateFolder({ parentId, onCreated, className, forceOpen
     }
   };
 
+  // 렌더 (버튼+모달)
   return (
     <>
-      {!forceOpen && ( // forceOpen이 아니면만 버튼 노출 (툴바 버튼용)
+      {/* forceOpen이 아닐 때만 폴더 생성 버튼 표시 (툴바용) */}
+      {!forceOpen && (
         <button className={className ?? "image-explorer-btn"} onClick={() => setOpen(true)}>
           폴더 생성
         </button>
       )}
+      {/* 폴더 생성 모달(항상 존재, open만 컨트롤) */}
       <Modal open={open} onClose={() => setOpen(false)} title="폴더 생성">
         <form onSubmit={handleCreate}>
           <input

@@ -1,11 +1,14 @@
+// =============================================
 // File: app/components/editor/Element.tsx
-
+// =============================================
 /**
- * 에디터에서 커스텀 블록 렌더링링
- * - heading, 링크, info-box, divider 등 다양한 블록 타입별 렌더링 담당
- * - heading: 아이콘 클릭 핸들러, id 생성, 정렬 지원
- * - link, link-block: 하이퍼링크, 블록 스타일
- * - info-box: 타입별 색상/이모지, paragraph/divider 등 기본 지원
+ * 에디터에서 커스텀 블록(요소) 렌더링 담당 컴포넌트
+ * - heading, 링크, info-box, divider, paragraph 등 다양한 블록 타입별 렌더링
+ * - heading: 아이콘 클릭, id 생성, 정렬 스타일 지원
+ * - link/link-block: 인라인/카드형 하이퍼링크
+ * - info-box: 타입별 배경색/이모지, 안내/경고/주의 등 스타일링
+ * - divider: <hr> 구분선
+ * - paragraph: 기본 단락
  */
 
 'use client';
@@ -25,13 +28,13 @@ import type {
   ParagraphElement
 } from '@/types/slate';
 
-// props 타입
+// props 타입 선언
 type ElementProps = RenderElementProps & {
-  editor: any;
-  onIconClick: (element: CustomElement) => void;
+  editor: any; // 에디터 인스턴스
+  onIconClick: (element: CustomElement) => void; // heading 아이콘 클릭 핸들러
 };
 
-// 메인 렌더러러
+// 메인 렌더러(타입별 블록 분기)
 const Element = ({ attributes, children, element, editor, onIconClick }: ElementProps) => {
   switch (element.type) {
     // 인라인 하이퍼링크
@@ -44,7 +47,7 @@ const Element = ({ attributes, children, element, editor, onIconClick }: Element
       );
     }
 
-    // 링크 블록
+    // 링크 블록(카드형)
     case 'link-block': {
       const el = element as LinkBlockElement;
       const isReadOnly = ReactEditor.isReadOnly(editor);
@@ -63,11 +66,12 @@ const Element = ({ attributes, children, element, editor, onIconClick }: Element
             marginBottom: '8px',
           }}
         >
-          {/* 카드 삭제 버튼(읽기전용 모드에서는 숨김) */}
+          {/* 카드 삭제 버튼 */}
           {!isReadOnly && (
             <button
               contentEditable={false}
               onClick={() => {
+                // 블록 전체 삭제
                 const path = ReactEditor.findPath(editor, element);
                 Transforms.removeNodes(editor, { at: path });
               }}
@@ -96,7 +100,7 @@ const Element = ({ attributes, children, element, editor, onIconClick }: Element
             </button>
           )}
 
-          {/* 파비콘 */}
+          {/* 파비콘/사이트 아이콘 */}
           {el.favicon && (
             <img
               src={el.favicon}
@@ -104,7 +108,7 @@ const Element = ({ attributes, children, element, editor, onIconClick }: Element
               style={{ width: 24, height: 24, marginRight: 8 }}
             />
           )}
-          {/* URL */}
+          {/* 사이트명 또는 URL */}
           <a
             href={el.url}
             target="_blank"
@@ -121,7 +125,7 @@ const Element = ({ attributes, children, element, editor, onIconClick }: Element
       );
     }
 
-    // Heading
+    // Heading (h1/h2/h3)
     case 'heading-one':
     case 'heading-two':
     case 'heading-three': {
@@ -132,7 +136,7 @@ const Element = ({ attributes, children, element, editor, onIconClick }: Element
 
       return (
         <Tag {...attributes} id={getHeadingId(el)} style={{ fontSize, textAlign: el.textAlign || 'left' }}>
-          {/* 아이콘 클릭: 커스텀 or 기본값, 이미지/이모지 지원 */}
+          {/* 아이콘 클릭: 커스텀 or 기본값, 이미지/이모지 모두 지원 */}
           <span
             onClick={() => onIconClick(el)}
             contentEditable={false}
@@ -196,7 +200,7 @@ const Element = ({ attributes, children, element, editor, onIconClick }: Element
       );
     }
 
-    // 그 외
+    // 그 외(확장/알수없음): 기본 문단 처리
     default: {
       const el = element as any;
       const textAlign = 'textAlign' in el ? el.textAlign : 'left';

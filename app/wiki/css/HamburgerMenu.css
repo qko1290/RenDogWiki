@@ -1,11 +1,11 @@
-/* HamburgerMenu 전체 컨테이너 */
+/* 사이드 전체 메뉴 컨테이너 (고정 위치, 어두운 배경) */
 .hamburger-menu {
   position: fixed;
   top: 0;
   right: 0;
-  width: 16rem; /* 64px * 4 = 256px */
+  width: 16rem;
   height: 100%;
-  background-color: #18181b; /* bg-zinc-900 */
+  background-color: #18181b;
   color: white;
   display: flex;
   flex-direction: column;
@@ -15,12 +15,12 @@
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
 }
 
-/* 상단 패딩 영역 */
+/* 상단 로고/닫기/유저영역 감싸는 헤더 */
 .hamburger-menu-header {
   padding: 1rem;
 }
 
-/* 상단 로고 + 닫기버튼 */
+/* 로고와 닫기 버튼(우측 X) */
 .hamburger-menu-top {
   display: flex;
   justify-content: space-between;
@@ -41,7 +41,7 @@
   cursor: pointer;
 }
 
-/* 유저 정보 */
+/* 유저 프로필/닉네임(미로그인시 안내 포함) */
 .hamburger-user-info {
   display: flex;
   flex-direction: column;
@@ -50,49 +50,44 @@
   margin-bottom: 0.75rem;
 }
 
-.hamburger-user-image {
+.hamburger-user-image,
+.hamburger-user-placeholder {
   border-radius: 0.375rem;
   width: 4rem;
   height: 4rem;
 }
-
 .hamburger-user-placeholder {
-  width: 4rem;
-  height: 4rem;
-  border-radius: 0.375rem;
-  background-color: #27272a; /* bg-zinc-800 */
+  background-color: #27272a;
   animation: pulse 2s infinite;
 }
 
 .hamburger-username {
   font-size: 0.875rem;
-  color: #22d3ee; /* text-cyan-400 */
+  color: #22d3ee;
 }
 
-/* 로그인 안내 */
+/* 미로그인 안내/링크 */
 .hamburger-login-info {
   text-align: center;
   font-size: 0.875rem;
   margin-bottom: 0.5rem;
 }
-
 .hamburger-login-info a {
   cursor: pointer;
   text-decoration: none;
   color: white;
 }
-
 .hamburger-login-info a:hover {
   text-decoration: underline;
 }
 
-/* 구분선 */
+/* 구분선(밝은색) */
 .hamburger-divider {
   border-color: rgba(255, 255, 255, 0.5);
   margin: 0.75rem 0;
 }
 
-/* 메뉴 목록 */
+/* 메뉴 리스트(내비, 프로필 등) */
 .hamburger-menu-list {
   margin-top: 0.5rem;
   font-size: 0.875rem;
@@ -104,23 +99,21 @@
 .hamburger-menu-item {
   cursor: pointer;
 }
-
 .hamburger-menu-item:hover {
-  color: #22d3ee; /* text-cyan-400 */
+  color: #22d3ee;
 }
 
-/* 닫기 버튼 (사이드) */
+/* 메뉴 숨기기/펼치기 토글 버튼 */
 .hamburger-menu-toggle {
   position: absolute;
   left: 0;
   top: 50%;
   transform: translateY(-50%);
-  background-color: #27272a; /* bg-zinc-800 */
+  background-color: #27272a;
   border-radius: 0 0.375rem 0.375rem 0;
   padding: 0.25rem 0.5rem;
   cursor: pointer;
 }
-
 .hamburger-menu-toggle span {
   font-size: 1.25rem;
 }

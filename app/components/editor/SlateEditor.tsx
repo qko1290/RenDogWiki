@@ -1,9 +1,11 @@
+// =============================================
 // File: app/components/editor/SlateEditor.tsx
-
+// =============================================
 /**
- * Slate 기반 위키 에디터(문서 생성/편집/저장/미리보기 등)
+ * 위키 에디터(문서 생성/편집/저장/미리보기 등)
  * - 문서 메타(title, path, icon, tags), 내용(content) 상태 관리
  * - 툴바, 본문 편집, 목차 추출, 저장/미리보기 지원
+ * - 백스페이스/엔터 등 UX 커스텀, selectionRef로 커서 보존
  */
 
 'use client';
@@ -43,24 +45,24 @@ type Props = {
 
 // 메인 에디터 컴포넌트
 export default function SlateEditor({ initialDoc }: Props) {
-  // 잘못된 진입 처리
+  // 진입 유효성 검사(잘못된 접근 처리)
   if (!initialDoc) return <div>잘못된 접근입니다.</div>;
   const path = initialDoc.path;
 
-  // 에디터 인스턴스 + 커스텀 normalize
+  // 에디터 인스턴스 생성
   const editor = useMemo(() => {
     const e = withHistory(withReact(createEditor()));
     const { normalizeNode } = e;
 
-    // info-box 블록 split/merge
+    // info-box: children 2개 이상이면 텍스트 합쳐 복구
     e.normalizeNode = ([node, path]) => {
       if (SlateElement.isElement(node) && node.type === 'info-box') {
         const text = Node.string(node);
 
-        // 내용 없으면 절대 삭제하지 않음
+        // 내용이 없을 때는 삭제 X
         if (text === '') return;
 
-        // children이 2개 이상일 땐 합쳐서 복구
+        // children 2개 이상: 내용 합쳐 하나로 복구
         if (node.children.length > 1) {
           const merged = {
             ...node,
@@ -76,30 +78,31 @@ export default function SlateEditor({ initialDoc }: Props) {
     return e;
   }, []);
 
-  // 커서 selection 저장용 ref
+  // 커서 selection 저장 ref(툴바/드롭다운/버튼 등 연동)
   const selectionRef = useRef<Range | null>(null);
 
-  // 문서 상태/에디터키/모달 등
+  // 문서 상태/에디터키/아이콘모달/로딩
   const [editorKey, setEditorKey] = useState(0);
   const [isIconModalOpen, setIsIconModalOpen] = useState(false);
   const [iconEditTarget, setIconEditTarget] = useState<CustomElement | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // 최초 mount 혹은 initialDoc.path/title이 바뀔 때만 doc 상태를 재설정
+  // 최초 mount 및 문서경로/제목 바뀔 때 doc 상태 재설정
   const [doc, setDoc] = useState<DocState>(() => ({
     title: initialDoc?.title ?? '',
     path: initialDoc?.path ?? '',
     icon: initialDoc?.icon ?? '',
     tags: Array.isArray(initialDoc?.tags) ? initialDoc.tags : [],
     content:
-    Array.isArray(initialDoc.content) && initialDoc.content.length > 0
-      ? initialDoc.content
-      : EMPTY_INITIAL_VALUE,
+      Array.isArray(initialDoc.content) && initialDoc.content.length > 0
+        ? initialDoc.content
+        : EMPTY_INITIAL_VALUE,
   }));
-  
+
+  // 태그 input 상태(쉼표/해시 지원)
   const [tagInput, setTagInput] = useState(doc.tags.join(', '));
 
-  // 뒤로가기 방지(Backspace)
+  // 브라우저 전체 백스페이스로 뒤로가기 방지
   useEffect(() => {
     const preventBackspaceNavigation = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -115,7 +118,7 @@ export default function SlateEditor({ initialDoc }: Props) {
     return () => window.removeEventListener('keydown', preventBackspaceNavigation);
   }, []);
 
-  // 블록 상태 콘솔 확인용
+  // 블록 상태 콘솔 디버깅용(useEffect)
   useEffect(() => {
     if (editor.selection) {
       const [node] = Editor.nodes(editor, {
@@ -128,13 +131,13 @@ export default function SlateEditor({ initialDoc }: Props) {
   // 목차(heading) 추출
   const headings = useMemo(() => extractHeadings(doc.content), [doc.content]);
 
-  // heading 아이콘 클릭시 편집 메뉴 출력력(모달)
+  // heading 아이콘 클릭 핸들러(아이콘 수정 모달 오픈)
   const handleIconClick = (element: CustomElement) => {
     setIconEditTarget(element);
     setIsIconModalOpen(true);
   };
 
-  // 렌더 함수
+  // renderLeaf/renderElement 최적화
   const renderLeaf = useCallback((props: RenderLeafProps) => <Leaf {...props} />, []);
   const renderElement = useCallback(
     (props: RenderElementProps) => (
@@ -143,14 +146,14 @@ export default function SlateEditor({ initialDoc }: Props) {
     [editor]
   );
 
-  // 저장
+  // 문서 저장 핸들러 (중복 체크/서버 전송)
   const handleSave = async () => {
     const res = await fetch(`/api/documents?all=1`);
     const allDocs = await res.json();
-    if (!Array.isArray(allDocs)) { 
+    if (!Array.isArray(allDocs)) {
       console.error('API 반환값이 배열이 아닙니다:', allDocs);
       alert('서버 오류: 문서 목록 조회 실패');
-      return; 
+      return;
     }
     const isDuplicate = allDocs.some(d => d.path === doc.path && d.title === doc.title && d.id !== doc.id);
 
@@ -178,8 +181,9 @@ export default function SlateEditor({ initialDoc }: Props) {
     }
   };
 
-  // 키이벤트 핸들러(heading/info-box/백스페이스 등)
+  // 키 이벤트 핸들러(단축키)
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    // 단축키 마크(B/I/U/취소선)
     const HOTKEYS: Record<string, string> = {
       'mod+b': 'bold',
       'mod+i': 'italic',
@@ -201,7 +205,7 @@ export default function SlateEditor({ initialDoc }: Props) {
       }
     }
 
-    // heading에서 엔터 처리
+    // heading 블록에서 Enter시 단락 추가
     if (event.key === 'Enter') {
       const [match] = Editor.nodes(editor, {
         match: n =>
@@ -218,7 +222,7 @@ export default function SlateEditor({ initialDoc }: Props) {
       }
     }
 
-    // info-box에서 엔터 무시
+    // info-box에서 Enter 무시
     if (event.key === 'Enter') {
       const [match] = Editor.nodes(editor, {
         match: n => SlateElement.isElement(n) && n.type === 'info-box',
@@ -229,7 +233,7 @@ export default function SlateEditor({ initialDoc }: Props) {
       }
     }
 
-    // heading에서 백스페이스 제거
+    // heading 블록에서 Backspace로 단락 변환
     if (event.key === 'Backspace') {
       const { selection } = editor;
       if (selection && Range.isCollapsed(selection)) {
@@ -255,7 +259,7 @@ export default function SlateEditor({ initialDoc }: Props) {
       }
     }
 
-    // info-box 바로 밑 빈 줄에서 백스페이스 시 info-box도 같이 제거
+    // info-box 바로 밑 빈 줄에서 Backspace로 info-box도 같이 제거
     if (event.key === 'Backspace') {
       const { selection } = editor;
 
@@ -304,13 +308,13 @@ export default function SlateEditor({ initialDoc }: Props) {
     }
   };
 
-  // 렌더 (툴바, 본문, 저장/미리보기, 목차)
+  // 렌더(툴바, 본문, 저장/미리보기, 목차 등)
   return (
     <div className="w-full flex justify-center">
       <div className="max-w-[1152px] w-full flex gap-6">
         {/* 에디터 영역 */}
         <div className="w-4/5">
-          {/* 문서 제목 */}
+          {/* 문서 제목 입력 */}
           <div className="mb-4">
             <label className="block font-semibold mb-1">문서 제목</label>
             <input
