@@ -24,6 +24,10 @@ import {
 } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import WikiHeader from "@/components/common/Header";
+import '@/wiki/css/manage-category.css';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faList, faBook } from '@fortawesome/free-solid-svg-icons';
 
 // 타입 선언부 (카테고리/문서 타입)
 type Category = {
@@ -45,7 +49,6 @@ type Document = {
 };
 
 // SortableCategoryItem (트리의 한 카테고리 행)
-// - 드래그 핸들, 카테고리명, 열림/닫힘, 아이콘
 function SortableCategoryItem({
   node,
   selected,
@@ -70,43 +73,48 @@ function SortableCategoryItem({
     isDragging,
   } = useSortable({ id: node.id.toString() });
 
+  // 스타일 객체 → 클래스 + 동적 속성만 분리
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+
   return (
     <li
       ref={setNodeRef}
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition,
-        opacity: isDragging ? 0.4 : 1,
-        listStyle: "none",
-      }}
+      className={`sortable-category-item${selected?.id === node.id ? " selected" : ""}`}
+      style={style} // transform, transition, opacity만 동적
       {...attributes}
     >
-      {/* 카테고리 라인 (드래그핸들 + 이름 + 화살표) */}
-      <div className="flex items-center justify-between px-2 py-1">
-        <span className="grab-handle mr-2" {...listeners} style={{ cursor: "grab" }}>⠿</span>
-        <span className="flex-1 cursor-pointer" onClick={onClick}>
+      <div className="category-row">
+        <span
+          className="grab-handle"
+          {...listeners}
+        >
+          ⠿
+        </span>
+        <span className="category-label" onClick={onClick}>
           {node.icon ?? ''} {node.name}
         </span>
         {node.children.length > 0 && (
           <button
             onClick={e => { e.stopPropagation(); onToggleOpen(node.id); }}
-            className="text-gray-500 ml-2"
+            className="category-toggle-btn"
             tabIndex={-1}
           >
             {open.has(node.id) ? '▼' : '▶'}
           </button>
         )}
       </div>
-      {/* 자식 트리 */}
-      {children}
+      {children && (
+        <div className="category-tree-children">{children}</div>
+      )}
     </li>
   );
 }
 
 // CategoryManager (메인 페이지)
-// - 왼쪽: 카테고리 트리
-// - 중앙: 문서 목록
-// - 오른쪽: 카테고리 정보/문서 정보
 export default function CategoryManager() {
   // 상태 선언
   const [tree, setTree] = useState<Category[]>([]);
@@ -118,10 +126,8 @@ export default function CategoryManager() {
 
   const sensors = useSensors(useSensor(PointerSensor));
 
-  // 초기 데이터 fetch
   useEffect(() => {
     fetchCategories();
-    // window-level 열림 이벤트 지원
     window.addEventListener("toggleOpen", (e: any) => {
       if (e.detail) toggleOpen(e.detail);
     });
@@ -130,25 +136,21 @@ export default function CategoryManager() {
     };
   }, []);
 
-  // 문서 전체 목록 fetch
   useEffect(() => {
     fetch('/api/documents?all=1')
       .then(res => res.json())
       .then(data => setAllDocuments(data));
   }, []);
 
-  // 카테고리/문서 선택 로직
   const handleCategorySelect = (node: Category, currentPath: number[]) => {
     setSelected(node);
     setSelectedDoc(null);
     setSelectedCategoryPath(currentPath);
   };
 
-  // 선택된 카테고리 하위 문서 필터링
   const realPath = selectedCategoryPath.slice(1).join('/');
   const filteredDocs = allDocuments.filter(doc => String(doc.path) === realPath);
 
-  // 카테고리 트리 fetch & 변환
   const fetchCategories = async () => {
     const res = await fetch('/api/categories');
     const flat: Category[] = await res.json();
@@ -166,7 +168,6 @@ export default function CategoryManager() {
     ]);
   };
 
-  // flat -> 트리 변환
   const buildTree = (list: Category[]): Category[] => {
     const map = new Map<number, Category>();
     list.forEach((item) => map.set(item.id, { ...item, children: [] }));
@@ -183,7 +184,6 @@ export default function CategoryManager() {
     return roots.sort((a, b) => a.order - b.order);
   };
 
-  // 카테고리 열림/닫힘 토글
   const toggleOpen = (id: number) => {
     setOpen((prev) => {
       const copy = new Set(prev);
@@ -192,36 +192,42 @@ export default function CategoryManager() {
     });
   };
 
-  // 트리 드래그/정렬 핸들러
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     const activeId = parseInt(active.id as string);
     const overId = parseInt(over.id as string);
+
+    // 각각의 부모 찾기
     const newTree = structuredClone(tree);
-    const parent = findParent(newTree, activeId);
-    if (!parent) return;
-    const oldIndex = parent.children.findIndex((c) => c.id === activeId);
-    const newIndex = parent.children.findIndex((c) => c.id === overId);
+    const parentA = findParent(newTree, activeId);
+    const parentB = findParent(newTree, overId);
+
+    // 같은 부모 내에서만 순서 이동 허용
+    if (!parentA || !parentB || parentA !== parentB) return;
+
+    const oldIndex = parentA.children.findIndex((c) => c.id === activeId);
+    const newIndex = parentA.children.findIndex((c) => c.id === overId);
     if (oldIndex === -1 || newIndex === -1) return;
-    const reordered = arrayMove(parent.children, oldIndex, newIndex);
-    parent.children = reordered;
+
+    parentA.children = arrayMove(parentA.children, oldIndex, newIndex);
     setTree(newTree);
+
+    // 선택 카테고리 동기화
     if (selected) {
       const newSelected = findCategoryById(newTree, selected.id);
       if (newSelected) setSelected(newSelected);
     }
-    // 순서 DB 반영
-    reordered.forEach((item, index) => {
+    // DB 반영
+    parentA.children.forEach((item, idx) => {
       fetch(`/api/categories/${item.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order: index }),
+        body: JSON.stringify({ order: idx }),
       });
     });
   };
 
-  // 트리 노드 탐색 유틸
   const findCategoryById = (nodes: Category[], id: number): Category | null => {
     for (const node of nodes) {
       if (node.id === id) return node;
@@ -239,14 +245,13 @@ export default function CategoryManager() {
     return null;
   };
 
-  // 트리 렌더링
   const renderTree = (nodes: Category[], currentPath: number[] = [], depth = 0): JSX.Element => {
     return (
       <SortableContext
         items={nodes.map((node) => node.id.toString())}
         strategy={verticalListSortingStrategy}
       >
-        <ul className="space-y-1">
+        <ul className="category-tree-list">
           {nodes.map((node) => {
             const path = [...currentPath, node.id];
             return (
@@ -259,7 +264,7 @@ export default function CategoryManager() {
                 onToggleOpen={toggleOpen}
               >
                 {open.has(node.id) && node.children.length > 0 && (
-                  <div className="ml-4">
+                  <div className="category-tree-children">
                     {renderTree(node.children, path, depth + 1)}
                   </div>
                 )}
@@ -271,28 +276,26 @@ export default function CategoryManager() {
     );
   };
 
-  // 렌더링
   return (
-    <div className="flex h-screen">
+    <div className="category-manager-container">
+      <WikiHeader user={null} />
       {/* 1. 카테고리 트리 */}
-      <div className="w-1/4 bg-gray-100 overflow-y-auto border-r p-4">
-        <h2 className="text-lg font-bold mb-2">카테고리 구조</h2>
+      <div className="category-sidebar">
+        <h2 className="category-tree-title"><FontAwesomeIcon icon={faList} />&nbsp;&nbsp;&nbsp;카테고리</h2>
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           {renderTree(tree)}
         </DndContext>
       </div>
 
       {/* 2. 중앙: 문서 목록 */}
-      <div className="w-1/4 bg-white border-r p-4 overflow-y-auto">
-        <h2 className="text-lg font-bold mb-2">문서 목록</h2>
+      <div className="category-doclist">
+        <h2 className="category-doclist-title"><FontAwesomeIcon icon={faBook} />&nbsp;&nbsp;&nbsp;문서 목록</h2>
         {filteredDocs.length > 0 ? (
           <ul>
             {filteredDocs.map((doc) => (
               <li
                 key={doc.id}
-                className={`cursor-pointer px-2 py-1 rounded hover:bg-gray-100 ${
-                  selectedDoc?.id === doc.id ? 'bg-blue-100' : ''
-                }`}
+                className={`category-doc-item${selectedDoc?.id === doc.id ? " selected" : ""}`}
                 onClick={() => setSelectedDoc(doc)}
               >
                 📄 {doc.title}
@@ -305,7 +308,7 @@ export default function CategoryManager() {
       </div>
 
       {/* 3. 오른쪽: 문서 or 카테고리 정보/설정 */}
-      <div className="flex-1 p-6 overflow-y-auto">
+      <div className="category-detail-panel">
         {/* 문서 정보 */}
         {selectedDoc ? (
           <div>
@@ -314,14 +317,12 @@ export default function CategoryManager() {
             <p><strong>경로:</strong> {selectedDoc.path}</p>
             <p><strong>생성일:</strong> {selectedDoc.created_at}</p>
             <p><strong>수정일:</strong> {selectedDoc.updated_at}</p>
-            <button className="mt-4 bg-blue-600 text-white px-4 py-2 rounded">수정하기</button>
+            <button className="bg-blue-600 text-white px-4 py-2 rounded">수정하기</button>
           </div>
         ) : selected ? (
-          /* 카테고리 설정 */
           <div>
             <h2 className="text-xl font-bold mb-4">{selected.name} 설정</h2>
             <div className="space-y-4">
-              {/* 카테고리 이름 */}
               <div>
                 <label className="block font-semibold">카테고리 이름</label>
                 <input
@@ -331,7 +332,6 @@ export default function CategoryManager() {
                   disabled={selected.id === 0}
                 />
               </div>
-              {/* 아이콘 */}
               <div>
                 <label className="block font-semibold">이모지 / 이미지</label>
                 <input
@@ -341,7 +341,6 @@ export default function CategoryManager() {
                   disabled={selected.id === 0}
                 />
               </div>
-              {/* 문서 경로 */}
               <div>
                 <label className="block font-semibold">문서 경로</label>
                 <input
@@ -351,11 +350,9 @@ export default function CategoryManager() {
                   disabled={selected.id === 0}
                 />
               </div>
-              {/* 카테고리 조작 버튼 */}
               <div className="flex gap-2">
                 {selected.id !== 0 && (
                   <>
-                    {/* 저장 */}
                     <button
                       className="bg-blue-600 text-white px-4 py-2 rounded"
                       onClick={async () => {
@@ -369,7 +366,6 @@ export default function CategoryManager() {
                     >
                       저장
                     </button>
-                    {/* 삭제 */}
                     <button
                       className="bg-red-600 text-white px-4 py-2 rounded"
                       onClick={async () => {
@@ -383,7 +379,6 @@ export default function CategoryManager() {
                     </button>
                   </>
                 )}
-                {/* 하위 카테고리 추가 */}
                 <button
                   className="bg-green-600 text-white px-4 py-2 rounded"
                   onClick={async () => {
@@ -405,7 +400,6 @@ export default function CategoryManager() {
                 >
                   하위 카테고리 추가
                 </button>
-                {/* 대표 문서 작성 */}
                 <button
                   className="bg-blue-500 text-white px-4 py-2 rounded"
                   onClick={() => {
@@ -416,7 +410,6 @@ export default function CategoryManager() {
                 >
                   📘 카테고리 대표 문서 작성
                 </button>
-                {/* 하위 문서 추가 */}
                 <button
                   className="bg-green-600 text-white px-4 py-2 rounded"
                   onClick={() => {
@@ -431,7 +424,6 @@ export default function CategoryManager() {
             </div>
           </div>
         ) : (
-          // 선택 없음
           <p className="text-gray-500">좌측에서 카테고리를 선택해주세요</p>
         )}
       </div>

@@ -34,7 +34,7 @@ export default function WikiHeader({ user }: WikiHeaderProps) {
   return (
     <header className="wiki-header">
       {/* 1. 로고(클릭시 홈 이동) */}
-      <Link href="/" className="wiki-logo">RDWIKI</Link>
+      <Link href="/wiki" className="wiki-logo">RDWIKI</Link>
 
       {/* 2. 검색창 */}
       <div className="wiki-search-container">

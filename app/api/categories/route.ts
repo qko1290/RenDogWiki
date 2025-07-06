@@ -33,7 +33,7 @@ export async function GET() {
 /**
  * [카테고리 신규 생성] POST
  * - 프론트 카테고리 관리 페이지의 "카테고리 추가" 버튼에서 호출
- * - parent_id: 소속 카테고리 번호
+ * - parent_id: 소속 카테고리 번호  
  * - order: 같은 parent 내에서의 표시 순서(없으면 0)
  * - document_path: 대표 문서 경로 (카테고리 클릭 시 로드되는 문서의 경로)
  * - icon: 카테고리 아이콘
@@ -41,7 +41,7 @@ export async function GET() {
  */
 export async function POST(req: NextRequest) {
   // 1. 입력값 파싱
-  const { name, parent_id, order, document_path, icon } = await req.json();
+  const { name, parent_id, order, document_id, icon } = await req.json();
 
   // 2. 필수값(name) 체크
   if (!name) {
@@ -52,9 +52,16 @@ export async function POST(req: NextRequest) {
   // parent_id, order, document_path, icon은 선택값(없으면 null/0)
   // Postgres "order" 예약어 주의
   // RETURNING id로 신규 PK 반환
+  const parentIdFixed =
+    parent_id === undefined || parent_id === '' || parent_id === null
+      ? null
+      : Number(parent_id);
+  const orderFixed =
+    order === undefined || order === '' || order === null ? 0 : Number(order);
+
   const result = await db.query(
-    'INSERT INTO categories (name, parent_id, "order", document_path, icon) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-    [name, parent_id || null, order || 0, document_path || null, icon || null]
+    'INSERT INTO categories (name, parent_id, "order", document_id, icon) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+    [name, parentIdFixed, orderFixed, document_id || null, icon || null]
   );
 
   // 4. 생성된 id 반환

@@ -1,16 +1,10 @@
 // File: app/layout.tsx
 
-/**
- * Next.js 앱 전체 레이아웃
- * - 글로벌 폰트/스타일/메타데이터 설정
- * - 인증(세션) AuthProviderWrapper로 감쌈
- */
-
 import type { Metadata } from "next";
 import { Inter } from 'next/font/google';
 import "./globals.css";
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ subsets: ['latin'], display: 'swap' });
 
 export const metadata: Metadata = {
   title: "RenDog Wiki",

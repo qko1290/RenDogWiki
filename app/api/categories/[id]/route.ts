@@ -36,9 +36,23 @@ export async function PUT(
   // - 없는 값(null/0 등)은 SQL에서 null/0 처리
   // - parent_id, document_path, icon은 없으면 null
   // - order는 없으면 0으로 강제 (최상위 루트에서 0으로 고정)
+  const parentIdFixed =
+    parent_id === undefined || parent_id === '' || parent_id === null || parent_id === 0
+      ? null
+      : Number(parent_id);
+  const orderFixed =
+    order === undefined || order === '' || order === null ? 0 : Number(order);
+
   await db.query(
-    'UPDATE categories SET name = ?, parent_id = ?, `order` = ?, document_path = ?, icon = ? WHERE id = ?',
-    [name, parent_id || null, order || 0, document_path || null, icon || null, id]
+    'UPDATE categories SET name = $1, parent_id = $2, "order" = $3, document_id = $4, icon = $5 WHERE id = $6',
+    [
+      name,
+      parentIdFixed,
+      orderFixed,
+      document_path || null,
+      icon || null,
+      id,
+    ]
   );
 
   // 성공 응답
@@ -58,7 +72,7 @@ export async function DELETE(
 ) {
   const { id } = params;
   // 단일 카테고리 삭제
-  await db.query('DELETE FROM categories WHERE id = ?', [id]);
+  await db.query('DELETE FROM categories WHERE id = $1', [id]);
   return NextResponse.json({ message: 'deleted' });
 }
 
@@ -76,6 +90,6 @@ export async function POST(
   const { id } = params;
 
   // DB에서 order(순서)만 업데이트
-  await db.query('UPDATE categories SET `order` = ? WHERE id = ?', [order, id]);
+  await db.query('UPDATE categories SET "order" = $1 WHERE id = $2', [order, id]);
   return NextResponse.json({ message: 'order updated' });
 }
