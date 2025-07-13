@@ -10,7 +10,7 @@
  * - order는 Postgres 예약어이므로 쌍따옴표 필수
  */
 
-import { db } from '@/wiki/lib/db'; // DB
+import { sql } from '@/wiki/lib/db'; // DB (neon serverless)
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
@@ -23,11 +23,11 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 export async function GET() {
   // 전체 row parent_id, order 기준 정렬
-  const result = await db.query(
-    'SELECT * FROM categories ORDER BY parent_id, "order"'
-  );
+  const result = await sql`
+    SELECT * FROM categories ORDER BY parent_id, "order"
+  `;
   // 프론트에 배열로 반환
-  return NextResponse.json(result.rows);
+  return NextResponse.json(result);
 }
 
 /**
@@ -41,7 +41,7 @@ export async function GET() {
  */
 export async function POST(req: NextRequest) {
   // 1. 입력값 파싱
-  const { name, parent_id, order, document_id, icon } = await req.json();
+  const { name, parent_id, document_id, icon } = await req.json();
 
   // 2. 필수값(name) 체크
   if (!name) {
@@ -56,14 +56,23 @@ export async function POST(req: NextRequest) {
     parent_id === undefined || parent_id === '' || parent_id === null
       ? null
       : Number(parent_id);
-  const orderFixed =
-    order === undefined || order === '' || order === null ? 0 : Number(order);
 
-  const result = await db.query(
-    'INSERT INTO categories (name, parent_id, "order", document_id, icon) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-    [name, parentIdFixed, orderFixed, document_id || null, icon || null]
-  );
+  // 같은 parent_id 내에서 order의 최대값 구하기 (order + 1이 새 order)
+  let nextOrder = 0;
+  const orderResult = await sql`
+    SELECT MAX("order") AS max_order FROM categories WHERE parent_id
+    ${parentIdFixed === null ? sql`IS NULL` : sql`= ${parentIdFixed}`}
+  `;
+  if (orderResult.length > 0 && orderResult[0].max_order !== null) {
+    nextOrder = Number(orderResult[0].max_order) + 1;
+  }
+
+  const result = await sql`
+    INSERT INTO categories (name, parent_id, "order", document_id, icon)
+    VALUES (${name}, ${parentIdFixed}, ${nextOrder}, ${document_id || null}, ${icon || null})
+    RETURNING id
+  `;
 
   // 4. 생성된 id 반환
-  return NextResponse.json({ id: result.rows[0].id });
+  return NextResponse.json({ id: result[0].id });
 }

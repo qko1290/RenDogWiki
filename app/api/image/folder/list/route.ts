@@ -11,7 +11,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/wiki/lib/db'; // DB 쿼리(Postgres 등)
+import { sql } from '@/wiki/lib/db'; // DB 쿼리(Postgres 등)
 
 /**
  * [폴더 리스트 조회] GET
@@ -24,21 +24,16 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const parent_id = searchParams.get("parent_id");
 
-  let result;
+  let rows;
   // 2. parent_id에 따라 분기
   if (!parent_id) {
     // parent_id 없으면 전체 폴더 반환
-    result = await db.query(
-      'SELECT * FROM image_folders ORDER BY id ASC'
-    );
+    rows = await sql`SELECT * FROM image_folders ORDER BY id ASC`;
   } else {
     // parent_id 있으면 해당 하위 폴더만 반환
-    result = await db.query(
-      'SELECT * FROM image_folders WHERE parent_id = $1 ORDER BY id ASC',
-      [parseInt(parent_id)]
-    );
+    rows = await sql`SELECT * FROM image_folders WHERE parent_id = ${parseInt(parent_id)} ORDER BY id ASC`;
   }
 
   // 3. row 배열 반환
-  return NextResponse.json(result.rows);
+  return NextResponse.json(rows);
 }

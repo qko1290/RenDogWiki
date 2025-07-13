@@ -14,7 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/wiki/lib/db'; // DB
+import { sql } from '@/wiki/lib/db'; // DB (neon 방식)
 import bcrypt from 'bcryptjs'; // 비밀번호 해시
 import crypto from 'crypto'; // 인증 토큰 생성용
 import { sendVerificationMail } from '@/wiki/lib/sendVerificationMail'; // 인증메일 발송 함수
@@ -37,11 +37,9 @@ export async function POST(req: NextRequest) {
 
     // 2. 중복 체크 (이메일, 아이디, 닉네임)
     // email, username, minecraftName 중 하나라도 기존에 있으면 가입 불가
-    const result = await db.query(
-      'SELECT * FROM users WHERE email = $1 OR username = $2 OR minecraft_name = $3',
-      [email, username, minecraftName]
-    );
-    const existing = result.rows;
+    const existing = await sql`
+      SELECT * FROM users WHERE email = ${email} OR username = ${username} OR minecraft_name = ${minecraftName}
+    `;
 
     // 중복된 값이 존재하면 에러 반환
     if (Array.isArray(existing) && existing.length > 0) {
@@ -58,11 +56,10 @@ export async function POST(req: NextRequest) {
     // 4. DB에 회원 정보 저장
     // - verified: false(가입 직후엔 미인증)
     // - verification_token: 생성한 토큰 값 저장
-    await db.query(
-      `INSERT INTO users (email, username, password_hash, minecraft_name, verified, verification_token)
-       VALUES ($1, $2, $3, $4, false, $5)`,
-      [email, username, hashed, minecraftName, token]
-    );
+    await sql`
+      INSERT INTO users (email, username, password_hash, minecraft_name, verified, verification_token)
+      VALUES (${email}, ${username}, ${hashed}, ${minecraftName}, false, ${token})
+    `;
 
     // 5. 인증 메일 발송
     // 발송 실패 시도 catch로 감지

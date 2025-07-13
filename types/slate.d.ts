@@ -40,13 +40,26 @@ export type LinkBlockElement = {
   children: CustomText[];
   favicon?: string;
   sitename?: string;
+  isWiki?: boolean;
+  wikiTitle?: string;
+  wikiPath?: string | number;
 };
 
 // 구분선(divider)
-export type DividerElement = {
-  type: 'divider';
-  children: [{ text: '' }];
-};
+export interface DividerElement {
+  type: "divider";
+  style?: "default" 
+    | "bold" 
+    | "shortbold"
+    | "wavy" 
+    | "dotted" 
+    | "diamond" 
+    | "diamonddot"
+    | "dotdot" 
+    | "slash" 
+    | "bar";
+  children: [{ text: "" }];
+}
 
 // 일반 문단(paragraph)
 export interface ParagraphElement {
@@ -86,6 +99,15 @@ export interface HeadingThreeElement {
 // 통합 heading 타입(가독성용)
 export type HeadingElement = HeadingOneElement | HeadingTwoElement | HeadingThreeElement;
 
+export type ImageElement = {
+  type: 'image';
+  url: string;
+  textAlign?: 'left' | 'center' | 'right' | 'justify';
+  width?: number; // 이후 4번에서 사용할 필드
+  height?: number;
+  children: [{ text: '' }];
+};
+
 // [모든 Element 통합 타입]
 export type CustomElement =
   | ParagraphElement
@@ -95,7 +117,8 @@ export type CustomElement =
   | InfoBoxElement
   | HeadingOneElement
   | HeadingTwoElement
-  | HeadingThreeElement;
+  | HeadingThreeElement
+  | ImageElement;
 
 // [Slate 타입 시스템 오버라이드]
 //   - 실제 Editor, Element, Text 구조를 커스텀 타입으로 덮어씀

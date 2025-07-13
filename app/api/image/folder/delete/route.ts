@@ -12,7 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/wiki/lib/db';            // DB
+import { sql } from '@/wiki/lib/db';            // DB
 import { S3 } from "aws-sdk";                  // AWS S3 SDK
 import { getAuthUser } from '@/wiki/lib/auth'; // 로그인 유저 인증
 
@@ -32,15 +32,15 @@ const s3 = new S3({
  * - 반환: 자기 자신 + 하위 모든 폴더 id 배열
  */
 async function getAllFolderIds(rootId: number) {
-  const { rows } = await db.query(`
+  const rows = await sql`
     WITH RECURSIVE subfolders AS (
-      SELECT id FROM image_folders WHERE id = $1
+      SELECT id FROM image_folders WHERE id = ${rootId}
       UNION ALL
       SELECT f.id FROM image_folders f
       INNER JOIN subfolders sf ON f.parent_id = sf.id
     )
     SELECT id FROM subfolders
-  `, [rootId]);
+  `;
   return rows.map((r: any) => r.id);
 }
 
@@ -69,10 +69,10 @@ export async function DELETE(req: NextRequest) {
 
   // 3. 해당 폴더 내 이미지 S3 key 모두 수집
   // images 테이블에서 folder_id 검색
-  const { rows: imgs } = await db.query(
-    `SELECT s3_key FROM images WHERE folder_id = ANY($1)`, [folderIds]
-  );
-  const s3keys = imgs.map(row => ({ Key: row.s3_key }));
+  const imgs = await sql`
+    SELECT s3_key FROM images WHERE folder_id = ANY(${folderIds})
+  `;
+  const s3keys = imgs.map((row: any) => ({ Key: row.s3_key }));
 
   // 4. S3에서 이미지 삭제
   if (s3keys.length > 0) {
@@ -87,8 +87,8 @@ export async function DELETE(req: NextRequest) {
 
   // 5. DB에서 images -> image_folders 순서로 삭제
   // (참조 무결성: images 먼저, 그 후 폴더)
-  await db.query(`DELETE FROM images WHERE folder_id = ANY($1)`, [folderIds]);
-  await db.query(`DELETE FROM image_folders WHERE id = ANY($1)`, [folderIds]);
+  await sql`DELETE FROM images WHERE folder_id = ANY(${folderIds})`;
+  await sql`DELETE FROM image_folders WHERE id = ANY(${folderIds})`;
 
   // 6. 성공 응답
   return NextResponse.json({

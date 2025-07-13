@@ -96,6 +96,15 @@ export default function HamburgerMenu({
           <li className="hamburger-menu-item">
             <Link href="/manage/category" className="menu-link">📂 카테고리 관리</Link>
           </li>
+          <li className="hamburger-menu-item">
+            <Link href="/manage/npc" className="menu-link">📂 npc 관리</Link>
+          </li>
+          <li className="hamburger-menu-item">
+            <Link href="/manage/quest" className="menu-link">📂 퀘스트 관리</Link>
+          </li>
+          <li className="hamburger-menu-item">
+            <Link href="/manage/head" className="menu-link">📂 머리찾기 관리</Link>
+          </li>
           {/* 필요시 메뉴 추가 */}
         </ul>
       </div>

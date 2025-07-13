@@ -9,7 +9,7 @@
  * - id는 카테고리의 고유번호
  */
 
-import { db } from '@/wiki/lib/db'; // DB
+import { sql } from '@/wiki/lib/db'; // DB (neon 방식)
 import { NextRequest, NextResponse } from 'next/server'; // Next.js API 타입
 
 /**
@@ -23,7 +23,7 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   // 입력값 파싱
-  const { name, parent_id, order, document_path, icon } = await req.json();
+  const { name, parent_id, order, document_id, icon } = await req.json();
   const { id } = params; // URL에서 id 추출
 
   // 유효성 검사 name(이름) 필수, 빈값/공백 X
@@ -32,10 +32,6 @@ export async function PUT(
     return NextResponse.json({ error: 'name is required' }, { status: 400 });
   }
 
-  // 필드 업데이트
-  // - 없는 값(null/0 등)은 SQL에서 null/0 처리
-  // - parent_id, document_path, icon은 없으면 null
-  // - order는 없으면 0으로 강제 (최상위 루트에서 0으로 고정)
   const parentIdFixed =
     parent_id === undefined || parent_id === '' || parent_id === null || parent_id === 0
       ? null
@@ -43,17 +39,33 @@ export async function PUT(
   const orderFixed =
     order === undefined || order === '' || order === null ? 0 : Number(order);
 
-  await db.query(
-    'UPDATE categories SET name = $1, parent_id = $2, "order" = $3, document_id = $4, icon = $5 WHERE id = $6',
-    [
-      name,
-      parentIdFixed,
-      orderFixed,
-      document_path || null,
-      icon || null,
-      id,
-    ]
-  );
+  // 필드 업데이트
+  // - 없는 값(null/0 등)은 SQL에서 null/0 처리
+  // - parent_id, document_path, icon은 없으면 null
+  // - order는 없으면 0으로 강제 (최상위 루트에서 0으로 고정)
+
+  await sql`
+    UPDATE categories SET
+      name = ${name},
+      parent_id = ${parentIdFixed},
+      "order" = ${orderFixed},
+      document_id = ${document_id === undefined || document_id === null || document_id === '' ? null : Number(document_id)},
+      icon = ${icon || null}
+    WHERE id = ${Number(id)}
+  `;
+
+  if (document_id) {
+    // 1) 일단 이 카테고리의 기존 대표문서 전부 false
+    await sql`
+      UPDATE documents
+      SET is_featured = false
+      WHERE id IN (SELECT document_id::integer FROM categories WHERE id = ${Number(id)})
+    `;
+    // 2) 새로 지정된 문서만 true
+    await sql`
+      UPDATE documents SET is_featured = true WHERE id = ${Number(document_id)}
+    `;
+  }
 
   // 성공 응답
   return NextResponse.json({ message: 'updated' });
@@ -71,8 +83,43 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   const { id } = params;
-  // 단일 카테고리 삭제
-  await db.query('DELETE FROM categories WHERE id = $1', [id]);
+  // 1. 재귀적으로 모든 하위 카테고리 id 조회
+  const subCatResult = await sql`
+    WITH RECURSIVE subcategories AS (
+      SELECT id FROM categories WHERE id = ${id}
+      UNION ALL
+      SELECT c.id FROM categories c
+        INNER JOIN subcategories sc ON c.parent_id = sc.id
+    )
+    SELECT id FROM subcategories
+  `;
+  const catIds = subCatResult.map((r: any) => r.id);
+
+  if (catIds.length === 0) {
+    return NextResponse.json({ message: 'not found' }, { status: 404 });
+  }
+
+  // 2. 해당 카테고리 id에 속한 문서 id 전부 조회
+  const docResult = await sql`
+    SELECT id FROM documents WHERE path = ANY(${catIds})
+  `;
+  const docIds = docResult.map((r: any) => r.id);
+
+  // 3. 문서 본문 삭제 －＞ 문서 삭제 (존재할 때만)
+  if (docIds.length > 0) {
+    await sql`
+      DELETE FROM document_contents WHERE document_id = ANY(${docIds})
+    `;
+    await sql`
+      DELETE FROM documents WHERE id = ANY(${docIds})
+    `;
+  }
+
+  // 4. 카테고리 삭제 (루트 포함 모든 하위)
+  await sql`
+    DELETE FROM categories WHERE id = ANY(${catIds})
+  `;
+
   return NextResponse.json({ message: 'deleted' });
 }
 
@@ -90,6 +137,8 @@ export async function POST(
   const { id } = params;
 
   // DB에서 order(순서)만 업데이트
-  await db.query('UPDATE categories SET "order" = $1 WHERE id = $2', [order, id]);
+  await sql`
+    UPDATE categories SET "order" = ${order} WHERE id = ${id}
+  `;
   return NextResponse.json({ message: 'order updated' });
 }

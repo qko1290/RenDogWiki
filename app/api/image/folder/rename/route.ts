@@ -10,7 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/wiki/lib/db';           // DB
+import { sql } from '@/wiki/lib/db';           // DB
 import { getAuthUser } from '@/wiki/lib/auth';// 로그인 유저
 
 /**
@@ -33,25 +33,22 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "필수값 누락" }, { status: 400 });
 
   // 2. 기존 폴더 존재 여부 확인
-  const folderResult = await db.query(
-    'SELECT * FROM image_folders WHERE id = $1', [id]
-  );
-  const folder = folderResult.rows[0];
+  const folders = await sql`SELECT * FROM image_folders WHERE id = ${id}`;
+  const folder = folders[0];
   if (!folder)
     return NextResponse.json({ error: "폴더 없음" }, { status: 404 });
 
   // 3. 동일 parent 내 중복 이름 체크(본인 제외)
-  const existsResult = await db.query(
-    'SELECT id FROM image_folders WHERE parent_id = $1 AND name = $2 AND id != $3 LIMIT 1',
-    [folder.parent_id, name, id]
-  );
-  if (existsResult.rows.length > 0)
+  const exists = await sql`
+    SELECT id FROM image_folders 
+    WHERE parent_id = ${folder.parent_id} AND name = ${name} AND id != ${id}
+    LIMIT 1
+  `;
+  if (exists.length > 0)
     return NextResponse.json({ error: "중복 폴더명" }, { status: 409 });
 
   // 4. DB에서 폴더 이름 변경
-  await db.query(
-    'UPDATE image_folders SET name = $1 WHERE id = $2', [name, id]
-  );
+  await sql`UPDATE image_folders SET name = ${name} WHERE id = ${id}`;
 
   // 5. 성공 응답
   return NextResponse.json({ ok: true });

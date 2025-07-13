@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/wiki/lib/db'; // DB
+import { sql } from '@/wiki/lib/db'; // DB
 
 /**
  * [폴더 내 이미지 리스트 조회] GET
@@ -27,11 +27,10 @@ export async function GET(req: NextRequest) {
   }
 
   // 2. 해당 폴더 내 모든 이미지 row 조회(최신순)
-  const result = await db.query(
-    'SELECT * FROM images WHERE folder_id = $1 ORDER BY id DESC',
-    [parseInt(folder_id)]
-  );
+  const result = await sql`
+    SELECT * FROM images WHERE folder_id = ${parseInt(folder_id)} ORDER BY id DESC
+  `;
 
   // 3. row 배열 반환
-  return NextResponse.json(result.rows);
+  return NextResponse.json(result);
 }

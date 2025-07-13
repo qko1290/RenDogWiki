@@ -52,23 +52,23 @@ const InfoBoxDropdown = ({
 
   // 렌더링
   return (
-    <div style={{ position: 'relative' }}>
+    <div className="editor-dropdown">
       <button
         type="button"
         onMouseDown={e => {
           e.preventDefault();
           setOpenDropdown(isOpen ? null : dropdownId);
         }}
-        style={buttonStyle}
+        className="editor-toolbar-btn"
       >
-        📦 박스 삽입 ▾
+        📦
       </button>
 
       {isOpen && (
-        <ul style={dropdownStyle}>
-          <li style={liStyle} onMouseDown={() => handleSelect('info')}>ℹ️ 정보</li>
-          <li style={liStyle} onMouseDown={() => handleSelect('warning')}>⚠️ 주의</li>
-          <li style={liStyle} onMouseDown={() => handleSelect('danger')}>🚫 경고</li>
+        <ul className="editor-dropdown-menu">
+          <li onMouseDown={() => handleSelect('info')}>ℹ️ 정보</li>
+          <li onMouseDown={() => handleSelect('warning')}>⚠️ 주의</li>
+          <li onMouseDown={() => handleSelect('danger')}>🚫 경고</li>
         </ul>
       )}
     </div>
@@ -76,36 +76,3 @@ const InfoBoxDropdown = ({
 };
 
 export default InfoBoxDropdown;
-
-// 드롭다운/리스트/버튼 인라인 스타일(CSS 대체 예정)
-const dropdownStyle: React.CSSProperties = {
-  position: 'absolute',
-  top: '100%',
-  left: 0,
-  margin: 0,
-  padding: '4px 0',
-  background: 'white',
-  border: '1px solid #ccc',
-  borderRadius: '4px',
-  listStyle: 'none',
-  boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
-  zIndex: 100,
-};
-
-const liStyle: React.CSSProperties = {
-  padding: '6px 12px',
-  cursor: 'pointer',
-  whiteSpace: 'nowrap',
-  fontSize: '14px',
-  userSelect: 'none',
-};
-
-const buttonStyle: React.CSSProperties = {
-  padding: '4px 8px',
-  border: '1px solid #ccc',
-  borderRadius: '4px',
-  background: '#f9f9f9',
-  cursor: 'pointer',
-  marginRight: '8px',
-  fontSize: '14px',
-};

@@ -46,7 +46,6 @@ const TableOfContents = ({ headings }: Props) => {
             }}
           >
             <button
-              // heading 클릭시 해당 id로 스크롤 이동
               onClick={e => {
                 e.preventDefault();
                 const el = document.getElementById(heading.id);
@@ -61,10 +60,22 @@ const TableOfContents = ({ headings }: Props) => {
                 textAlign: 'left',
                 cursor: 'pointer',
                 fontSize: '14px',
+                display: 'flex',          // ⭐️ 가로 배치 핵심
+                alignItems: 'center',     // 세로 중앙정렬
+                gap: 8,                   // 아이콘-텍스트 간격
               }}
             >
-              {/* 아이콘(이모지/이미지) + 텍스트 */}
-              {heading.icon} {heading.text}
+              {heading.icon?.startsWith('http') ? (
+                <img src={heading.icon} alt="icon" style={{
+                  width: 18,
+                  height: 18,
+                  verticalAlign: 'middle',
+                  objectFit: 'contain'
+                }} />
+              ) : (
+                <span style={{ fontSize: 18 }}>{heading.icon}</span>
+              )}
+              <span>{heading.text}</span>
             </button>
           </li>
         ))}

@@ -11,7 +11,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/wiki/lib/db'; // DB
+import { sql } from '@/wiki/lib/db'; // DB
 import { S3 } from "aws-sdk"; // AWS S3 SDK
 
 /**
@@ -30,12 +30,11 @@ export async function DELETE(req: NextRequest) {
 
   // 2. 삭제 대상 s3_key 조회
   // 일치하는 s3_key 모두 반환
-  const { rows } = await db.query(
-    `SELECT s3_key FROM images WHERE id = ANY($1)`,
-    [ids]
-  );
+  const result = await sql`
+    SELECT s3_key FROM images WHERE id = ANY(${ids})
+  `;
   // S3 객체 Key 형식 맞춰 변환
-  const keys = rows.map((r: any) => ({ Key: r.s3_key }));
+  const keys = result.map((r: any) => ({ Key: r.s3_key }));
 
   // 3. S3에서 실제 객체 삭제
   // keys.length == 0이면 S3는 스킵(DB만 삭제)
@@ -56,7 +55,7 @@ export async function DELETE(req: NextRequest) {
   }
 
   // 4. DB에서 이미지 row 실제 삭제
-  await db.query('DELETE FROM images WHERE id = ANY($1)', [ids]);
+  await sql`DELETE FROM images WHERE id = ANY(${ids})`;
 
   // 5. 삭제 성공 응답
   // S3, DB 모두 성공 시 success: true 반환(실패시 예외 발생)

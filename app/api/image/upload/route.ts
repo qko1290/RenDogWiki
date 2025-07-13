@@ -12,7 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/wiki/lib/db"; // DB
+import { sql } from "@/wiki/lib/db"; // DB
 import { S3 } from "aws-sdk"; // AWS S3 SDK
 
 export const runtime = "nodejs"; // 반드시 nodejs 환경
@@ -80,18 +80,17 @@ export async function POST(req: NextRequest) {
     // 3-3. DB 저장
     let dbResult;
     try {
-      dbResult = await db.query(
-        `INSERT INTO images (name, folder_id, uploader, s3_key, url, mime_type)
-         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-        [file.name, folderId, uploader, key, s3result.Location, file.type]
-      );
+      dbResult = await sql`
+        INSERT INTO images (name, folder_id, uploader, s3_key, url, mime_type)
+        VALUES (${file.name}, ${folderId}, ${uploader}, ${key}, ${s3result.Location}, ${file.type})
+        RETURNING *`;
     } catch (e: any) {
       // DB 저장 실패시 에러 반환
       return NextResponse.json({ error: "DB 저장 실패: " + e.message }, { status: 500 });
     }
 
     // 3-4. 업로드된 이미지 row 저장
-    uploaded.push(dbResult.rows[0]);
+    uploaded.push(dbResult[0]);
   }
 
   // 4. 전체 결과 반환

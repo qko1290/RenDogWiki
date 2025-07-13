@@ -9,7 +9,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { renderSlateToHtml } from '@wiki/lib/renderSlateToHtml';
 import { extractHeadings } from '@/wiki/lib/extractHeadings';
 import TableOfContents from '@/components/editor/TableOfContents';
@@ -18,6 +18,7 @@ import '@wiki/css/wiki.css';
 import Link from 'next/link';
 import HamburgerMenu from '@/components/common/HamburgerMenu';
 import { Descendant } from 'slate';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 // 카테고리 타입 정의
 type CategoryNode = {
@@ -65,17 +66,28 @@ export default function WikiPageInner({ user }: Props) {
   const [selectedDocId, setSelectedDocId] = useState<number | null>(null);
   const [selectedCategoryPath, setSelectedCategoryPath] = useState<number[] | null>(null);
 
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const contentRef = useRef<HTMLDivElement>(null);
+  const selectedDoc = allDocuments.find(doc => doc.id === selectedDocId);
+
   // 전체 문서 불러오기
   useEffect(() => {
     fetch('/api/documents?all=1')
       .then(res => res.json())
       .then(data => {
+        // 반드시 배열로 변환
+        const docs = Array.isArray(data)
+          ? data
+          : Array.isArray(data.documents)
+            ? data.documents
+            : [];
         if (Object.keys(categoryIdToPathMap).length === 0) {
-          setAllDocuments(data);
+          setAllDocuments(docs);
           return;
         }
         // fullPath 붙여서 저장
-        const mapped = data.map((doc: Document & { path: number }) => ({
+        const mapped = docs.map((doc: Document & { path: number }) => ({
           ...doc,
           fullPath: categoryIdToPathMap[doc.path] || [doc.path],
         }));
@@ -118,17 +130,35 @@ export default function WikiPageInner({ user }: Props) {
       .catch((err) => console.error('카테고리 로딩 실패:', err));
   }, []);
 
+  useEffect(() => {
+    const pathParam = searchParams.get('path');
+    const titleParam = searchParams.get('title');
+    if (pathParam && titleParam) {
+      const pathId = Number(pathParam);
+      const fullPath = categoryIdToPathMap[pathId];
+      if (fullPath) {
+        fetchDoc(fullPath, titleParam, undefined, { clearCategoryPath: true });
+      }
+    }
+  }, [searchParams, categoryIdToPathMap]);
+
   // 카테고리 클릭(대표문서 있으면 본문 , 없으면 펼침/접힘만)
   const togglePath = async (path: number[]) => {
     const catId = path.at(-1)!;
     const category = categoryIdMap[catId];
-
     const isSamePath = selectedDocPath && JSON.stringify(selectedDocPath) === JSON.stringify(path);
     const isSameDoc = selectedDocId === category?.document_id;
 
-    if (category?.document_id && (!isSamePath || !isSameDoc)) {
+    // 여기서 document_id가 정상적인 number(정수)인지 검사
+    const docId = Number(category?.document_id);
+
+    if (
+      category?.document_id &&
+      Number.isInteger(docId) &&
+      (!isSamePath || !isSameDoc)
+    ) {
       try {
-        const res = await fetch(`/api/documents?id=${category.document_id}`);
+        const res = await fetch(`/api/documents?id=${docId}`);
         if (!res.ok) throw new Error('대표 문서를 찾을 수 없습니다');
         const doc = await res.json();
 
@@ -138,7 +168,6 @@ export default function WikiPageInner({ user }: Props) {
         setSelectedCategoryPath(path);
         fetchDoc(path, doc.title, doc.id);
 
-        // 대표 문서 연 직후, 반드시 펼침
         setOpenPaths((prev) => {
           const alreadyOpen = prev.some((p) => JSON.stringify(p) === JSON.stringify(path));
           return alreadyOpen ? prev : [...prev, path];
@@ -146,12 +175,8 @@ export default function WikiPageInner({ user }: Props) {
       } catch (err) {
         console.error('대표 문서 fetch 실패:', err);
       }
-    } else {
-      // 대표 문서 없는 카테고리는 펼침/접힘만
-      setOpenPaths((prev) => {
-        const isExpanded = prev.some((p) => JSON.stringify(p) === JSON.stringify(path));
-        return isExpanded ? prev.filter((p) => JSON.stringify(p) !== JSON.stringify(path)) : [...prev, path];
-      });
+    } else if (!category?.document_id || !Number.isInteger(docId)) {
+      alert('대표 문서 ID가 잘못되어 열 수 없습니다: ' + String(category?.document_id));
     }
   };
 
@@ -203,9 +228,33 @@ export default function WikiPageInner({ user }: Props) {
         const html = renderSlateToHtml(content);
         setDocContent(html);
         setTableOfContents(extractHeadings(content));
+        if (data.fullPath && Array.isArray(data.fullPath)) {
+          setSelectedDocPath([...data.fullPath]);
+        }
       })
       .catch(() => setDocContent('<p>문서를 찾을 수 없습니다.</p>'));
   };
+
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    const handler = (e: MouseEvent) => {
+      const aTag = (e.target as HTMLElement).closest('a');
+      if (!aTag) return;
+      const href = aTag.getAttribute('href');
+      if (href && href.startsWith('/wiki?')) {
+        e.preventDefault();
+        const url = new URL(href, window.location.origin);
+        const path = url.searchParams.get('path');
+        const title = url.searchParams.get('title');
+        if (path && title) {
+          router.push(`/wiki?path=${encodeURIComponent(path)}&title=${encodeURIComponent(title)}&_t=${Date.now()}`);
+        }
+      }
+    };
+    el.addEventListener('click', handler);
+    return () => el.removeEventListener('click', handler);
+  }, [docContent, router]);
 
   // 카테고리/문서 트리 재귀 렌더링
   const renderTree = (nodes: CategoryNode[], parentPath: number[] = []) => {
@@ -355,43 +404,83 @@ export default function WikiPageInner({ user }: Props) {
                 <span>렌독 위키 - 문서 목록</span>
               )}
             </div>
-            <h2 className="wiki-content-title">{selectedDocTitle || '렌독 위키'}</h2>
-
-            {/* 수정 버튼 */}
-            {selectedDocPath && selectedDocPath.length > 0 && selectedDocTitle && (
-              <div style={{ marginBottom: '1rem' }}>
-                <Link
-                  href={`/wiki/write?path=${selectedDocPath.join('/')}&title=${encodeURIComponent(selectedDocTitle)}`}
-                  className="edit-button"
-                >
-                  수정
-                </Link>
-              </div>
-            )}
-
+            <h2 className="wiki-content-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {/* 문서 아이콘 (있으면) */}
+              {selectedDoc?.icon && (
+                selectedDoc.icon.startsWith('http') ? (
+                  <img
+                    src={selectedDoc.icon}
+                    alt="icon"
+                    style={{
+                      width: 32, height: 32, verticalAlign: 'middle',
+                      marginRight: 8, objectFit: 'contain', display: 'inline-block'
+                    }}
+                  />
+                ) : (
+                  <span style={{ fontSize: 28, marginRight: 8 }}>{selectedDoc.icon}</span>
+                )
+              )}
+              {selectedDocTitle || '렌독 위키'}
+            </h2>
             {/* 본문 */}
             <div
               className="wiki-content-body"
+              ref={contentRef}
               dangerouslySetInnerHTML={{ __html: docContent || '오른쪽 본문 영역입니다.' }}
             />
           </main>
         </div>
 
         {/* 목차(heading) */}
-        {tableOfContents.length > 0 && (
-          <aside className="wiki-toc-sidebar">
+        {/* 목차(heading) - 항상 고정 렌더링 */}
+        <aside className="wiki-toc-sidebar">
+          {tableOfContents.length > 0 ? (
             <ul>
               {tableOfContents.map((heading, idx) => (
                 <li
                   key={idx}
                   style={{ marginLeft: `${(heading.level - 1) * 16}px`, lineHeight: 1.8 }}
                 >
-                  <a href={`#${heading.id}`}>{heading.icon} {heading.text}</a>
+                  <a
+                    href={`#${heading.id}`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      textDecoration: 'none',
+                      color: 'inherit',
+                      minHeight: 24,
+                      marginBottom: 6
+                    }}
+                  >
+                    {heading.icon?.startsWith('http') ? (
+                      <img
+                        src={heading.icon}
+                        alt="icon"
+                        style={{
+                          width: 26,         // 13 * 2 = 26px
+                          height: 26,
+                          verticalAlign: 'middle',
+                          marginRight: 3,
+                          objectFit: 'contain',
+                          display: 'inline-block'
+                        }}
+                      />
+                    ) : (
+                      <span style={{ fontSize: 20, marginRight: 3 }}>{heading.icon}</span>
+                    )}
+                    <span style={{ fontSize: 20, fontWeight: 'bold' }}>{heading.text}</span>
+                  </a>
                 </li>
               ))}
             </ul>
-          </aside>
-        )}
+          ) : (
+            <div style={{ color: '#bbb', padding: '1rem', fontSize: '0.96em', textAlign: 'center' }}>
+              목차 없음
+            </div>
+          )}
+        </aside>
+
       </div>
 
       {/* 우측 햄버거 메뉴 */}

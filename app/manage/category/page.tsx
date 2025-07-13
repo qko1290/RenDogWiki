@@ -46,6 +46,10 @@ type Document = {
   path: string;
   created_at: string;
   updated_at: string;
+  icon?: string;
+  tags?: string;
+  is_featured: boolean;
+  fullPath?: number[];
 };
 
 // SortableCategoryItem (트리의 한 카테고리 행)
@@ -123,6 +127,7 @@ export default function CategoryManager() {
   const [selectedCategoryPath, setSelectedCategoryPath] = useState<number[]>([]);
   const [allDocuments, setAllDocuments] = useState<Document[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
+  const [categoryIdToPathMap, setCategoryIdToPathMap] = useState<Record<number, number[]>>({});
 
   const sensors = useSensors(useSensor(PointerSensor));
 
@@ -139,8 +144,18 @@ export default function CategoryManager() {
   useEffect(() => {
     fetch('/api/documents?all=1')
       .then(res => res.json())
-      .then(data => setAllDocuments(data));
-  }, []);
+      .then(data => {
+        if (Object.keys(categoryIdToPathMap).length === 0) {
+          setAllDocuments(data);
+          return;
+        }
+        const mapped = data.map((doc: Document & { path: number|string }) => ({
+          ...doc,
+          fullPath: categoryIdToPathMap[Number(doc.path)] || [Number(doc.path)],
+        }));
+        setAllDocuments(mapped);
+      });
+  }, [categoryIdToPathMap]);
 
   const handleCategorySelect = (node: Category, currentPath: number[]) => {
     setSelected(node);
@@ -148,13 +163,35 @@ export default function CategoryManager() {
     setSelectedCategoryPath(currentPath);
   };
 
-  const realPath = selectedCategoryPath.slice(1).join('/');
-  const filteredDocs = allDocuments.filter(doc => String(doc.path) === realPath);
+  const filteredDocs = allDocuments.filter(doc => {
+    if (!selectedCategoryPath.length) return false;
+    const categoryPath = selectedCategoryPath[0] === 0 ? selectedCategoryPath.slice(1) : selectedCategoryPath;
+    if (doc.fullPath) {
+      return JSON.stringify(doc.fullPath) === JSON.stringify(categoryPath);
+    }
+    return Number(doc.path) === categoryPath.at(-1);
+  });
+
+  const featuredDoc = filteredDocs.find(doc => doc.is_featured);
+  const otherDocs = filteredDocs.filter(doc => !doc.is_featured);
 
   const fetchCategories = async () => {
-    const res = await fetch('/api/categories');
-    const flat: Category[] = await res.json();
-    const built = buildTree(flat);
+  const res = await fetch('/api/categories');
+  const flat: Category[] = await res.json();
+  const built = buildTree(flat);
+
+  // === [추가] 경로 맵 생성 ===
+  const idToPathMap: Record<number, number[]> = {};
+    function buildMap(nodes: Category[], path: number[] = []) {
+      for (const node of nodes) {
+        const currentPath = [...path, node.id];
+        idToPathMap[node.id] = currentPath;
+        if (node.children.length) buildMap(node.children, currentPath);
+      }
+    }
+    buildMap(built);
+    setCategoryIdToPathMap(idToPathMap);
+
     setTree([
       {
         id: 0,
@@ -174,7 +211,7 @@ export default function CategoryManager() {
     const roots: Category[] = [];
     list.forEach((item) => {
       const node = map.get(item.id)!;
-      if (item.parent_id === null) roots.push(node);
+      if (item.parent_id === null || item.parent_id === 0) roots.push(node);
       else {
         const parent = map.get(item.parent_id);
         if (parent) parent.children.push(node);
@@ -289,35 +326,122 @@ export default function CategoryManager() {
 
       {/* 2. 중앙: 문서 목록 */}
       <div className="category-doclist">
-        <h2 className="category-doclist-title"><FontAwesomeIcon icon={faBook} />&nbsp;&nbsp;&nbsp;문서 목록</h2>
-        {filteredDocs.length > 0 ? (
-          <ul>
-            {filteredDocs.map((doc) => (
-              <li
-                key={doc.id}
-                className={`category-doc-item${selectedDoc?.id === doc.id ? " selected" : ""}`}
-                onClick={() => setSelectedDoc(doc)}
-              >
-                📄 {doc.title}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-gray-500">문서가 없습니다.</p>
-        )}
-      </div>
+      <h2 className="category-doclist-title"><FontAwesomeIcon icon={faBook} />&nbsp;&nbsp;&nbsp;문서 목록</h2>
+      {filteredDocs.length > 0 ? (
+        <ul>
+          {/* 대표 문서 강조 */}
+          {featuredDoc && (
+            <li
+              key={featuredDoc.id}
+              className={`category-doc-item${selectedDoc?.id === featuredDoc.id ? " selected" : ""}`}
+              style={{
+                background: "#ffd6da",
+                fontWeight: 600,
+                borderRadius: "8px",
+                marginBottom: "5px",
+                border: "1.5px solid #f89aaf",
+              }}
+              onClick={() => setSelectedDoc(featuredDoc)}
+            >
+              <span style={{
+                display: "inline-block",
+                width: "1.3em",
+                textAlign: "center"
+              }}>
+                {featuredDoc.icon ? featuredDoc.icon : <span style={{ opacity: 0 }}>😀</span>}
+              </span>
+              &nbsp;&nbsp;{featuredDoc.title}
+              <span style={{
+                marginLeft: 8,
+                fontSize: 12,
+                color: "#e5435a",
+                fontWeight: 700,
+                verticalAlign: "middle"
+              }}>대표 문서</span>
+            </li>
+          )}
+          {/* 일반 문서 */}
+          {otherDocs.map((doc) => (
+            <li
+              key={doc.id}
+              className={`category-doc-item${selectedDoc?.id === doc.id ? " selected" : ""}`}
+              onClick={() => setSelectedDoc(doc)}
+            >
+              <span style={{
+                display: "inline-block",
+                width: "1.3em",
+                textAlign: "center"
+              }}>
+                {doc.icon ? doc.icon : <span style={{ opacity: 0 }}>😀</span>}
+              </span>
+              &nbsp;&nbsp;{doc.title}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-gray-500">문서가 없습니다.</p>
+      )}
+    </div>
 
       {/* 3. 오른쪽: 문서 or 카테고리 정보/설정 */}
       <div className="category-detail-panel">
-        {/* 문서 정보 */}
+        {/* 문서 정보 (수정/삭제 버튼 포함) */}
         {selectedDoc ? (
           <div>
             <h2 className="text-xl font-bold mb-4">문서 정보</h2>
             <p><strong>제목:</strong> {selectedDoc.title}</p>
-            <p><strong>경로:</strong> {selectedDoc.path}</p>
-            <p><strong>생성일:</strong> {selectedDoc.created_at}</p>
-            <p><strong>수정일:</strong> {selectedDoc.updated_at}</p>
-            <button className="bg-blue-600 text-white px-4 py-2 rounded">수정하기</button>
+            <p>
+              <strong>태그:</strong>{" "}
+              {selectedDoc.tags && selectedDoc.tags.length > 0
+                ? (
+                  (Array.isArray(selectedDoc.tags)
+                    ? selectedDoc.tags
+                    : selectedDoc.tags.split(',').map((t: string) => t.trim()).filter(Boolean)
+                  ).map((tag: string, idx: number) => (
+                    <span
+                      key={tag}
+                      style={{
+                        display: "inline-block",
+                        background: "#f2f2f2",
+                        color: "#444",
+                        borderRadius: "6px",
+                        padding: "2px 9px",
+                        fontSize: "13px",
+                        marginRight: "6px",
+                      }}
+                    >
+                      #{tag}
+                    </span>
+                  ))
+                )
+                : <span style={{ color: "#aaa" }}>태그 없음</span>
+              }
+            </p>
+            <div style={{ marginTop: 20, display: "flex", gap: 10 }}>
+              {/* 수정 버튼: /wiki/write 페이지로 이동 */}
+              <button
+                className="bg-blue-600 text-white px-4 py-2 rounded"
+                onClick={() => {
+                  location.href = `/wiki/write?path=${encodeURIComponent(selectedDoc.path)}&title=${encodeURIComponent(selectedDoc.title)}&id=${selectedDoc.id}`;
+                }}
+              >
+                수정
+              </button>
+              {/* 삭제 버튼: 실제로 API로 삭제, 확인창 포함 */}
+              <button
+                className="bg-red-600 text-white px-4 py-2 rounded"
+                onClick={async () => {
+                  if (!confirm('정말 삭제하시겠습니까?')) return;
+                  await fetch(`/api/documents?id=${selectedDoc.id}`, { method: 'DELETE' });
+                  // 삭제 후 상태 초기화 및 문서 리스트 갱신
+                  setSelectedDoc(null);
+                  // 문서 리스트 다시 불러오기(함수명은 사용 중인 걸로 대체)
+                  fetchCategories();
+                }}
+              >
+                삭제
+              </button>
+            </div>
           </div>
         ) : selected ? (
           <div>
@@ -338,15 +462,6 @@ export default function CategoryManager() {
                   className="border px-3 py-1 rounded w-96"
                   value={selected.icon ?? ''}
                   onChange={(e) => setSelected({ ...selected, icon: e.target.value })}
-                  disabled={selected.id === 0}
-                />
-              </div>
-              <div>
-                <label className="block font-semibold">문서 경로</label>
-                <input
-                  className="border px-3 py-1 rounded w-96"
-                  value={selected.document_path ?? ''}
-                  onChange={(e) => setSelected({ ...selected, document_path: e.target.value })}
                   disabled={selected.id === 0}
                 />
               </div>
@@ -392,33 +507,30 @@ export default function CategoryManager() {
                         parent_id: selected.id,
                         order: 0,
                         icon: '',
-                        document_path: '',
                       }),
                     });
                     fetchCategories();
                   }}
                 >
-                  하위 카테고리 추가
+                  카테고리 추가
                 </button>
                 <button
                   className="bg-blue-500 text-white px-4 py-2 rounded"
                   onClick={() => {
-                    const basePath = selected.document_path ?? `${selected.id}`;
-                    const title = prompt('대표 문서 제목을 입력하세요') || '대표문서';
-                    location.href = `/wiki/write?path=${encodeURIComponent(basePath)}&title=${encodeURIComponent(title)}`;
+                    // 대표문서는 카테고리 id 기준으로 path 사용, title 없이 바로 진입
+                    location.href = `/wiki/write?path=${encodeURIComponent(selected.id)}&main=1`;
                   }}
                 >
-                  📘 카테고리 대표 문서 작성
+                  📘 대표 문서 추가
                 </button>
                 <button
                   className="bg-green-600 text-white px-4 py-2 rounded"
                   onClick={() => {
                     if (!selected) return alert('카테고리를 먼저 선택하세요');
-                    const basePath = selected.document_path ?? `${selected.id}`;
-                    location.href = `/wiki/write?path=${encodeURIComponent(basePath)}`;
+                    location.href = `/wiki/write?path=${encodeURIComponent(selected.id)}`;
                   }}
                 >
-                  📄 하위 문서 추가
+                  📄 문서 추가
                 </button>
               </div>
             </div>

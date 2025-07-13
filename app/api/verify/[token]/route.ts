@@ -8,7 +8,7 @@
  *   - 실패 시 400 반환
  */
 
-import { db } from '@/wiki/lib/db'; // DB
+import { sql } from '@/wiki/lib/db'; // DB
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
@@ -26,11 +26,9 @@ export async function GET(
   const token = params.token;
 
   // 2. 토큰으로 사용자 조회
-  const result = await db.query(
-    'SELECT * FROM users WHERE verification_token = $1',
-    [token]
-  );
-  const users = result.rows;
+  const users = await sql`
+    SELECT * FROM users WHERE verification_token = ${token}
+  `;
 
   // 3. 토큰 미존재 처리
   if (!Array.isArray(users) || users.length === 0) {
@@ -38,10 +36,9 @@ export async function GET(
   }
 
   // 4. 인증 완료 처리(verified=1, 토큰 삭제)
-  await db.query(
-    'UPDATE users SET verified = 1, verification_token = NULL WHERE verification_token = $1',
-    [token]
-  );
+  await sql`
+    UPDATE users SET verified = 1, verification_token = NULL WHERE verification_token = ${token}
+  `;
 
   // 5. 성공 메시지 반환
   return NextResponse.json({ message: '이메일 인증이 완료되었습니다.' });

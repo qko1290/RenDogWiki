@@ -14,8 +14,8 @@ import { Suspense } from "react";
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import SlateEditor from '@/components/editor/SlateEditor';
-import '../css/write.css';
 import type { Descendant } from 'slate';
+import WikiHeader from "@/components/common/Header";
 
 // 빈 문서 기본값
 const EMPTY_INITIAL_VALUE: Descendant[] = [
@@ -24,6 +24,7 @@ const EMPTY_INITIAL_VALUE: Descendant[] = [
 
 // 문서 데이터 타입 정의
 type DocType = {
+  id?: number;
   title: string;
   path: string;
   icon: string;
@@ -35,65 +36,76 @@ type DocType = {
 function WritePageInner() {
   const searchParams = useSearchParams();
   const path = searchParams.get('path');     // 카테고리 경로
-  const title = searchParams.get('title');   // 문서 제목
+  const title = searchParams.get('title'); 
+  const idStr = searchParams.get('id');
+  const id = idStr ? Number(idStr) : undefined;
+  const main = searchParams.get('main') === '1';
 
   const [doc, setDoc] = useState<DocType | null>(null); // 현재 문서 상태
   const [loading, setLoading] = useState(true);         // 로딩 상태
 
   useEffect(() => {
-    // path 없으면 잘못된 진입
     if (!path) {
       setLoading(false);
       return;
     }
 
-    // 1. 수정 모드: title 있으면 해당 문서 불러옴
-    // 2. 작성 모드: title 없으면 새 문서 상태로 진입
-    if (title) {
+    // === [1] path와 title이 모두 있을 때만 "수정 모드" ===
+    if (path && title && id) {
       fetch(`/api/documents?path=${encodeURIComponent(path)}&title=${encodeURIComponent(title)}`)
-        .then(async (res) => {
-          if (res.status === 204) {
-            // 204 No Content: 문서 없음
-            return {
+        .then(res => {
+          if (res.status === 204) return null;
+          return res.json();
+        })
+        .then(data => {
+          console.log('[2] API로부터 받은 data:', data, '현재 id:', id);
+          if (data) {
+            setDoc({
+              id: data.id ?? id, // ← **항상 id를 세팅! (data.id 없으면 쿼리 id)**
+              title: data.title ?? title,
+              path: data.path ?? path,
+              icon: data.icon ?? '',
+              tags: Array.isArray(data.tags) ? data.tags : [],
+              content:
+                Array.isArray(data.content) && data.content.length > 0
+                  ? data.content
+                  : EMPTY_INITIAL_VALUE,
+            });
+          } else {
+            // 찾는 문서 없음(새 문서로 진입)
+            setDoc({
+              id, // 쿼리스트링에서 받은 id 사용
               title: title,
               path: path,
               icon: '',
               tags: [],
               content: EMPTY_INITIAL_VALUE,
-            };
-          } else if (res.ok) {
-            // 기존 문서 데이터 반환
-            return res.json();
-          } else {
-            throw new Error('문서 불러오기 실패');
+            });
           }
-        })
-        .then((data) => setDoc(data))
-        .catch((err) => {
-          console.error('문서 로딩 실패:', err);
-          alert('문서를 불러올 수 없습니다.');
-        })
-        .finally(() => setLoading(false));
-    } else {
-      // 새 문서(제목 없음)
-      setDoc({
-        title: '',      // 빈 제목
-        path: path,
-        icon: '',
-        tags: [],
-        content: EMPTY_INITIAL_VALUE,
-      });
-      setLoading(false);
+          setLoading(false);
+        });
+      return;
     }
-  }, [path, title]);
+
+    // === [2] title 없이 진입(대표문서 or 새문서) ===
+    setDoc({
+      id,
+      title: '',
+      path: path,
+      icon: '',
+      tags: [],
+      content: EMPTY_INITIAL_VALUE,
+    });
+    setLoading(false);
+  }, [path, title, id]);
 
   // 렌더링 분기 (로딩, 잘못된 진입, 에디터)
   if (loading) return <div>불러오는 중...</div>;
   if (!path) return <div>잘못된 접근입니다.</div>;
 
   return (
-    <div className="max-w-[90%] mx-auto py-10">
-      <SlateEditor initialDoc={doc} />
+    <div className="max-w-[95%] mx-auto py-10">
+      <SlateEditor initialDoc={doc} isMain={main} />
     </div>
   );
 }
@@ -102,6 +114,7 @@ function WritePageInner() {
 export default function WritePage() {
   return (
     <Suspense>
+      <WikiHeader user={null} />
       <WritePageInner />
     </Suspense>
   );

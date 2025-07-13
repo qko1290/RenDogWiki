@@ -51,7 +51,15 @@ function renderNode(node: Descendant): string {
     case 'heading-two':
     case 'heading-three': {
       const el = node as any;
-      const icon = el.icon ? `${el.icon} ` : '';
+      let iconHtml = '';
+      if (el.icon) {
+        if (typeof el.icon === 'string' && el.icon.startsWith('http')) {
+          // 이미지 더 크게!
+          iconHtml = `<img src="${el.icon}" alt="icon" style="width:2.5em;height:2.5em;vertical-align:middle;margin-right:10px;object-fit:contain;display:inline-block;" />`;
+        } else {
+          iconHtml = `<span style="font-size:1.3em;margin-right:10px;display:inline-block;">${el.icon}</span>`;
+        }
+      }
       // heading에 들어가는 순수 텍스트만 추출
       const textContent = stripHtml(children).trim();
       const slug = slugify(textContent);
@@ -59,16 +67,69 @@ function renderNode(node: Descendant): string {
       const level =
         node.type === 'heading-one' ? '1' :
         node.type === 'heading-two' ? '2' : '3';
-      return `<h${level} id="${id}">${icon}${children}</h${level}>`;
+      // flex로 항상 아이콘-텍스트 한 줄 정렬!
+      return `<h${level} id="${id}" style="display:flex;align-items:center;gap:7px;">
+        ${iconHtml}
+        <span style="font-size:30px; font-weight:bold;">${children}</span>
+      </h${level}>`;
     }
 
     // 링크
     case 'link':
       return `<a href="${(node as any).url}" target="_blank" rel="noopener noreferrer">${children}</a>`;
 
-    // 구분선
-    case 'divider':
-      return `<hr />`;
+    // 구분선 (다양한 스타일 지원)
+    case 'divider': {
+    const el = node as any;
+    // 모든 선에서 사용할 색상
+    const borderColor = "#e0e0e0";
+    switch (el.style) {
+      case 'bold':
+        // 굵은 가로선
+        return `<div style="width:70%;margin:32px auto 32px auto;text-align:center;">
+          <hr style="border:0;border-top:4px solid ${borderColor};width:100%;margin:0 auto;" />
+        </div>`;
+      case 'shortbold':
+        // 짧고 굵은 선
+        return `<div style="width:82px;margin:34px auto;text-align:center;">
+          <hr style="border:0;border-top:5px solid ${borderColor};width:100%;margin:0 auto;" />
+        </div>`;
+      case 'dotted':
+        // 점선
+        return `<div style="width:70%;margin:28px auto;text-align:center;">
+          <hr style="border:0;border-top:2px dotted ${borderColor};width:100%;margin:0 auto;" />
+        </div>`;
+      case 'diamond':
+        // 예전: ◇───◇ (폰트/기호 기반)
+        return `<div style="width:100%;margin:34px 0;text-align:center;">
+          <span style="font-size:24px;letter-spacing:12px;color:#666;">◇───◇</span>
+        </div>`;
+      case 'diamonddot':
+        // 예전: ◇ ⋅ ⋅ ⋅ ◇ (폰트/기호 기반)
+        return `<div style="width:100%;margin:32px 0;text-align:center;">
+          <span style="font-size:22px;letter-spacing:6px;color:#666;">◇ ⋅ ⋅ ⋅ ◇</span>
+        </div>`;
+      case 'dotdot':
+        // 동글점 여러개
+        return `<div style="width:100%;margin:30px 0;text-align:center;">
+          <span style="font-size:28px;letter-spacing:8px;color:${borderColor};">• • • • • • •</span>
+        </div>`;
+      case 'slash':
+        // 슬래시
+        return `<div style="width:100%;margin:30px 0;text-align:center;">
+          <span style="font-size:30px;letter-spacing:14px;color:${borderColor};">/  /  /</span>
+        </div>`;
+      case 'bar':
+        // 세로 바
+        return `<div style="width:100%;margin:28px 0;text-align:center;">
+          <span style="font-size:22px;color:${borderColor};">|</span>
+        </div>`;
+      default: // plain(기본)
+        return `<div style="width:70%;margin:24px auto;text-align:center;">
+          <hr style="border:0;border-top:1.5px solid ${borderColor};width:100%;margin:0 auto;" />
+        </div>`;
+    }
+  }
 
     // 링크 블록(박스형)
     case 'link-block': {
@@ -103,6 +164,15 @@ function renderNode(node: Descendant): string {
         `<span contenteditable="false">${icons[el.boxType]}</span>` +
         `<div style="flex: 1">${children}</div></div>`
       );
+    }
+
+    case 'image': {
+      const el = node as any;
+      let alignStyle = '';
+      if (el.textAlign === 'left') alignStyle = 'float: left; margin-right: 18px;';
+      if (el.textAlign === 'right') alignStyle = 'float: right; margin-left: 18px;';
+      if (el.textAlign === 'center') alignStyle = 'display: block; margin-left: auto; margin-right: auto;';
+      return `<img src="${el.url}" alt="" style="max-width:100%; ${alignStyle} margin-top:12px; margin-bottom:12px;" />`;
     }
 
     // 그 외(지원하지 않는 타입)

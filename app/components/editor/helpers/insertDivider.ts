@@ -17,17 +17,18 @@ import type { DividerElement, ParagraphElement } from '@/types/slate';
  * - 입력: 에디터 인스턴스(Editor)
  * - 동작: divider 블록 -> 빈 단락(paragraph) 순서로 삽입
  */
-export const insertDivider = (editor: Editor) => {
+export const insertDivider = (editor: Editor, style: DividerElement["style"] = "default") => {
   // 1. 구분선(divider) 블록 객체 생성
   const divider: DividerElement = {
     type: 'divider',
-    children: [{ text: '' }], // 텍스트는 항상 빈 문자열
+    style,
+    children: [{ text: '' }],
   };
 
   // 2. 빈 단락(paragraph) 블록 객체
   const paragraph: ParagraphElement = {
     type: 'paragraph',
-    children: [{ text: '' }], // 텍스트는 빈 문자열
+    children: [{ text: '' }],
   };
 
   // 3. 두 블록을 연속 삽입(커서가 divider 내에 남지 않도록 유도)

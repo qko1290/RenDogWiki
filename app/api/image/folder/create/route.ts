@@ -10,8 +10,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/wiki/lib/db';             // DB
-import { getAuthUser } from '@/wiki/lib/auth';  // 로그인 유저 반환
+import { sql } from '@/wiki/lib/db';             // DB
+import { getAuthUser } from '@/wiki/lib/auth';   // 로그인 유저 반환
 
 /**
  * [폴더 생성] POST
@@ -36,19 +36,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "필수값 누락" }, { status: 400 });
 
   // 4. 같은 parent 내 중복 폴더명 체크
-  const existsResult = await db.query(
-    'SELECT id FROM image_folders WHERE parent_id = $1 AND name = $2 LIMIT 1',
-    [parent_id, name]
-  );
-  if (existsResult.rows.length > 0)
+  const existsResult = await sql`
+    SELECT id FROM image_folders WHERE parent_id = ${parent_id} AND name = ${name} LIMIT 1
+  `;
+  if (existsResult.length > 0)
     return NextResponse.json({ error: "중복 폴더명" }, { status: 409 });
 
   // 5. 폴더 생성(DB insert, uploader는 유저 닉네임)
-  const insertResult = await db.query(
-    'INSERT INTO image_folders (name, parent_id, uploader) VALUES ($1, $2, $3) RETURNING id',
-    [name, parent_id, user.minecraft_name]
-  );
-  const folderId = insertResult.rows[0].id;
+  const insertResult = await sql`
+    INSERT INTO image_folders (name, parent_id, uploader)
+    VALUES (${name}, ${parent_id}, ${user.minecraft_name}) RETURNING id
+  `;
+  const folderId = insertResult[0].id;
 
   // 6. 성공 응답
   return NextResponse.json({

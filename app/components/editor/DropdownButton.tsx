@@ -15,7 +15,7 @@ import { Editor, Range, Transforms } from 'slate';
 
 // Props 타입 선언
 type DropdownButtonProps = {
-  label: string;                             // 드롭다운 버튼 텍스트
+  label: React.ReactNode;                             // 드롭다운 버튼 텍스트
   items: string[];                           // 옵션 리스트(색상/크기 등)
   onSelect?: (value: string) => void;        // 옵션 선택시 콜백
   selectionRef: React.MutableRefObject<Range | null>; // 드롭다운을 여는 시점의 selection 저장용 ref
@@ -47,7 +47,7 @@ const DropdownButton = ({
    * - 선택 후 드롭다운 닫기
    */
   const handleSelect = (item: string) => {
-    const markType = getMarkType(label);
+    const markType = dropdownId;  
     if (markType) {
       // selection 복원 + 스타일 적용: 타이밍 분리 위해 setTimeout
       setTimeout(() => {
@@ -62,22 +62,22 @@ const DropdownButton = ({
 
   // 렌더링: 버튼+드롭다운 리스트
   return (
-    <div style={{ position: 'relative' }}>
+    <div className="editor-dropdown">
       <button
         onMouseDown={(e) => {
           e.preventDefault();
           selectionRef.current = editor.selection;
           setOpenDropdown(isOpen ? null : dropdownId);
         }}
-        style={buttonStyle}
+        className="editor-toolbar-btn"
       >
-        {label} ▾
+        {label}
       </button>
 
       {isOpen && (
-        <ul style={dropdownStyle}>
+        <ul className="editor-dropdown-menu">
           {items.map((item, idx) => (
-            <li key={idx} style={liStyle} onMouseDown={() => handleSelect(item)}>
+            <li key={idx} onMouseDown={() => handleSelect(item)}>
               {item}
             </li>
           ))}
@@ -88,36 +88,3 @@ const DropdownButton = ({
 };
 
 export default DropdownButton;
-
-// 인라인 스타일(CSS 모듈 대체 예정)
-const dropdownStyle: React.CSSProperties = {
-  position: 'absolute',
-  top: '100%',
-  left: 0,
-  margin: 0,
-  padding: '4px 0',
-  background: 'white',
-  border: '1px solid #ccc',
-  borderRadius: '4px',
-  listStyle: 'none',
-  boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
-  zIndex: 100,
-};
-
-const liStyle: React.CSSProperties = {
-  padding: '6px 12px',
-  cursor: 'pointer',
-  whiteSpace: 'nowrap',
-  fontSize: '14px',
-  userSelect: 'none',
-};
-
-const buttonStyle: React.CSSProperties = {
-  padding: '4px 8px',
-  border: '1px solid #ccc',
-  borderRadius: '4px',
-  background: '#f9f9f9',
-  cursor: 'pointer',
-  marginRight: '8px',
-  fontSize: '14px',
-};

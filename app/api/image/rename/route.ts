@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/wiki/lib/db'; // DB
+import { sql } from '@/wiki/lib/db'; // DB
 
 /**
  * [이미지 이름 수정] PATCH
@@ -25,10 +25,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   // 2. DB에서 이미지 이름 변경
-  await db.query(
-    'UPDATE images SET name = $1 WHERE id = $2',
-    [name, id]
-  );
+  await sql`UPDATE images SET name = ${name} WHERE id = ${id}`;
 
   // 3. 성공 응답 반환
   return NextResponse.json({ success: true });

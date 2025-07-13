@@ -11,7 +11,7 @@
  *   - JWT_SECRET 환경변수가 없으면 'default_secret' 사용
  */
 
-import { db } from '@/wiki/lib/db'; // DB 유틸
+import { sql } from '@/wiki/lib/db'; // DB 유틸
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';      // 비밀번호 해시 검증
 import jwt from 'jsonwebtoken';    // JWT 토큰 생성
@@ -46,17 +46,18 @@ export async function POST(req: NextRequest) {
 
   // 2. 사용자 조회
   // username이 일치하는 계정 찾기
-  const result = await db.query('SELECT * FROM users WHERE username = $1', [username]);
-  const rows = result.rows;
+  const result = await sql`
+    SELECT * FROM users WHERE username = ${username}
+  `;
 
   // 3. 아이디 없음 처리
-  if (!Array.isArray(rows) || rows.length === 0) {
+  if (!Array.isArray(result) || result.length === 0) {
     // 계정이 존재하지 않을 때
     return NextResponse.json({ error: '존재하지 않는 아이디입니다.' }, { status: 401 });
   }
 
   // 4. 인증 여부 확인
-  const user = rows[0] as UserRow;
+  const user = result[0] as UserRow;
   if (!user.verified) {
     // 인증 미완료
     return NextResponse.json({ error: '이메일 인증이 필요합니다.' }, { status: 403 });

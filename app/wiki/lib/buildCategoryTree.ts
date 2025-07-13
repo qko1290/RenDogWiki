@@ -34,7 +34,7 @@ export function buildCategoryTree(flatList: Category[]): CategoryNode[] {
   // 2. parent_id 기준으로 부모-자식 트리 연결
   for (const item of flatList) {
     const node = map.get(item.id)!;
-    if (item.parent_id === null) {
+    if (item.parent_id === null || item.parent_id === 0) {
       // 루트(최상위) 노드
       roots.push(node);
     } else {

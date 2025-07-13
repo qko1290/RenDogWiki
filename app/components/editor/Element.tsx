@@ -13,10 +13,11 @@
 
 'use client';
 
-import React from 'react';
-import { RenderElementProps, ReactEditor } from 'slate-react';
+import React, { useState } from 'react';
+import { RenderElementProps, ReactEditor, useSelected, useFocused } from 'slate-react';
 import { Node, Transforms } from 'slate';
 import { getHeadingId } from './helpers/getHeadingId';
+import ImageSizeModal from './ImageSizeModal';
 import type {
   CustomElement,
   LinkElement,
@@ -25,6 +26,7 @@ import type {
   HeadingOneElement,
   HeadingTwoElement,
   HeadingThreeElement,
+  ImageElement,
   ParagraphElement
 } from '@/types/slate';
 
@@ -39,9 +41,8 @@ const Element = ({ attributes, children, element, editor, onIconClick }: Element
   switch (element.type) {
     // 인라인 하이퍼링크
     case 'link': {
-      const el = element as LinkElement;
       return (
-        <a {...attributes} href={el.url} style={{ color: 'blue', textDecoration: 'none' }}>
+        <a {...attributes} href={element.url} style={{ color: '#2676ff' }}>
           {children}
         </a>
       );
@@ -135,27 +136,115 @@ const Element = ({ attributes, children, element, editor, onIconClick }: Element
       const Tag = (`h${level}` as 'h1' | 'h2' | 'h3');
 
       return (
-        <Tag {...attributes} id={getHeadingId(el)} style={{ fontSize, textAlign: el.textAlign || 'left' }}>
-          {/* 아이콘 클릭: 커스텀 or 기본값, 이미지/이모지 모두 지원 */}
+        <Tag {...attributes} id={getHeadingId(el)} style={{ fontSize, textAlign: el.textAlign || 'left', display: 'flex', alignItems: 'center', gap: 8 }}>
           <span
             onClick={() => onIconClick(el)}
             contentEditable={false}
-            style={{ cursor: 'pointer', marginRight: '0.3em' }}
+            style={{ cursor: 'pointer', marginRight: 8, display: 'inline-flex', alignItems: 'center' }}
           >
             {el.icon?.startsWith('http') ? (
-              <img src={el.icon} alt="icon" style={{ width: '1em', verticalAlign: 'middle' }} />
+              <img src={el.icon} alt="icon" style={{ width: '1.7em', height: '1.7em', verticalAlign: 'middle', marginRight: 6, objectFit: 'contain' }} />
             ) : (
-              el.icon || (level === 1 ? '📌' : level === 2 ? '🔖' : '📝')
+              <span style={{ fontSize: '1.5em', marginRight: 6 }}>{el.icon || (level === 1 ? '📌' : level === 2 ? '🔖' : '📝')}</span>
             )}
           </span>
-          {children}
+          <span style={{ display: 'inline' }}>{children}</span>
         </Tag>
       );
     }
 
     // Divider(구분선)
-    case 'divider':
-      return <hr {...attributes} />;
+    case 'divider': {
+      const style = element.style || "default";
+      const borderColor = "#e0e0e0"; // 옅은 회색 고정
+      switch (style) {
+        case "bold":
+          return (
+            <div {...attributes} style={{ width: '70%', margin: "32px auto", textAlign: 'center' }}>
+              <hr style={{
+                border: 0,
+                borderTop: `4px solid ${borderColor}`,
+                width: "100%",
+                margin: "0 auto"
+              }} />
+            </div>
+          );
+        case "shortbold":
+          return (
+            <div {...attributes} style={{ width: 82, margin: "34px auto", textAlign: 'center' }}>
+              <hr style={{
+                border: 0,
+                borderTop: `5px solid ${borderColor}`,
+                width: "100%",
+                margin: "0 auto"
+              }} />
+            </div>
+          );
+        case "dotted":
+          return (
+            <div {...attributes} style={{ width: '70%', margin: "28px auto", textAlign: 'center' }}>
+              <hr style={{
+                border: 0,
+                borderTop: `2px dotted ${borderColor}`,
+                width: "100%",
+                margin: "0 auto"
+              }} />
+            </div>
+          );
+        case "diamond":
+          return (
+            <div {...attributes} style={{ textAlign: 'center', margin: "14px 0" }}>
+              <span style={{ fontSize: 24, letterSpacing: 12, color: borderColor }}>◇───◇</span>
+            </div>
+          );
+        case "diamonddot":
+          return (
+            <div {...attributes} style={{ textAlign: 'center', margin: "14px 0" }}>
+              <span style={{ fontSize: 22, letterSpacing: 6, color: borderColor }}>◇ ⋅ ⋅ ⋅ ◇</span>
+            </div>
+          );
+        case "dotdot":
+          return (
+            <div {...attributes} style={{ width: '100%', margin: "30px 0", textAlign: 'center' }}>
+              <span style={{
+                fontSize: 28,
+                letterSpacing: 8,
+                color: borderColor
+              }}>• • • • • • •</span>
+            </div>
+          );
+        case "slash":
+          return (
+            <div {...attributes} style={{ width: '100%', margin: "30px 0", textAlign: 'center' }}>
+              <span style={{
+                fontSize: 30,
+                letterSpacing: 14,
+                color: borderColor
+              }}>/  /  /</span>
+            </div>
+          );
+        case "bar":
+          return (
+            <div {...attributes} style={{ width: '100%', margin: "28px 0", textAlign: 'center' }}>
+              <span style={{
+                fontSize: 22,
+                color: borderColor
+              }}>|</span>
+            </div>
+          );
+        default: // plain(기본)
+          return (
+            <div {...attributes} style={{ width: '70%', margin: "24px auto", textAlign: 'center' }}>
+              <hr style={{
+                border: 0,
+                borderTop: `1.5px solid ${borderColor}`,
+                width: "100%",
+                margin: "0 auto"
+              }} />
+            </div>
+          );
+      }
+    }
 
     // 기본 단락(문단)
     case 'paragraph': {
@@ -196,6 +285,110 @@ const Element = ({ attributes, children, element, editor, onIconClick }: Element
         >
           <span contentEditable={false}>{icons[el.boxType]}</span>
           <div style={{ flex: 1 }}>{children}</div>
+        </div>
+      );
+    }
+
+    case 'image': {
+      const el = element as any;
+      const selected = useSelected();
+      const focused = useFocused();
+      const [modalOpen, setModalOpen] = useState(false);
+
+      const EditIcon = ({ size = 18, color = "#2a90ff" }) => (
+        <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+          <path d="M3 17h3.8a1 1 0 0 0 .7-.3l8.4-8.4a2 2 0 0 0 0-2.8l-1.7-1.7a2 2 0 0 0-2.8 0L3.3 12.2a1 1 0 0 0-.3.7V17z" stroke={color} strokeWidth="1.7"/>
+          <path d="M11.7 6.3l2.5 2.5" stroke={color} strokeWidth="1.7"/>
+        </svg>
+      );
+
+      // 정렬(왼/가운데/오른쪽)
+      let justifyContent: 'flex-start' | 'center' | 'flex-end' = 'center';
+      if (el.textAlign === 'left') justifyContent = 'flex-start';
+      else if (el.textAlign === 'right') justifyContent = 'flex-end';
+
+      const handleClick = (e: React.MouseEvent) => {
+        if (!(selected && focused)) {
+          e.preventDefault();
+          const path = ReactEditor.findPath(editor, element);
+          Transforms.select(editor, path);
+          ReactEditor.focus(editor);
+        }
+      };
+
+      const handleEditBadgeClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setModalOpen(true);
+      };
+
+      const handleSaveSize = (width: number, height: number) => {
+        const path = ReactEditor.findPath(editor, element);
+        Transforms.setNodes(editor, { width, height }, { at: path });
+        setModalOpen(false);
+      };
+
+      // === 핵심 변경: flex + 내부 relative로 버튼/이미지 위치 동기화 ===
+      return (
+        <div
+          {...attributes}
+          contentEditable={false}
+          style={{
+            margin: "16px 0",
+            display: "flex",
+            flexDirection: "row",
+            justifyContent,
+            alignItems: "flex-start",
+            minHeight: 40,
+          }}
+          onClick={handleClick}
+        >
+          <div style={{ position: "relative", display: "inline-block" }}>
+            <img
+              src={el.url}
+              alt=""
+              style={{
+                maxWidth: el.width ? el.width + "px" : "90%",
+                height: el.height ? el.height + "px" : "auto",
+                borderRadius: 10,
+                boxShadow: "0 2px 12px 0 #0001",
+                background: "#fff",
+                display: "block",
+                border: (selected && focused) ? "2px solid #2a90ff" : "none",
+                transition: "border 0.1s",
+              }}
+            />
+            {(selected && focused) && (
+              <button
+                style={{
+                  position: "absolute",
+                  top: 8,
+                  right: 8,
+                  background: "#fff",
+                  border: "1.5px solid #2a90ff",
+                  borderRadius: "50%",
+                  boxShadow: "0 1px 5px #0001",
+                  width: 32, height: 32,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  cursor: "pointer",
+                  zIndex: 1,
+                  padding: 0,
+                }}
+                tabIndex={-1}
+                onClick={handleEditBadgeClick}
+                title="이미지 크기 편집"
+              >
+                <EditIcon size={18} color="#2a90ff" />
+              </button>
+            )}
+          </div>
+          {children}
+          <ImageSizeModal
+            open={modalOpen}
+            width={el.width}
+            height={el.height}
+            onSave={handleSaveSize}
+            onClose={() => setModalOpen(false)}
+          />
         </div>
       );
     }
