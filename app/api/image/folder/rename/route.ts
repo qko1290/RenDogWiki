@@ -11,7 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';           // DB
-import { getAuthUser } from '@/wiki/lib/auth';// 로그인 유저
+import { getAuthUser } from '@/wiki/lib/auth'; // 로그인 유저
 
 /**
  * [폴더 이름 수정] PATCH

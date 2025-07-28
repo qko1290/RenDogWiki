@@ -116,6 +116,11 @@ export async function GET(req: NextRequest) {
   }
 }
 
+/**
+ * [문서 삭제] DELETE
+ * - id 파라미터 필수
+ * - 문서 본문(document_contents) → 문서 메타(documents) 순서로 삭제
+ */
 export async function DELETE(req: NextRequest) {
   // id 파라미터 추출 (쿼리스트링에서)
   const id = req.nextUrl.searchParams.get('id');

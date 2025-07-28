@@ -1,7 +1,17 @@
+/* ============================================= */
+/* File: app/wiki/css/header.css                 */
+/* ============================================= */
+/**
+ * 위키 헤더(상단 고정, 로고, 검색, 우측 메뉴 등)
+ * - 전체 고정, 그림자, 좌/중앙/우측 구조, 검색 드롭다운 포함
+ */
+
 /* 헤더 전체 영역 (상단 고정, 그림자) */
 .wiki-header {
   position: fixed;
-  top: 0; left: 0; right: 0;
+  top: 0;
+  left: 0;
+  right: 0;
   z-index: 10 !important;
   display: flex;
   justify-content: space-between;
@@ -27,7 +37,11 @@
 .wiki-search-container {
   flex: 1;
   margin: 0 1.5rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
+
 .wiki-search-container input {
   width: 50%;
   padding: 0.5rem 1rem;
@@ -35,10 +49,56 @@
   border: 1px solid #ccc;
   font-size: 1rem;
   background: #fff;
+  transition: border 0.2s;
+}
+
+.wiki-search-container input:focus {
+  border: 1.5px solid #3182f6;
+  background: #222b;
+}
+
+/* 검색 드롭다운/애니메이션 */
+.wiki-search-dropdown {
+  animation: fadeIn 0.16s;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 검색 결과 항목 hover 효과 */
+.wiki-search-item:hover {
+  background: #f2f8ff;
+}
+
+/* 검색어 강조 */
+mark {
+  background: none;
+  color: #1876f7;
+  font-weight: 700;
+  padding: 0;
 }
 
 /* 공통 텍스트/위치 유틸리티 */
-.text-black { color: #222; }
-.absolute { position: absolute; }
-.top-4 { top: 1rem; }
-.right-4 { right: 1rem; }
+.text-black {
+  color: #222;
+}
+
+.absolute {
+  position: absolute;
+}
+
+.top-4 {
+  top: 1rem;
+}
+
+.right-4 {
+  right: 1rem;
+}

@@ -36,7 +36,7 @@ export type LinkElement = {
 export type LinkBlockElement = {
   type: 'link-block';
   url: string;
-  size: 'small' | 'medium' | 'large';
+  size: 'small' | 'large';
   children: CustomText[];
   favicon?: string;
   sitename?: string;
@@ -64,6 +64,7 @@ export interface DividerElement {
 // 일반 문단(paragraph)
 export interface ParagraphElement {
   type: 'paragraph';
+  indentLine?: boolean;
   textAlign?: 'left' | 'center' | 'right' | 'justify'; // 정렬
   children: CustomText[];
 }
@@ -108,16 +109,52 @@ export type ImageElement = {
   children: [{ text: '' }];
 };
 
+export type InlineMarkElement = {
+  type: 'inline-mark';
+  icon: string;
+  color?: string;
+  marginRight?: number;
+  children: [{ text: '' }];
+};
+
+export type InlineImageElement = {
+  type: 'inline-image';
+  url: string;
+  children: [{ text: string }];
+};
+
+export type PriceTableCardElement = {
+  type: 'price-table-card';
+  items: {
+    image?: string;      // 이미지 URL
+    name: string;        // 아이템명
+    prices: number[];    // 시세 배열 (강화수치별)
+    stages: string[];    // 예: ['봉인', '1각', ..., 'MAX']
+    colorType?: string;  // 'normal' | 'transcend' 등 (확장 대비)
+  }[];
+  cardsPerRow: number; // 한 줄에 카드 개수(1~5)
+  children: { text: '' }[]; // Slate 필수
+}
+
+export type LinkBlockRowElement = {
+  type: 'link-block-row';
+  children: [LinkBlockElement, LinkBlockElement];
+};
+
 // [모든 Element 통합 타입]
 export type CustomElement =
   | ParagraphElement
   | DividerElement
   | LinkElement
   | LinkBlockElement
+  | LinkBlockRowElement
   | InfoBoxElement
   | HeadingOneElement
   | HeadingTwoElement
   | HeadingThreeElement
+  | InlineMarkElement
+  | InlineImageElement
+  | PriceTableCardElement
   | ImageElement;
 
 // [Slate 타입 시스템 오버라이드]

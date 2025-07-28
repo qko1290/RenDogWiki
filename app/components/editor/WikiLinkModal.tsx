@@ -1,12 +1,19 @@
 // =============================================
 // File: app/components/editor/WikiLinkModal.tsx
 // =============================================
+/**
+ * 내부 위키 문서 링크 삽입 모달 컴포넌트
+ * - 좌측: 카테고리(트리)로 문서 분류
+ * - 우측: 선택된 카테고리(또는 전체/검색) 문서 목록
+ * - 문서 선택 → onSelect(doc) 전달(블록/인라인 삽입은 부모에서 분기)
+ * - 외부 클릭 또는 ESC로 닫힘
+ */
 
 'use client';
 
 import React, { useEffect, useState } from 'react';
 
-// 타입 정의
+// ===== 타입 정의 =====
 type Category = {
   id: number;
   name: string;
@@ -24,7 +31,12 @@ type Document = {
   fullPath?: number[];
 };
 
-// 카테고리 트리 빌드 함수
+// ===== 카테고리 트리 변환 =====
+/**
+ * 평면 category[] → 트리 구조 변환
+ * - 각 카테고리의 parent_id/children 연결
+ * - 최상위(부모 없음 or 0)만 roots
+ */
 function buildTree(list: Category[]): Category[] {
   const map = new Map<number, Category>();
   list.forEach((item) => map.set(item.id, { ...item, children: [] }));
@@ -41,7 +53,14 @@ function buildTree(list: Category[]): Category[] {
   return roots.sort((a, b) => (a.order || 0) - (b.order || 0));
 }
 
-// 재귀 트리 컴포넌트
+// ===== 트리(카테고리) 렌더 =====
+/**
+ * 카테고리 트리 컴포넌트(재귀)
+ * - open: 열린 node id 집합
+ * - onToggle: 펼침/접힘 토글 콜백
+ * - onSelect: 카테고리 선택 시 콜백
+ * - selectedId: 현재 선택된 카테고리 id
+ */
 function Tree({
   nodes,
   open,
@@ -112,7 +131,13 @@ function Tree({
   );
 }
 
-// 메인 WikiLinkModal
+// ===== 메인 WikiLinkModal 컴포넌트 =====
+/**
+ * - open: true면 최초 데이터 fetch 및 모든 상태 초기화
+ * - 좌: 트리, 우: 문서 목록(카테고리별/검색)
+ * - 문서 더블클릭 or "선택" 버튼 → onSelect(doc)
+ * - ESC/외부 클릭으로 닫힘
+ */
 export default function WikiLinkModal({
   open,
   onClose,
@@ -122,67 +147,68 @@ export default function WikiLinkModal({
   onClose: () => void;
   onSelect: (doc: Document) => void;
 }) {
-  // 모든 상태를 open=true 진입시에만 생성 (불필요 렌더 X)
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [tree, setTree] = useState<Category[]>([]);
-  const [openSet, setOpenSet] = useState<Set<number>>(new Set([0]));
+  // ===== 상태 선언 =====
+  const [categories, setCategories] = useState<Category[]>([]); // 평면 목록
+  const [tree, setTree] = useState<Category[]>([]); // 트리 구조
+  const [openSet, setOpenSet] = useState<Set<number>>(new Set([0])); // 열린 카테고리 id 집합
   const [selectedCat, setSelectedCat] = useState<Category | null>(null);
   const [selectedCatPath, setSelectedCatPath] = useState<number[]>([]);
-  const [allDocs, setAllDocs] = useState<Document[]>([]);
-  const [filteredDocs, setFilteredDocs] = useState<Document[]>([]);
-  const [search, setSearch] = useState('');
+  const [allDocs, setAllDocs] = useState<Document[]>([]); // 전체 문서 목록
+  const [filteredDocs, setFilteredDocs] = useState<Document[]>([]); // 현재 선택 카테고리 문서
+  const [search, setSearch] = useState(''); // 검색어
   const [selectedDocId, setSelectedDocId] = useState<number | null>(null);
 
-  // 상태 초기화 및 fetch (모달 열릴때만)
+  // ===== 데이터 fetch 및 상태 초기화 (open=true시) =====
   useEffect(() => {
     if (!open) return;
 
-    const handleKey = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') onClose();
-    };
+    // ESC 닫기 핸들러
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
 
+    // 모달 외부 클릭 닫기 핸들러
     const handleClick = (e: MouseEvent) => {
-        const modal = document.getElementById('wiki-link-modal');
-        // 모달 바깥 클릭만 닫힘
-        if (modal && !modal.contains(e.target as Node)) onClose();
+      const modal = document.getElementById('wiki-link-modal');
+      if (modal && !modal.contains(e.target as Node)) onClose();
     };
 
+    // 상태 초기화
     setOpenSet(new Set([0]));
     setSelectedCat(null);
     setSelectedCatPath([]);
     setSelectedDocId(null);
     setSearch('');
     setFilteredDocs([]);
-    
+
+    // 데이터 fetch(카테고리/문서)
     (async () => {
-        const catRes = await fetch('/api/categories');
-        const cats = await catRes.json();
-        setCategories(cats);
-        setTree([
+      const catRes = await fetch('/api/categories');
+      const cats = await catRes.json();
+      setCategories(cats);
+      setTree([
         {
-            id: 0,
-            name: 'RenDog Wiki',
-            parent_id: null,
-            order: 0,
-            icon: '📚',
-            children: buildTree(cats),
+          id: 0,
+          name: 'RenDog Wiki',
+          parent_id: null,
+          order: 0,
+          icon: '📚',
+          children: buildTree(cats),
         },
-        ]);
-        const docRes = await fetch('/api/documents?all=1');
-        const docs = await docRes.json();
-        setAllDocs(docs);
+      ]);
+      const docRes = await fetch('/api/documents?all=1');
+      const docs = await docRes.json();
+      setAllDocs(docs);
     })();
 
     window.addEventListener('keydown', handleKey);
     window.addEventListener('mousedown', handleClick);
 
     return () => {
-        window.removeEventListener('keydown', handleKey);
-        window.removeEventListener('mousedown', handleClick);
+      window.removeEventListener('keydown', handleKey);
+      window.removeEventListener('mousedown', handleClick);
     };
-    }, [open, onClose]);
+  }, [open, onClose]);
 
-  // 카테고리 선택 시 문서 필터링
+  // ===== 카테고리 선택 시 문서 필터링 =====
   useEffect(() => {
     if (!selectedCat) { setFilteredDocs([]); return; }
     const catPath = selectedCatPath[0] === 0 ? selectedCatPath.slice(1) : selectedCatPath;
@@ -194,14 +220,15 @@ export default function WikiLinkModal({
     setSelectedDocId(null);
   }, [selectedCat, selectedCatPath, allDocs]);
 
-  // 검색 적용
+  // ===== 검색어 적용(검색 시 전체에서 필터) =====
   const docsToShow = search.trim()
     ? allDocs.filter(doc =>
         doc.title.toLowerCase().includes(search.toLowerCase())
       )
     : filteredDocs;
 
-  // ESC 닫기/외부 클릭 닫기
+  // ===== (중복) ESC/외부 클릭 닫기(useEffect) =====
+  // (여러 번 열릴 수 있으므로 안전하게 별도)
   useEffect(() => {
     if (!open) return;
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -219,6 +246,7 @@ export default function WikiLinkModal({
 
   if (!open) return null;
 
+  // ===== 렌더 =====
   return (
     <div
       style={{
@@ -239,6 +267,7 @@ export default function WikiLinkModal({
         }}
         onClick={e => e.stopPropagation()}
       >
+        {/* 상단: 제목/닫기 */}
         <div style={{
           padding: '18px 20px 12px 20px',
           borderBottom: '1.5px solid #f2f4f6',
@@ -260,7 +289,7 @@ export default function WikiLinkModal({
         <div style={{
           display: 'flex', flex: 1, minHeight: 0, maxHeight: 480,
         }}>
-          {/* 좌: 트리 */}
+          {/* 좌: 카테고리 트리 */}
           <div style={{ width: 210, borderRight: '1.5px solid #f2f4f6', overflowY: 'auto', padding: 12 }}>
             <Tree
               nodes={tree}
@@ -272,7 +301,7 @@ export default function WikiLinkModal({
               selectedId={selectedCat?.id ?? null}
             />
           </div>
-          {/* 우: 문서 목록 */}
+          {/* 우: 문서 목록/검색 */}
           <div style={{ flex: 1, padding: 16, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
             <input
               placeholder="문서 제목 검색"
@@ -308,7 +337,9 @@ export default function WikiLinkModal({
                       onClick={() => setSelectedDocId(doc.id)}
                       onDoubleClick={() => { setSelectedDocId(doc.id); onSelect(doc); }}
                     >
+                      {/* 아이콘(이미지/이모지/기본) */}
                       <span style={{ fontSize: 19, marginRight: 4 }}>{doc.icon ?? '📄'}</span>
+                      {/* 문서 제목 */}
                       <span style={{
                         flex: 1,
                         textOverflow: 'ellipsis',
@@ -316,6 +347,7 @@ export default function WikiLinkModal({
                         whiteSpace: 'nowrap',
                         fontSize: 15,
                       }}>{doc.title}</span>
+                      {/* 태그(최대 1개) */}
                       {Array.isArray(doc.tags) && doc.tags.length > 0 && (
                         <span style={{
                           fontSize: 12,
@@ -333,6 +365,7 @@ export default function WikiLinkModal({
                 </ul>
               )}
             </div>
+            {/* 하단: 선택 버튼 */}
             <div style={{ marginTop: 10, textAlign: 'right' }}>
               <button
                 onClick={() => {

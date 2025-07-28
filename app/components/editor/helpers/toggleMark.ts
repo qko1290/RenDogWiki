@@ -2,17 +2,17 @@
 // File: app/components/editor/helpers/toggleMark.ts
 // =============================================
 /**
- * 에디터용 텍스트 스타일 토글/적용 유틸
- * - bold/italic/underline 등 기본 마크
- * - color/fontSize/backgroundColor
+ * Slate 에디터 텍스트 스타일 토글/적용 유틸
+ * - 기본 마크: bold, italic, underline 등
+ * - 스타일 마크: color, fontSize, backgroundColor 등
  */
 
 import { Editor, Transforms, Text } from 'slate';
 import type { MarkFormat } from '@/types/slate';
 
 /**
- * [마크 활성화 여부 판별]
- * - format: 마크/스타일명('bold'|'italic'|'color'|'fontSize' 등)
+ * 마크(텍스트 스타일) 활성화 여부 판별
+ * - format: 'bold', 'italic', 'color', 'fontSize' 등
  */
 export const isMarkActive = (editor: Editor, format: MarkFormat) => {
   const marks = Editor.marks(editor);
@@ -20,12 +20,11 @@ export const isMarkActive = (editor: Editor, format: MarkFormat) => {
 };
 
 /**
- * [마크(스타일) 토글/적용]
- * - format: 마크명(기본/bold/italic/underline 등 또는 커스텀 스타일 계열)
- * - value: 스타일 계열이면 적용값(색상, 크기 등)
- * - 동작:
- *   - 스타일 마크(color/fontSize/backgroundColor): setNodes로 값 직접 적용
- *   - 기본 마크(bold 등): on/off 토글(addMark/removeMark)
+ * 마크(스타일) 토글/적용 함수
+ * - format: 마크명 또는 스타일명
+ * - value: 스타일 값(색상/크기 등)
+ * - color/fontSize/backgroundColor는 setNodes로 값 적용
+ * - bold/italic 등은 addMark/removeMark로 on/off
  */
 export const toggleMark = (
   editor: Editor,
@@ -34,19 +33,19 @@ export const toggleMark = (
 ) => {
   const isActive = isMarkActive(editor, format as MarkFormat);
 
-  // 1. 스타일 마크(색상/크기/배경 등): 값으로 직접 세팅
+  // 스타일 마크(색상/크기/배경): 값 직접 세팅
   if (format === 'color' || format === 'fontSize' || format === 'backgroundColor') {
     Transforms.setNodes(
       editor,
-      { [format]: value },                   // 스타일 적용
-      { match: Text.isText, split: true }    // 텍스트 노드에만, 필요시 분할
+      { [format]: value },
+      { match: Text.isText, split: true }
     );
   } else {
-    // 2. 기본 마크: 토글(on/off)
+    // bold/italic 등 기본 마크: 토글
     if (isActive) {
-      Editor.removeMark(editor, format);     // 이미 적용됨 -> 해제
+      Editor.removeMark(editor, format);
     } else {
-      Editor.addMark(editor, format, true);  // 미적용 -> on
+      Editor.addMark(editor, format, true);
     }
   }
 };

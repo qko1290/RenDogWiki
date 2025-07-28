@@ -1,19 +1,28 @@
-/* app/wiki/css/editor.css */
+// =============================================
+// File: app/wiki/css/editor.css
+// =============================================
+/**
+ * 위키 에디터 전용 스타일 시트
+ * - 문서 에디터의 전체 레이아웃, 툴바, 입력 필드, 버튼, 드롭다운, 본문 스크롤/고정 구조, 인덴트 등
+ * - 각 영역별 역할과 구조가 명확하게 드러나도록 클래스 설계
+ * - 중복/불필요한 선언 제거 (최적화 완료)
+ */
 
+/* ----- 공통 레이아웃/기본값 ----- */
+
+/* 모든 레이아웃 영역의 position/z-index 고정 해제 (중복 방지) */
 .editor-layout, .wiki-main, body, html {
   z-index: auto !important;
   position: static !important;
 }
 
-/* 문서 입력 필드 */
+/* ---- 입력 필드/버튼/폼 관련 ---- */
 .editor-form-group { margin-bottom: 1.5rem; }
 .editor-label { display: block; font-weight: bold; margin-bottom: 0.5rem; }
 .editor-input {
   width: 100%; padding: 0.75rem; background: #f8fafc;
   color: #222; border: 1px solid #e5e7eb; border-radius: 0.375rem;
 }
-
-/* 버튼 그룹 */
 .editor-btn-group { display: flex; gap: 0.5rem; margin: 1rem 0; }
 .editor-btn-save {
   background: #2563eb; color: #fff; font-weight: bold;
@@ -22,35 +31,32 @@
 }
 .editor-btn-save:hover { background: #1e40af; }
 
-/* 에디터 전체 레이아웃 */
+/* ----- 전체 레이아웃: 3단 그리드 ----- */
 .editor-layout {
   display: grid;
   grid-template-columns: 220px 1fr 220px;
   gap: 32px;
   max-width: 1500px;
   margin: 40px auto 0 auto;
-  height: 82vh;        /* 뷰포트의 82% 높이(고정) */
+  height: 82vh;
   min-height: 550px;
   background: #fff;
 }
 
-/* 왼쪽/오른쪽: 문서정보/목차 (항상 고정) */
+/* ----- 사이드 영역: 좌/우 문서 정보/목차 고정 ----- */
 .editor-left, .editor-right {
   position: sticky;
-  top: 92px;           /* 헤더/검색바 높이에 맞게 조정 */
+  top: 92px;
   align-self: flex-start;
   height: fit-content;
-  max-height: calc(82vh - 20px); /* 전체 높이에서 여백 빼고 제한 */
+  max-height: calc(82vh - 20px);
   overflow-y: auto;
   background: #fff;
   z-index: 2;
   padding-bottom: 16px;
 }
 .editor-left {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  align-items: flex-start;
+  display: flex; flex-direction: column; gap: 24px; align-items: flex-start;
 }
 .editor-right {
   padding-left: 14px;
@@ -59,16 +65,16 @@
   z-index: 10;
 }
 
-/* 가운데: 툴바(고정) + 본문(스크롤 가능) */
+/* ----- 가운데: 툴바(고정) + 본문(스크롤) ----- */
 .editor-center {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  height: 70vh;         /* 반드시 높이 고정 */
+  height: 70vh;      /* 높이 고정 */
   background: #fff;
 }
 
-/* 툴바 고정 */
+/* 툴바 고정 (상단) */
 .editor-toolbar-wrapper {
   position: sticky;
   top: 0;
@@ -77,16 +83,17 @@
   border-bottom: 1px solid #eee;
 }
 
-/* 본문 스크롤만 가능 */
+/* 본문 영역만 스크롤 */
 .editor-content-scroll {
   flex: 1 1 0;
   min-height: 0;
   overflow-y: auto;
   max-height: calc(75vh - 56px);
   padding-right: 2px;
+  position: relative;
 }
 
-/* 에디터 본문 영역 */
+/* 에디터 본문(슬레이트) */
 .editor-slate-content {
   min-height: 550px;
   height: 95%;
@@ -99,7 +106,7 @@
   overflow: auto;
 }
 
-/* 툴바 및 드롭다운 */
+/* ----- 툴바 및 드롭다운 ----- */
 .editor-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -116,7 +123,7 @@
   background: #dbeafe; font-weight: bold; border-color: #60a5fa;
 }
 
-/* 드롭다운 공통 */
+/* ----- 드롭다운 메뉴 ----- */
 .toolbar-dropdown { position: relative; }
 .dropdown-menu {
   position: absolute; top: 110%; left: 0; background: #fff;
@@ -129,3 +136,15 @@
   cursor: pointer; text-align: left;
 }
 .dropdown-menu button:hover { background: #eee; }
+
+/* ----- 인덴트 라인 스타일(본문 내) ----- */
+.slate-indent-line {
+  border-left: 4px solid #aaa;
+  padding-left: 16px;
+  margin: 0;
+  border-radius: 0;
+  min-height: 1.6em;
+  background: none;
+}
+.slate-indent-line.start { margin-top: 8px; }
+.slate-indent-line.end { margin-bottom: 8px; }

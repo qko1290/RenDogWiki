@@ -1,0 +1,99 @@
+/* =============================================
+   File: app/register/register.css
+   =============================================
+   회원가입 페이지 스타일
+*/
+
+/* ===== [배경/컨테이너] ===== */
+.register-bg {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #18181b; /* zinc-900 */
+  color: #fff;
+}
+.register-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 420px;
+  background: #27272a; /* zinc-800 */
+  padding: 36px 32px 28px;
+  border-radius: 12px;
+  box-shadow: 0 4px 32px 0 rgba(20,22,27,0.09);
+}
+
+/* ===== [제목/폼] ===== */
+.register-title {
+  font-size: 1.7rem;
+  font-weight: bold;
+  margin-bottom: 24px;
+  letter-spacing: -1px;
+}
+.register-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* ===== [필드/인풋/버튼] ===== */
+.register-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.register-label {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #d1d5db;
+  margin-bottom: 2px;
+}
+.register-input {
+  width: 100%;
+  padding: 10px 12px;
+  background: #3f3f46; /* zinc-700 */
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: background 0.18s;
+  outline: none;
+}
+.register-input:focus {
+  background: #52525b; /* zinc-600 */
+}
+
+/* ===== [버튼] ===== */
+.register-btn {
+  width: 100%;
+  background: #0891b2; /* cyan-600 */
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 500;
+  padding: 10px 0;
+  border: none;
+  border-radius: 8px;
+  margin-top: 6px;
+  cursor: pointer;
+  transition: background 0.16s;
+}
+.register-btn:hover,
+.register-btn:active {
+  background: #06b6d4; /* cyan-500 */
+}
+.register-btn:disabled {
+  background: #164e63;
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* ===== [메시지] ===== */
+.register-message {
+  margin-top: 12px;
+  min-height: 22px;
+  font-size: 0.97rem;
+  text-align: center;
+  color: #38bdf8; /* sky-400 */
+}

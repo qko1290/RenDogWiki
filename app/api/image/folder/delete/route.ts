@@ -27,9 +27,9 @@ const s3 = new S3({
 });
 
 /**
- * [재귀적으로 모든 하위 폴더 id 추출]
+ * 재귀적으로 모든 하위 폴더 id를 추출하는 함수
  * - 입력: 루트 폴더 id
- * - 반환: 자기 자신 + 하위 모든 폴더 id 배열
+ * - 반환: 자기 자신을 포함한 하위 모든 폴더 id 배열
  */
 async function getAllFolderIds(rootId: number) {
   const rows = await sql`
@@ -45,15 +45,15 @@ async function getAllFolderIds(rootId: number) {
 }
 
 /**
- * [폴더/하위폴더/이미지 일괄 삭제] DELETE
+ * 폴더 및 모든 하위 폴더, 포함된 이미지까지 S3와 DB에서 일괄 삭제하는 API
  * - 입력: id(삭제할 폴더 id)
  * - 1. 로그인 필요(getAuthUser, 미인증시 401)
  * - 2. id 누락시 400 에러
  * - 3. 모든 하위폴더 id 추출(getAllFolderIds)
  * - 4. 해당 폴더들에 포함된 이미지 S3 키 모두 추출
- * - 5. S3에서 실제 이미지 삭제
- * - 6. DB에서 images -> image_folders 순으로 삭제
- * - 7. 성공 시 삭제된 개수 반환
+ * - 5. S3에서 실제 이미지 삭제(1000개 단위로 분할 처리)
+ * - 6. DB에서 images → image_folders 순서로 삭제(참조 무결성)
+ * - 7. 성공 시 삭제된 폴더/이미지 개수 반환
  */
 export async function DELETE(req: NextRequest) {
   // 1. 입력 파싱 및 인증 체크
@@ -74,7 +74,7 @@ export async function DELETE(req: NextRequest) {
   `;
   const s3keys = imgs.map((row: any) => ({ Key: row.s3_key }));
 
-  // 4. S3에서 이미지 삭제
+  // 4. S3에서 이미지 삭제 (1000개 단위 분할 처리)
   if (s3keys.length > 0) {
     for (let i = 0; i < s3keys.length; i += 1000) {
       const part = s3keys.slice(i, i + 1000);
@@ -85,12 +85,12 @@ export async function DELETE(req: NextRequest) {
     }
   }
 
-  // 5. DB에서 images -> image_folders 순서로 삭제
+  // 5. DB에서 images → image_folders 순서로 삭제
   // (참조 무결성: images 먼저, 그 후 폴더)
   await sql`DELETE FROM images WHERE folder_id = ANY(${folderIds})`;
   await sql`DELETE FROM image_folders WHERE id = ANY(${folderIds})`;
 
-  // 6. 성공 응답
+  // 6. 성공 응답(삭제 개수 반환)
   return NextResponse.json({
     ok: true,
     deleted: {

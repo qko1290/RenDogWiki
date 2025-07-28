@@ -63,7 +63,6 @@ export async function POST(req: NextRequest) {
 
     // 5. 인증 메일 발송
     // 발송 실패 시도 catch로 감지
-    // sendVerificationMail 호출
     await sendVerificationMail(email, token);
 
     // 6. 성공 메시지 반환

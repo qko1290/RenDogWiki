@@ -31,6 +31,8 @@ export async function GET(req: NextRequest) {
     rows = await sql`SELECT * FROM image_folders ORDER BY id ASC`;
   } else {
     // parent_id 있으면 해당 하위 폴더만 반환
+    // parseInt: 혹시 모를 잘못된 값이 들어온 경우 NaN이 되어 where parent_id = NaN 조건이 항상 false
+    // → 쿼리 결과는 빈 배열로 안전하게 반환됨
     rows = await sql`SELECT * FROM image_folders WHERE parent_id = ${parseInt(parent_id)} ORDER BY id ASC`;
   }
 

@@ -13,8 +13,8 @@
 
 import { sql } from '@/wiki/lib/db'; // DB 유틸
 import { NextRequest, NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';      // 비밀번호 해시 검증
-import jwt from 'jsonwebtoken';    // JWT 토큰 생성
+import bcrypt from 'bcryptjs';   // 비밀번호 해시 검증
+import jwt from 'jsonwebtoken';  // JWT 토큰 생성
 
 // JWT 비밀키: .env에서 설정, 없을 경우 기본값 사용
 const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';

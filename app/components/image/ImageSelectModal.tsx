@@ -1,24 +1,31 @@
 // =============================================
 // File: app/components/image/ImageSelectModal.tsx
 // =============================================
+/**
+ * 이미지 선택 모달(폴더 트리 + 썸네일 리스트)
+ * - 폴더 트리로 탐색/선택, 썸네일 클릭/더블클릭으로 이미지 선택/삽입
+ * - 선택시 onSelectImage(url, name, row) 호출
+ */
+
 import { useEffect, useState } from 'react';
 import Modal from '@/components/common/Modal';
 
+// 폴더 타입
 type Folder = {
   id: number;
   name: string;
   parent_id: number | null;
-  // 필요하면 다른 필드 추가
 };
 
+// 이미지 타입
 type ImageFile = {
   id: number;
   name: string;
   url: string;
   folder_id: number;
-  // 필요하면 다른 필드 추가
 };
 
+// 폴더 트리 컴포넌트 props
 type FolderTreeProps = {
   folders: Folder[];
   parentId: number | null;
@@ -28,12 +35,10 @@ type FolderTreeProps = {
   setTreeState: React.Dispatch<React.SetStateAction<Record<number, boolean>>>;
 };
 
-type ImageSelectModalProps = {
-  open: boolean;
-  onClose: () => void;
-  onSelectImage: (url: string, name: string, row: ImageFile) => void;
-};
-
+/** 
+ * 폴더 트리(재귀)
+ * - 하위 폴더 구조로 출력, 클릭시 선택/트리 확장
+ */
 function FolderTree({ folders, parentId, selectedId, onSelect, treeState, setTreeState }: FolderTreeProps) {
   const list = folders.filter(f => (parentId === null ? f.parent_id == null : Number(f.parent_id) === Number(parentId)));
   if (list.length === 0) return null;
@@ -92,33 +97,47 @@ function FolderTree({ folders, parentId, selectedId, onSelect, treeState, setTre
   );
 }
 
-export default function ImageSelectModal({ open, onClose, onSelectImage }: ImageSelectModalProps) {
-  const [folders, setFolders] = useState<any[]>([]);
-  const [images, setImages] = useState<any[]>([]);
+/**
+ * 이미지 선택 모달 (폴더 + 썸네일)
+ */
+export default function ImageSelectModal({
+  open,
+  onClose,
+  onSelectImage,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSelectImage: (url: string, name: string, row: ImageFile) => void;
+}) {
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [images, setImages] = useState<ImageFile[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<number | null>(null);
   const [treeState, setTreeState] = useState<Record<number, boolean>>({});
-  const [selectedImg, setSelectedImg] = useState<any>(null);
+  const [selectedImg, setSelectedImg] = useState<ImageFile | null>(null);
 
-  // 폴더 불러오기
+  // 폴더 목록 fetch
   useEffect(() => {
-    if (open)
+    if (open) {
       fetch('/api/image/folder/list')
         .then(res => res.json())
         .then(setFolders);
+    }
   }, [open]);
-  // 이미지 불러오기
+
+  // 폴더 선택시 이미지 목록 fetch
   useEffect(() => {
-    if (selectedFolder)
+    if (selectedFolder) {
       fetch(`/api/image/view?folder_id=${selectedFolder}`)
         .then(res => res.json())
         .then(setImages);
-    else
+    } else {
       setImages([]);
+    }
     setSelectedImg(null);
   }, [selectedFolder]);
 
-  // 썸네일 클릭시 이미지 선택
-  const handleThumbClick = (img: any) => setSelectedImg(img);
+  // 썸네일 클릭시 선택
+  const handleThumbClick = (img: ImageFile) => setSelectedImg(img);
 
   // 삽입 버튼
   const handleInsert = () => {
@@ -158,7 +177,7 @@ export default function ImageSelectModal({ open, onClose, onSelectImage }: Image
               title={img.name}
               onClick={() => handleThumbClick(img)}
               tabIndex={0}
-              onDoubleClick={() => { setSelectedImg(img); handleInsert(); }}
+              onDoubleClick={handleInsert}
             >
               <img src={img.url} alt={img.name} style={{ maxWidth: '88px', maxHeight: '88px', borderRadius: 8, objectFit: 'contain' }} />
             </div>

@@ -1,4 +1,11 @@
-/* 카테고리 트리/관리 페이지 스타일 */
+/* =============================================
+   File: app/manage/category/category.css
+   =============================================
+   카테고리 관리 페이지 (트리/문서/상세패널 3단)
+   - 트리/문서/상세 각각 레이아웃, 드래그, 태그, 반응형
+*/
+
+/* === 전체 레이아웃 === */
 .category-manager-container {
   display: flex;
   height: 100vh;
@@ -7,6 +14,7 @@
   font-weight: bold;
 }
 
+/* === [좌] 카테고리 트리 === */
 .category-sidebar {
   width: 30%;
   min-width: 260px;
@@ -16,46 +24,41 @@
   padding: 1.5rem 1.5rem 1rem 1.5rem;
   overflow-y: auto;
 }
-
 .category-tree-title {
   font-size: 1.25rem;
   font-weight: bold;
   margin-bottom: 1rem;
 }
-
 .category-tree-list {
   margin: 0;
   padding: 0;
   list-style: none;
 }
-
 .sortable-category-item {
   background: none;
   margin-bottom: 2px;
   border-radius: 6px;
   transition: background 0.08s;
 }
-
-.sortable-category-item.selected {
-  background: #eaf6ff;
+.sortable-category-item.selected { background: #eaf6ff; }
+.category-row {
+  display: flex;
+  align-items: center;
 }
-
-.sortable-category-item .grab-handle {
+.grab-handle {
   cursor: grab;
   margin-right: 10px;
   color: #b8b8b8;
   font-size: 1.2rem;
   user-select: none;
 }
-
-.sortable-category-item .category-label {
+.category-label {
   flex: 1;
   cursor: pointer;
   font-weight: 500;
-  padding: 2px 0 2px 0;
+  padding: 2px 0;
 }
-
-.sortable-category-item .category-toggle-btn {
+.category-toggle-btn {
   border: none;
   background: transparent;
   color: #666;
@@ -64,15 +67,10 @@
   cursor: pointer;
   padding: 0 4px;
 }
+.category-toggle-btn:focus { outline: none; }
+.category-tree-children { margin-left: 1.4rem; }
 
-.sortable-category-item .category-toggle-btn:focus {
-  outline: none;
-}
-
-.category-tree-children {
-  margin-left: 1.4rem;
-}
-
+/* === [중앙] 문서 리스트 === */
 .category-doclist {
   width: 25%;
   min-width: 220px;
@@ -82,57 +80,96 @@
   padding: 1.5rem 1.5rem 1rem 1.5rem;
   overflow-y: auto;
 }
-
 .category-doclist-title {
   font-size: 1.13rem;
   font-weight: bold;
   margin-bottom: 1rem;
 }
-
-.category-doclist li {
+.category-doclist ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.category-doc-item {
   cursor: pointer;
   padding: 6px 12px;
   border-radius: 4px;
   margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  font-weight: 500;
   transition: background 0.08s;
 }
-
-.category-doclist li:hover {
-  background: #f2f8ff;
-}
-
-.category-doclist li.selected,
-.category-doclist li.bg-blue-100 {
+.category-doc-item.selected,
+.category-doc-item.bg-blue-100 {
   background: #eaf6ff;
 }
+.category-doc-item.featured {
+  background: #ffd6da !important;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1.5px solid #f89aaf;
+  margin-bottom: 5px;
+}
+.category-doc-item:hover { background: #f2f8ff; }
+.doc-icon {
+  display: inline-block;
+  width: 1.3em;
+  min-width: 1.3em;
+  text-align: center;
+}
+.doc-img-icon {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  vertical-align: middle;
+  border-radius: 4px;
+  display: inline-block;
+}
+.doc-icon-placeholder { opacity: 0; }
+.doc-featured-label {
+  margin-left: 8px;
+  font-size: 12px;
+  color: #e5435a;
+  font-weight: 700;
+  vertical-align: middle;
+}
 
+/* 태그 */
+.doc-tag {
+  display: inline-block;
+  background: #f2f2f2;
+  color: #444;
+  border-radius: 6px;
+  padding: 2px 9px;
+  font-size: 13px;
+  margin-right: 6px;
+}
+
+/* === [우] 상세/설정 패널 === */
 .category-detail-panel {
   flex: 1;
   padding: 2rem 2.5rem 2rem 2.5rem;
   overflow-y: auto;
   min-width: 300px;
+  font-weight: 400;
 }
-
 .category-detail-panel h2 {
   font-size: 1.3rem;
   font-weight: bold;
   margin-bottom: 1.2rem;
 }
-
-.category-detail-panel .space-y-4 > * + * {
-  margin-top: 1.1rem;
-}
-
+.space-y-4 > * + * { margin-top: 1.1rem; }
 .category-detail-panel label {
   font-size: 0.98rem;
   font-weight: 500;
   margin-bottom: 0.35rem;
   display: block;
 }
-
-.category-detail-panel input[type="text"],
-.category-detail-panel input[type="emoji"],
-.category-detail-panel input {
+.category-detail-input {
   border: 1px solid #ddd;
   border-radius: 6px;
   padding: 8px 13px;
@@ -141,12 +178,13 @@
   margin-bottom: 2px;
 }
 
-.category-detail-panel .flex.gap-2 {
+/* 버튼 */
+.detail-btn-row {
+  display: flex;
   gap: 0.7rem;
   margin-top: 1.1rem;
   flex-wrap: wrap;
 }
-
 .category-detail-panel button {
   font-weight: 500;
   padding: 7px 20px;
@@ -156,7 +194,6 @@
   transition: background 0.11s, color 0.09s;
   cursor: pointer;
 }
-
 .category-detail-panel button.bg-blue-600 {
   background: #2078eb;
   color: #fff;
@@ -173,15 +210,17 @@
   background: #3ca7e2;
   color: #fff;
 }
+.category-detail-panel button:hover { filter: brightness(0.93); }
 
-.category-detail-panel button:hover {
-  filter: brightness(0.93);
+/* 공통 텍스트 유틸리티 */
+.text-gray-500 {
+  color: #999 !important;
+  font-weight: 400 !important;
 }
 
+/* === 반응형 === */
 @media (max-width: 1200px) {
-  .category-manager-container {
-    flex-direction: column;
-  }
+  .category-manager-container { flex-direction: column; }
   .category-sidebar,
   .category-doclist {
     width: 100%;

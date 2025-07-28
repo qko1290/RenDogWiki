@@ -11,6 +11,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db'; // DB
 
+export const revalidate = 0;
+export const dynamic = "force-dynamic";
+
 /**
  * [폴더 내 이미지 리스트 조회] GET
  * - 입력: folder_id

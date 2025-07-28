@@ -1,5 +1,13 @@
-// app/components/editor/HeadingIconSelectModal.tsx
+// =============================================
+// File: app/components/editor/HeadingIconSelectModal.tsx
+// =============================================
 'use client';
+
+/**
+ * Heading(제목) 아이콘 선택 모달 컴포넌트
+ * - 이모지(텍스트) 또는 이미지(URL) 중 하나를 선택해 heading 아이콘으로 지정
+ * - 이미지 선택은 하위 ImageSelectModal에서 처리
+ */
 
 import React, { useState } from 'react';
 import ImageSelectModal from '@/components/image/ImageSelectModal';
@@ -7,14 +15,14 @@ import ImageSelectModal from '@/components/image/ImageSelectModal';
 type Props = {
   open: boolean;
   onClose: () => void;
-  onSubmit: (icon: string) => void;
+  onSubmit: (icon: string) => void; // 이모지나 이미지 URL을 아이콘으로 반환
 };
 
 export default function HeadingIconSelectModal({ open, onClose, onSubmit }: Props) {
   const [emoji, setEmoji] = useState('');
   const [imgModalOpen, setImgModalOpen] = useState(false);
 
-  // 완료 버튼 클릭시
+  // 이모지 입력 후 적용 버튼 클릭 시
   const handleSubmit = () => {
     const icon = emoji.trim();
     if (icon) {
@@ -23,19 +31,29 @@ export default function HeadingIconSelectModal({ open, onClose, onSubmit }: Prop
     }
   };
 
-  return open ? (
+  if (!open) return null; // 모달 비활성 시 렌더링 없음
+
+  return (
     <div
       style={{
         position: 'fixed',
         left: 0, top: 0, right: 0, bottom: 0, zIndex: 1200,
-        background: 'rgba(0,0,0,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(0,0,0,0.18)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
       }}
       onClick={onClose}
     >
       <div
         style={{
-          background: '#fff', borderRadius: 12, padding: 30, minWidth: 320, minHeight: 120,
-          boxShadow: '0 2px 16px 0 #0002', position: 'relative',
+          background: '#fff',
+          borderRadius: 12,
+          padding: 30,
+          minWidth: 320,
+          minHeight: 120,
+          boxShadow: '0 2px 16px 0 #0002',
+          position: 'relative',
         }}
         onClick={e => e.stopPropagation()}
       >
@@ -106,5 +124,5 @@ export default function HeadingIconSelectModal({ open, onClose, onSubmit }: Prop
         />
       </div>
     </div>
-  ) : null;
+  );
 }

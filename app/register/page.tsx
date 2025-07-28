@@ -2,130 +2,133 @@
 // File: C:\next\rdwiki\app\register\page.tsx
 // =============================================
 /**
- * 회원가입 페이지
+ * 회원가입 페이지(클라이언트)
  * - 이메일/아이디/비밀번호/마인크래프트 닉네임 입력
- * - /api/auth/register API 호출, 결과 메시지 표시
+ * - /api/auth/register API POST 호출
+ * - 성공/실패 메시지 출력, 중복 제출 방지
  */
 
 'use client';
 
 import { useState } from 'react';
+import '@wiki/css/register.css'; // 스타일 분리(외부 css 사용)
 
+/**
+ * 회원가입 폼 컴포넌트
+ */
 export default function RegisterPage() {
-  // 입력폼 
+  // 입력폼 상태(4개)
   const [form, setForm] = useState({
     email: '',         // 이메일
-    username: '',      // 아이디
+    username: '',      // 아이디(로그인용)
     password: '',      // 비밀번호
     minecraftName: '', // 마인크래프트 닉네임
   });
 
-  const [message, setMessage] = useState('');   // 결과 메시지
-  const [loading, setLoading] = useState(false); // 중복 submit 방지
+  // 메시지/로딩 상태
+  const [message, setMessage] = useState('');      // 결과 메시지
+  const [loading, setLoading] = useState(false);   // 중복 제출 방지
 
   /**
    * 입력값 변경 핸들러
-   * - name 속성(key) 기준으로 값 업데이트
+   * - 각 input[name] 값만 부분 갱신
    */
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
   /**
-   * 폼 제출
-   * - /api/auth/register에 POST 요청
+   * 회원가입 제출 핸들러
+   * - /api/auth/register에 POST
+   * - 성공: 안내 메시지, 폼 초기화
+   * - 실패: 서버 메시지 출력
    */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setMessage('');
-
-    // API 호출
+    // 서버에 POST
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form),
     });
-
     const data = await res.json();
     if (res.ok) {
-      // 회원가입 성공(이메일 인증 필요)
       setMessage('회원가입 성공! 이메일을 확인해주세요.');
       setForm({ email: '', username: '', password: '', minecraftName: '' });
     } else {
-      // 실패(에러 메시지)
-      setMessage(`${data.error || '회원가입 실패'}`);
+      setMessage(data?.error || '회원가입 실패');
     }
     setLoading(false);
   };
 
-  // 렌더링
+  /** --- 실제 렌더링 --- */
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-zinc-900 text-white">
-      <h1 className="text-2xl font-bold mb-4">회원가입</h1>
-      <form
-        onSubmit={handleSubmit}
-        className="bg-zinc-800 p-6 rounded shadow-md w-96 space-y-4"
-      >
-        {/* 이메일 입력 */}
-        <div>
-          <label className="block mb-1">이메일</label>
-          <input
-            type="email"
-            name="email"
-            value={form.email}
-            onChange={handleChange}
-            required
-            className="w-full px-3 py-2 rounded bg-zinc-700 text-white"
-          />
-        </div>
-        {/* 아이디 입력 */}
-        <div>
-          <label className="block mb-1">아이디</label>
-          <input
-            type="text"
-            name="username"
-            value={form.username}
-            onChange={handleChange}
-            required
-            className="w-full px-3 py-2 rounded bg-zinc-700 text-white"
-          />
-        </div>
-        {/* 비밀번호 입력 */}
-        <div>
-          <label className="block mb-1">비밀번호</label>
-          <input
-            type="password"
-            name="password"
-            value={form.password}
-            onChange={handleChange}
-            required
-            className="w-full px-3 py-2 rounded bg-zinc-700 text-white"
-          />
-        </div>
-        {/* 마인크래프트 닉네임 입력 */}
-        <div>
-          <label className="block mb-1">마인크래프트 닉네임</label>
-          <input
-            type="text"
-            name="minecraftName"
-            value={form.minecraftName}
-            onChange={handleChange}
-            required
-            className="w-full px-3 py-2 rounded bg-zinc-700 text-white"
-          />
-        </div>
-        {/* 가입 버튼 */}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-cyan-600 hover:bg-cyan-500 transition py-2 rounded mt-2"
-        >
-          {loading ? '처리 중...' : '가입하기'}
-        </button>
-        {/* 결과 메시지 */}
-        {message && <p className="text-sm mt-2 text-center">{message}</p>}
-      </form>
+    <div className="register-bg">
+      <div className="register-container">
+        <h1 className="register-title">회원가입</h1>
+        <form onSubmit={handleSubmit} className="register-form">
+          {/* 이메일 */}
+          <div className="register-field">
+            <label className="register-label">이메일</label>
+            <input
+              type="email"
+              name="email"
+              value={form.email}
+              onChange={handleChange}
+              required
+              className="register-input"
+            />
+          </div>
+          {/* 아이디 */}
+          <div className="register-field">
+            <label className="register-label">아이디</label>
+            <input
+              type="text"
+              name="username"
+              value={form.username}
+              onChange={handleChange}
+              required
+              className="register-input"
+            />
+          </div>
+          {/* 비밀번호 */}
+          <div className="register-field">
+            <label className="register-label">비밀번호</label>
+            <input
+              type="password"
+              name="password"
+              value={form.password}
+              onChange={handleChange}
+              required
+              className="register-input"
+            />
+          </div>
+          {/* 마인크래프트 닉네임 */}
+          <div className="register-field">
+            <label className="register-label">마인크래프트 닉네임</label>
+            <input
+              type="text"
+              name="minecraftName"
+              value={form.minecraftName}
+              onChange={handleChange}
+              required
+              className="register-input"
+            />
+          </div>
+          {/* 제출 버튼 */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="register-btn"
+          >
+            {loading ? '처리 중...' : '가입하기'}
+          </button>
+          {/* 결과 메시지 */}
+          {message && <p className="register-message">{message}</p>}
+        </form>
+      </div>
     </div>
   );
 }

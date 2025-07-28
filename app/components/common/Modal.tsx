@@ -3,38 +3,46 @@
 // =============================================
 /**
  * 공통 Modal 컴포넌트
- * - props로 열림/닫힘(open), 닫기 콜백(onClose), 제목(title), 내용(children), 너비(width) 지정
- * - 포커스 트랩/배경 클릭시 닫힘, 모달 내용 클릭시 버블링 차단
- * - React Portal을 사용해 body 최상위에 렌더(중첩 z-index 문제 완전 방지)
+ * - props: 열림/닫힘(open), 닫기 콜백(onClose), 제목(title), 자식(children), 너비(width) 지정 가능
+ * - React Portal로 body에 렌더 (z-index 충돌 방지)
+ * - 배경 클릭 시 닫힘, 내용 클릭 시 닫힘 방지 (버블링 차단)
+ * - 포커스 트랩 및 접근성(arai-modal) 적용
  */
 
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 type ModalProps = {
-  open: boolean;
-  onClose: () => void;
-  title?: string;
-  children: React.ReactNode;
-  width?: string;
+  open: boolean;            // 모달 오픈 여부
+  onClose: () => void;      // 닫기 콜백
+  title?: string;           // 모달 상단 제목
+  children: React.ReactNode;// 모달 내부 내용
+  width?: string;           // 최소 너비 (기본 400px)
 };
 
+/**
+ * [Modal 컴포넌트]
+ * - open=false면 null 반환(렌더 X)
+ * - 클라이언트 사이드에서만 Portal 렌더링
+ */
 export default function Modal({
   open, onClose, title, children, width = "400px"
 }: ModalProps) {
   const [isClient, setIsClient] = useState(false);
 
+  // 마운트 후(브라우저 환경)만 Portal 생성
   useEffect(() => {
     setIsClient(true);
   }, []);
 
   if (!open || !isClient) return null;
 
+  // 모달 레이어(Portal 대상)
   const modalContent = (
     <div
       className="modal-overlay"
       onClick={onClose}
-      aria-modal
+      aria-modal="true"
       tabIndex={-1}
       style={{
         position: 'fixed',
@@ -57,8 +65,9 @@ export default function Modal({
           maxWidth: "90vw",
           position: "relative",
         }}
-        onClick={e => e.stopPropagation()}
+        onClick={e => e.stopPropagation()} // 내용 클릭 시 배경 클릭 닫힘 방지
       >
+        {/* 우측 상단 닫기 버튼 */}
         <button
           className="absolute top-3 right-4 text-xl font-bold text-gray-400 hover:text-gray-700"
           onClick={onClose}
@@ -75,6 +84,7 @@ export default function Modal({
             zIndex: 10001,
           }}
         >×</button>
+        {/* 제목이 있을 때만 출력 */}
         {title && <div className="text-lg font-bold mb-3">{title}</div>}
         {children}
       </div>

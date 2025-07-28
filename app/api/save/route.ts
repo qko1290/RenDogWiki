@@ -24,16 +24,16 @@ import { sql } from '@/wiki/lib/db'; // DB
 export async function POST(req: NextRequest) {
   try {
     const { id, path, title, content, icon, tags } = await req.json();
-    console.log('[5] API로 전달된 id:', id, 'path:', path, 'title:', title);
-
+    // path와 title은 필수
     if (!path || !title) {
       return NextResponse.json({ error: 'path와 title은 필수입니다.' }, { status: 400 });
     }
 
     let documentId: number | undefined = undefined;
 
-    // (1) 신규 생성이면, 중복 title 체크
+    // (1) 신규 생성 (id가 없을 때)
     if (!id) {
+      // 같은 카테고리+제목 중복 체크
       const dupCheck = await sql`
         SELECT id FROM documents WHERE path = ${path} AND title = ${title}
       `;
@@ -43,22 +43,23 @@ export async function POST(req: NextRequest) {
           { status: 409 }
         );
       }
-      // 신규 INSERT
+      // 문서 메타데이터 INSERT
       const insertDoc = await sql`
         INSERT INTO documents (title, path, icon, tags)
         VALUES (${title}, ${path}, ${icon}, ${tags?.join(',')})
         RETURNING id
       `;
       documentId = insertDoc[0].id;
+      // 본문 내용 INSERT (JSON)
       await sql`
         INSERT INTO document_contents (document_id, content)
         VALUES (${documentId}, ${JSON.stringify(content)})
       `;
     }
-    // (2) id가 있으면 무조건 UPDATE (제목도 바꿔줌)
+    // (2) 기존 문서 수정 (id가 있을 때)
     else {
       documentId = id;
-      // UPDATE documents
+      // 문서 메타데이터 UPDATE
       await sql`
         UPDATE documents SET
           title = ${title},
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
           updated_at = NOW()
         WHERE id = ${documentId}
       `;
-      // document_contents
+      // 본문 내용 UPDATE/INSERT (존재 여부에 따라 분기)
       const docContentRows = await sql`
         SELECT id FROM document_contents WHERE document_id = ${documentId}
       `;

@@ -4,27 +4,34 @@
 /**
  * 이미지 업로드 모달 컴포넌트
  * - 여러 장 드래그/선택 업로드 지원
- * - 중복 파일 필터링, 업로드 진행 상태 표시
+ * - 파일명+사이즈 중복 필터, 업로드 진행 상태 표시
+ * - 업로드 완료 시 파일 목록/인풋 리셋 후 onUploaded 콜백
  */
 
 import { useRef, useState } from "react";
 import Modal from "@/components/common/Modal";
 
-// Props 타입 선언
-type Props = {
-  open: boolean;                       // 모달 열림/닫힘 상태
-  onClose: () => void;                 // 모달 닫기 콜백
-  folderId: number | null;             // 업로드할 폴더 id (null이면 비활성)
-  onUploaded: (images: any[]) => void; // 업로드 성공 시 이미지 배열 콜백
+// (실제 프로젝트에서 ImageFile 타입이 있다면 불러와서 아래 any[]를 대체하세요)
+type ImageFile = {
+  id: number;
+  name: string;
+  url: string;
+  folder_id: number;
 };
 
-// 이미지 업로드 모달 본체
-export default function ImageUploadModal({ open, onClose, folderId, onUploaded }: Props) {
-  const [files, setFiles] = useState<File[]>([]);         // 선택/드롭된 파일 목록
-  const [loading, setLoading] = useState(false);          // 업로드 중 여부
-  const inputRef = useRef<HTMLInputElement>(null);        // 파일 선택용 input ref
+type Props = {
+  open: boolean;
+  onClose: () => void;
+  folderId: number | null;
+  onUploaded: (images: ImageFile[]) => void; // any[] 대신 명확한 타입
+};
 
-  // 파일 input/드롭 이벤트 핸들러
+export default function ImageUploadModal({ open, onClose, folderId, onUploaded }: Props) {
+  const [files, setFiles] = useState<File[]>([]);
+  const [loading, setLoading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // 파일 input/드롭 이벤트 - 중복 파일 제외
   const handleSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFiles = Array.from(e.target.files);
@@ -65,18 +72,18 @@ export default function ImageUploadModal({ open, onClose, folderId, onUploaded }
     setLoading(false);
     if (res.ok) {
       setFiles([]);
-      if (inputRef.current) inputRef.current.value = "";
-      onUploaded(data.images); // 부모 갱신
+      inputRef.current && (inputRef.current.value = "");
+      onUploaded(data.images);
       onClose();
     } else {
       alert(data.error || "업로드 실패");
     }
   };
 
-  // 렌더: 모달, 드롭존, 버튼 등 UI
+  // UI 렌더: 모달 + 드롭존 + 파일 리스트 + 버튼
   return (
     <Modal open={open} onClose={onClose} title="이미지 업로드">
-      {/* 드래그/클릭 선택 영역 */}
+      {/* 파일 드래그/클릭 선택 영역 */}
       <div
         onDragOver={e => e.preventDefault()}
         onDrop={handleDrop}
@@ -84,6 +91,7 @@ export default function ImageUploadModal({ open, onClose, folderId, onUploaded }
         style={{ minHeight: 100, cursor: "pointer" }}
         onClick={() => inputRef.current?.click()}
       >
+        {/* 파일 없으면 안내문, 있으면 파일 리스트 */}
         {files.length === 0 ? (
           <div className="text-lg text-gray-400">이미지 파일을 여기에 드래그하거나 클릭하세요</div>
         ) : (
@@ -93,7 +101,7 @@ export default function ImageUploadModal({ open, onClose, folderId, onUploaded }
             ))}
           </div>
         )}
-        {/* 파일 선택 input */}
+        {/* 실제 파일 선택 input */}
         <input
           ref={inputRef}
           type="file"
@@ -103,9 +111,9 @@ export default function ImageUploadModal({ open, onClose, folderId, onUploaded }
           onChange={handleSelect}
         />
       </div>
-      {/* 하단: 취소/업로드 버튼 */}
+      {/* 하단 버튼 */}
       <div className="flex gap-2 justify-end">
-        <button className="px-4 py-2 bg-gray-200 rounded" onClick={onClose}>취소</button>
+        <button className="px-4 py-2 bg-gray-200 rounded" onClick={onClose} disabled={loading}>취소</button>
         <button
           className="px-4 py-2 bg-blue-600 text-white rounded"
           onClick={handleUpload}

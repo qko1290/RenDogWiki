@@ -1,0 +1,435 @@
+/* ========== 공통 스타일(필요시 import) ========== */
+
+/* 아래 head-xxx class 외 나머지(공통) 클래스는 npc/quest 페이지와 중복 가능 */
+
+/* ========== head 전용 ========== */
+.head-manager-container {
+  display: flex;
+  height: 100vh;
+  padding-top: 64px;
+  font-family: 'Inter', 'Pretendard', 'Noto Sans KR', Arial, sans-serif;
+}
+
+.head-sidebar {
+  width: 260px;
+  min-width: 180px;
+  background: #f5f6fa;
+  border-right: 1px solid #e1e4ea;
+  padding: 1.2rem;
+}
+
+.head-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.head-sidebar-add-btn {
+  background: #1ec171;
+  color: #fff;
+  border: none;
+  font-weight: 600;
+  border-radius: 6px;
+  padding: 5px 15px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: filter 0.09s;
+}
+
+.head-sidebar-add-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.head-sidebar-add-btn:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
+
+.head-village-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.head-village-item {
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-weight: 500;
+  margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background 0.08s;
+}
+
+.head-village-item.selected {
+  background: #eaf6ff;
+}
+
+.head-village-icon {
+  margin-right: 8px;
+  display: flex;
+  align-items: center;
+}
+
+.head-village-icon img {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: #fafafa;
+  vertical-align: middle;
+}
+
+.head-village-emoji {
+  font-size: 20px;
+}
+
+.head-village-name {
+  flex: 1;
+}
+
+.head-village-menu-btn {
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  cursor: pointer;
+  font-size: 19px;
+  color: #888;
+  margin-left: 8px;
+  line-height: 1;
+}
+
+.head-village-menu-btn:hover {
+  color: #2357b2;
+}
+
+.head-list-area {
+  width: 340px;
+  min-width: 200px;
+  background: #fff;
+  border-right: 1px solid #e1e4ea;
+  padding: 1.2rem;
+}
+
+.head-list-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.head-list-header {
+  font-weight: 700;
+  margin-bottom: 18px;
+}
+
+.head-add-btn {
+  font-weight: 500;
+  padding: 5px 12px;
+}
+
+.head-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.head-list-item {
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 7px;
+  font-weight: 500;
+  margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.08s;
+  border: 1px solid transparent;
+}
+
+.head-list-item img {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.head-list-item.selected {
+  background: #eaf6ff;
+}
+
+.head-list-item.dragging {
+  opacity: 0.5;
+  border: 1px solid #5ed19d;
+}
+
+.head-list-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.head-list-order {
+  font-weight: 600;
+  color: #2357b2;
+  font-size: 17px;
+  min-width: 28px;
+  text-align: right;
+}
+
+.head-list-coord {
+  margin-left: 9px;
+}
+
+.drag-handle {
+  font-size: 20px;
+  margin-right: 12px;
+  cursor: grab;
+  user-select: none;
+  color: #bbb;
+  padding: 2px 2px;
+  flex-shrink: 0;
+}
+
+.head-detail-area {
+  flex: 1;
+  padding: 2rem 2.5rem;
+  overflow-y: auto;
+  min-width: 280px;
+}
+
+.head-detail-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.head-detail-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  gap: 7px;
+}
+
+.head-edit-btn {
+  margin-right: 8px;
+  font-size: 15px;
+  padding: 2px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #888;
+  transition: color 0.1s;
+}
+
+.head-edit-btn:hover {
+  color: #2357b2;
+}
+
+.head-detail-coord {
+  color: #2357b2;
+}
+
+.head-detail-pic-list {
+  display: flex;
+  gap: 8px;
+  margin-left: 6px;
+}
+
+.head-detail-pic-img {
+  width: 54px;
+  height: 54px;
+  border-radius: 6px;
+  border: 1px solid #eee;
+}
+
+.head-detail-empty {
+  color: #888;
+  text-align: center;
+  padding: 32px;
+}
+
+/* --- 모달 스타일 --- */
+.head-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.head-modal-label {
+  font-weight: 600;
+  font-size: 15px;
+  margin-bottom: 4px;
+  display: block;
+}
+
+.head-modal-input {
+  border: 1px solid #ccc;
+  border-radius: 7px;
+  font-size: 17px;
+  padding: 7px 11px;
+  width: 100%;
+}
+
+.head-modal-icon-input-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.head-modal-emoji-input {
+  font-size: 22px;
+  width: 50px;
+  text-align: center;
+}
+
+.head-modal-icon-sep {
+  font-size: 14px;
+  color: #aaa;
+}
+
+.head-modal-image-btn {
+  padding: 4px 14px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #f8f8f8;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.head-modal-image-btn:hover {
+  background: #e2fff2;
+}
+
+.head-modal-preview-icon {
+  height: 32px;
+  margin-left: 8px;
+  border-radius: 6px;
+}
+
+.head-modal-btn-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.head-modal-cancel-btn {
+  background: #bbb;
+  color: #fff;
+  border-radius: 7px;
+  font-weight: 600;
+  padding: 7px 18px;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.head-modal-submit-btn {
+  background: #1ec171;
+  color: #fff;
+  border-radius: 7px;
+  font-weight: 700;
+  padding: 7px 22px;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.head-modal-submit-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* 모달 사진 썸네일+삭제 버튼 */
+.head-modal-pic-thumb-box {
+  position: relative;
+  display: inline-block;
+  margin-right: 6px;
+}
+
+.head-modal-pic-thumb-img {
+  width: 54px;
+  height: 54px;
+  border-radius: 6px;
+  border: 1px solid #eee;
+}
+
+.head-modal-pic-thumb-remove {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #f43;
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.head-modal-pic-add-btn {
+  width: 54px;
+  height: 54px;
+  border-radius: 6px;
+  font-size: 23px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid #ccc;
+  background: #f8f8f8;
+  color: #333;
+}
+
+.head-modal-pic-add-btn:hover {
+  background: #e2fff2;
+}
+
+@media (max-width: 1200px) {
+  .head-manager-container {
+    flex-direction: column;
+  }
+  .head-sidebar,
+  .head-list-area {
+    width: 100%;
+    max-width: 100%;
+    min-width: unset;
+    border-right: none;
+    border-bottom: 1px solid #e1e4ea;
+    padding: 1rem;
+  }
+}
+
+.head-village-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.head-village-icon {
+  display: flex;
+  align-items: center;
+}
+
+.head-village-emoji {
+  font-size: 20px;
+  line-height: 1;
+  display: inline-block;
+}
+
+.head-village-name {
+  font-size: 16px;
+  font-weight: 500;
+  display: inline-block;
+}

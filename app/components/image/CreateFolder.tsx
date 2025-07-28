@@ -13,13 +13,14 @@ import Modal from "@/components/common/Modal";
 // Props 타입
 type Props = {
   parentId: number | null;                       // 부모 폴더 id (최상위면 null)
+  onClose: () => void;    
   onCreated?: (folder: any) => void;             // 생성 성공 시 콜백
   className?: string;                            // 버튼 커스텀 클래스
   forceOpen?: boolean;                           // 버튼 없이 무조건 모달만 열기
 };
 
 // 메인 컴포넌트
-export default function CreateFolder({ parentId, onCreated, className, forceOpen }: Props) {
+export default function CreateFolder({ parentId, onCreated, onClose, className, forceOpen }: Props) {
   // 모달 오픈/이름/로딩/에러 상태
   const [open, setOpen] = useState(false);
   const [folderName, setFolderName] = useState("");

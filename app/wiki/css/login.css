@@ -1,0 +1,102 @@
+/* =============================================
+   File: app/login/login.css
+   ============================================= */
+/**
+ * 로그인 페이지 (센터 배치, 다크 배경, 입력폼/버튼/메시지 등)
+ */
+
+/* 전체 배경 및 가운데 정렬 */
+.login-bg {
+  min-height: 100vh;
+  display: flex;
+  background: #18181b;    /* zinc-900 */
+  color: #fff;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 로그인 박스 컨테이너 */
+.login-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 420px;
+  background: #27272a;    /* zinc-800 */
+  padding: 36px 32px 28px;
+  border-radius: 12px;
+  box-shadow: 0 4px 32px 0 rgba(20,22,27,0.09);
+}
+
+/* 타이틀 */
+.login-title {
+  font-size: 1.7rem;
+  font-weight: bold;
+  margin-bottom: 24px;
+  letter-spacing: -1px;
+}
+
+/* 폼(입력필드/버튼/메시지) */
+.login-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.login-label {
+  font-size: 1rem;
+  margin-bottom: 2px;
+  font-weight: 500;
+  color: #d1d5db;
+}
+.login-input {
+  width: 100%;
+  padding: 10px 12px;
+  background: #3f3f46;   /* zinc-700 */
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: background 0.18s;
+  outline: none;
+}
+.login-input:focus {
+  background: #52525b;   /* zinc-600 */
+}
+
+/* 버튼 */
+.login-btn {
+  width: 100%;
+  background: #0891b2;    /* cyan-600 */
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 500;
+  padding: 10px 0;
+  border: none;
+  border-radius: 8px;
+  margin-top: 6px;
+  cursor: pointer;
+  transition: background 0.16s;
+}
+.login-btn:hover,
+.login-btn:active {
+  background: #06b6d4;    /* cyan-500 */
+}
+.login-btn:disabled {
+  background: #164e63;
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* 메시지 */
+.login-message {
+  margin-top: 12px;
+  font-size: 0.97rem;
+  text-align: center;
+  color: #38bdf8; /* sky-400 */
+  min-height: 22px;
+}

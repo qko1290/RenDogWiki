@@ -40,10 +40,6 @@ export async function PUT(
     order === undefined || order === '' || order === null ? 0 : Number(order);
 
   // 필드 업데이트
-  // - 없는 값(null/0 등)은 SQL에서 null/0 처리
-  // - parent_id, document_path, icon은 없으면 null
-  // - order는 없으면 0으로 강제 (최상위 루트에서 0으로 고정)
-
   await sql`
     UPDATE categories SET
       name = ${name},
@@ -55,7 +51,7 @@ export async function PUT(
   `;
 
   if (document_id) {
-    // 1) 일단 이 카테고리의 기존 대표문서 전부 false
+    // 1) 이 카테고리의 기존 대표문서 전부 false
     await sql`
       UPDATE documents
       SET is_featured = false

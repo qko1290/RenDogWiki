@@ -1,22 +1,29 @@
-/* 위키 전체 컨테이너 */
+/* ===== [1] 전체 컨테이너/레이아웃 ===== */
 .wiki-container {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background-color: #fff;
+  background: #fff;
   color: #333;
   font-family: 'Segoe UI', sans-serif;
 }
-
-/* 메인 레이아웃(헤더 제외) */
 .wiki-layout {
   display: flex;
   margin-top: 64px;
   height: calc(100vh - 64px);
   overflow: hidden;
 }
+.wiki-main {
+  display: flex;
+  position: relative;
+}
+.wiki-main-scrollable {
+  display: flex;
+  flex: 1;
+  overflow-y: auto;
+}
 
-/* 사이드바(카테고리) */
+/* ===== [2] 사이드바(카테고리) ===== */
 .wiki-sidebar {
   width: 260px;
   background: #f9f9f9;
@@ -24,11 +31,19 @@
   overflow-y: auto;
   border-right: 1px solid #e0e0e0;
 }
-.wiki-sidebar-title { font-size: 1.2rem; font-weight: bold; margin-bottom: 1rem; }
-.wiki-nav-item {
+.wiki-sidebar-title {
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+}
+
+/* ===== [3] 사이드바 카테고리/문서 버튼 ===== */
+.wiki-nav-item,
+.wiki-doc-item,
+.wiki-sub-nav-item {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: flex-start;
   padding: 0.5rem 0.75rem 0.5rem 0.25rem;
   margin: 0.25rem 0;
   font-size: 1rem;
@@ -39,14 +54,89 @@
   cursor: pointer;
   text-align: left;
   width: 100%;
+  position: relative;
 }
-.wiki-nav-item.active {
+.wiki-nav-item.active,
+.wiki-doc-item.active {
   color: #0070f3;
-  background-color: #e6f0ff;
+  background: #e6f0ff;
   font-weight: bold;
 }
+.wiki-nav-item::before,
+.wiki-doc-item::before {
+  content: "";
+  position: absolute;
+  left: -14px;
+  top: 10%;
+  bottom: 10%;
+  width: 3px;
+  border-radius: 2.5px;
+  background: #208cff;
+  z-index: 2;
+  opacity: 0;
+  transform: scaleY(0.2);
+  transition: opacity 0.18s, transform 0.22s cubic-bezier(0.29,0.8,0.44,1.13);
+  pointer-events: none;
+}
+.wiki-nav-item.active::before,
+.wiki-doc-item.active::before {
+  opacity: 1;
+  transform: scaleY(1);
+}
 
-/* 본문 */
+/* ===== [4] 카테고리/문서 트리(ul, li) ===== */
+.wiki-doc-list,
+.wiki-sub-nav-list {
+  list-style: none;
+  margin-left: 0.9rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid #e0e0e0;
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  transform: scaleY(0.94);
+  transition: max-height 0.6s cubic-bezier(.44,.21,.65,1.04),
+              opacity 0.2s cubic-bezier(.44,.21,.65,1.04),
+              transform 0.3s cubic-bezier(.44,.21,.65,1.04);
+  transform-origin: top;
+}
+.wiki-doc-list.open,
+.wiki-sub-nav-list.open {
+  max-height: 1200px;
+  opacity: 1;
+  transform: scaleY(1);
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+.wiki-doc-list.closing,
+.wiki-sub-nav-list.closing {
+  max-height: 0 !important;
+  opacity: 0;
+  transform: scaleY(0.92);
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.wiki-doc-item {
+  font-size: 0.95rem;
+  color: #444;
+  margin: 0.25rem 0;
+}
+.wiki-category-label {
+  flex-grow: 1;
+  text-align: left;
+}
+.wiki-category-arrow {
+  color: #888;
+  font-size: 0.9rem;
+  margin-left: 0.5rem;
+}
+.wiki-category-icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ===== [5] 본문 ===== */
 .wiki-content {
   flex: 1;
   overflow-y: auto;
@@ -69,7 +159,9 @@
   color: #0070f3;
   cursor: pointer;
 }
-.wiki-back-button:hover { text-decoration: underline; }
+.wiki-back-button:hover {
+  text-decoration: underline;
+}
 .wiki-content-title {
   font-size: 2rem;
   font-weight: 700;
@@ -82,11 +174,11 @@
   color: #333;
 }
 
-/* 목차(TOC) */
+/* ===== [6] 목차(TOC) ===== */
 .wiki-toc,
 .wiki-toc-sidebar {
   width: 220px;
-  padding: 1rem 1rem;
+  padding: 1rem;
   flex-shrink: 0;
   border-left: 1px solid #eee;
   background: #fdfdfd;
@@ -95,65 +187,29 @@
   top: 64px;
   height: calc(100vh - 64px);
 }
-.wiki-toc ul, .wiki-toc-sidebar ul { list-style: none; padding: 0; margin: 0; }
-.wiki-toc li, .wiki-toc-sidebar li { margin-bottom: 8px; font-size: 0.95rem; }
-.wiki-toc a, .wiki-toc-sidebar a {
+.wiki-toc ul,
+.wiki-toc-sidebar ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.wiki-toc li,
+.wiki-toc-sidebar li {
+  margin-bottom: 8px;
+  font-size: 0.95rem;
+}
+.wiki-toc a,
+.wiki-toc-sidebar a {
   color: #555;
   text-decoration: none;
 }
-.wiki-toc a:hover, .wiki-toc-sidebar a:hover {
+.wiki-toc a:hover,
+.wiki-toc-sidebar a:hover {
   color: #0070f3;
   text-decoration: underline;
 }
 
-/* 하위 문서 리스트, 문서 항목 */
-.wiki-doc-list {
-  margin-left: 1.5rem;
-  padding-left: 0.75rem;
-  border-left: 2px solid #e0e0e0;
-  list-style: none;
-}
-.wiki-doc-item {
-  padding-left: 0.25rem;
-  font-size: 0.95rem;
-  color: #444;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  margin: 0.25rem 0;
-}
-.wiki-doc-item.active {
-  color: #0070f3;
-  font-weight: bold;
-  background: #e6f0ff;
-  border-radius: 6px;
-}
-
-/* 카테고리/문서 트리 */
-.wiki-category-label { flex-grow: 1; text-align: left; }
-.wiki-category-arrow { color: #888; font-size: 0.9rem; margin-left: 0.5rem; }
-.wiki-sub-nav-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.5rem 0.75rem;
-  font-size: 1rem;
-  border: none;
-  background: none;
-  color: #333;
-  border-radius: 6px;
-  cursor: pointer;
-  width: 100%;
-}
-.wiki-sub-nav-list {
-  margin-left: 1.5rem;
-  padding-left: 0.75rem;
-  border-left: 2px solid #e0e0e0;
-  list-style: none;
-}
-.wiki-category-icon { display: inline-flex; align-items: center; }
-
-/* ===== 수정 버튼 ===== */
+/* ===== [7] 기타 ===== */
 .edit-button {
   background: #0070f3;
   color: #fff;
@@ -164,8 +220,6 @@
   display: inline-block;
   margin-bottom: 1rem;
 }
-.edit-button:hover { background: #005ad1; }
-
-/* ===== 메인/TOC 레이아웃(스크롤 분리용) ===== */
-.wiki-main { display: flex; position: relative; }
-.wiki-main-scrollable { display: flex; flex: 1; overflow-y: auto; }
+.edit-button:hover {
+  background: #005ad1;
+}
