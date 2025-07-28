@@ -1,10 +1,3 @@
-// =============================================
-// File: components/wiki/NpcPictureSlider.tsx
-// =============================================
-/**
- * NPC/머리찾기용 사진 슬라이더(좌우 이동)
- */
-
 import React, { useState } from 'react';
 
 const NpcPictureSlider = ({ pictures = [] }: { pictures: string[] }) => {

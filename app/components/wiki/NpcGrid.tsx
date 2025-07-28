@@ -1,15 +1,5 @@
-// =============================================
-// File: app/components/wiki/NpcGrid.tsx
-// =============================================
-/**
- * NPC 목록 그리드 컴포넌트
- * - 각 NPC(이름, 아이콘, 위치 등) 표시
- * - 클릭 시 상세 모달 오픈
- */
-
 import React from "react";
 
-// Npc 타입 정의
 export type Npc = {
   id: number;
   name: string;
@@ -18,7 +8,6 @@ export type Npc = {
   location_y: number;
   location_z: number;
   pictures?: string[];
-  // 필요시 추가 필드(quest, rewards 등)
 };
 
 type Props = {
@@ -56,7 +45,6 @@ export default function NpcGrid({ npcs, onClick, selectedNpcId }: Props) {
           }}
           onClick={() => onClick?.(npc)}
         >
-          {/* 아이콘 (이미지/이모지) */}
           {npc.icon?.startsWith("http") ? (
             <img
               src={npc.icon}

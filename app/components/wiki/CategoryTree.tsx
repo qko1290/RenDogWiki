@@ -1,15 +1,5 @@
-// =============================================
-// File: components/wiki/CategoryTree.tsx
-// =============================================
-/**
- * 카테고리 + 문서 트리 재귀 컴포넌트
- * - 트리 구조로 카테고리 및 문서 목록 렌더링
- * - 클릭 시 문서/카테고리 열기
- */
-
 import React from 'react';
 
-// 타입 정의
 type CategoryNode = {
   id: number;
   name: string;
@@ -27,7 +17,6 @@ type Document = {
   is_featured?: boolean;
 };
 
-// Props
 type Props = {
   categories: CategoryNode[];
   categoryIdMap: Record<number, CategoryNode>;
@@ -40,14 +29,19 @@ type Props = {
   setSelectedCategoryPath: (path: number[] | null) => void;
   fetchDoc: (categoryPath: number[], docTitle: string, docId?: number, options?: { clearCategoryPath?: boolean }) => void;
   allDocuments: Document[];
+  openPaths: number[][];
+  closingPaths: number[][];
+  togglePath: (path: number[]) => void;
+  toggleArrowOnly: (path: number[]) => void;
+  isPathOpen: (path: number[]) => boolean;
 };
 
-// 실제 트리 컴포넌트
 const CategoryTree: React.FC<Props> = ({
   categories, categoryIdMap, categoryIdToPathMap,
   selectedDocPath, selectedCategoryPath,
   setSelectedDocPath, setSelectedDocId, setSelectedDocTitle, setSelectedCategoryPath,
   fetchDoc, allDocuments,
+  openPaths, closingPaths, togglePath, toggleArrowOnly, isPathOpen
 }) => {
   // 특정 카테고리의 문서 목록 필터
   const getDocumentsForCategory = (pathArr: number[]) => {
@@ -60,9 +54,9 @@ const CategoryTree: React.FC<Props> = ({
   const renderTree = (nodes: CategoryNode[], parentPath: number[] = []) => {
     return nodes.map(node => {
       const currentPath = [...parentPath, node.id];
+      const isOpen = isPathOpen(currentPath);
       const docs = getDocumentsForCategory(currentPath);
 
-      // 선택 상태(강조)
       const isCategoryActive =
         node.document_id != null &&
         selectedCategoryPath &&
@@ -72,15 +66,18 @@ const CategoryTree: React.FC<Props> = ({
         <li key={`cat-${node.id}`}>
           <button
             className={`wiki-nav-item ${isCategoryActive ? 'active' : ''}`}
-            onClick={() => {
+            onClick={async () => {
               if (node.document_id != null) {
                 const isActive =
                   selectedCategoryPath &&
                   JSON.stringify(selectedCategoryPath) === JSON.stringify(currentPath);
-
                 if (!isActive) {
-                  fetchDoc(currentPath, categoryIdMap[node.id]?.name || '', node.document_id);
+                  await togglePath(currentPath); // 대표문서 열기
+                } else {
+                  toggleArrowOnly(currentPath); // 펼침/접힘
                 }
+              } else {
+                toggleArrowOnly(currentPath);
               }
             }}
           >
@@ -94,32 +91,59 @@ const CategoryTree: React.FC<Props> = ({
               </span>
             )}
             <span className="wiki-category-label">{node.name}</span>
+            {(node.children?.length || docs.length) > 0 && (
+              <span
+                className="wiki-category-arrow"
+                style={{ cursor: 'pointer', opacity: node.document_id != null ? 1 : 0.5 }}
+                onClick={e => {
+                  e.stopPropagation();
+                  if (node.document_id != null) {
+                    const isActive =
+                      selectedCategoryPath &&
+                      JSON.stringify(selectedCategoryPath) === JSON.stringify(currentPath);
+                    if (!isActive) {
+                      togglePath(currentPath);
+                    } else {
+                      toggleArrowOnly(currentPath);
+                    }
+                  }
+                }}
+              >
+                {isOpen ? '▼' : '▶'}
+              </span>
+            )}
           </button>
-          {node.children && node.children.length > 0 && (
-            <ul>
-              {renderTree(node.children, currentPath)}
-            </ul>
-          )}
-          {docs && docs.length > 0 && (
-            <ul>
-              {docs.map(doc => (
-                <li
-                  key={`doc-${doc.title}`}
-                  className={`wiki-doc-item`}
-                  onClick={() => fetchDoc(currentPath, doc.title, doc.id, { clearCategoryPath: true })}
-                >
-                  <span style={{ marginRight: '0.3em' }}>
-                    {doc.icon?.startsWith('http') ? (
-                      <img src={doc.icon} alt="icon" style={{ width: '1em', verticalAlign: 'middle' }} />
-                    ) : (
-                      doc.icon || '📄'
-                    )}
-                  </span>
-                  {doc.title}
-                </li>
-              ))}
-            </ul>
-          )}
+          <ul
+            className={
+              openPaths.some((p) => JSON.stringify(p) === JSON.stringify(currentPath))
+                ? "wiki-doc-list open"
+                : closingPaths.some((p) => JSON.stringify(p) === JSON.stringify(currentPath))
+                ? "wiki-doc-list closing"
+                : "wiki-doc-list"
+            }
+          >
+            {(isOpen || closingPaths.some((p) => JSON.stringify(p) === JSON.stringify(currentPath))) && (
+              <>
+                {docs.map(doc => (
+                  <li
+                    key={`doc-${doc.title}`}
+                    className={`wiki-doc-item`}
+                    onClick={() => fetchDoc(currentPath, doc.title, doc.id, { clearCategoryPath: true })}
+                  >
+                    <span style={{ marginRight: '0.3em' }}>
+                      {doc.icon?.startsWith('http') ? (
+                        <img src={doc.icon} alt="icon" style={{ width: '1em', verticalAlign: 'middle' }} />
+                      ) : (
+                        doc.icon || '📄'
+                      )}
+                    </span>
+                    {doc.title}
+                  </li>
+                ))}
+                {node.children && renderTree(node.children, currentPath)}
+              </>
+            )}
+          </ul>
         </li>
       );
     });

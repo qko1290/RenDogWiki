@@ -1,14 +1,5 @@
-// =============================================
-// File: components/wiki/Breadcrumb.tsx
-// =============================================
-/**
- * 브레드크럼(카테고리 경로) 출력 컴포넌트
- * - 최상위/중간 카테고리 경로 표시, ←(뒤로) 버튼 제공
- */
-
 import React from 'react';
 
-// 타입
 type CategoryNode = {
   id: number;
   name: string;
@@ -22,7 +13,6 @@ type Props = {
   setDocContent: (content: any) => void;
 };
 
-// 경로에서 카테고리 이름 추출
 function getCategoryNamesFromPath(tree: CategoryNode[], path: number[]): string[] {
   const names: string[] = [];
   let currentTree = tree;
@@ -35,10 +25,8 @@ function getCategoryNamesFromPath(tree: CategoryNode[], path: number[]): string[
   return names;
 }
 
-// 본문
 const Breadcrumb: React.FC<Props> = ({
-  selectedDocPath, categories,
-  setSelectedDocPath, setSelectedDocTitle, setDocContent,
+  selectedDocPath, categories, setSelectedDocPath, setSelectedDocTitle, setDocContent
 }) => (
   <div className="wiki-breadcrumb">
     {selectedDocPath ? (

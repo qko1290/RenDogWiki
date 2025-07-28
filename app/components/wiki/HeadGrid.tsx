@@ -1,15 +1,5 @@
-// =============================================
-// File: app/components/wiki/HeadGrid.tsx
-// =============================================
-/**
- * 머리찾기(Head) 목록 그리드 컴포넌트
- * - 각 머리찾기 아이템(좌표/번호/이미지 등) 표시
- * - 클릭 시 상세 모달 오픈
- */
-
 import React from "react";
 
-// Head 타입 정의
 export type Head = {
   id: number;
   order: number;
@@ -17,7 +7,6 @@ export type Head = {
   location_y: number;
   location_z: number;
   pictures?: string[];
-  // 필요시 추가 필드
 };
 
 type Props = {
@@ -27,8 +16,6 @@ type Props = {
 };
 
 export default function HeadGrid({ heads, onClick, selectedHeadId }: Props) {
-  // 한 페이지에 보여줄 개수 등은 상위에서 제어(페이징 등)
-
   return (
     <div
       style={{
@@ -56,7 +43,6 @@ export default function HeadGrid({ heads, onClick, selectedHeadId }: Props) {
           }}
           onClick={() => onClick?.(head)}
         >
-          {/* 사진 썸네일 */}
           {Array.isArray(head.pictures) && head.pictures.length > 0 ? (
             <img
               src={head.pictures[0]}

@@ -1,13 +1,6 @@
 // =============================================
 // File: components/wiki/WikiPageInner.tsx
 // =============================================
-/**
- * 렌독 위키 메인 페이지 본체
- * - 상태/데이터 로딩 및 주요 분기 컨트롤
- * - 카테고리/문서/머리찾기/NPC 그리드/목차/브레드크럼 컴포넌트 호출
- * - 본문 내 내부 링크 클릭 시 라우팅
- */
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -21,11 +14,12 @@ import Breadcrumb from './Breadcrumb';
 import NpcGrid from './NpcGrid';
 import HeadGrid from './HeadGrid';
 import TableOfContents from './TableOfContents';
+import NpcDetailModal from './NpcDetailModal';
+import HeadDetailModal from './HeadDetailModal';
 
 import { Descendant } from 'slate';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-// 카테고리/문서 타입 정의
 type CategoryNode = {
   id: number;
   name: string;
@@ -41,9 +35,6 @@ type Document = {
   icon?: string;
   fullPath?: number[];
   is_featured?: boolean;
-  // 추가로 heads, npcs 등 동적 필드가 붙을 수 있음
-  heads?: any[];
-  npcs?: any[];
 };
 
 type Props = {
@@ -70,13 +61,50 @@ export default function WikiPageInner({ user }: Props) {
   const [docContent, setDocContent] = useState<Descendant[] | null>(null);
   const [tableOfContents, setTableOfContents] = useState<any[]>([]);
 
+  // 트리 애니메이션 상태
+  const [openPaths, setOpenPaths] = useState<number[][]>([]);
+  const [closingPaths, setClosingPaths] = useState<number[][]>([]);
+
+  // NPC/머리찾기 관련 상태
+  const [npcList, setNpcList] = useState<any[]>([]);
+  const [npcLoading, setNpcLoading] = useState(false);
+  const [selectedNpc, setSelectedNpc] = useState<any | null>(null);
+  const [npcPage, setNpcPage] = useState(0);
+
+  const [headList, setHeadList] = useState<any[]>([]);
+  const [headLoading, setHeadLoading] = useState(false);
+  const [selectedHead, setSelectedHead] = useState<any | null>(null);
+  const [headPage, setHeadPage] = useState(0);
+
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const router = useRouter();
   const searchParams = useSearchParams();
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // --------- 카테고리 트리 + 경로맵 로드 ---------
+  // 전체 문서 로딩 + fullPath 연결
+  useEffect(() => {
+    fetch('/api/documents?all=1')
+      .then(res => res.json())
+      .then(data => {
+        const docs = Array.isArray(data)
+          ? data
+          : Array.isArray(data.documents)
+            ? data.documents
+            : [];
+        if (Object.keys(categoryIdToPathMap).length === 0) {
+          setAllDocuments(docs);
+          return;
+        }
+        const mapped = docs.map((doc: Document & { path: number }) => ({
+          ...doc,
+          fullPath: categoryIdToPathMap[doc.path] || [doc.path],
+        }));
+        setAllDocuments(mapped);
+      });
+  }, [categoryIdToPathMap]);
+
+  // 카테고리 트리/맵 세팅
   useEffect(() => {
     fetch('/api/categories')
       .then(res => res.json())
@@ -99,34 +127,10 @@ export default function WikiPageInner({ user }: Props) {
           setCategoryIdToPathMap(idToPathMap);
           setCategoryIdMap(categoryMap);
         });
-      })
-      .catch(err => console.error('카테고리 로딩 실패:', err));
+      });
   }, []);
 
-  // --------- 전체 문서 로드 + 경로 부여 ---------
-  useEffect(() => {
-    fetch('/api/documents?all=1')
-      .then(res => res.json())
-      .then(data => {
-        const docs = Array.isArray(data)
-          ? data
-          : Array.isArray(data.documents)
-            ? data.documents
-            : [];
-        if (Object.keys(categoryIdToPathMap).length === 0) {
-          setAllDocuments(docs);
-          return;
-        }
-        // fullPath 세팅
-        const mapped = docs.map((doc: Document & { path: number }) => ({
-          ...doc,
-          fullPath: categoryIdToPathMap[doc.path] || [doc.path],
-        }));
-        setAllDocuments(mapped);
-      });
-  }, [categoryIdToPathMap]);
-
-  // --------- 쿼리 파라미터 진입시 문서 자동 오픈 ---------
+  // 쿼리 진입시 문서 자동 fetch
   useEffect(() => {
     const pathParam = searchParams.get('path');
     const titleParam = searchParams.get('title');
@@ -139,7 +143,75 @@ export default function WikiPageInner({ user }: Props) {
     }
   }, [searchParams, categoryIdToPathMap]);
 
-  // --------- 문서 로드 함수 ---------
+  // --------- 트리 토글/애니메이션 ---------
+  const togglePath = async (path: number[]) => {
+    const catId = path.at(-1)!;
+    const category = categoryIdMap[catId];
+    const isSamePath = selectedDocPath && JSON.stringify(selectedDocPath) === JSON.stringify(path);
+    const isSameDoc = selectedDocId === category?.document_id;
+
+    const docId = Number(category?.document_id);
+    if (
+      category?.document_id &&
+      Number.isInteger(docId) &&
+      (!isSamePath || !isSameDoc)
+    ) {
+      try {
+        const res = await fetch(`/api/documents?id=${docId}`);
+        if (!res.ok) throw new Error('대표 문서를 찾을 수 없습니다');
+        const doc = await res.json();
+        if (!doc || !doc.title) {
+          setSelectedDocId(null);
+          setSelectedDocPath(null);
+          setSelectedDocTitle(null);
+          setDocContent([]);
+          setSelectedCategoryPath(path);
+          return;
+        }
+        setSelectedDocId(doc.id);
+        setSelectedDocPath([...path]);
+        setSelectedDocTitle(doc.title);
+        setSelectedCategoryPath(path);
+        fetchDoc(path, doc.title, doc.id);
+        setOpenPaths(prev => {
+          const alreadyOpen = prev.some(p => JSON.stringify(p) === JSON.stringify(path));
+          return alreadyOpen ? prev : [...prev, path];
+        });
+      } catch {
+        setSelectedDocId(null);
+        setSelectedDocPath(null);
+        setSelectedDocTitle(null);
+        setDocContent([]);
+        setSelectedCategoryPath(path);
+      }
+    } else if (!category?.document_id || !Number.isInteger(docId)) {
+      alert('대표 문서 ID가 잘못되어 열 수 없습니다: ' + String(category?.document_id));
+    }
+  };
+  const toggleArrowOnly = (path: number[]) => {
+    const pathStr = JSON.stringify(path);
+    const isOpen = openPaths.some((p) => JSON.stringify(p) === pathStr);
+    const isClosing = closingPaths.some((p) => JSON.stringify(p) === pathStr);
+
+    if (isOpen) {
+      if (isClosing) return;
+      setClosingPaths(prev => [...prev, path]);
+      setTimeout(() => {
+        setOpenPaths(prev => prev.filter(p => JSON.stringify(p) !== pathStr));
+        setClosingPaths(prev => prev.filter(p => JSON.stringify(p) !== pathStr));
+      }, 240);
+    } else {
+      setOpenPaths(prev => {
+        const exists = prev.some(p => JSON.stringify(p) === pathStr);
+        return exists ? prev : [...prev, path];
+      });
+      setClosingPaths(prev => prev.filter(p => JSON.stringify(p) !== pathStr));
+    }
+  };
+  const isPathOpen = (path: number[]) =>
+    openPaths.some(p => JSON.stringify(p) === JSON.stringify(path));
+
+  // --------- 문서 fetch + 분기 ---------
   function fetchDoc(
     categoryPath: number[],
     docTitle: string,
@@ -181,7 +253,7 @@ export default function WikiPageInner({ user }: Props) {
       .catch(() => setDocContent(null));
   }
 
-  // --------- 본문 내부 링크 클릭 시 라우팅 ---------
+  // --------- 본문 내부 링크 라우팅 ---------
   useEffect(() => {
     const el = contentRef.current;
     if (!el) return;
@@ -203,11 +275,65 @@ export default function WikiPageInner({ user }: Props) {
     return () => el.removeEventListener('click', handler);
   }, [docContent, router]);
 
-  // --------- 선택 문서/카테고리 판별 ---------
-  const selectedDoc = allDocuments.find(doc => doc.id === selectedDocId);
-  const selectedCategoryName = categoryIdMap[selectedDoc?.path as number]?.name;
-  const isHeadCategory = selectedCategoryName === "머리찾기";
-  const isNpcOrQuestCategory = selectedCategoryName === "퀘스트" || selectedCategoryName === "NPC";
+  // --------- NPC/Head 동적 fetch 및 상태 ---------
+  useEffect(() => {
+    if (
+      !selectedDocId ||
+      !selectedDocTitle ||
+      !categoryIdMap ||
+      !selectedDocPath ||
+      !categoryIdMap[selectedDocPath[selectedDocPath.length - 1]]
+    ) {
+      setNpcList([]); setNpcLoading(false); setNpcPage(0);
+      setHeadList([]); setHeadLoading(false); setHeadPage(0);
+      return;
+    }
+    const currentCategory = categoryIdMap[selectedDocPath[selectedDocPath.length - 1]];
+    const catName = currentCategory?.name;
+    if (catName === "머리찾기") {
+      setHeadLoading(true); setHeadList([]); setHeadPage(0);
+      fetch(`/api/villages?name=${encodeURIComponent(selectedDocTitle)}`)
+        .then(res => res.json())
+        .then(village => {
+          if (!village || !village.id) {
+            setHeadList([]); setHeadLoading(false); return;
+          }
+          return fetch(`/api/head?village_id=${village.id}`);
+        })
+        .then(res => (res && res.json ? res.json() : []))
+        .then(heads => {
+          setHeadList(Array.isArray(heads) ? heads : []);
+          setHeadLoading(false);
+        })
+        .catch(() => {
+          setHeadList([]); setHeadLoading(false);
+        });
+      return;
+    }
+    if (catName !== "퀘스트" && catName !== "NPC") {
+      setNpcList([]); setNpcLoading(false); setNpcPage(0);
+      setHeadList([]); setHeadLoading(false); setHeadPage(0);
+      return;
+    }
+    setNpcLoading(true); setNpcList([]); setNpcPage(0);
+    fetch(`/api/villages?name=${encodeURIComponent(selectedDocTitle)}`)
+      .then(res => res.json())
+      .then(village => {
+        if (!village || !village.id) {
+          setNpcList([]); setNpcLoading(false); return;
+        }
+        const npcType = catName === "퀘스트" ? "quest" : "normal";
+        return fetch(`/api/npcs?village_id=${village.id}&npc_type=${npcType}`);
+      })
+      .then(res => (res && res.json ? res.json() : []))
+      .then(npcs => {
+        setNpcList(Array.isArray(npcs) ? npcs : []);
+        setNpcLoading(false);
+      })
+      .catch(() => {
+        setNpcList([]); setNpcLoading(false);
+      });
+  }, [selectedDocId, selectedDocTitle, selectedDocPath, categoryIdMap]);
 
   // --------- 렌더 ---------
   return (
@@ -215,7 +341,7 @@ export default function WikiPageInner({ user }: Props) {
       <WikiHeader user={user} />
       <div className="wiki-layout">
         <div className="wiki-main-scrollable">
-          {/* ----- 사이드바: 카테고리/문서 트리 ----- */}
+          {/* ---- 사이드바: 카테고리 트리 ---- */}
           <aside className="wiki-sidebar">
             <h2 className="wiki-sidebar-title">카테고리</h2>
             <CategoryTree
@@ -230,9 +356,14 @@ export default function WikiPageInner({ user }: Props) {
               setSelectedCategoryPath={setSelectedCategoryPath}
               fetchDoc={fetchDoc}
               allDocuments={allDocuments}
+              openPaths={openPaths}
+              closingPaths={closingPaths}
+              togglePath={togglePath}
+              toggleArrowOnly={toggleArrowOnly}
+              isPathOpen={isPathOpen}
             />
           </aside>
-          {/* ----- 본문 영역 ----- */}
+          {/* ---- 본문 영역 ---- */}
           <main className="wiki-content">
             <Breadcrumb
               selectedDocPath={selectedDocPath}
@@ -242,43 +373,95 @@ export default function WikiPageInner({ user }: Props) {
               setDocContent={setDocContent}
             />
             <h2 className="wiki-content-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {/* 문서 아이콘 출력 */}
-              {selectedDoc?.icon && (
-                selectedDoc.icon.startsWith('http') ? (
-                  <img
-                    src={selectedDoc.icon}
-                    alt="icon"
-                    style={{ width: 32, height: 32, verticalAlign: 'middle', marginRight: 8, objectFit: 'contain', display: 'inline-block' }}
-                  />
-                ) : (
-                  <span style={{ fontSize: 28, marginRight: 8 }}>{selectedDoc.icon}</span>
-                )
-              )}
+              {/* 문서 아이콘 */}
+              {(() => {
+                const doc = allDocuments.find(d => d.id === selectedDocId);
+                if (doc?.icon) {
+                  return doc.icon.startsWith('http')
+                    ? <img src={doc.icon} alt="icon" style={{
+                      width: 32, height: 32, verticalAlign: 'middle',
+                      marginRight: 8, objectFit: 'contain', display: 'inline-block'
+                    }} />
+                    : <span style={{ fontSize: 28, marginRight: 8 }}>{doc.icon}</span>
+                }
+                return null;
+              })()}
               {selectedDocTitle || '렌독 위키'}
             </h2>
             <div className="wiki-content-body" ref={contentRef}>
-              {isHeadCategory ? (
-                <HeadGrid
-                  heads={selectedDoc && Array.isArray(selectedDoc.heads) ? selectedDoc.heads : []}
-                />
-              ) : isNpcOrQuestCategory ? (
-                <NpcGrid
-                  npcs={selectedDoc && Array.isArray(selectedDoc.npcs) ? selectedDoc.npcs : []}
-                />
-              ) : (
-                Array.isArray(docContent) && docContent.length > 0
-                  ? <WikiReadRenderer content={docContent} />
-                  : <div>문서를 찾을 수 없습니다.</div>
+              {/* ---- 머리찾기 ---- */}
+              {categoryIdMap[selectedDocPath?.[selectedDocPath.length - 1] || -1]?.name === "머리찾기"
+                ? headLoading
+                  ? <div>머리찾기 목록 로딩 중...</div>
+                  : headList.length > 0
+                    ? <HeadGrid
+                        heads={headList.slice(headPage * 21, (headPage + 1) * 21)}
+                        onClick={setSelectedHead}
+                        selectedHeadId={selectedHead?.id || null}
+                      />
+                    : <div>등록된 머리찾기가 없습니다.</div>
+                : categoryIdMap[selectedDocPath?.[selectedDocPath.length - 1] || -1]?.name === "퀘스트" ||
+                  categoryIdMap[selectedDocPath?.[selectedDocPath.length - 1] || -1]?.name === "NPC"
+                  ? npcLoading
+                    ? <div>NPC 목록 로딩 중...</div>
+                    : npcList.length > 0
+                      ? <NpcGrid
+                          npcs={npcList.slice(npcPage * 21, (npcPage + 1) * 21)}
+                          onClick={setSelectedNpc}
+                          selectedNpcId={selectedNpc?.id || null}
+                        />
+                      : <div>등록된 NPC가 없습니다.</div>
+                  : Array.isArray(docContent) && docContent.length > 0
+                    ? <WikiReadRenderer content={docContent} />
+                    : <div>문서를 찾을 수 없습니다.</div>
+              }
+              {/* ---- 페이징 ---- */}
+              {categoryIdMap[selectedDocPath?.[selectedDocPath.length - 1] || -1]?.name === "머리찾기" && headList.length > 21 &&
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 20, margin: '10px 0' }}>
+                  <button
+                    onClick={() => setHeadPage(p => Math.max(0, p - 1))}
+                    disabled={headPage === 0}
+                    style={{ fontSize: 20, opacity: headPage === 0 ? 0.5 : 1 }}
+                  >◀</button>
+                  <span style={{ fontSize: 16 }}>{headPage + 1} / {Math.ceil(headList.length / 21)}</span>
+                  <button
+                    onClick={() => setHeadPage(p => Math.min(Math.ceil(headList.length / 21) - 1, p + 1))}
+                    disabled={headPage === Math.ceil(headList.length / 21) - 1}
+                    style={{ fontSize: 20, opacity: headPage === Math.ceil(headList.length / 21) - 1 ? 0.5 : 1 }}
+                  >▶</button>
+                </div>
+              }
+              {["퀘스트", "NPC"].includes(categoryIdMap[selectedDocPath?.[selectedDocPath.length - 1] || -1]?.name || "") && npcList.length > 21 &&
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 20, margin: '10px 0' }}>
+                  <button
+                    onClick={() => setNpcPage(p => Math.max(0, p - 1))}
+                    disabled={npcPage === 0}
+                    style={{ fontSize: 20, opacity: npcPage === 0 ? 0.5 : 1 }}
+                  >◀</button>
+                  <span style={{ fontSize: 16 }}>{npcPage + 1} / {Math.ceil(npcList.length / 21)}</span>
+                  <button
+                    onClick={() => setNpcPage(p => Math.min(Math.ceil(npcList.length / 21) - 1, p + 1))}
+                    disabled={npcPage === Math.ceil(npcList.length / 21) - 1}
+                    style={{ fontSize: 20, opacity: npcPage === Math.ceil(npcList.length / 21) - 1 ? 0.5 : 1 }}
+                  >▶</button>
+                </div>
+              }
+              {/* ---- 상세 모달 ---- */}
+              {selectedNpc && (
+                <NpcDetailModal npc={selectedNpc} onClose={() => setSelectedNpc(null)} />
+              )}
+              {selectedHead && (
+                <HeadDetailModal head={selectedHead} docIcon={allDocuments.find(d => d.id === selectedDocId)?.icon} onClose={() => setSelectedHead(null)} />
               )}
             </div>
           </main>
         </div>
-        {/* ----- 목차 영역 ----- */}
+        {/* ---- 목차 ---- */}
         <aside className="wiki-toc-sidebar">
           <TableOfContents headings={tableOfContents} />
         </aside>
       </div>
-      {/* ----- 우측 햄버거 메뉴 ----- */}
+      {/* ---- 햄버거 메뉴 ---- */}
       {isMenuOpen && (
         <HamburgerMenu
           onClose={() => setIsMenuOpen(false)}

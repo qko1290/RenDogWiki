@@ -1,10 +1,3 @@
-// =============================================
-// File: components/wiki/TableOfContents.tsx
-// =============================================
-/**
- * 본문 heading(목차) 출력 컴포넌트
- */
-
 import React from 'react';
 
 type Heading = {

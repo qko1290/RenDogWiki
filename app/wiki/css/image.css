@@ -1,9 +1,6 @@
 /* =============================================
-   File: app/wiki/css/image.css
+   File: app/manage/image/image.css
    ============================================= */
-/**
- * 이미지 관리/뷰어 레이아웃 + 썸네일/폴더/버튼 스타일 등
- */
 
 /* 메인 전체 레이아웃 */
 .wiki-container {
@@ -24,7 +21,6 @@
   overflow: hidden;
 }
 
-/* --- 사이드바(폴더 목록) --- */
 .image-explorer-sidebar {
   width: 250px;
   background: #f6fafc;
@@ -65,13 +61,16 @@
   box-shadow: 0 1px 8px 0 rgba(0,110,255,0.04);
   outline: none;
 }
+
 .folder-btn:focus {
   outline: 2px solid #aad6ff;
 }
+
 .folder-btn span[role="img"] {
   font-size: 20px;
   margin-right: 6px;
 }
+
 .folder-item input[type="text"] {
   font-size: 1rem;
   border: 1px solid #c2d3ea;
@@ -79,6 +78,7 @@
   padding: 4px 8px;
   background: #fff;
 }
+
 /* 좌측 상단 루트폴더 */
 .bg-blue-100 {
   background: #e6f0ff !important;
@@ -87,13 +87,14 @@
   border: 1.5px solid #8ec8ff !important;
 }
 
-/* --- 컨텐츠(이미지 영역) --- */
+/* 우측: 이미지 목록 및 파일리스트 */
 .image-explorer-content {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
+
 .image-explorer-header-bar {
   display: flex;
   align-items: center;
@@ -102,6 +103,7 @@
   background: #fff;
   border-bottom: 1.5px solid #f0f0f0;
 }
+
 .image-explorer-title {
   font-size: 2.1rem;
   font-weight: bold;
@@ -113,6 +115,7 @@
   display: flex;
   gap: 0.7rem;
 }
+
 .image-explorer-filelist-outer {
   flex: 1;
   overflow-y: auto;
@@ -159,7 +162,7 @@
   background: #fff;
   border-radius: 9px;
   border: 1.2px solid #e1e5ef;
-  box-shadow: 0 2px 8px 0 rgba(90,100,140,0.04);
+  box-shadow: 0 2px 8px 0 rgba(90, 100, 140, 0.04);
   margin-bottom: 12px;
   display: block;
   padding: 2px;
@@ -211,30 +214,71 @@
   border-color: #c62828;
 }
 
-/* 컨텍스트 메뉴용 (tailwind util) */
-.w-full { width: 100%; }
-.px-4 { padding-left: 1rem; padding-right: 1rem; }
-.py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
-.text-left { text-align: left; }
-.hover\:bg-gray-100:hover { background: #f3f4f6; }
-.text-red-500 { color: #ef4444; }
-.font-semibold { font-weight: 600; }
-.text-base { font-size: 1.05rem; }
-.text-gray-400 { color: #aaa; font-weight: 400; }
-.mt-8 { margin-top: 2rem; }
-.mb-3 { margin-bottom: 1rem; }
-.flex { display: flex; }
-.gap-2 { gap: 0.5rem; }
-.justify-end { justify-content: flex-end; }
-.rounded { border-radius: 8px; }
-.bg-gray-100 { background: #f3f4f6; }
-.bg-red-500 { background: #ef4444; }
-.text-white { color: #fff; }
+/* 컨텍스트 메뉴용 */
+.w-full {
+  width: 100%;
+}
+.px-4 {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+.py-2 {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+.text-left {
+  text-align: left;
+}
+.hover\:bg-gray-100:hover {
+  background: #f3f4f6;
+}
+.text-red-500 {
+  color: #ef4444;
+}
+
+.font-semibold {
+  font-weight: 600;
+}
+.text-base {
+  font-size: 1.05rem;
+}
+
+.text-gray-400 {
+  color: #aaa;
+  font-weight: 400;
+}
+.mt-8 {
+  margin-top: 2rem;
+}
+.mb-3 {
+  margin-bottom: 1rem;
+}
+.flex {
+  display: flex;
+}
+.gap-2 {
+  gap: 0.5rem;
+}
+.justify-end {
+  justify-content: flex-end;
+}
+.rounded {
+  border-radius: 8px;
+}
+.bg-gray-100 {
+  background: #f3f4f6;
+}
+.bg-red-500 {
+  background: #ef4444;
+}
+.text-white {
+  color: #fff;
+}
 .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
 .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
 .mt-3 { margin-top: 0.75rem; }
 
-/* 반응형 (모바일/좁은화면) */
+/* 반응형 */
 @media (max-width: 900px) {
   .image-explorer-layout {
     flex-direction: column;

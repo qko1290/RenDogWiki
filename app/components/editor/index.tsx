@@ -26,6 +26,7 @@ import {
   Point,
   Element as SlateElement,
   Node,
+  Path,
 } from 'slate';
 import {
   Slate,
@@ -104,10 +105,15 @@ export default function SlateEditor() {
   const renderElement = useCallback(
     (props: RenderElementProps) => (
       <Element
-        {...props}
-        editor={editor}
-        onIconClick={handleIconClick}
-        // priceTableEdit 관련 props가 있다면 여기에 추가 필요
+      priceTableEdit={{
+        blockPath: null,
+        idx: null,
+        item: undefined
+      }} setPriceTableEdit={function (value: React.SetStateAction<{ blockPath: Path | null; idx: number | null; item: any | null; }>): void {
+        throw new Error('Function not implemented.');
+      } } {...props}
+      editor={editor}
+      onIconClick={handleIconClick}        // priceTableEdit 관련 props가 있다면 여기에 추가 필요
       />
     ),
     [editor]
