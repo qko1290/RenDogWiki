@@ -1,13 +1,6 @@
 // =============================================
 // File: app/components/image/ImageUploadModal.tsx
 // =============================================
-/**
- * 이미지 업로드 모달
- * - 클릭/드래그&드롭으로 파일 추가
- * - 중복 파일 필터(name+size)
- * - 개별/전체 제거
- * - 업로드 진행 표시
- */
 import { useRef, useState } from "react";
 import Modal from "@/components/common/Modal";
 
@@ -82,8 +75,10 @@ export default function ImageUploadModal({ open, onClose, folderId, onUploaded }
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="이미지 업로드">
-      {/* 드롭존 */}
+    // ✅ title prop 제거, 내부에서 제목 출력
+    <Modal open={open} onClose={onClose}>
+      <h3 className="text-lg font-semibold mb-3">이미지 업로드</h3>
+
       <label
         htmlFor="rd-upload-input"
         className={`custum-file-upload ${dragOver ? "dragover" : ""}`}
@@ -110,7 +105,6 @@ export default function ImageUploadModal({ open, onClose, folderId, onUploaded }
         />
       </label>
 
-      {/* 선택된 파일 리스트 */}
       {!!files.length && (
         <div className="rd-upload-filelist">
           {files.map(f => (
@@ -126,7 +120,6 @@ export default function ImageUploadModal({ open, onClose, folderId, onUploaded }
         </div>
       )}
 
-      {/* 하단 버튼 */}
       <div className="rd-card-button-wrapper" style={{ justifyContent: "flex-end" }}>
         <button className="rd-btn secondary" onClick={onClose} disabled={loading}>취소</button>
         <button
