@@ -482,3 +482,9 @@
   --ibox-accent:#10b981;
   --ibox-mask:url("https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-check.svg?v=2&token=a463935e93");
 }
+
+/* ── 강제 라이트 스킴 (Auto Dark 무력화) ───────────────── */
+:root { color-scheme: light; }
+
+/* 전체 기본 텍스트/배경 톤 고정 */
+html, body { background:#fff; color:#0f172a; }
