@@ -28,6 +28,12 @@ interface HamburgerMenuProps {
   onLogout: () => void;
 }
 
+const SPECIAL_NICKS: Record<string, string> = {
+  'q_ko': '큐코',
+  'Rounding_': '라운딩',
+  
+};
+
 /**
  * [HamburgerMenu 컴포넌트]
  * - 유저 정보(스킨, 닉네임) 및 관리 메뉴 리스트 렌더링
@@ -40,6 +46,9 @@ export default function HamburgerMenu({
   // uuid 값이 없을 경우, username으로 Mojang API에서 조회
   const [resolvedUUID, setResolvedUUID] = useState<string | null>(uuid || null);
 
+  const normName = (username ?? '').trim().toLowerCase();
+  const specialDisplay = SPECIAL_NICKS[normName];
+  
   async function handleLogout() {
     try {
       const res = await fetch('/api/auth/logout', { method: 'POST' });
@@ -105,15 +114,13 @@ export default function HamburgerMenu({
             <p className="hamburger-username">{username || "GUEST"}</p>
           </div>
           <div className="hamburger-login-info">
-            {isLoggedIn ? (
-              username === "Q_Ko" ? (
-                <span className="hamburger-welcome">환영합니다 큐코님</span>
-              ) : (
-                <span className="hamburger-welcome">환영합니다</span>
-              )
-            ) : (
-               <span className="hamburger-welcome">로그인 해주세요</span>
-            )}
+            <span className="hamburger-welcome">
+              {!isLoggedIn
+                ? '로그인 해주세요'
+                : specialDisplay
+                  ? `환영합니다 ${specialDisplay}님`
+                  : '환영합니다'}
+            </span>
           </div>
         </div>
 

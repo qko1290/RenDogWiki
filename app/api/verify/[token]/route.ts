@@ -1,45 +1,32 @@
-// =============================================
-// File: app/api/verify/[token]/route.ts
-// =============================================
-/**
- * 이메일 인증 토큰 검증 및 인증 처리 API
- * - [GET] /api/verify/[token]
- *   - 유효한 인증 토큰 전달 시 사용자 인증(verified=1) 및 토큰 삭제
- *   - 실패 시 400 반환
- */
-
-import { sql } from '@/wiki/lib/db'; // DB
+// app/api/verify/[token]/route.ts
+import { sql } from '@/wiki/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
-/**
- * [이메일 인증 처리] GET
- * - 입력: params.token
- * - 1. 토큰으로 users 테이블 조회
- * - 2. 토큰 일치 user 없으면 400 에러
- * - 3. 인증 완료 처리(verified=1, verification_token null)
- */
 export async function GET(
   req: NextRequest,
   { params }: { params: { token: string } }
 ) {
-  // 1. 토큰 파라미터 추출
   const token = params.token;
 
-  // 2. 토큰으로 사용자 조회
-  const users = await sql`
-    SELECT * FROM users WHERE verification_token = ${token}
-  `;
-
-  // 3. 토큰 미존재 처리
+  // 토큰 존재 확인 (선택)
+  const users = await sql`SELECT id FROM users WHERE verification_token = ${token}`;
   if (!Array.isArray(users) || users.length === 0) {
     return NextResponse.json({ error: '유효하지 않은 토큰입니다.' }, { status: 400 });
   }
 
-  // 4. 인증 완료 처리(verified=1, 토큰 삭제)
-  await sql`
-    UPDATE users SET verified = 1, verification_token = NULL WHERE verification_token = ${token}
-  `;
+  // ✅ boolean으로 업데이트 + 토큰 제거
+  const updated =
+    await sql`
+      UPDATE users
+      SET verified = ${true},               -- or: VERIFIED = TRUE
+          verification_token = ${null}
+      WHERE verification_token = ${token}
+      RETURNING id
+    `;
 
-  // 5. 성공 메시지 반환
+  if (!Array.isArray(updated) || updated.length === 0) {
+    return NextResponse.json({ error: '인증 처리에 실패했습니다.' }, { status: 400 });
+  }
+
   return NextResponse.json({ message: '이메일 인증이 완료되었습니다.' });
 }
