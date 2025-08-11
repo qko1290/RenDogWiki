@@ -170,7 +170,7 @@ export default function HamburgerMenu({
           <li className="hamburger-menu-item">
             <div className="btn-conteiner-4">
               <Link href="/manage/quest" className="btn-content">
-                <span className="btn-title">QUAST</span>
+                <span className="btn-title">QUEST</span>
                 <span className="icon-arrow">
                   <svg width="66px" height="43px" viewBox="0 0 66 43" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink">
                     <g id="arrow" stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
