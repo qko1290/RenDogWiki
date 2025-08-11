@@ -1,3 +1,4 @@
+// components/wiki/HeadGrid.tsx
 import React from "react";
 
 export type Head = {
@@ -67,9 +68,9 @@ export default function HeadGrid({ heads, onClick, selectedHeadId }: Props) {
               color: "#111",
               letterSpacing: 0.5,
               textShadow: `
-                0 1.5px 0 #fff, 
-                1.5px 0 0 #fff, 
-                0 -1.5px 0 #fff, 
+                0 1.5px 0 #fff,
+                1.5px 0 0 #fff,
+                0 -1.5px 0 #fff,
                 -1.5px 0 0 #fff
               `,
               fontFamily: "Pretendard, Malgun Gothic, sans-serif",

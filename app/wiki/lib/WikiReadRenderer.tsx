@@ -9,7 +9,100 @@
 
 import React, { useState } from "react";
 import { Descendant, Text } from "slate";
-import { slugify } from "@/wiki/lib/slugify";
+
+
+function toHeadingIdFromText(text: string) {
+  const cleaned = text.replace(/^[^\w\s]|[\u{1F300}-\u{1F6FF}]/gu, '').trim();
+  const slug =
+    cleaned.toLowerCase().replace(/\s+/g, '-') ||
+    `untitled-${Math.random().toString(36).slice(2, 6)}`;
+  return `heading-${slug}`;
+}
+
+/** infobox 인라인 스타일 preset */
+function getInfoboxPreset(
+  boxType: string
+): {
+  container: React.CSSProperties;
+  icon: React.CSSProperties & Record<string, any>;
+  role: 'note' | 'alert';
+} {
+  const baseContainer: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    padding: '12px 14px',
+    borderRadius: 12,
+    color: '#1c1d1f',
+    boxShadow: '0 1px 0 rgba(0,0,0,.02)'
+  };
+
+  // 타입별 컬러/아이콘
+  const map: Record<
+    string,
+    { bg: string; bd: string; accent: string; mask: string; role: 'note' | 'alert' }
+  > = {
+    info: {
+      bg: '#f2f6ff',
+      bd: '#dbeafe',
+      accent: '#2563eb',
+      // 파란 박스는 "i" 아이콘
+      mask:
+        'https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-info.svg?v=2&token=a463935e93',
+      role: 'note'
+    },
+    warning: {
+      bg: '#fff7ea',
+      bd: '#ffe3b3',
+      accent: '#f59e0b',
+      mask:
+        'https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-exclamation.svg?v=2&token=a463935e93',
+      role: 'note'
+    },
+    danger: {
+      bg: '#fff3f3',
+      bd: '#ffd8d8',
+      accent: '#ef4444',
+      mask:
+        'https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/triangle-exclamation.svg?v=2&token=a463935e93',
+      role: 'alert'
+    },
+    tip: {
+      bg: '#eefdf6',
+      bd: '#c9f1de',
+      accent: '#10b981',
+      mask:
+        'https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-exclamation.svg?v=2&token=a463935e93',
+      role: 'note'
+    }
+  };
+
+  const sel = map[boxType] ?? map.info;
+
+  const container: React.CSSProperties = {
+    ...baseContainer,
+    background: sel.bg,
+    border: `1px solid ${sel.bd}`
+  };
+
+  // mask-* 속성은 React 타입이 빡세서 any와 함께 Webkit 접두사도 같이 지정
+  const icon: React.CSSProperties & Record<string, any> = {
+    flex: '0 0 auto',
+    width: 18,
+    height: 18,
+    backgroundColor: sel.accent,
+    WebkitMaskImage: `url(${sel.mask})`,
+    maskImage: `url(${sel.mask})`,
+    WebkitMaskRepeat: 'no-repeat',
+    maskRepeat: 'no-repeat',
+    WebkitMaskPosition: 'center',
+    maskPosition: 'center',
+    WebkitMaskSize: 'contain',
+    maskSize: 'contain'
+  };
+
+  return { container, icon, role: sel.role };
+}
 
 // 메인 렌더 컴포넌트
 export default function WikiReadRenderer({ content }: { content: Descendant[] }) {
@@ -243,7 +336,7 @@ function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key 
               <div
                 style={{
                   fontWeight: 700,
-                  fontSize: 20,
+                  fontSize: 17,
                   marginBottom: 0,
                   color: item.name ? "#333" : "#bbb",
                   textAlign: "center",
@@ -321,7 +414,7 @@ function renderLeaf(node: any, key?: React.Key): React.ReactNode {
         {children}
       </span>
     );
-  else return children;
+  else return <span key={key}>{children}</span>;
 }
 
 // 노드 타입별 렌더링 함수 (재귀)
@@ -332,7 +425,7 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
   }
 
   // children 재귀
-  const children = node.children?.map((n: any, i: number) => renderNode(n, i));
+  const children = node.children?.map((n: any, i: number) => renderNode(n, key ? `${key}-${i}` : i));
 
   // 블럭별 분기
   switch (node.type) {
@@ -383,8 +476,7 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
       }
       // heading에 들어가는 순수 텍스트만 추출
       const textContent = stripReact(children).trim();
-      const slug = slugify(textContent);
-      const id = `heading-${slug}`;
+      const id = toHeadingIdFromText(textContent);
       const level =
         node.type === "heading-one"
           ? 1
@@ -568,32 +660,23 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
     }
 
     // info-box(정보/주의/경고)
-    case "info-box": {
-      const colors: Record<string, string> = {
-        info: "#e8f4fd",
-        warning: "#fff9e6",
-        danger: "#fdecea"
-      };
-      const icons: Record<string, string> = {
-        info: "ℹ️",
-        warning: "⚠️",
-        danger: "🚫"
-      };
+    case 'info-box': {
+      const type = (node.boxType || 'info').toLowerCase();
+      const { container, icon, role } = getInfoboxPreset(type);
       return (
-        <div
-          key={key}
-          style={{
-            background: colors[node.boxType],
-            padding: 10,
-            borderRadius: 6,
-            border: "1px solid #ccc",
-            display: "flex",
-            alignItems: "center",
-            gap: 8
-          }}
-        >
-          <span contentEditable={false}>{icons[node.boxType]}</span>
-          <div style={{ flex: 1 }}>{children}</div>
+        <div key={key} role={role} style={{ ...container, margin: '8px 0' }}>
+          <span aria-hidden="true" style={icon as React.CSSProperties} />
+          <div
+            style={{
+              flex: '1 1 auto',
+              minWidth: 0,
+              lineHeight: 1.55,
+              fontWeight: 560,
+              color: '#1c1d1f'
+            }}
+          >
+            {children}
+          </div>
         </div>
       );
     }

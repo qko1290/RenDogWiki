@@ -12,50 +12,69 @@ import { Editor, Transforms, Range, Path, Element as SlateElement } from 'slate'
 import { ReactEditor } from 'slate-react';
 import type { LinkElement, LinkBlockElement, ParagraphElement } from '@/types/slate';
 
+// 링크 뒤로 커서를 확실히 빼내는 유틸
+function moveCaretOutOfLink(editor: Editor) {
+  // 현재 커서 기준으로 가장 가까운 link 요소 찾기
+  const linkEntry = Editor.above(editor, {
+    match: n => SlateElement.isElement(n) && (n as any).type === 'link',
+  });
+  if (!linkEntry) return;
+
+  const [, linkPath] = linkEntry;
+
+  // 1) 링크 내부 끝으로 접고
+  Transforms.collapse(editor, { edge: 'end' });
+
+  // 2) 링크 '바로 다음' 포인트 시도
+  const after = Editor.after(editor, linkPath);
+  if (after) {
+    Transforms.select(editor, after);
+    ReactEditor.focus(editor);
+    return;
+  }
+
+  // 3) fallback: 링크의 다음 위치에 빈 텍스트 노드 삽입 후 그리로 이동
+  const afterPath = Path.next(linkPath);
+  Transforms.insertNodes(editor, { text: '' }, { at: afterPath, select: true });
+  ReactEditor.focus(editor);
+}
+
 /**
  * [인라인 링크 삽입]
  * - 선택 영역 있으면: 해당 부분만 하이퍼링크(<a>)로 래핑
  * - 선택이 없으면: 커서 위치에 url을 텍스트로 삽입
  */
 export const insertLink = (editor: Editor, url: string, text?: string) => {
-  if (!editor.selection) {
-    alert('커서가 본문에 없습니다!');
-    return;
-  }
-  const isCollapsed = Range.isCollapsed(editor.selection);
+  if (!editor.selection) return;
 
-  const link: LinkElement = {
+  const isCollapsed = Range.isCollapsed(editor.selection);
+  const linkEl = {
     type: 'link',
     url,
     children: isCollapsed ? [{ text: text ?? url }] : [],
   };
 
+  // 이미 링크 안이면 먼저 unwrap (중첩 방지)
+  const [inLink] = Editor.nodes(editor, {
+    match: n => SlateElement.isElement(n) && (n as any).type === 'link',
+  });
+  if (inLink) {
+    Transforms.unwrapNodes(editor, {
+      match: n => SlateElement.isElement(n) && (n as any).type === 'link',
+    });
+  }
+
   if (isCollapsed) {
-    Transforms.insertNodes(editor, link);
-
-    // 링크 뒤로 커서 이동
-    setTimeout(() => {
-      const { selection } = editor;
-      if (selection) {
-        const after = Editor.after(editor, selection.focus, { unit: 'offset' });
-        if (after) Transforms.select(editor, after);
-        ReactEditor.focus(editor);
-      }
-    }, 0);
+    // 커서만 있을 때: 링크 노드 자체를 삽입
+    Transforms.insertNodes(editor, linkEl as any);
+    // 링크 밖으로 이동
+    // (normalize 과정에서 selection이 살짝 튈 수 있어 다음 tick에 이동)
+    setTimeout(() => moveCaretOutOfLink(editor), 0);
   } else {
-    Transforms.wrapNodes(editor, link, { split: true });
-
-    // 래핑된 링크 끝으로 커서 이동
-    setTimeout(() => {
-      const { selection } = editor;
-      if (selection) {
-        const end = Editor.end(editor, selection.focus.path);
-        if (end) {
-          Transforms.select(editor, end);
-          ReactEditor.focus(editor);
-        }
-      }
-    }, 0);
+    // 드래그 선택: 선택 범위 래핑
+    Transforms.wrapNodes(editor, linkEl as any, { split: true });
+    // 래핑한 링크 밖으로 이동
+    setTimeout(() => moveCaretOutOfLink(editor), 0);
   }
 };
 

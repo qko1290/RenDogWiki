@@ -1,91 +1,192 @@
-// =============================================
-// File: app/components/editor/TableOfContents.tsx
-// =============================================
-/**
- * 에디터 및 문서 뷰의 목차(TOC) 컴포넌트
- * - heading 목록을 우측에 계층 구조로 표시
- * - heading 클릭 시 해당 id 위치로 스크롤 이동
- * - heading 레벨(1/2/3)에 따라 들여쓰기
- * - heading 아이콘/텍스트 모두 출력
- */
-
 'use client';
 
-import React from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
-// Heading 데이터 구조: 텍스트/아이디/레벨/아이콘
 type Heading = {
-  text: string;      // heading 본문 텍스트
-  id: string;        // heading 요소 id (스크롤 이동용)
-  level: 1 | 2 | 3;  // heading 계층(level 1=h1, 2=h2, ...)
-  icon: string;      // heading 앞 아이콘(이모지 또는 이미지)
+  text: string;
+  id: string;
+  level: 1 | 2 | 3;
+  icon?: string;
 };
 
 type Props = {
-  headings: Heading[];  // 추출된 heading 데이터 배열
+  headings: Heading[];
+  headerOffset?: number;           // 고정 헤더 높이 보정
+  right?: number;
+  top?: number;
+  width?: number;
+  title?: string;
+  scrollRootSelector?: string;     // 스크롤 컨테이너를 명시하고 싶을 때
 };
 
-// 목차 트리 컴포넌트
-const TableOfContents = ({ headings }: Props) => (
-  <div
-    style={{
-      position: 'fixed',     // 화면 고정 위치(우측)
-      right: 20,
-      top: 100,
-      width: 200,
-    }}
-  >
-    <h3>📚 목차</h3>
-    <ul style={{ listStyle: 'none', padding: 0 }}>
-      {headings.map((heading) => (
-        <li
-          key={heading.id}
-          style={{
-            marginLeft: (heading.level - 1) * 20, // 레벨별 들여쓰기
-            marginBottom: 8,
-          }}
-        >
-          {/* 각 heading은 버튼(클릭 시 스크롤) */}
-          <button
-            onClick={e => {
-              e.preventDefault();
-              // 해당 heading id로 스크롤
-              const el = document.getElementById(heading.id);
-              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }}
-            style={{
-              background: 'none',
-              border: 'none',
-              padding: 0,
-              textAlign: 'left',
-              cursor: 'pointer',
-              fontSize: 14,
-              display: 'flex',        // 아이콘+텍스트 가로배치
-              alignItems: 'center',   // 세로 정렬
-              gap: 8,                 // 간격
-            }}
-          >
-            {/* 아이콘: 이미지 또는 이모지 지원 */}
-            {heading.icon?.startsWith('http') ? (
-              <img
-                src={heading.icon}
-                alt="icon"
-                style={{
-                  width: 18,
-                  height: 18,
-                  verticalAlign: 'middle',
-                  objectFit: 'contain',
-                }}
-              />
-            ) : (
-              <span style={{ fontSize: 18 }}>{heading.icon}</span>
-            )}
-            <span>{heading.text}</span>
-          </button>
-        </li>
-      ))}
-    </ul>
-  </div>
-);
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import {
+  faAlignLeft
+} from '@fortawesome/free-solid-svg-icons';
 
-export default TableOfContents;
+export default function TableOfContents({
+  headings,
+  headerOffset = 72,
+  right = 20,
+  top = 100,
+  width = 240,
+  title = '목차',
+  scrollRootSelector,
+}: Props) {
+  const [activeId, setActiveId] = useState<string>('');
+  const rootRef = useRef<HTMLElement | null>(null);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+
+  // 동일 id에 발생 순번 부여(키/타겟 식별)
+  const indexed = useMemo(() => {
+    const seen: Record<string, number> = {};
+    return headings.map(h => {
+      const occ = seen[h.id] ?? 0;
+      seen[h.id] = occ + 1;
+      return { ...h, __occ: occ };
+    });
+  }, [headings]);
+
+  // 스크롤 가능한 조상 자동 탐색
+  const findScrollableAncestor = (el: HTMLElement | null): HTMLElement | null => {
+    let cur: HTMLElement | null = el?.parentElement ?? null;
+    while (cur) {
+      const { overflowY } = getComputedStyle(cur);
+      const canScroll = /(auto|scroll)/.test(overflowY) && cur.scrollHeight > cur.clientHeight + 1;
+      if (canScroll) return cur;
+      cur = cur.parentElement;
+    }
+    return null;
+  };
+
+  // root 결정(명시 selector > 자동 > null(window))
+  useEffect(() => {
+    if (scrollRootSelector) {
+      rootRef.current = document.querySelector<HTMLElement>(scrollRootSelector);
+      return;
+    }
+    // 첫 헤딩 기준 자동
+    const first = document.querySelector<HTMLElement>(`[id="${(headings[0]?.id ?? '').replace(/"/g, '\\"')}"]`);
+    rootRef.current = findScrollableAncestor(first) || null;
+  }, [scrollRootSelector, headings]);
+
+  const getRootForObserver = () => rootRef.current ?? null;
+
+  // 타겟 찾기(동일 id의 n번째)
+  const getTarget = (id: string, occ: number) => {
+    const esc = id.replace(/"/g, '\\"');
+    const list = document.querySelectorAll<HTMLElement>(`[id="${esc}"]`);
+    return list[occ] ?? list[0] ?? null;
+  };
+
+  // 컨테이너 기준 스무스 스크롤
+  const scrollToId = (id: string, occ: number) => {
+    const target = getTarget(id, occ);
+    if (!target) return;
+
+    const root = rootRef.current;
+    if (!root) {
+      const y = target.getBoundingClientRect().top + window.scrollY - headerOffset;
+      window.scrollTo({ top: y, behavior: 'smooth' });
+    } else {
+      const y =
+        target.getBoundingClientRect().top -
+        root.getBoundingClientRect().top +
+        root.scrollTop -
+        headerOffset;
+      root.scrollTo({ top: y, behavior: 'smooth' });
+    }
+    try { history.replaceState(null, '', `#${id}`); } catch {}
+  };
+
+  // 스크롤 스파이(컨테이너 기준)
+  useEffect(() => {
+    if (!indexed.length) return;
+
+    observerRef.current?.disconnect();
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter(e => e.isIntersecting)
+          .sort((a, b) => (a.boundingClientRect.top > b.boundingClientRect.top ? 1 : -1));
+        if (visible[0]) setActiveId((visible[0].target as HTMLElement).id);
+      },
+      {
+        root: getRootForObserver(),
+        rootMargin: `-${headerOffset + 8}px 0px -70% 0px`,
+        threshold: [0, 1],
+      }
+    );
+    observerRef.current = obs;
+
+    // 동일 id 전부 observe
+    const seen: Record<string, number> = {};
+    indexed.forEach(({ id }) => {
+      const esc = id.replace(/"/g, '\\"');
+      document.querySelectorAll<HTMLElement>(`[id="${esc}"]`).forEach(el => obs.observe(el));
+      seen[id] = (seen[id] ?? 0) + 1;
+    });
+
+    // 컨테이너 변경 시 다시 연결
+    const root = getRootForObserver();
+    const cleanupScroll = () => {};
+    return () => {
+      cleanupScroll();
+      obs.disconnect();
+    };
+  }, [indexed, headerOffset, rootRef.current]);
+
+  // ----- UI (같음, 위치만 고정) -----
+  const boxStyle: React.CSSProperties = {
+    position: 'fixed', right: right, top: top, width,
+    background: '#fff',
+    border: '1px solid #eef1f5',
+    borderRadius: 12,
+    boxShadow: '0 2px 14px rgba(0,0,0,.05)',
+    padding: '12px 10px',
+    zIndex: 50,
+  };
+  const listStyle: React.CSSProperties = { listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 2 };
+  const iconBox: React.CSSProperties = { width: 18, height: 18, display: 'grid', placeItems: 'center', flex: '0 0 auto', marginRight: 8 };
+  const titleStyle: React.CSSProperties = { fontSize: 14, fontWeight: 800, color: '#0f172a', margin: '0 0 10px 8px' };
+  const textStyle: React.CSSProperties = { fontSize: 13.5, fontWeight: 600, letterSpacing: '-0.15px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
+
+  if (!indexed.length) return <aside style={{ ...boxStyle, display: 'grid', placeItems: 'center', color: '#9aa1ad' }}>목차 없음</aside>;
+
+  return (
+    <aside style={boxStyle} aria-label="Table of contents">
+      <p style={titleStyle}><FontAwesomeIcon icon={faAlignLeft} />&nbsp;&nbsp;{title}</p>
+      <ul style={listStyle}>
+        {indexed.map((h, i) => {
+          const active = h.id === activeId;
+          const padLeft = h.level === 1 ? 8 : h.level === 2 ? 26 : 44;
+          return (
+            <li key={`${h.id}-${h.__occ}-${i}`}>
+              <button
+                onClick={() => scrollToId(h.id, h.__occ)}
+                title={h.text}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                  cursor: 'pointer', border: 0, background: active ? '#eff6ff' : 'transparent',
+                  borderLeft: `3px solid ${active ? '#2563eb' : 'transparent'}`,
+                  color: active ? '#2563eb' : '#4b5563',
+                  padding: '6px 8px', paddingLeft: padLeft, borderRadius: 8,
+                  textAlign: 'left', transition: 'background .12s, color .12s, border-color .12s',
+                }}
+              >
+                <span style={iconBox} aria-hidden>
+                  {h.icon?.startsWith('http') ? (
+                    <img src={h.icon} alt="" style={{ width: 16, height: 16, objectFit: 'contain', display: 'block' }} />
+                  ) : h.icon ? (
+                    <span style={{ fontSize: 14, lineHeight: 1, display: 'block' }}>{h.icon}</span>
+                  ) : null}
+                </span>
+                <span style={textStyle}>{h.text}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </aside>
+  );
+}

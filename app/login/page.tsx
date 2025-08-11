@@ -1,34 +1,24 @@
 // =============================================
 // File: app/login/page.tsx
 // =============================================
-/**
- * 위키 로그인 페이지
- * - 아이디/비밀번호 입력받아 /api/auth/login으로 POST
- * - 성공시 안내 메시지 → 2초 후 /wiki로 자동 이동
- */
-
 'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import '@/wiki/css/login.css'; // 로그인 전용 CSS
+import WikiHeader from '@/components/common/Header';
+import '@/wiki/css/login.css';
 
-// LoginPage 컴포넌트
 export default function LoginPage() {
-  // 입력 상태: username(아이디), password(비밀번호)
   const [form, setForm] = useState({ username: '', password: '' });
-  // 메시지(로그인 성공/실패 안내), 로딩 플래그
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
   const router = useRouter();
 
-  // input 변화 핸들러: name="username"/"password" 자동 처리
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  // 로그인 submit 핸들러
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -44,7 +34,7 @@ export default function LoginPage() {
 
       if (res.ok) {
         setMessage('로그인 성공! 잠시 후 이동합니다...');
-        setTimeout(() => router.push('/wiki'), 2000); // 2초 후 이동
+        setTimeout(() => router.push('/wiki'), 2000);
       } else {
         setMessage(data.error || '로그인 실패');
       }
@@ -54,52 +44,75 @@ export default function LoginPage() {
     setLoading(false);
   };
 
-  // UI 렌더
   return (
-    <div className="login-bg">
-      <div className="login-container">
-        <h1 className="login-title">로그인</h1>
-        <form onSubmit={handleSubmit} className="login-form">
-          {/* 아이디 */}
-          <div className="login-field">
-            <label className="login-label" htmlFor="username">아이디</label>
-            <input
-              id="username"
-              type="text"
-              name="username"
-              value={form.username}
-              onChange={handleChange}
-              required
-              className="login-input"
-              autoFocus
-              autoComplete="username"
-            />
-          </div>
-          {/* 비밀번호 */}
-          <div className="login-field">
-            <label className="login-label" htmlFor="password">비밀번호</label>
-            <input
-              id="password"
-              type="password"
-              name="password"
-              value={form.password}
-              onChange={handleChange}
-              required
-              className="login-input"
-              autoComplete="current-password"
-            />
-          </div>
-          {/* 버튼 및 메시지 */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="login-btn"
-          >
-            {loading ? '처리 중...' : '로그인'}
-          </button>
-          {message && <p className="login-message">{message}</p>}
-        </form>
-      </div>
+    <div className="login-page-root">
+      <WikiHeader user={null} />
+
+      <main className="login-bg">
+        <div id="form-ui">
+          <form id="form" onSubmit={handleSubmit} autoComplete="on">
+            <div id="form-body">
+              <div id="welcome-lines">
+                <div id="welcome-line-1">RDWIKI</div>
+                <div id="welcome-line-2">렌독서버의 모든 것</div>
+              </div>
+              <div id="input-area">
+                {/* --- 아이디 입력 --- */}
+                <div className="login-input-group">
+                  <input
+                    type="text"
+                    name="username"
+                    id="username"
+                    required
+                    className="login-input"
+                    value={form.username}
+                    onChange={handleChange}
+                    autoComplete="username"
+                    placeholder=" "
+                    spellCheck={false}
+                  />
+                  <label htmlFor="username" className="login-label">
+                    아이디
+                  </label>
+                  <span className="login-underline"></span>
+                </div>
+                {/* --- 비밀번호 입력 --- */}
+                <div className="login-input-group">
+                  <input
+                    type="password"
+                    name="password"
+                    id="password"
+                    required
+                    className="login-input"
+                    value={form.password}
+                    onChange={handleChange}
+                    autoComplete="current-password"
+                    placeholder=" "
+                    spellCheck={false}
+                  />
+                  <label htmlFor="password" className="login-label">
+                    비밀번호
+                  </label>
+                  <span className="login-underline"></span>
+                </div>
+              </div>
+              <div id="submit-button-cvr">
+                <button
+                  id="submit-button"
+                  type="submit"
+                  disabled={loading}
+                >
+                  {loading ? '처리 중...' : '로그인'}
+                </button>
+              </div>
+              <div id="forgot-pass">
+                <a href="#">비밀번호를 잊으셨나요?</a>
+              </div>
+              {message && <p className="login-message">{message}</p>}
+            </div>
+          </form>
+        </div>
+      </main>
     </div>
   );
 }

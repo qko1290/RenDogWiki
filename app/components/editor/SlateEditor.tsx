@@ -132,30 +132,53 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     if (priceTableEdit.blockPath)
       lastScrollTopRef.current = scrollRef.current?.scrollTop || 0;
   }, [priceTableEdit.blockPath]);
+
   const restoreScroll = () => {
     if (scrollRef.current)
       scrollRef.current.scrollTop = lastScrollTopRef.current;
   };
+  
   const handlePriceModalClose = () => {
     setPriceTableEdit({ blockPath: null, idx: null, item: null });
     setTimeout(restoreScroll, 60);
   };
+
+  // 상단 import가 없다면 추가
+  // import { Editor, Transforms, Element as SlateElement, Path } from 'slate';
+  // import { ReactEditor } from 'slate-react';
+
   const handlePriceModalSave = (data: { stages: string[]; prices: number[] }) => {
-    if (priceTableEdit.blockPath && typeof priceTableEdit.idx === 'number' && priceTableEdit.item) {
-      const newContent = JSON.parse(JSON.stringify(doc.content));
-      const cardBlock: any = Node.get({ children: newContent } as any, priceTableEdit.blockPath!);
-      if (cardBlock && Array.isArray(cardBlock.items)) {
-        cardBlock.items = cardBlock.items.map((itm: any, i: number) =>
-          i === priceTableEdit.idx!
-            ? { ...itm, stages: data.stages, prices: data.prices }
-            : { ...itm }
-        );
-        setDoc(prev => ({ ...prev, content: newContent }));
-        setEditorKey(k => k + 1);
-      }
+    const { blockPath, idx } = priceTableEdit;
+
+    if (blockPath && typeof idx === 'number') {
+      Editor.withoutNormalizing(editor, () => {
+        // 현재 카드 블록 읽기
+        const [cardNode] = Editor.node(editor, blockPath) as [any, Path];
+
+        if (cardNode && Array.isArray(cardNode.items)) {
+          // 해당 아이템만 교체한 items 생성
+          const nextItems = cardNode.items.map((itm: any, i: number) =>
+            i === idx ? { ...itm, stages: data.stages, prices: data.prices } : itm
+          );
+
+          // 카드 블록에 items만 갱신
+          Transforms.setNodes(
+            editor,
+            { items: nextItems },
+            { at: blockPath }
+          );
+        }
+      });
+
+      // (선택) 포커스 복원
+      // ReactEditor.focus(editor);
     }
+
+    // 모달 상태 닫기 + 스크롤 복원(보수적)
     setPriceTableEdit({ blockPath: null, idx: null, item: null });
-    setTimeout(restoreScroll, 60);
+    requestAnimationFrame(() => {
+      if (scrollRef.current) scrollRef.current.scrollTop = lastScrollTopRef.current;
+    });
   };
 
   // 문서 초기값 반영
@@ -490,96 +513,108 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     <>
       <div className="editor-layout">
         <div className="editor-left">
-          <div className="editor-form-group">
-            <label className="editor-label">문서 제목</label>
-            <input
-              type="text"
-              value={doc.title}
-              onChange={e => setDoc(prev => ({ ...prev, title: e.target.value }))}
-              placeholder="문서 제목을 입력하세요"
-              className="editor-input"
-              required
-            />
-          </div>
-          <div className="editor-form-group">
-            <label className="editor-label">태그</label>
-            <input
-              type="text"
-              value={tagInput}
-              onChange={e => setTagInput(e.target.value)}
-              onBlur={() => {
-                const tags = tagInput.split('#')
-                  .map(t => t.trim())
-                  .filter(Boolean)
-                  .map(t => '#' + t);
-                setDoc(prev => ({ ...prev, tags }));
-              }}
-              placeholder="#태그1, #태그2"
-              className="editor-input"
-            />
-          </div>
-          <div className="editor-form-group">
-            <label className="editor-label">문서 아이콘</label>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div className="meta-card">
+            <div className="meta-title">문서 정보</div>
+
+            {/* 문서 제목 */}
+            <div className="meta-field">
+              <label className="meta-label">문서 제목</label>
               <input
                 type="text"
-                value={doc.icon}
-                onChange={e => setDoc(prev => ({ ...prev, icon: e.target.value }))}
-                maxLength={100}
-                placeholder="예: 📄  또는 이미지 URL"
-                className="editor-input"
-                style={{ flex: 1 }}
+                className="meta-input"
+                placeholder="문서 제목을 입력하세요"
+                value={doc.title}
+                onChange={e => setDoc(prev => ({ ...prev, title: e.target.value }))}
+                required
               />
-              <button
-                type="button"
-                onClick={() => setIconModalOpen(true)}
-                className="editor-btn"
-                style={{ padding: "6px 12px", fontSize: 14 }}
-              >
-                <FontAwesomeIcon icon={faImage} />
-              </button>
-              {doc.icon?.trim() && (
-                doc.icon.startsWith('http') ? (
-                  <img
-                    src={doc.icon}
-                    alt="문서 아이콘"
-                    style={{
-                      width: 36, height: 36,
-                      objectFit: "contain",
-                      background: "#fff",
-                      border: "1px solid #ddd",
-                      borderRadius: 8
-                    }}
-                  />
-                ) : (
-                  <span style={{ fontSize: 34 }}>{doc.icon}</span>
-                )
-              )}
-              <ImageSelectModal
-                open={iconModalOpen}
-                onClose={() => setIconModalOpen(false)}
-                onSelectImage={(url) => {
-                  setDoc(prev => ({ ...prev, icon: url }));
-                  setIconModalOpen(false);
+            </div>
+
+            {/* 태그 */}
+            <div className="meta-field">
+              <label className="meta-label">태그</label>
+              <input
+                type="text"
+                className="meta-input"
+                placeholder="#태그1, #태그2"
+                value={tagInput}
+                onChange={e => setTagInput(e.target.value)}
+                onBlur={() => {
+                  const tags = tagInput
+                    .split('#')
+                    .map(t => t.trim())
+                    .filter(Boolean)
+                    .map(t => '#' + t);
+                  setDoc(prev => ({ ...prev, tags }));
                 }}
               />
-              {doc.icon && (
+            </div>
+
+            {/* 문서 아이콘 */}
+            <div className="meta-field">
+              <label className="meta-label">문서 아이콘</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <input
+                  type="text"
+                  className="meta-input"
+                  style={{ flex: 1 }}
+                  maxLength={100}
+                  placeholder=""
+                  value={doc.icon}
+                  onChange={e => setDoc(prev => ({ ...prev, icon: e.target.value }))}
+                />
                 <button
                   type="button"
-                  onClick={() => setDoc(prev => ({ ...prev, icon: "" }))}
-                  className="editor-btn"
-                  style={{ padding: "4px 8px", marginLeft: 4 }}
-                  title="아이콘 삭제"
+                  onClick={() => setIconModalOpen(true)}
+                  className="editor-toolbar-btn-plain"
+                  style={{ padding: '6px 10px', borderRadius: 10 }}
+                  title="이미지 선택"
                 >
-                  ×
+                  <FontAwesomeIcon icon={faImage} />
                 </button>
-              )}
+
+                {doc.icon?.trim() && (
+                  doc.icon.startsWith('http') ? (
+                    <img
+                      src={doc.icon}
+                      alt="문서 아이콘"
+                      style={{
+                        width: 36, height: 36,
+                        objectFit: 'contain',
+                        background: '#fff',
+                        border: '1px solid #ddd',
+                        borderRadius: 8
+                      }}
+                    />
+                  ) : (
+                    <span style={{ fontSize: 34, lineHeight: 1 }}>{doc.icon}</span>
+                  )
+                )}
+
+                <ImageSelectModal
+                  open={iconModalOpen}
+                  onClose={() => setIconModalOpen(false)}
+                  onSelectImage={(url) => {
+                    setDoc(prev => ({ ...prev, icon: url }));
+                    setIconModalOpen(false);
+                  }}
+                />
+
+                {doc.icon && (
+                  <button
+                    type="button"
+                    onClick={() => setDoc(prev => ({ ...prev, icon: '' }))}
+                    className="editor-toolbar-btn-plain"
+                    style={{ padding: '6px 8px', borderRadius: 10 }}
+                    title="아이콘 삭제"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-          <div className="editor-btn-group">
-            <button onClick={handleSave} className="editor-btn-save">
-              저장
-            </button>
+
+            {/* 저장 버튼 */}
+            <button className="meta-save" onClick={handleSave}>저장</button>
           </div>
         </div>
 
@@ -594,6 +629,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
                 if (editor.selection) selectionRef.current = editor.selection;
               }}
             >
+              {/* Toolbar는 Slate 내부에, Sticky로 상단 고정 */}
               <div className="editor-toolbar-wrapper">
                 <Toolbar selectionRef={selectionRef} />
               </div>

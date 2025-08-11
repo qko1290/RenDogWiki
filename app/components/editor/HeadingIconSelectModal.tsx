@@ -61,7 +61,7 @@ export default function HeadingIconSelectModal({ open, onClose, onSubmit }: Prop
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <input
             style={{ fontSize: 28, width: 48, textAlign: 'center' }}
-            placeholder="🦊"
+            placeholder="🟡"
             maxLength={2}
             value={emoji}
             onChange={e => setEmoji(e.target.value)}

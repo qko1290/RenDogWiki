@@ -3,28 +3,16 @@ import React, { useState } from 'react';
 const NpcPictureSlider = ({ pictures = [] }: { pictures: string[] }) => {
   const [idx, setIdx] = useState(0);
   if (!pictures.length) return (
-    <div style={{
-      width: 500, height: 400, background: '#e0e0e0', borderRadius: 22,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      color: '#aaa', fontSize: 20
-    }}>사진 없음</div>
+    <div className="npc-picture-slider-empty">사진 없음</div>
   );
   return (
-    <div style={{
-      position: "relative", width: 500, height: 400, borderRadius: 22, overflow: "hidden",
-      background: "#00c463", display: "flex", alignItems: "center", justifyContent: "center"
-    }}>
-      <img src={pictures[idx]} alt="npc" style={{
-        width: "100%", height: "100%", objectFit: "cover", display: "block",
-      }} />
+    <div className="npc-picture-slider">
+      <img src={pictures[idx]} alt="npc" className="npc-picture-img" />
       {pictures.length > 1 && (
         <>
           <button
             onClick={() => setIdx(i => (i - 1 + pictures.length) % pictures.length)}
-            style={{
-              position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)",
-              background: "none", border: "none", outline: "none", cursor: "pointer", opacity: 0.32, zIndex: 10,
-            }}
+            className="npc-picture-slider-btn npc-picture-slider-btn-left"
             aria-label="이전"
           >
             <svg width="38" height="38" viewBox="0 0 38 38">
@@ -33,10 +21,7 @@ const NpcPictureSlider = ({ pictures = [] }: { pictures: string[] }) => {
           </button>
           <button
             onClick={() => setIdx(i => (i + 1) % pictures.length)}
-            style={{
-              position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
-              background: "none", border: "none", outline: "none", cursor: "pointer", opacity: 0.32, zIndex: 10,
-            }}
+            className="npc-picture-slider-btn npc-picture-slider-btn-right"
             aria-label="다음"
           >
             <svg width="38" height="38" viewBox="0 0 38 38">

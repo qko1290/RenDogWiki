@@ -9,87 +9,108 @@
  * - 포커스 트랩 및 접근성(arai-modal) 적용
  */
 
-import React, { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+'use client';
 
-type ModalProps = {
-  open: boolean;            // 모달 오픈 여부
-  onClose: () => void;      // 닫기 콜백
-  title?: string;           // 모달 상단 제목
-  children: React.ReactNode;// 모달 내부 내용
-  width?: string;           // 최소 너비 (기본 400px)
+import React from 'react';
+import { createPortal } from 'react-dom';
+import '@/wiki/css/image.css'; // rd-overlay/rd-card 등 공용 스타일
+
+type BaseProps = {
+  open: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
 };
 
-/**
- * [Modal 컴포넌트]
- * - open=false면 null 반환(렌더 X)
- * - 클라이언트 사이드에서만 Portal 렌더링
- */
-export default function Modal({
-  open, onClose, title, children, width = "400px"
-}: ModalProps) {
-  const [isClient, setIsClient] = useState(false);
-
-  // 마운트 후(브라우저 환경)만 Portal 생성
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  if (!open || !isClient) return null;
-
-  // 모달 레이어(Portal 대상)
-  const modalContent = (
+/** 공통 오버레이: 항상 화면 정중앙에 위치 (그리드 중앙 정렬 + 포털) */
+function Overlay({
+  onClose,
+  children,
+}: {
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  return (
     <div
-      className="modal-overlay"
-      onClick={onClose}
-      aria-modal="true"
-      tabIndex={-1}
+      className="rd-overlay"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      // 스타일 누락/오버라이드 대비 안전장치(필요 시 클래스와 함께 적용)
       style={{
+        display: 'grid',
+        placeItems: 'center',
         position: 'fixed',
         inset: 0,
-        zIndex: 9999,
-        background: 'rgba(0,0,0,0.40)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        zIndex: 5000,
       }}
     >
-      <div
-        className="modal-content"
-        style={{
-          background: '#fff',
-          borderRadius: 16,
-          boxShadow: '0 4px 24px 0 #0002',
-          padding: 24,
-          minWidth: width,
-          maxWidth: "90vw",
-          position: "relative",
-        }}
-        onClick={e => e.stopPropagation()} // 내용 클릭 시 배경 클릭 닫힘 방지
-      >
-        {/* 우측 상단 닫기 버튼 */}
-        <button
-          className="absolute top-3 right-4 text-xl font-bold text-gray-400 hover:text-gray-700"
-          onClick={onClose}
-          aria-label="닫기"
-          style={{
-            position: 'absolute',
-            top: 14,
-            right: 22,
-            fontSize: 26,
-            color: '#bbb',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            zIndex: 10001,
-          }}
-        >×</button>
-        {/* 제목이 있을 때만 출력 */}
-        {title && <div className="text-lg font-bold mb-3">{title}</div>}
-        {children}
-      </div>
+      {children}
     </div>
   );
+}
 
-  return createPortal(modalContent, document.body);
+/** 프레임(카드 스킨) 없이 내용만 중앙 배치하고 싶은 경우 */
+export default function Modal({ open, onClose, children }: BaseProps) {
+  if (!open) return null;
+  return createPortal(
+    <Overlay onClose={onClose}>
+      <div onMouseDown={(e) => e.stopPropagation()}>{children}</div>
+    </Overlay>,
+    document.body
+  );
+}
+
+/** 카드형 모달: 제목/닫기/액션 영역이 있는 표준 패널 */
+export function ModalCard({
+  open,
+  onClose,
+  title,
+  children,
+  actions,
+  width = 420,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  children?: React.ReactNode;
+  actions?: React.ReactNode;
+  width?: number;
+}) {
+  if (!open) return null;
+  return createPortal(
+    <Overlay onClose={onClose}>
+      <div
+        className="rd-card"
+        role="dialog"
+        aria-labelledby="rdm-title"
+        onMouseDown={(e) => e.stopPropagation()}
+        style={{
+          width,
+          maxWidth: 'calc(100vw - 40px)',
+          borderRadius: 20,
+        }}
+      >
+        <button
+          className="rd-exit-btn"
+          onClick={onClose}
+          aria-label="닫기"
+          type="button"
+        >
+          <svg height="20" viewBox="0 0 384 512">
+            <path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"/>
+          </svg>
+        </button>
+
+        <div className="rd-card-content">
+          <p className="rd-card-heading" id="rdm-title">{title}</p>
+          {children}
+        </div>
+
+        {actions && (
+          <div className="rd-card-button-wrapper">{actions}</div>
+        )}
+      </div>
+    </Overlay>,
+    document.body
+  );
 }

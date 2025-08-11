@@ -1,22 +1,22 @@
-// =============================================
-// File: app/components/editor/LinkInputModal.tsx
-// =============================================
-
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ModalCard } from '@/components/common/Modal';
+
+type LinkItem = { url: string; size: 'large' | 'small' };
 
 type LinkInputModalProps = {
   open: boolean;
   onClose: () => void;
-  onSubmit: (items: { url: string, size: 'large' | 'small' }[]) => void;
+  onSubmit: (items: LinkItem[]) => void;
+  /** 모달이 열릴 때만 초기값으로 사용됩니다. (열린 뒤에는 변경 무시) */
   defaultValue?: string[];
 };
 
 /**
- * 링크 삽입용 모달
- * - 1개 또는 2개(dualMode) URL 입력 지원
- * - 사이즈 large/small 선택(2개일 때 small)
+ * 외부 링크 삽입 모달
+ * - 1개(large) 또는 2개(small, small) 입력
+ * - 카드형 모달 + 드롭다운 자동 닫힘
  */
 export default function LinkInputModal({
   open,
@@ -24,201 +24,121 @@ export default function LinkInputModal({
   onSubmit,
   defaultValue = [],
 }: LinkInputModalProps) {
-  const [dualMode, setDualMode] = useState(false);
-  const [urls, setUrls] = useState<string[]>([defaultValue[0] || '', defaultValue[1] || '']);
-  const inputRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
+  const [dualMode, setDualMode] = useState<boolean>(false);
+  const [urls, setUrls] = useState<string[]>(['', '']);
+  const firstRef = useRef<HTMLInputElement>(null);
+  const secondRef = useRef<HTMLInputElement>(null);
 
-  // 모달 열릴 때 기본값 및 모드 초기화
+  // 🔧 "open"이 true로 바뀌는 순간에만 초기화 (defaultValue 의 참조 변화에 휘둘리지 않음)
   useEffect(() => {
-    if (open) {
-      setUrls([defaultValue[0] || '', defaultValue[1] || '']);
-      setDualMode(false);
-      setTimeout(() => inputRefs[0].current?.focus(), 50);
-    }
-    // eslint-disable-next-line
+    if (!open) return;
+    const [u1 = '', u2 = ''] = defaultValue;
+    setDualMode(!!u2);
+    setUrls([u1, u2]);
+    const t = setTimeout(() => firstRef.current?.focus(), 60);
+    // 툴바 드롭다운 닫기
+    window.dispatchEvent(new CustomEvent('editor:close-dropdowns'));
+    return () => clearTimeout(t);
+    // ✅ 의존성은 open만!
   }, [open]);
 
-  if (!open) return null;
+  const canSubmit =
+    (dualMode && urls[0].trim() && urls[1].trim()) ||
+    (!dualMode && urls[0].trim());
 
-  // 삽입 버튼/엔터 동작
-  const handleInsert = () => {
+  const handleSubmit = () => {
+    if (!canSubmit) return;
     if (dualMode) {
-      if (urls[0] && urls[1]) {
-        onSubmit([
-          { url: urls[0], size: 'small' },
-          { url: urls[1], size: 'small' },
-        ]);
-      }
+      onSubmit([
+        { url: urls[0].trim(), size: 'small' },
+        { url: urls[1].trim(), size: 'small' },
+      ]);
     } else {
-      if (urls[0]) {
-        onSubmit([{ url: urls[0], size: 'large' }]);
-      }
+      onSubmit([{ url: urls[0].trim(), size: 'large' }]);
     }
+    onClose();
   };
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        left: 0, top: 0, width: '100vw', height: '100vh',
-        background: 'rgba(0,0,0,0.15)', zIndex: 1000,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}
-      onClick={onClose}
+    <ModalCard
+      open={open}
+      onClose={onClose}
+      title="외부 링크 삽입"
+      width={560}
+      actions={
+        <>
+          <button className="rd-btn secondary" onClick={onClose}>취소</button>
+          <button className="rd-btn primary" onClick={handleSubmit} disabled={!canSubmit}>삽입</button>
+        </>
+      }
     >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          background: '#fff',
-          borderRadius: 12,
-          boxShadow: '0 2px 20px #0002',
-          minWidth: 370,
-          padding: 28,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 14,
-        }}
-      >
-        {/* 제목 및 1개/2개 스위치 */}
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
-          <div style={{ fontWeight: 600, fontSize: 18, flex: 1 }}>
-            링크 삽입
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <span
-              style={{
-                fontSize: 14,
-                fontWeight: dualMode ? 400 : 600,
-                color: dualMode ? '#bbb' : '#333',
-                cursor: 'pointer',
-              }}
-              onClick={() => setDualMode(false)}
-            >1개</span>
-            {/* 토글 스위치 */}
-            <label style={{
-              display: 'inline-block', width: 38, height: 22, position: 'relative', margin: '0 3px', cursor: 'pointer'
-            }}>
-              <input
-                type="checkbox"
-                checked={dualMode}
-                onChange={e => setDualMode(e.target.checked)}
-                style={{ display: 'none' }}
-              />
-              <span style={{
-                position: 'absolute', left: 0, top: 0, width: '100%', height: '100%',
-                background: dualMode ? '#2dc97e' : '#ddd',
-                borderRadius: 12, transition: 'background .18s'
-              }} />
-              <span style={{
-                position: 'absolute', top: 3, left: dualMode ? 19 : 3, width: 16, height: 16,
-                background: '#fff', borderRadius: '50%', transition: 'left .18s', boxShadow: '0 1px 4px #0001'
-              }} />
-            </label>
-            <span
-              style={{
-                fontSize: 14,
-                fontWeight: dualMode ? 600 : 400,
-                color: dualMode ? '#333' : '#bbb',
-                cursor: 'pointer',
-              }}
-              onClick={() => setDualMode(true)}
-            >2개</span>
-          </div>
-        </div>
-        {/* URL 입력 영역 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <input
-            ref={inputRefs[0]}
-            type="url"
-            value={urls[0]}
-            onChange={e => setUrls([e.target.value, urls[1]])}
-            placeholder="https://example.com"
-            style={{
-              fontSize: 16,
-              border: '1px solid #ccc',
-              borderRadius: 6,
-              padding: 8,
-              marginBottom: dualMode ? 6 : 0,
-            }}
-            onKeyDown={e => {
-              if (!dualMode && e.key === 'Enter') {
-                e.preventDefault();
-                if (urls[0]) onSubmit([{ url: urls[0], size: 'large' }]);
-              }
-              if (dualMode && e.key === 'Enter') {
-                if (inputRefs[1].current && e.currentTarget === inputRefs[0].current) {
-                  e.preventDefault();
-                  inputRefs[1].current.focus();
-                } else {
-                  e.preventDefault();
-                  handleInsert();
-                }
-              }
-            }}
-            autoFocus
-          />
-          {dualMode && (
-            <input
-              ref={inputRefs[1]}
-              type="url"
-              value={urls[1]}
-              onChange={e => setUrls([urls[0], e.target.value])}
-              placeholder="두 번째 링크 (https://...)"
-              style={{
-                fontSize: 16,
-                border: '1px solid #ccc',
-                borderRadius: 6,
-                padding: 8,
-              }}
-              onKeyDown={e => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleInsert();
-                }
-              }}
-            />
-          )}
-        </div>
-        {/* 삽입/취소 버튼 */}
-        <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-          <button
-            style={{
-              flex: 1,
-              background: '#2dc97e',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 6,
-              padding: '10px 0',
-              fontWeight: 600,
-              fontSize: 17,
-              cursor: 'pointer',
-            }}
-            disabled={
-              (dualMode && (!urls[0] || !urls[1]))
-              || (!dualMode && !urls[0])
-            }
-            onClick={handleInsert}
-          >
-            삽입
-          </button>
-        </div>
-        <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-          <button
-            style={{
-              flex: 1,
-              background: '#eee',
-              border: 'none',
-              borderRadius: 6,
-              padding: '8px 0',
-              fontWeight: 400,
-              cursor: 'pointer',
-            }}
-            onClick={onClose}
-          >
-            취소
-          </button>
+      {/* 1개 / 2개 토글 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '6px 0 12px' }}>
+        <button
+          type="button"
+          onClick={() => setDualMode(false)}
+          className="rd-btn"
+          style={{
+            height: 36, minWidth: 72, borderRadius: 999,
+            background: !dualMode ? '#2563eb' : '#f3f4f6',
+            color: !dualMode ? '#fff' : '#475569',
+            fontWeight: 800,
+          }}
+        >1개</button>
+        <button
+          type="button"
+          onClick={() => setDualMode(true)}
+          className="rd-btn"
+          style={{
+            height: 36, minWidth: 72, borderRadius: 999,
+            background: dualMode ? '#2563eb' : '#f3f4f6',
+            color: dualMode ? '#fff' : '#475569',
+            fontWeight: 800,
+          }}
+        >2개</button>
+        <div style={{ marginLeft: 'auto', color: '#6b7280', fontSize: 13 }}>
+          1개는 큰 카드, 2개는 두 칸 카드로 삽입됩니다.
         </div>
       </div>
-    </div>
+
+      {/* URL 입력 */}
+      <div style={{ display: 'grid', gap: 10 }}>
+        <input
+          ref={firstRef}
+          className="rd-input"
+          type="url"
+          placeholder="https://example.com"
+          value={urls[0]}
+          onChange={(e) => setUrls([e.target.value, urls[1]])}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              if (dualMode) {
+                e.preventDefault();
+                secondRef.current?.focus();
+              } else {
+                e.preventDefault();
+                handleSubmit();
+              }
+            }
+          }}
+        />
+        {dualMode && (
+          <input
+            ref={secondRef}
+            className="rd-input"
+            type="url"
+            placeholder="두 번째 링크 (https://...)"
+            value={urls[1]}
+            onChange={(e) => setUrls([urls[0], e.target.value])}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleSubmit();
+              }
+            }}
+          />
+        )}
+      </div>
+    </ModalCard>
   );
 }

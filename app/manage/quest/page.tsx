@@ -1,72 +1,63 @@
+// =============================================
+// File: app/manage/quest/page.tsx
+// =============================================
+
 'use client';
 
-/**
- * 퀘스트 NPC(마을별) 관리 페이지
- * - 마을별 퀘스트 NPC를 추가/정렬/수정/삭제/사진/보상/선행퀘 등 전부 관리
- * - 드래그&드롭 정렬, 보상/사진 등 리스트형 속성도 지원
- * - 모든 상태와 모달/서버연동 UI를 한 곳에서 통합 관리 (코어 파일)
- * - 유지보수와 확장성, 협업을 위한 설명 주석 포함 (실전용 가이드)
- */
-
-import { useEffect, useState } from "react";
-import Modal from "@/components/common/Modal";
-import WikiHeader from "@/components/common/Header";
-import ImageSelectModal from "@/components/image/ImageSelectModal";
-import '@/wiki/css/npc-manager.css';
-import '@/wiki/css/quest-manager.css';
+import { useEffect, useMemo, useState, useCallback } from 'react';
+import WikiHeader from '@/components/common/Header';
+import { ModalCard } from '@/components/common/RdModal';
+import ImageSelectModal from '@/components/image/ImageSelectModal';
 
 import {
-  DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  SortableContext, useSortable, arrayMove, verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+  SectionHeader,
+  EmptyState,
+  IconCell,
+  SortableList,
+  DetailTitle,
+} from '@/components/manager';
 
-/** --- 데이터 타입 정의 --- */
-type Village = {
-  id: number;
-  name: string;
-  icon: string;  // 이모지 or 이미지 url
-  order: number;
-};
+import '@/wiki/css/image.css';          // rd-* 모달/버튼/인풋
+import '@/wiki/css/manager-common.css'; // mgr-* 공통 레이아웃/리스트/필
+import '@/wiki/css/npc-manager.css';    // 마을 리스트 아이템
+import '@/wiki/css/quest-manager.css';  // 퀘스트 전용
+
+type Village = { id: number; name: string; icon: string; order: number };
 type QuestReward = { icon: string; text: string };
 type Npc = {
   id: number;
   name: string;
   village_id: number;
-  icon: string; // 이모지 or url
+  icon: string;
   order: number;
-  rewards?: QuestReward[]; // 보상 리스트
-  requirement: string | null; // 선행퀘
-  line: string | null;        // 대사
+  rewards?: QuestReward[];
+  requirement: string | null;
+  line: string | null;
   location_x: number;
   location_y: number;
   location_z: number;
-  quest: string;              // 퀘스트 설명
-  npc_type: string;           // "quest"
-  pictures?: string[];        // NPC 사진 리스트
+  quest: string;
+  npc_type: string; // "quest"
+  pictures?: string[];
 };
-type SortableNpcItemProps = { npc: Npc; selected: Npc | null; onClick: () => void; };
 
-/** --- 메인 컴포넌트 --- */
 export default function QuestNpcManager() {
-  /** [상단: 로그인/유저 정보] */
-  const [user, setUser] = useState(null);
+  /** 유저 */
+  const [user, setUser] = useState<any>(null);
   useEffect(() => {
     fetch('/api/auth/me')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => setUser(data?.user ?? null));
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setUser(d?.user ?? null));
   }, []);
 
-  /** [마을/퀘스트 목록 등 메인 상태] */
+  /** 마을/NPC 상태 */
   const [villages, setVillages] = useState<Village[]>([]);
   const [selectedVillage, setSelectedVillage] = useState<Village | null>(null);
 
-  const [npcList, setNpcList] = useState<Npc[]>([]);  // 현재 마을의 퀘스트 npc 목록
+  const [npcList, setNpcList] = useState<Npc[]>([]);
   const [selectedNpc, setSelectedNpc] = useState<Npc | null>(null);
 
-  /** [모달/입력 상태] */
+  /** 모달/임시값 */
   const [villageModalOpen, setVillageModalOpen] = useState(false);
   const [villageName, setVillageName] = useState('');
   const [villageIcon, setVillageIcon] = useState<string>('');
@@ -75,7 +66,6 @@ export default function QuestNpcManager() {
   const [npcModalOpen, setNpcModalOpen] = useState(false);
   const [npcName, setNpcName] = useState('');
 
-  // 각 항목 편집 모달
   const [editNameOpen, setEditNameOpen] = useState(false);
   const [editIconOpen, setEditIconOpen] = useState(false);
   const [editLocOpen, setEditLocOpen] = useState(false);
@@ -84,7 +74,6 @@ export default function QuestNpcManager() {
   const [editRewardOpen, setEditRewardOpen] = useState(false);
   const [editRequirementOpen, setEditRequirementOpen] = useState(false);
 
-  // 임시입력값(모달에서 쓰는 값들)
   const [tmpName, setTmpName] = useState('');
   const [tmpLoc, setTmpLoc] = useState<[number, number, number]>([0, 0, 0]);
   const [tmpLine, setTmpLine] = useState('');
@@ -93,503 +82,882 @@ export default function QuestNpcManager() {
   const [editRewardImgModalIdx, setEditRewardImgModalIdx] = useState<number | null>(null);
   const [tmpRequirement, setTmpRequirement] = useState('');
 
-  // 사진 관리
   const [npcPictures, setNpcPictures] = useState<string[]>([]);
   const [picturesModalOpen, setPicturesModalOpen] = useState(false);
   const [addPictureModalOpen, setAddPictureModalOpen] = useState(false);
 
-  // dnd-kit용 센서
-  const sensors = useSensors(useSensor(PointerSensor));
-
-  /** [초기화: 마을/퀘스트 로딩] */
+  /** 데이터 로딩 */
   useEffect(() => {
-    fetch("/api/villages")
-      .then(res => res.json())
-      .then(data => setVillages(data));
+    fetch('/api/villages')
+      .then((r) => r.json())
+      .then((rows) => setVillages(Array.isArray(rows) ? rows : []));
   }, []);
+
   useEffect(() => {
-    if (selectedVillage) {
-      fetch(`/api/npcs?village_id=${selectedVillage.id}&npc_type=quest`)
-        .then(res => res.json())
-        .then(data => setNpcList(Array.isArray(data) ? data : []));
+    if (!selectedVillage) {
+      setNpcList([]);
       setSelectedNpc(null);
-    } else {
-      setNpcList([]); setSelectedNpc(null);
+      return;
     }
+    fetch(`/api/npcs?village_id=${selectedVillage.id}&npc_type=quest`)
+      .then((r) => r.json())
+      .then((rows) => setNpcList(Array.isArray(rows) ? rows : []));
+    setSelectedNpc(null);
   }, [selectedVillage]);
 
-  /** [NPC(퀘스트) 추가] */
-  const handleAddNpc = async () => {
+  useEffect(() => {
+    if (!selectedNpc) return;
+    setTmpName(selectedNpc.name);
+    setTmpLoc([selectedNpc.location_x, selectedNpc.location_y, selectedNpc.location_z]);
+    setTmpLine(selectedNpc.line || '');
+    setTmpQuest(selectedNpc.quest || '');
+    setTmpRewards(Array.isArray(selectedNpc.rewards) ? selectedNpc.rewards : []);
+    setTmpRequirement(selectedNpc.requirement || '');
+    setNpcPictures(Array.isArray(selectedNpc.pictures) ? selectedNpc.pictures : []);
+  }, [selectedNpc]);
+
+  /** 액션 */
+  const handleAddVillage = useCallback(async () => {
+    const maxOrder = villages.length ? Math.max(...villages.map((v) => v.order)) : 0;
+    await fetch('/api/villages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: villageName, icon: villageIcon, order: maxOrder + 1 }),
+    });
+    const rows = await fetch('/api/villages').then((r) => r.json());
+    setVillages(Array.isArray(rows) ? rows : []);
+    setVillageModalOpen(false);
+    setVillageName('');
+    setVillageIcon('');
+  }, [villageIcon, villageName, villages]);
+
+  const handleAddNpc = useCallback(async () => {
     if (!selectedVillage) return;
-    const maxOrder = npcList.length ? Math.max(...npcList.map(n => n.order)) : 0;
-    await fetch("/api/npcs", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    const maxOrder = npcList.length ? Math.max(...npcList.map((n) => n.order)) : 0;
+    await fetch('/api/npcs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: npcName,
         village_id: selectedVillage.id,
-        icon: "📜",
+        icon: '📜',
         order: maxOrder + 1,
         reward: null,
         reward_icon: null,
         requirement: null,
         line: null,
-        location_x: 0, location_y: 0, location_z: 0,
-        quest: "",
-        npc_type: "quest",
+        location_x: 0,
+        location_y: 0,
+        location_z: 0,
+        quest: '',
+        npc_type: 'quest',
       }),
     });
-    fetch(`/api/npcs?village_id=${selectedVillage.id}&npc_type=quest`)
-      .then(res => res.json())
-      .then(data => setNpcList(Array.isArray(data) ? data : []));
+    const rows = await fetch(`/api/npcs?village_id=${selectedVillage.id}&npc_type=quest`).then((r) =>
+      r.json(),
+    );
+    setNpcList(Array.isArray(rows) ? rows : []);
     setNpcModalOpen(false);
     setNpcName('');
-  };
+  }, [npcList, npcName, selectedVillage]);
 
-  /** [NPC(퀘스트) 정보 일부 수정 - 모든 편집 모달에서 공용 사용] */
-  const patchNpc = async (fields: Partial<Npc>) => {
-    if (!selectedNpc) return;
-    const res = await fetch(`/api/npcs/${selectedNpc.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...selectedNpc,
-        ...fields,
-        npc_type: "quest",
-      }),
-    });
-    if (res.ok && selectedVillage) {
-      fetch(`/api/npcs?village_id=${selectedVillage.id}&npc_type=quest`)
-        .then(res => res.json())
-        .then(data => {
-          setNpcList(Array.isArray(data) ? data : []);
-          setSelectedNpc(data.find((n: Npc) => n.id === selectedNpc.id) || null);
-        });
-    }
-  };
-
-  /** [NPC 선택시 모달 임시입력값 초기화] */
-  useEffect(() => {
-    if (selectedNpc) {
-      setTmpName(selectedNpc.name);
-      setTmpLoc([selectedNpc.location_x, selectedNpc.location_y, selectedNpc.location_z]);
-      setTmpLine(selectedNpc.line || "");
-      setTmpQuest(selectedNpc.quest || "");
-      setTmpRewards(Array.isArray(selectedNpc.rewards) ? selectedNpc.rewards : []);
-      setTmpRequirement(selectedNpc.requirement || "");
-      setNpcPictures(Array.isArray(selectedNpc.pictures) ? selectedNpc.pictures : []);
-    }
-  }, [selectedNpc]);
-
-  /** [DnD: 리스트 아이템 정의 - 핸들/드래그 스타일/선택 강조] */
-  function SortableNpcItem({ npc, selected, onClick }: SortableNpcItemProps) {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: npc.id });
-    const itemClass = [
-      "npc-list-item",
-      isDragging ? "dragging" : "",
-      selected?.id === npc.id ? "selected" : "",
-    ].join(" ");
-    return (
-      <li
-        ref={setNodeRef}
-        className={itemClass}
-        style={{ transform: CSS.Transform.toString(transform), transition }}
-        {...attributes}
-        onClick={e => {
-          if ((e.target as HTMLElement).closest(".drag-handle")) return;
-          onClick();
-        }}
-      >
-        <span className="drag-handle" {...listeners} title="순서 변경" onClick={e => e.stopPropagation()}>⠿</span>
-        <span className="npc-list-order">{npc.order}.</span>
-        {npc.icon.startsWith('http')
-          ? <img src={npc.icon} className="npc-list-icon-img" alt="icon" />
-          : <span className="npc-list-icon-emoji">{npc.icon}</span>
-        }
-        <span className="npc-list-name">{npc.name}</span>
-      </li>
-    );
-  }
-
-  /** [DnD: 드래그앤드롭 완료시 순서 갱신/DB 반영] */
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const oldIndex = npcList.findIndex(n => n.id === active.id);
-    const newIndex = npcList.findIndex(n => n.id === over.id);
-    if (oldIndex === -1 || newIndex === -1) return;
-
-    const newList = arrayMove(npcList, oldIndex, newIndex);
-    const newListWithOrder = newList.map((n, idx) => ({ ...n, order: idx + 1 }));
-    setNpcList(newListWithOrder);
-
-    for (const n of newListWithOrder) {
-      await fetch(`/api/npcs/${n.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(n),
+  const patchNpc = useCallback(
+    async (fields: Partial<Npc>) => {
+      if (!selectedNpc) return;
+      await fetch(`/api/npcs/${selectedNpc.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...selectedNpc, ...fields, npc_type: 'quest' }),
       });
-    }
-  };
+      if (!selectedVillage) return;
+      const rows = await fetch(`/api/npcs?village_id=${selectedVillage.id}&npc_type=quest`).then(
+        (r) => r.json(),
+      );
+      setNpcList(Array.isArray(rows) ? rows : []);
+      setSelectedNpc(
+        (Array.isArray(rows) ? rows : []).find((n: Npc) => n.id === selectedNpc.id) ?? null,
+      );
+    },
+    [selectedNpc, selectedVillage],
+  );
 
-  /** [메인 리턴: 전체 UI] */
+  /** 정렬 메모 */
+  const sortedVillages = useMemo(
+    () => [...villages].sort((a, b) => a.order - b.order),
+    [villages],
+  );
+  const sortedNpcList = useMemo(() => [...npcList].sort((a, b) => a.order - b.order), [npcList]);
+
+  /** DnD 저장 */
+  const handleReorder = useCallback(
+    async (reordered: Npc[]) => {
+      setNpcList(reordered);
+      const prev = new Map(npcList.map((n) => [n.id, n.order]));
+      const changed = reordered
+        .filter((n) => prev.get(n.id) !== n.order)
+        .map((n) => ({ id: n.id, order: n.order }));
+      if (!selectedVillage || changed.length === 0) return;
+
+      try {
+        const res = await fetch('/api/npcs/order', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            village_id: selectedVillage.id,
+            npc_type: 'quest',
+            orders: changed,
+          }),
+        });
+        if (!res.ok) throw new Error('bulk-order-failed');
+      } catch {
+        const rows = await fetch(
+          `/api/npcs?village_id=${selectedVillage.id}&npc_type=quest`,
+        ).then((r) => r.json());
+        setNpcList(Array.isArray(rows) ? rows : []);
+      }
+    },
+    [npcList, selectedVillage],
+  );
+
+  const onKeyActivate =
+    (fn: () => void) =>
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        fn();
+      }
+    };
+
+  /** 렌더 */
   return (
     <>
-      {/* [상단] 로그인/유저 정보 */}
       <WikiHeader user={user} />
 
-      {/* ---------------- 마을 추가 모달 ---------------- */}
-      <Modal open={villageModalOpen}
-        onClose={() => { setVillageModalOpen(false); setVillageName(''); setVillageIcon(''); }}
-        title="마을 추가" width="370px">
-        <div className="npc-modal-body">
-          <div>
-            <label className="npc-modal-label">마을 이름</label>
-            <input className="npc-modal-input" placeholder="마을 이름" maxLength={40} value={villageName}
-              onChange={e => setVillageName(e.target.value)} />
-          </div>
-          <div>
-            <label className="npc-modal-label">마을 아이콘</label>
-            <div className="npc-modal-icon-input-row">
-              <input className="npc-modal-emoji-input" placeholder="🏘️" maxLength={2}
-                value={villageIcon && !villageIcon.startsWith('http') ? villageIcon : ''}
-                onChange={e => setVillageIcon(e.target.value)} />
-              <span className="npc-modal-icon-sep">또는</span>
-              <button className="npc-modal-image-btn" onClick={() => setImageModalOpen(true)}>이미지 선택</button>
-              {villageIcon && villageIcon.startsWith('http') && (
-                <img src={villageIcon} className="npc-modal-preview-icon" alt="icon" />
-              )}
-            </div>
-          </div>
-          <div className="npc-modal-btn-row">
-            <button className="npc-modal-cancel-btn" onClick={() => setVillageModalOpen(false)}>취소</button>
-            <button className="npc-modal-submit-btn"
+      {/* ───────── 마을 추가 ───────── */}
+      <ModalCard
+        open={villageModalOpen}
+        onClose={() => setVillageModalOpen(false)}
+        title="마을 추가"
+        actions={
+          <>
+            <button className="rd-btn secondary" onClick={() => setVillageModalOpen(false)}>
+              취소
+            </button>
+            <button
+              className="rd-btn primary"
               disabled={!villageName.trim() || !villageIcon.trim()}
-              onClick={async () => {
-                const maxOrder = villages.length ? Math.max(...villages.map(v => v.order)) : 0;
-                await fetch("/api/villages", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ name: villageName, icon: villageIcon, order: maxOrder + 1 }),
-                });
-                fetch("/api/villages")
-                  .then(res => res.json())
-                  .then(data => setVillages(data));
-                setVillageModalOpen(false); setVillageName(''); setVillageIcon('');
-              }}
-            >추가</button>
-          </div>
+              onClick={handleAddVillage}
+            >
+              추가
+            </button>
+          </>
+        }
+      >
+        <div className="rd-field">
+          <label className="rd-label">마을 이름</label>
+          <input
+            className="rd-input"
+            placeholder="마을 이름"
+            maxLength={40}
+            value={villageName}
+            onChange={(e) => setVillageName(e.target.value)}
+          />
         </div>
-        {/* 이미지/이모지 모달 */}
-        <ImageSelectModal open={imageModalOpen} onClose={() => setImageModalOpen(false)}
-          onSelectImage={(url) => { setVillageIcon(url); setImageModalOpen(false); }} />
-      </Modal>
 
-      {/* ---------------- NPC(퀘스트) 추가 모달 ---------------- */}
-      <Modal open={npcModalOpen}
-        onClose={() => { setNpcModalOpen(false); setNpcName(''); }}
-        title="퀘스트 NPC 추가" width="370px">
-        <div className="npc-modal-body">
-          <div>
-            <label className="npc-modal-label">NPC 이름</label>
-            <input className="npc-modal-input" placeholder="NPC 이름" maxLength={40}
-              value={npcName} onChange={e => setNpcName(e.target.value)} />
-          </div>
-          <div className="npc-modal-btn-row">
-            <button className="npc-modal-cancel-btn" onClick={() => setNpcModalOpen(false)}>취소</button>
-            <button className="npc-modal-submit-btn"
-              disabled={!npcName.trim()}
-              onClick={handleAddNpc}
-            >추가</button>
+        <div className="rd-field">
+          <label className="rd-label">마을 아이콘</label>
+          <div className="rd-icon-row">
+            <input
+              className="rd-input rd-emoji-input"
+              placeholder=""
+              maxLength={2}
+              value={villageIcon && !villageIcon.startsWith('http') ? villageIcon : ''}
+              onChange={(e) => setVillageIcon(e.target.value)}
+            />
+            <button
+              type="button"
+              className="rd-btn secondary"
+              onClick={() => setImageModalOpen(true)}
+            >
+              이미지 선택
+            </button>
+            {villageIcon && villageIcon.startsWith('http') && (
+              <img src={villageIcon} className="rd-preview" alt="icon" />
+            )}
           </div>
         </div>
-      </Modal>
 
-      {/* ---- 각종 편집 모달(이름/아이콘/위치/대사/퀘스트/보상/선행/사진) ---- */}
-      {/* (모달 UI 내 편집/저장/취소 동작 주석 생략, 필요시 개별 설명 붙일 수 있음) */}
-      <Modal open={editNameOpen} onClose={() => setEditNameOpen(false)} title="이름 수정" width="350px">
-        <div className="npc-modal-body">
-          <input className="npc-modal-input" maxLength={40} value={tmpName} onChange={e => setTmpName(e.target.value)} />
-          <div className="npc-modal-btn-row">
-            <button className="npc-modal-cancel-btn" onClick={() => setEditNameOpen(false)}>취소</button>
-            <button className="npc-modal-submit-btn"
-              disabled={!tmpName.trim()}
-              onClick={async () => { await patchNpc({ name: tmpName }); setEditNameOpen(false); }}>수정</button>
-          </div>
+        <ImageSelectModal
+          open={imageModalOpen}
+          onClose={() => setImageModalOpen(false)}
+          onSelectImage={(url) => {
+            setVillageIcon(url);
+            setImageModalOpen(false);
+          }}
+        />
+      </ModalCard>
+
+      {/* ───────── 퀘스트 추가 ───────── */}
+      <ModalCard
+        open={npcModalOpen}
+        onClose={() => setNpcModalOpen(false)}
+        title="퀘스트 NPC 추가"
+        actions={
+          <>
+            <button className="rd-btn secondary" onClick={() => setNpcModalOpen(false)}>
+              취소
+            </button>
+            <button className="rd-btn primary" disabled={!npcName.trim()} onClick={handleAddNpc}>
+              추가
+            </button>
+          </>
+        }
+      >
+        <div className="rd-field">
+          <label className="rd-label">NPC 이름</label>
+          <input
+            className="rd-input"
+            placeholder="NPC 이름"
+            maxLength={40}
+            value={npcName}
+            onChange={(e) => setNpcName(e.target.value)}
+          />
         </div>
-      </Modal>
-      <ImageSelectModal open={editIconOpen} onClose={() => setEditIconOpen(false)}
-        onSelectImage={async (url) => { await patchNpc({ icon: url }); setEditIconOpen(false); }} />
-      <Modal open={editLocOpen} onClose={() => setEditLocOpen(false)} title="위치 수정" width="350px">
-        <div className="npc-modal-body">
-          <div className="npc-modal-loc-row">
-            {["X", "Y", "Z"].map((label, idx) => (
-              <div key={label} className="npc-modal-loc-col">
-                <div className="npc-modal-loc-label">{label}</div>
-                <input type="number" className="npc-modal-input"
-                  value={tmpLoc[idx]} onChange={e => {
-                    const copy = [...tmpLoc] as [number, number, number];
-                    copy[idx] = Number(e.target.value); setTmpLoc(copy);
-                  }} />
-              </div>
-            ))}
-          </div>
-          <div className="npc-modal-btn-row">
-            <button className="npc-modal-cancel-btn" onClick={() => setEditLocOpen(false)}>취소</button>
-            <button className="npc-modal-submit-btn"
-              onClick={async () => { await patchNpc({ location_x: tmpLoc[0], location_y: tmpLoc[1], location_z: tmpLoc[2] }); setEditLocOpen(false); }}>수정</button>
-          </div>
-        </div>
-      </Modal>
-      <Modal open={editLineOpen} onClose={() => setEditLineOpen(false)} title="대사 수정" width="420px">
-        <div className="npc-modal-body">
-          <textarea className="npc-modal-input quest-detail-textarea"
-            value={tmpLine} onChange={e => setTmpLine(e.target.value)} maxLength={600} />
-          <div className="npc-modal-btn-row">
-            <button className="npc-modal-cancel-btn" onClick={() => setEditLineOpen(false)}>취소</button>
-            <button className="npc-modal-submit-btn"
-              onClick={async () => { await patchNpc({ line: tmpLine }); setEditLineOpen(false); }}>수정</button>
-          </div>
-        </div>
-      </Modal>
-      {/* 퀘스트 내용/보상/선행퀘스트/사진 등 편집 모달은 동일 방식 */}
-      <Modal open={editQuestOpen} onClose={() => setEditQuestOpen(false)} title="퀘스트 내용 수정" width="420px">
-        <div className="npc-modal-body">
-          <textarea className="npc-modal-input quest-detail-textarea"
-            value={tmpQuest} onChange={e => setTmpQuest(e.target.value)} maxLength={400} />
-          <div className="npc-modal-btn-row">
-            <button className="npc-modal-cancel-btn" onClick={() => setEditQuestOpen(false)}>취소</button>
-            <button className="npc-modal-submit-btn"
-              onClick={async () => { await patchNpc({ quest: tmpQuest }); setEditQuestOpen(false); }}>수정</button>
-          </div>
-        </div>
-      </Modal>
-      <Modal open={editRewardOpen} onClose={() => setEditRewardOpen(false)} title="보상 수정" width="480px">
-        <div className="npc-modal-body">
-          <label className="npc-modal-label">보상 목록</label>
-          {tmpRewards.map((reward, idx) => (
-            <div key={idx} style={{ display: "flex", alignItems: "center", marginBottom: 8, gap: 8 }}>
-              {/* 아이콘(이모지/이미지) */}
-              <button style={{
-                width: 38, height: 38, border: "1px solid #ddd", borderRadius: 7, background: "#f7f7fa", cursor: "pointer"
-              }} onClick={() => setEditRewardImgModalIdx(idx)} title="이미지 선택">
-                {reward.icon
-                  ? (reward.icon.startsWith("http")
-                    ? <img src={reward.icon} style={{ width: 28, height: 28, objectFit: "contain" }} alt="icon" />
-                    : <span style={{ fontSize: 22 }}>{reward.icon}</span>
-                  )
-                  : <span style={{ color: "#bbb" }}>+</span>}
+      </ModalCard>
+
+      {/* ===== 수동 3단 레이아웃 ===== */}
+      <div className="mgr-container">
+        {/* 사이드바: 마을 */}
+        <div className="mgr-sidebar">
+          <SectionHeader
+            title="마을 목록"
+            right={
+              <button className="mgr-add-btn" onClick={() => setVillageModalOpen(true)}>
+                + 마을 추가
               </button>
-              {/* 보상 설명 */}
-              <input className="npc-modal-input" placeholder="보상 내용" maxLength={60}
-                style={{ flex: 1 }}
-                value={reward.text}
-                onChange={e => {
-                  const copy = tmpRewards.slice();
-                  copy[idx].text = e.target.value;
-                  setTmpRewards(copy);
-                }} />
-              {/* 삭제 */}
-              <button className="npc-modal-cancel-btn" style={{ fontSize: 19, padding: 4 }}
-                onClick={() => setTmpRewards(tmpRewards.filter((_, i) => i !== idx))}>삭제</button>
-              {/* 이미지 선택 모달 */}
-              {editRewardImgModalIdx === idx && (
-                <ImageSelectModal open={true} onClose={() => setEditRewardImgModalIdx(null)}
-                  onSelectImage={url => {
-                    const copy = tmpRewards.slice();
-                    copy[idx].icon = url;
-                    setTmpRewards(copy);
-                    setEditRewardImgModalIdx(null);
-                  }} />
+            }
+          />
+          <ul className="npc-village-list">
+            {sortedVillages.map((v) => (
+              <li
+                key={v.id}
+                className={`npc-village-item${selectedVillage?.id === v.id ? ' selected' : ''}`}
+                onClick={() => setSelectedVillage(v)}
+              >
+                <span className="npc-village-icon">
+                  <IconCell icon={v.icon} />
+                </span>
+                {v.name}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* 리스트: 퀘스트 */}
+        <div className="mgr-list-area">
+          <SectionHeader
+            title={
+              selectedVillage ? (
+                <span className="mgr-title-inline">
+                  <IconCell icon={selectedVillage.icon} size={18} rounded={4} />
+                  <span>{selectedVillage.name}</span>
+                </span>
+              ) : (
+                '퀘스트 목록'
+              )
+            }
+            right={
+              <button
+                className="mgr-add-btn"
+                disabled={!selectedVillage}
+                onClick={() => setNpcModalOpen(true)}
+                title={selectedVillage ? '' : '마을을 먼저 선택하세요'}
+              >
+                + 퀘스트 추가
+              </button>
+            }
+          />
+
+          {!selectedVillage ? (
+            <EmptyState>마을을 먼저 선택하세요.</EmptyState>
+          ) : sortedNpcList.length === 0 ? (
+            <EmptyState>해당 마을에 등록된 퀘스트가 없습니다.</EmptyState>
+          ) : (
+            <SortableList<Npc>
+              className="mgr-list"
+              itemClassName="mgr-list-item"
+              items={sortedNpcList}
+              selectedId={selectedNpc?.id}
+              onSelect={(it) => setSelectedNpc(it)}
+              onReorder={handleReorder}
+              useOverlay={false}
+              renderItem={(n) => (
+                <>
+                  <span className="mgr-order">{n.order}.</span>
+                  <IconCell icon={n.icon} className="mgr-icon-img" size={22} rounded={5} />
+                  <span className="mgr-name">{n.name}</span>
+                </>
               )}
+            />
+          )}
+        </div>
+
+        {/* 상세: 우측 */}
+        <div className="mgr-detail-area">
+          {selectedNpc ? (
+            <div>
+              <DetailTitle
+                icon={
+                  selectedNpc.icon?.startsWith('http') ? (
+                    <IconCell
+                      icon={selectedNpc.icon}
+                      className="quest-detail-img"
+                      size={48}
+                      rounded={10}
+                    />
+                  ) : (
+                    <span className="quest-detail-icon">{selectedNpc.icon || '📜'}</span>
+                  )
+                }
+                title={<span className="quest-detail-title">{selectedNpc.name}</span>}
+                showEditButtons={false}
+                onTitleClick={() => setEditNameOpen(true)}
+                onIconClick={() => setEditIconOpen(true)}
+              />
+
+              {/* 위치 */}
+              <div
+                className="mgr-pill-row"
+                role="button"
+                tabIndex={0}
+                onClick={() => setEditLocOpen(true)}
+                onKeyDown={onKeyActivate(() => setEditLocOpen(true))}
+                title="위치 수정"
+              >
+                <span className="mgr-pill-label">위치</span>
+                <span className="mgr-pill-value">
+                  <span className="quest-detail-loc">
+                    ( {selectedNpc.location_x}, {selectedNpc.location_y}, {selectedNpc.location_z} )
+                  </span>
+                </span>
+              </div>
+
+              {/* 퀘스트 */}
+              <div
+                className="mgr-pill-row"
+                role="button"
+                tabIndex={0}
+                onClick={() => setEditQuestOpen(true)}
+                onKeyDown={onKeyActivate(() => setEditQuestOpen(true))}
+                title="퀘스트 내용 수정"
+              >
+                <span className="mgr-pill-label">퀘스트</span>
+                <span className="mgr-pill-value">
+                  {selectedNpc.quest?.trim() ? (
+                    selectedNpc.quest
+                  ) : (
+                    <span className="mgr-placeholder">-</span>
+                  )}
+                </span>
+              </div>
+
+              {/* 보상 */}
+              <div
+                className="mgr-pill-row"
+                role="button"
+                tabIndex={0}
+                onClick={() => setEditRewardOpen(true)}
+                onKeyDown={onKeyActivate(() => setEditRewardOpen(true))}
+                title="보상 수정"
+              >
+                <span className="mgr-pill-label">보상</span>
+                <span className="mgr-pill-value">
+                  {Array.isArray(selectedNpc.rewards) && selectedNpc.rewards.length > 0 ? (
+                    selectedNpc.rewards.map((rw, i) => (
+                      <span key={i} className="mgr-chip">
+                        {rw.icon ? (
+                          rw.icon.startsWith('http') ? (
+                            <img src={rw.icon} alt="" />
+                          ) : (
+                            <span className="mgr-chip-emoji">{rw.icon}</span>
+                          )
+                        ) : null}
+                        <span>{rw.text}</span>
+                      </span>
+                    ))
+                  ) : (
+                    <span className="mgr-placeholder">-</span>
+                  )}
+                </span>
+              </div>
+
+              {/* 선행퀘스트 */}
+              <div
+                className="mgr-pill-row"
+                role="button"
+                tabIndex={0}
+                onClick={() => setEditRequirementOpen(true)}
+                onKeyDown={onKeyActivate(() => setEditRequirementOpen(true))}
+                title="선행퀘스트 수정"
+              >
+                <span className="mgr-pill-label">선행퀘스트</span>
+                <span className="mgr-pill-value">
+                  {selectedNpc.requirement?.trim() ? (
+                    selectedNpc.requirement
+                  ) : (
+                    <span className="mgr-placeholder">-</span>
+                  )}
+                </span>
+              </div>
+
+              {/* 사진 */}
+              <div
+                className="mgr-pill-row"
+                role="button"
+                tabIndex={0}
+                onClick={() => setPicturesModalOpen(true)}
+                onKeyDown={onKeyActivate(() => setPicturesModalOpen(true))}
+                title="사진 관리"
+              >
+                <span className="mgr-pill-label">사진</span>
+                <span className="mgr-pill-value">
+                  {npcPictures && npcPictures.length > 0 ? (
+                    npcPictures.slice(0, 6).map((url, idx) => (
+                      <img key={url + idx} src={url} alt="" className="mgr-pill-pic" />
+                    ))
+                  ) : (
+                    <span className="mgr-placeholder">사진 없음</span>
+                  )}
+                </span>
+              </div>
+
+              {/* 대사 */}
+              <div
+                className="mgr-pill-row mgr-pill-row--multi"
+                role="button"
+                tabIndex={0}
+                onClick={() => setEditLineOpen(true)}
+                onKeyDown={onKeyActivate(() => setEditLineOpen(true))}
+                title="대사 수정"
+              >
+                <span className="mgr-pill-label">대사</span>
+                <span className="mgr-pill-value">
+                  {selectedNpc.line?.trim() ? (
+                    selectedNpc.line
+                  ) : (
+                    <span className="mgr-placeholder">- 대사 없음 -</span>
+                  )}
+                </span>
+              </div>
             </div>
-          ))}
-          {/* 추가 */}
-          <button className="npc-modal-image-btn" style={{ marginTop: 8 }}
-            onClick={() => setTmpRewards([...tmpRewards, { icon: "", text: "" }])}>+ 보상 추가</button>
-          <div className="npc-modal-btn-row">
-            <button className="npc-modal-cancel-btn" onClick={() => setEditRewardOpen(false)}>취소</button>
-            <button className="npc-modal-submit-btn"
-              onClick={async () => { await patchNpc({ rewards: tmpRewards }); setEditRewardOpen(false); }}>수정</button>
+          ) : (
+            <EmptyState>퀘스트를 선택하세요.</EmptyState>
+          )}
+        </div>
+      </div>
+
+      {/* ───────── 이름 수정 ───────── */}
+      <ModalCard
+        open={editNameOpen}
+        onClose={() => setEditNameOpen(false)}
+        title="이름 수정"
+        actions={
+          <>
+            <button className="rd-btn secondary" onClick={() => setEditNameOpen(false)}>
+              취소
+            </button>
+            <button
+              className="rd-btn primary"
+              disabled={!tmpName.trim()}
+              onClick={async () => {
+                await patchNpc({ name: tmpName });
+                setEditNameOpen(false);
+              }}
+            >
+              수정
+            </button>
+          </>
+        }
+      >
+        <input
+          className="rd-input"
+          maxLength={40}
+          value={tmpName}
+          onChange={(e) => setTmpName(e.target.value)}
+        />
+      </ModalCard>
+
+      {/* 아이콘 선택 */}
+      <ImageSelectModal
+        open={editIconOpen}
+        onClose={() => setEditIconOpen(false)}
+        onSelectImage={async (url) => {
+          await patchNpc({ icon: url });
+          setEditIconOpen(false);
+        }}
+      />
+
+      {/* ───────── 위치 수정 ───────── */}
+      <ModalCard
+        open={editLocOpen}
+        onClose={() => setEditLocOpen(false)}
+        title="위치 수정"
+        actions={
+          <>
+            <button className="rd-btn secondary" onClick={() => setEditLocOpen(false)}>
+              취소
+            </button>
+            <button
+              className="rd-btn primary"
+              disabled={tmpLoc.some((v) => Number.isNaN(v))}
+              onClick={async () => {
+                await patchNpc({
+                  location_x: tmpLoc[0],
+                  location_y: tmpLoc[1],
+                  location_z: tmpLoc[2],
+                });
+                setEditLocOpen(false);
+              }}
+            >
+              수정
+            </button>
+          </>
+        }
+      >
+        <div className="rd-field">
+          <div className="rd-coord-row" role="group" aria-label="좌표 입력">
+            <div className="rd-coord-item">
+              <span className="rd-chip-label">X</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                step={1}
+                className="rd-input rd-num"
+                value={Number.isNaN(tmpLoc[0]) ? '' : tmpLoc[0]}
+                onChange={(e) => {
+                  const n =
+                    e.currentTarget.value === '' ? Number.NaN : e.currentTarget.valueAsNumber;
+                  setTmpLoc(([_, y, z]) => [n, y, z]);
+                }}
+              />
+            </div>
+
+            <div className="rd-coord-item">
+              <span className="rd-chip-label">Y</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                step={1}
+                className="rd-input rd-num"
+                value={Number.isNaN(tmpLoc[1]) ? '' : tmpLoc[1]}
+                onChange={(e) => {
+                  const n =
+                    e.currentTarget.value === '' ? Number.NaN : e.currentTarget.valueAsNumber;
+                  setTmpLoc(([x, _, z]) => [x, n, z]);
+                }}
+              />
+            </div>
+
+            <div className="rd-coord-item">
+              <span className="rd-chip-label">Z</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                step={1}
+                className="rd-input rd-num"
+                value={Number.isNaN(tmpLoc[2]) ? '' : tmpLoc[2]}
+                onChange={(e) => {
+                  const n =
+                    e.currentTarget.value === '' ? Number.NaN : e.currentTarget.valueAsNumber;
+                  setTmpLoc(([x, y, _]) => [x, y, n]);
+                }}
+              />
+            </div>
           </div>
         </div>
-      </Modal>
-      <Modal open={editRequirementOpen} onClose={() => setEditRequirementOpen(false)} title="선행퀘스트 수정" width="420px">
-        <div className="npc-modal-body">
-          <input className="npc-modal-input" value={tmpRequirement} maxLength={200}
-            onChange={e => setTmpRequirement(e.target.value)} />
-          <div className="npc-modal-btn-row">
-            <button className="npc-modal-cancel-btn" onClick={() => setEditRequirementOpen(false)}>취소</button>
-            <button className="npc-modal-submit-btn"
-              onClick={async () => { await patchNpc({ requirement: tmpRequirement }); setEditRequirementOpen(false); }}>수정</button>
+      </ModalCard>
+
+      {/* ───────── 대사 수정 ───────── */}
+      <ModalCard
+        open={editLineOpen}
+        onClose={() => setEditLineOpen(false)}
+        title="대사 수정"
+        actions={
+          <>
+            <button className="rd-btn secondary" onClick={() => setEditLineOpen(false)}>
+              취소
+            </button>
+            <button
+              className="rd-btn primary"
+              onClick={async () => {
+                await patchNpc({ line: tmpLine });
+                setEditLineOpen(false);
+              }}
+            >
+              수정
+            </button>
+          </>
+        }
+      >
+        <textarea
+          className="rd-textarea"
+          value={tmpLine}
+          onChange={(e) => setTmpLine(e.target.value)}
+          maxLength={600}
+        />
+      </ModalCard>
+
+      {/* ───────── 퀘스트 내용 수정 ───────── */}
+      <ModalCard
+        open={editQuestOpen}
+        onClose={() => setEditQuestOpen(false)}
+        title="퀘스트 내용 수정"
+        actions={
+          <>
+            <button className="rd-btn secondary" onClick={() => setEditQuestOpen(false)}>
+              취소
+            </button>
+            <button
+              className="rd-btn primary"
+              onClick={async () => {
+                await patchNpc({ quest: tmpQuest });
+                setEditQuestOpen(false);
+              }}
+            >
+              저장
+            </button>
+          </>
+        }
+      >
+        <div className="rd-field">
+          <label className="rd-label">퀘스트 내용</label>
+
+          <div className="rd-textarea-wrap">
+            <textarea
+              className="rd-textarea"
+              value={tmpQuest}
+              onChange={(e) => setTmpQuest(e.target.value)}
+              maxLength={400}
+              rows={6}
+              placeholder="예) 라임에게서 받은 편지를 퀘스트 마스터에게 전달하세요."
+              onKeyDown={(e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                  e.preventDefault();
+                  (async () => {
+                    await patchNpc({ quest: tmpQuest });
+                    setEditQuestOpen(false);
+                  })();
+                }
+              }}
+            />
           </div>
         </div>
-      </Modal>
-      {/* 사진 관리 모달 (추가/삭제/썸네일) */}
-      <Modal open={picturesModalOpen} onClose={() => setPicturesModalOpen(false)} title="NPC 사진 관리" width="420px">
-        <div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-            {npcPictures.length === 0 && <span style={{ color: "#bbb" }}>등록된 사진이 없습니다.</span>}
-            {npcPictures.map((url, idx) => (
-              <div key={url + idx} style={{ position: "relative" }}>
-                <img src={url} alt={`npc-pic-${idx}`}
-                  style={{ width: 70, height: 70, objectFit: "cover", borderRadius: 8, border: "1px solid #ccc" }} />
-                <button onClick={() => setNpcPictures(npcPictures.filter((_, i) => i !== idx))}
-                  style={{
-                    position: "absolute", top: -8, right: -8, border: "none", background: "#fff",
-                    borderRadius: "50%", width: 24, height: 24, boxShadow: "0 1px 4px #0002", cursor: "pointer"
+      </ModalCard>
+
+      {/* ───────── 보상 수정 ───────── */}
+      <ModalCard open={editRewardOpen} onClose={() => setEditRewardOpen(false)} title="보상 수정">
+        <div className="mgr-modal-body">
+          <label className="mgr-modal-label">보상 목록</label>
+
+          <div className="rw-list">
+            {tmpRewards.map((reward, idx) => (
+              <div key={idx} className="rw-row">
+                {/* 아이콘 선택 */}
+                <button
+                  type="button"
+                  className="rw-icon-btn"
+                  onClick={() => setEditRewardImgModalIdx(idx)}
+                  title="아이콘 선택"
+                  aria-label={`보상 ${idx + 1} 아이콘 선택`}
+                >
+                  {reward.icon ? (
+                    reward.icon.startsWith('http') ? (
+                      <img src={reward.icon} alt="" className="rw-icon-img" />
+                    ) : (
+                      <span className="rw-icon-emoji">{reward.icon}</span>
+                    )
+                  ) : (
+                    <svg
+                      className="rw-icon-placeholder"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <rect x="3" y="5" width="18" height="14" rx="2" />
+                      <path d="M3 15l4-4 3 3 5-5 6 6" />
+                      <path d="M12 8v4M10 10h4" />
+                    </svg>
+                  )}
+                </button>
+
+                {/* 내용 입력 */}
+                <input
+                  className="mgr-input rw-input"
+                  placeholder="보상 내용"
+                  maxLength={60}
+                  value={reward.text}
+                  onChange={(e) => {
+                    const copy = tmpRewards.slice();
+                    copy[idx].text = e.target.value;
+                    setTmpRewards(copy);
                   }}
-                  title="삭제">✕</button>
+                />
+
+                {/* 삭제 */}
+                <button
+                  type="button"
+                  className="rw-del-btn"
+                  onClick={() => setTmpRewards(tmpRewards.filter((_, i) => i !== idx))}
+                  aria-label="보상 삭제"
+                  title="삭제"
+                >
+                  <svg className="ico-trash" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 6h18" />
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                    <path d="M10 11v6M14 11v6" />
+                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                  </svg>
+                </button>
               </div>
             ))}
           </div>
-          <div style={{ margin: "16px 0 8px" }}>
-            <button className="npc-modal-image-btn" onClick={() => setAddPictureModalOpen(true)}>
-              + 사진 추가
+
+          {/* 추가 버튼 (애니메이션 없음) */}
+          <button
+            type="button"
+            className="rw-add-btn"
+            onClick={() => setTmpRewards([...tmpRewards, { icon: '', text: '' }])}
+          >
+            보상 추가
+            <span className="rw-add-iconwrap" aria-hidden="true">
+              <svg className="rw-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </span>
+          </button>
+
+          {/* 하단 액션 */}
+          <div className="mgr-btn-row">
+            <button className="mgr-btn mgr-btn-secondary" onClick={() => setEditRewardOpen(false)}>
+              취소
+            </button>
+            <button
+              className="mgr-btn mgr-btn-primary"
+              onClick={async () => {
+                await patchNpc({ rewards: tmpRewards });
+                setEditRewardOpen(false);
+              }}
+            >
+              수정
             </button>
           </div>
-          <div className="npc-modal-btn-row">
-            <button className="npc-modal-cancel-btn" onClick={() => setPicturesModalOpen(false)}>닫기</button>
-            <button className="npc-modal-submit-btn"
+
+          {/* 아이콘 선택 모달 */}
+          <ImageSelectModal
+            open={editRewardImgModalIdx !== null}
+            onClose={() => setEditRewardImgModalIdx(null)}
+            onSelectImage={(url) => {
+              if (editRewardImgModalIdx === null) return;
+              const idx = editRewardImgModalIdx;
+              const copy = tmpRewards.slice();
+              copy[idx].icon = url;
+              setTmpRewards(copy);
+              setEditRewardImgModalIdx(null);
+            }}
+          />
+        </div>
+      </ModalCard>
+
+      {/* ───────── 선행퀘스트 수정 ───────── */}
+      <ModalCard
+        open={editRequirementOpen}
+        onClose={() => setEditRequirementOpen(false)}
+        title="선행퀘스트 수정"
+        actions={
+          <>
+            <button className="rd-btn secondary" onClick={() => setEditRequirementOpen(false)}>
+              취소
+            </button>
+            <button
+              className="rd-btn primary"
+              onClick={async () => {
+                await patchNpc({ requirement: tmpRequirement });
+                setEditRequirementOpen(false);
+              }}
+            >
+              수정
+            </button>
+          </>
+        }
+      >
+        <input
+          className="rd-input"
+          value={tmpRequirement}
+          maxLength={200}
+          onChange={(e) => setTmpRequirement(e.target.value)}
+        />
+      </ModalCard>
+
+      {/* ───────── 사진 관리 ───────── */}
+      <ModalCard
+        open={picturesModalOpen}
+        onClose={() => setPicturesModalOpen(false)}
+        title="NPC 사진 관리"
+        actions={
+          <>
+            <button className="rd-btn secondary" onClick={() => setPicturesModalOpen(false)}>
+              닫기
+            </button>
+            <button
+              className="rd-btn primary"
               disabled={!selectedNpc}
               onClick={async () => {
                 await patchNpc({ pictures: npcPictures });
                 setPicturesModalOpen(false);
-              }}>저장</button>
-          </div>
+              }}
+            >
+              저장
+            </button>
+          </>
+        }
+      >
+        <div className="rd-thumb-grid">
+          {npcPictures.length === 0 && <span className="rd-muted">등록된 사진이 없습니다.</span>}
+          {npcPictures.map((url, idx) => (
+            <div key={url + idx} className="rd-thumb">
+              <img src={url} alt={`npc-pic-${idx}`} />
+              <button
+                className="rd-thumb-x"
+                onClick={() => setNpcPictures(npcPictures.filter((_, i) => i !== idx))}
+                title="삭제"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
         </div>
-        <ImageSelectModal open={addPictureModalOpen} onClose={() => setAddPictureModalOpen(false)}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+          <button
+            type="button"
+            className="rd-btn secondary"
+            onClick={() => setAddPictureModalOpen(true)}
+          >
+            + 사진 추가
+          </button>
+        </div>
+
+        <ImageSelectModal
+          open={addPictureModalOpen}
+          onClose={() => setAddPictureModalOpen(false)}
           onSelectImage={(url) => {
             if (!npcPictures.includes(url)) setNpcPictures([...npcPictures, url]);
             setAddPictureModalOpen(false);
-          }} />
-      </Modal>
-
-      {/* ------------------- 실제 화면 구조 (3단) ------------------- */}
-      <div className="npc-manager-container">
-        {/* 왼쪽: 마을 리스트 (이모지/이미지) */}
-        <div className="npc-sidebar">
-          <div className="npc-sidebar-header">
-            <h3>마을 목록</h3>
-            <button className="npc-sidebar-add-btn" onClick={() => setVillageModalOpen(true)}>
-              + 마을 추가
-            </button>
-          </div>
-          <ul className="npc-village-list">
-            {villages.sort((a, b) => a.order - b.order).map(v =>
-              <li key={v.id} className={`npc-village-item${selectedVillage?.id === v.id ? " selected" : ""}`}
-                onClick={() => setSelectedVillage(v)}>
-                <span className="npc-village-icon">
-                  {v.icon.startsWith('http') ? (<img src={v.icon} alt="icon" />) : (<span className="npc-village-emoji">{v.icon}</span>)}
-                </span>
-                {v.name}
-              </li>
-            )}
-          </ul>
-        </div>
-        {/* 가운데: 퀘스트 NPC 리스트 (DnD/추가) */}
-        <div className="npc-list-area">
-          <div className="npc-list-header-row">
-            <h3 className="npc-list-header">
-              {selectedVillage ? `${selectedVillage.name} 퀘스트` : "퀘스트 목록"}
-            </h3>
-            <button className="npc-sidebar-add-btn quest-add-btn"
-              disabled={!selectedVillage} onClick={() => setNpcModalOpen(true)}
-              title={selectedVillage ? "" : "마을을 먼저 선택하세요"}>
-              + 퀘스트 추가
-            </button>
-          </div>
-          {npcList.length === 0 ? (
-            <div className="npc-detail-empty">해당 마을에 등록된 퀘스트가 없습니다.</div>
-          ) : (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={npcList.map(n => n.id)} strategy={verticalListSortingStrategy}>
-                <ul className="npc-list">
-                  {npcList
-                    .sort((a, b) => a.order - b.order)
-                    .map(n =>
-                      <SortableNpcItem key={n.id} npc={n} selected={selectedNpc}
-                        onClick={() => setSelectedNpc(n)} />
-                    )}
-                </ul>
-              </SortableContext>
-            </DndContext>
-          )}
-        </div>
-        {/* 오른쪽: 선택 퀘스트 상세/편집 (아이콘, 위치, 대사, 퀘스트, 보상, 사진 등) */}
-        <div className="npc-detail-area">
-          {selectedNpc ? (
-            <div>
-              <div className="quest-detail-title-row">
-                <span className="quest-detail-icon-box"
-                  title="아이콘(이모지/이미지) 변경" onClick={() => setEditIconOpen(true)}>
-                  {selectedNpc.icon && typeof selectedNpc.icon === 'string' && selectedNpc.icon.startsWith('http')
-                    ? (<img src={selectedNpc.icon} className="quest-detail-img" alt="아이콘" />)
-                    : (<span className="quest-detail-icon">{selectedNpc.icon || "😀"}</span>)}
-                </span>
-                <span className="quest-detail-title">{selectedNpc.name}</span>
-                <button className="quest-detail-edit-btn" onClick={() => setEditNameOpen(true)} title="이름 수정">🖉</button>
-              </div>
-              <div className="quest-detail-block">
-                <div className="quest-detail-row">
-                  <button className="quest-detail-edit-btn" onClick={() => setEditLocOpen(true)} title="위치 수정">🖉</button>
-                  <b>위치:</b>
-                  <span className="quest-detail-loc">
-                    ( {selectedNpc.location_x}, {selectedNpc.location_y}, {selectedNpc.location_z} )
-                  </span>
-                </div>
-                <div className="quest-detail-row">
-                  <button className="quest-detail-edit-btn" onClick={() => setEditQuestOpen(true)} title="퀘스트 내용 수정">🖉</button>
-                  <b>퀘스트:</b>
-                  <span className="quest-detail-value">{selectedNpc.quest || "-"}</span>
-                </div>
-                <div className="quest-detail-row">
-                  <button className="quest-detail-edit-btn" onClick={() => setEditRewardOpen(true)} title="보상 수정">🖉</button>
-                  <b>보상:</b>
-                  <span className="quest-detail-reward">
-                    {Array.isArray(selectedNpc.rewards) && selectedNpc.rewards.length > 0
-                      ? selectedNpc.rewards.map((rw, i) => (
-                          <span key={i} style={{ marginRight: 16, display: "inline-flex", alignItems: "center" }}>
-                            {rw.icon && (
-                              rw.icon.startsWith("http")
-                                ? <img src={rw.icon} className="quest-detail-reward-img" alt="reward" style={{ width: 24, height: 24, verticalAlign: "middle", marginRight: 4 }} />
-                                : <span style={{ fontSize: 20, marginRight: 4 }}>{rw.icon}</span>
-                            )}
-                            <span>{rw.text}</span>
-                          </span>
-                        ))
-                      : <span style={{ marginLeft: 6 }}>-</span>
-                    }
-                  </span>
-                </div>
-                <div className="quest-detail-row">
-                  <button className="quest-detail-edit-btn" onClick={() => setEditRequirementOpen(true)} title="선행퀘스트 수정">🖉</button>
-                  <b>선행퀘스트:</b>
-                  <span className="quest-detail-value">{selectedNpc.requirement || '-'}</span>
-                </div>
-                <div className="quest-detail-row">
-                  <button className="quest-detail-edit-btn" onClick={() => setPicturesModalOpen(true)} title="사진 관리">🖉</button>
-                  <b>사진:</b>
-                  <div className="quest-detail-pictures-list">
-                    {npcPictures.length === 0 && <span style={{ color: "#bbb" }}>사진 없음</span>}
-                    {npcPictures.map((pic, idx) => (
-                      <span key={pic} style={{ display: "inline-block", marginRight: 6, position: 'relative' }}>
-                        <img src={pic} alt="npc" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, border: "1px solid #ddd" }} />
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div className="quest-detail-desc-box">
-                  <button className="quest-detail-edit-btn" onClick={() => setEditLineOpen(true)} title="대사 수정">🖉</button>
-                  <div className="quest-detail-desc">{selectedNpc.line || <span className="quest-detail-desc-empty">- 대사 없음 -</span>}</div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="npc-detail-empty">퀘스트를 선택하세요.</div>
-          )}
-        </div>
-      </div>
+          }}
+        />
+      </ModalCard>
     </>
   );
 }

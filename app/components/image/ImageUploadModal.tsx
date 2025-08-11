@@ -2,16 +2,15 @@
 // File: app/components/image/ImageUploadModal.tsx
 // =============================================
 /**
- * 이미지 업로드 모달 컴포넌트
- * - 여러 장 드래그/선택 업로드 지원
- * - 파일명+사이즈 중복 필터, 업로드 진행 상태 표시
- * - 업로드 완료 시 파일 목록/인풋 리셋 후 onUploaded 콜백
+ * 이미지 업로드 모달
+ * - 클릭/드래그&드롭으로 파일 추가
+ * - 중복 파일 필터(name+size)
+ * - 개별/전체 제거
+ * - 업로드 진행 표시
  */
-
 import { useRef, useState } from "react";
 import Modal from "@/components/common/Modal";
 
-// (실제 프로젝트에서 ImageFile 타입이 있다면 불러와서 아래 any[]를 대체하세요)
 type ImageFile = {
   id: number;
   name: string;
@@ -23,56 +22,58 @@ type Props = {
   open: boolean;
   onClose: () => void;
   folderId: number | null;
-  onUploaded: (images: ImageFile[]) => void; // any[] 대신 명확한 타입
+  onUploaded: (images: ImageFile[]) => void;
 };
+
+function formatSize(n: number) {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
 
 export default function ImageUploadModal({ open, onClose, folderId, onUploaded }: Props) {
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // 파일 input/드롭 이벤트 - 중복 파일 제외
+  const addFiles = (incoming: File[]) => {
+    setFiles(prev => [
+      ...prev,
+      ...incoming.filter(f => !prev.some(p => p.name === f.name && p.size === f.size))
+    ]);
+  };
+
   const handleSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const newFiles = Array.from(e.target.files);
-      setFiles(prev =>
-        [
-          ...prev,
-          ...newFiles.filter(f => !prev.some(p => p.name === f.name && p.size === f.size))
-        ]
-      );
-    }
+    if (e.target.files) addFiles(Array.from(e.target.files));
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    if (e.dataTransfer.files) {
-      const newFiles = Array.from(e.dataTransfer.files);
-      setFiles(prev =>
-        [
-          ...prev,
-          ...newFiles.filter(f => !prev.some(p => p.name === f.name && p.size === f.size))
-        ]
-      );
-    }
+    setDragOver(false);
+    if (e.dataTransfer.files) addFiles(Array.from(e.dataTransfer.files));
   };
 
-  // S3/DB 업로드 요청
+  const handleRemove = (f: File) => {
+    setFiles(prev => prev.filter(p => !(p.name === f.name && p.size === f.size)));
+  };
+
+  const handleClear = () => setFiles([]);
+
   const handleUpload = async () => {
     if (!files.length || !folderId) return;
     setLoading(true);
     const form = new FormData();
     files.forEach(f => form.append("files", f));
     form.append("folder_id", String(folderId));
-    const res = await fetch("/api/image/upload", {
-      method: "POST",
-      body: form,
-    });
+
+    const res = await fetch("/api/image/upload", { method: "POST", body: form });
     const data = await res.json();
     setLoading(false);
+
     if (res.ok) {
       setFiles([]);
-      inputRef.current && (inputRef.current.value = "");
+      if (inputRef.current) inputRef.current.value = "";
       onUploaded(data.images);
       onClose();
     } else {
@@ -80,42 +81,56 @@ export default function ImageUploadModal({ open, onClose, folderId, onUploaded }
     }
   };
 
-  // UI 렌더: 모달 + 드롭존 + 파일 리스트 + 버튼
   return (
     <Modal open={open} onClose={onClose} title="이미지 업로드">
-      {/* 파일 드래그/클릭 선택 영역 */}
-      <div
-        onDragOver={e => e.preventDefault()}
+      {/* 드롭존 */}
+      <label
+        htmlFor="rd-upload-input"
+        className={`custum-file-upload ${dragOver ? "dragover" : ""}`}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragEnter={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
         onDrop={handleDrop}
-        className="border rounded p-6 bg-gray-50 text-center mb-4"
-        style={{ minHeight: 100, cursor: "pointer" }}
-        onClick={() => inputRef.current?.click()}
       >
-        {/* 파일 없으면 안내문, 있으면 파일 리스트 */}
-        {files.length === 0 ? (
-          <div className="text-lg text-gray-400">이미지 파일을 여기에 드래그하거나 클릭하세요</div>
-        ) : (
-          <div>
-            {files.map(f => (
-              <div key={f.name + f.size} className="text-sm">{f.name}</div>
-            ))}
-          </div>
-        )}
-        {/* 실제 파일 선택 input */}
+        <div className="icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M10 1c-.265 0-.52.105-.707.293L3.293 7.293A1 1 0 003 8v12a3 3 0 003 3h1a1 1 0 100-2H6a1 1 0 01-1-1V9h5a1 1 0 001-1V3h7a1 1 0 011 1v5a1 1 0 102 0V4a3 3 0 00-3-3h-8zM9 7H6.414L9 4.414V7zm5 8.5A2.5 2.5 0 0116.5 13 2.5 2.5 0 0119 15.5V17h1a2 2 0 110 4h-7a2 2 0 110-4h1v-1.5zM16.5 11a4.5 4.5 0 00-4.484 4.122C10.283 15.56 9 17.13 9 19a4 4 0 004 4h7a4 4 0 000-8h-.016A4.5 4.5 0 0016.5 11z" />
+          </svg>
+        </div>
+        <div className="text">
+          <span>클릭 또는 드래그하여 이미지 업로드</span>
+        </div>
         <input
+          id="rd-upload-input"
           ref={inputRef}
           type="file"
           multiple
           accept="image/*"
-          style={{ display: "none" }}
           onChange={handleSelect}
         />
-      </div>
+      </label>
+
+      {/* 선택된 파일 리스트 */}
+      {!!files.length && (
+        <div className="rd-upload-filelist">
+          {files.map(f => (
+            <div key={f.name + f.size} className="rd-upload-file">
+              <div className="name" title={f.name}>{f.name}</div>
+              <div className="size">{formatSize(f.size)}</div>
+              <button className="remove" onClick={() => handleRemove(f)} aria-label="제거">✕</button>
+            </div>
+          ))}
+          <div className="rd-upload-tools">
+            <button className="rd-btn secondary" onClick={handleClear}>전체 비우기</button>
+          </div>
+        </div>
+      )}
+
       {/* 하단 버튼 */}
-      <div className="flex gap-2 justify-end">
-        <button className="px-4 py-2 bg-gray-200 rounded" onClick={onClose} disabled={loading}>취소</button>
+      <div className="rd-card-button-wrapper" style={{ justifyContent: "flex-end" }}>
+        <button className="rd-btn secondary" onClick={onClose} disabled={loading}>취소</button>
         <button
-          className="px-4 py-2 bg-blue-600 text-white rounded"
+          className="rd-btn primary"
           onClick={handleUpload}
           disabled={loading || !files.length}
         >

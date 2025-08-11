@@ -112,41 +112,35 @@ export default function SearchBox() {
   // 검색창 외부 클릭 시 드롭다운 닫기
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (
-        inputRef.current &&
-        !inputRef.current.parentElement?.contains(e.target as Node)
-      ) {
-        setOpen(false);
+      const wrapper = inputRef.current?.parentElement;
+      if (!wrapper) return;
+
+      const target = e.target as Node;
+
+      if (!wrapper.contains(target)) {
+        setOpen(false);       // ✅ 항상 닫히게
+        setResults([]);       // ✅ 동시에 검색 결과도 초기화 (선택 사항)
       }
     }
+
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
   return (
-    <div
-      className="wiki-search-container"
-      style={{
-        position: 'relative',
-        width: 600,
-        maxWidth: '92vw'
-      }}
-    >
+    <div className="search-wrapper">
+      <svg className="search-icon" viewBox="0 0 24 24">
+        <path d="M21.53 20.47l-3.66-3.66C19.195 15.24 20 13.214 20 11c0-4.97-4.03-9-9-9s-9 4.03-9 9 4.03 9 9 9c2.215 0 4.24-.804 5.808-2.13l3.66 3.66c.147.146.34.22.53.22s.385-.073.53-.22c.295-.293.295-.767.002-1.06zM3.5 11c0-4.135 3.365-7.5 7.5-7.5s7.5 3.365 7.5 7.5-3.365 7.5-7.5 7.5-7.5-3.365-7.5-7.5z" />
+      </svg>
       {/* 검색 입력창 */}
       <input
+        type="search"
         ref={inputRef}
-        type="text"
+        className="search-input"
+        placeholder="Search"
         value={query}
         onChange={e => setQuery(e.target.value)}
-        placeholder="문서명, 태그, 내용으로 검색..."
-        className="w-full px-5 py-3 rounded bg-slate-700 text-white placeholder-gray-400"
-        onFocus={() => { if (results.length > 0) setOpen(true); }}
-        style={{
-          outline: 'none',
-          fontSize: 18,
-          border: '1.5px solid #e1e6ef',
-          background: '#23293a',
-        }}
+        onFocus={() => results.length > 0 && setOpen(true)}
       />
       {/* 자동완성 드롭다운 */}
       {open && results.length > 0 && (

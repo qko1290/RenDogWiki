@@ -1,0 +1,139 @@
+/* =============== [0] 베이스/컨테이너 =============== */
+.mypage-ui {
+  /* 고정폭(370px) → 가변폭 */
+  width: clamp(340px, 72vw, 720px);
+  min-height: 0; /* 고정 높이 제거 */
+  margin: 100px auto;
+  padding: 32px 28px 22px 28px;
+  box-sizing: border-box;
+
+  background: #fff;
+  color: #222;
+  border-radius: 18px;
+  box-shadow: 0 8px 38px 0 rgba(90, 200, 120, 0.08),
+              0 1.5px 6px 0 rgba(60,200,100,0.05);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 26px;
+}
+
+.mypage-title {
+  text-align: center;
+  font-size: clamp(1.4rem, 2.4vw, 2.1rem);
+  font-weight: 900;
+  margin: 0;
+  background: linear-gradient(90deg, #60a5fa, #22c55e);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.5px;
+}
+
+/* =============== [1] 프로필 박스 =============== */
+.mypage-profile-box {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  width: 100%;
+  padding: 16px 16px 16px 10px;
+  background: #f7faf7;
+  border-radius: 13px;
+  box-shadow: 0 1px 10px 0 rgba(120,210,130,0.07);
+}
+
+.mypage-avatar img {
+  width: 72px;
+  height: 72px;
+  border-radius: 10px;
+  border: 2.3px solid #98ecac;
+  background: #eafbed;
+  object-fit: cover;
+}
+
+.mypage-profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 1.02rem;
+}
+
+.mypage-profile-field .label {
+  font-size: 0.94em;
+  color: #77b977;
+  margin-right: 7px;
+  font-weight: 700;
+}
+
+/* =============== [2] 액션 버튼/폼 =============== */
+.mypage-btn-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.mypage-btn {
+  width: 100%;
+  background: #eafbed;
+  border: 1.5px solid #d4f3dd;
+  color: #319966;
+  font-size: 1.02rem;
+  font-weight: 700;
+  padding: 11px 0;
+  border-radius: 9px;
+  transition: background .15s, border .16s, color .16s;
+  cursor: pointer;
+}
+.mypage-btn:hover { background:#b3f3c4; border-color:#7ee6a4; color:#156c39; }
+
+.mypage-form {
+  width: 100%;
+  background: #f7fff9;
+  border: 1px solid #e0f4e6;
+  border-radius: 10px;
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.mypage-form .row { display: grid; gap: 6px; }
+.mypage-form label { font-size: .92rem; color:#4c9c64; font-weight: 700; }
+.mypage-form input {
+  height: 40px;
+  padding: 0 12px;
+  border: 1.5px solid #cfeedd;
+  border-radius: 8px;
+  outline: none;
+}
+.mypage-form input:focus { border-color:#79d19a; }
+
+.mypage-form .actions {
+  display:flex; gap:8px; justify-content:flex-end; margin-top: 6px;
+}
+.mypage-form .actions button {
+  padding: 9px 14px; border-radius: 8px; border: 1px solid #cfeedd; cursor: pointer;
+}
+.mypage-form .actions .primary { background:#38b35d; color:#fff; border-color:#38b35d; }
+.mypage-form .actions .ghost { background:#fff; color:#277c46; }
+
+/* =============== [3] 문서 링크 =============== */
+.mypage-doc-link-row { width: 100%; margin-top: 10px; text-align: center; }
+.mypage-doc-btn {
+  display: inline-block;
+  width: 100%;
+  background: #38b35d; color: #fff;
+  font-size: 1.02rem; font-weight: 800;
+  padding: 12px 0; border-radius: 9px; text-decoration: none;
+  transition: background .15s, color .15s;
+  letter-spacing: 0.01em; margin-top: 4px;
+}
+.mypage-doc-btn:hover { background:#67e289; color:#166c3a; }
+
+/* =============== [4] 반응형 =============== */
+@media (max-width: 540px) {
+  .mypage-ui { width: 94vw; padding: 22px 5vw 18px; margin: 18px auto; }
+  .mypage-profile-box { flex-direction: column; align-items:flex-start; }
+  .mypage-avatar img { width: 58px; height: 58px; }
+}

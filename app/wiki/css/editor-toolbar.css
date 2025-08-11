@@ -90,3 +90,52 @@ hr.divider-dotted {
   border-top: 2px dotted #888;
   margin: 18px 0;
 }
+
+/* ===== Dropdown animation & typography ===== */
+
+/* 입장 애니메이션 */
+@keyframes rdwDropdownIn {
+  0%   { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  100% { opacity: 1; transform: translateY(0)     scale(1); }
+}
+
+/* 공통 드롭다운 컨테이너: 등장할 때 자연스럽게 */
+.editor-dropdown-menu {
+  /* 기존 속성 유지 + 애니메이션만 추가 */
+  opacity: 0;                          /* mount 직후 0에서 시작 */
+  transform: translateY(-8px) scale(.98);
+  transform-origin: top left;
+  animation: rdwDropdownIn .22s cubic-bezier(.2,.7,.2,1) forwards;
+  will-change: opacity, transform;     /* 미세한 뻑뻑함 제거 */
+  overflow: visible;
+}
+
+/* (색상 팔레트 등 커스텀 드롭다운에도 동일한 인/아웃 감각 적용)
+   - 컴포넌트에서 클래스명을 custom-color-dropdown / custom-bgcolor-dropdown 로 쓰고 있을 때 커버
+   - 혹시 클래스명이 다르더라도 필요한 곳에 같이 붙여 사용 가능 */
+.custom-color-dropdown,
+.custom-bgcolor-dropdown {
+  opacity: 0;
+  transform: translateY(-8px) scale(.98);
+  transform-origin: top left;
+  animation: rdwDropdownIn .22s cubic-bezier(.2,.7,.2,1) forwards;
+  will-change: opacity, transform;
+}
+
+/* 드롭다운 항목 타이포(텍스트 컬러/굵기) */
+.editor-dropdown-menu li,
+.editor-dropdown-menu button {
+  color: #1c1d1fa3 !important;   /* 요청 색상 (#RRGGBBAA) */
+  font-weight: 600;               /* 살짝 굵게 */
+}
+
+/* hover는 기존 밝은 톤 유지 (배경만 라이트, 텍스트는 기본/브랜드로) */
+.editor-dropdown-menu li:hover,
+.editor-dropdown-menu button:hover {
+  background: #f1f5f9;
+  color: #2563eb;                 /* 기존 테마 유지 */
+}
+
+/* 툴바가 다른 요소에 가려지지 않도록 (이미 있다면 이 라인 유지만 해도 OK) */
+.editor-toolbar-wrapper { z-index: 50; }
+.editor-toolbar        { overflow: visible; }

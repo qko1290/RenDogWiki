@@ -31,6 +31,84 @@ type ElementProps = RenderElementProps & {
   setPriceTableEdit: React.Dispatch<React.SetStateAction<PriceTableEditState>>;
 };
 
+function InfoPhotoIcon({ tone }: { tone: 'note' | 'tip' | 'warn' | 'danger' }) {
+  const color =
+    tone === 'danger' ? '#ef4444' :
+    tone === 'warn'   ? '#f59e0b' :
+    tone === 'tip'    ? '#10b981' :
+                        '#2563eb' ;
+
+  // 각 톤별 아이콘(사진 느낌의 심볼)
+  // - danger  : 삼각 경고
+  // - warn    : 둥근 느낌표
+  // - note    : 둥근 i
+  // - tip     : 전구
+  if (tone === 'danger') {
+    return (
+      <svg viewBox="0 0 48 48" width="22" height="22" aria-hidden>
+        <defs>
+          <linearGradient id="g-danger" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#ff8a8a" />
+            <stop offset="1" stopColor={color} />
+          </linearGradient>
+        </defs>
+        <path
+          d="M22.5 7.5 4.8 38.2c-.9 1.6.2 3.6 2 3.6h34.4c1.8 0 2.9-2 2-3.6L25.5 7.5a2.3 2.3 0 0 0-3 0Z"
+          fill="url(#g-danger)"
+          stroke={color}
+          strokeWidth="1"
+        />
+        <rect x="22" y="17" width="4" height="14" rx="2" fill="#fff"/>
+        <circle cx="24" cy="36" r="2" fill="#fff"/>
+      </svg>
+    );
+  }
+  if (tone === 'warn') {
+    return (
+      <svg viewBox="0 0 48 48" width="22" height="22" aria-hidden>
+        <defs>
+          <linearGradient id="g-warn" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#ffd899" />
+            <stop offset="1" stopColor={color} />
+          </linearGradient>
+        </defs>
+        <circle cx="24" cy="24" r="20" fill="url(#g-warn)" stroke={color} strokeWidth="1"/>
+        <rect x="22.5" y="13" width="3" height="16" rx="1.5" fill="#fff"/>
+        <circle cx="24" cy="33" r="2" fill="#fff"/>
+      </svg>
+    );
+  }
+  if (tone === 'tip') {
+    return (
+      <svg viewBox="0 0 48 48" width="22" height="22" aria-hidden>
+        <defs>
+          <linearGradient id="g-tip" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#78ffd6" />
+            <stop offset="1" stopColor={color} />
+          </linearGradient>
+        </defs>
+        <path d="M24 6c7 0 12 5.3 12 11.7 0 4-2 7.2-5 9.3-1.2.9-1.9 2.3-2 3.8v.6h-10v-.6c0-1.5-.8-2.9-2-3.8-3-2.1-5-5.4-5-9.3C12 11.3 17 6 24 6Z" fill="url(#g-tip)"/>
+        <rect x="18" y="33" width="12" height="3.5" rx="1.8" fill="#0b6b52" opacity=".15"/>
+        <rect x="20" y="37" width="8" height="4" rx="2" fill="#0b6b52" opacity=".25"/>
+      </svg>
+    );
+  }
+  // note (info)
+  return (
+    <svg viewBox="0 0 48 48" width="22" height="22" aria-hidden>
+      <defs>
+        <linearGradient id="g-note" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#bcd3ff" />
+          <stop offset="1" stopColor={color} />
+        </linearGradient>
+      </defs>
+      <circle cx="24" cy="24" r="20" fill="url(#g-note)" stroke={color} strokeWidth="1"/>
+      <circle cx="24" cy="15" r="2.6" fill="#fff"/>
+      <rect x="22.4" y="19" width="3.2" height="14" rx="1.6" fill="#fff"/>
+    </svg>
+  );
+}
+
 /**
  * 각 상태(각성, 초월, MAX 등)에 맞는 뱃지 배경색 반환
  */
@@ -273,24 +351,25 @@ const Element: React.FC<ElementProps> = ({
 
     // 정보 박스(info/warning/danger)
     case 'info-box': {
-      const el = element as InfoBoxElement;
-      const colors = { info: '#e8f4fd', warning: '#fff9e6', danger: '#fdecea' };
-      const icons = { info: 'ℹ️', warning: '⚠️', danger: '🚫' };
+      // 툴바/데이터에 저장된 키 이름들이 프로젝트마다 달라서 폭넓게 수용
+      const raw =
+        (element as any).boxType ||
+        (element as any).variant ||
+        (element as any).tone ||
+        (element as any).infoType ||
+        'note';
+
+      const tone: 'note' | 'warn' | 'danger' | 'tip' =
+        raw === 'danger' || raw === 'error' ? 'danger' :
+        raw === 'warn'   || raw === 'warning' ? 'warn' :
+        raw === 'tip'    || raw === 'success' ? 'tip'  :
+                          'note';
+
       return (
-        <div
-          {...attributes}
-          style={{
-            background: colors[el.boxType],
-            padding: 10,
-            borderRadius: 6,
-            border: '1px solid #ccc',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-          }}
-        >
-          <span contentEditable={false}>{icons[el.boxType]}</span>
-          <div style={{ flex: 1 }}>{children}</div>
+        <div {...attributes} className={`infobox infobox--${tone}`}>
+          {/* 아이콘은 CSS ::before에서 mask-image로 채움 */}
+          <span className="infobox__icon" aria-hidden="true" contentEditable={false} />
+          <div className="infobox__body">{children}</div>
         </div>
       );
     }

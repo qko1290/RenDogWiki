@@ -1,0 +1,806 @@
+/* ========== Manager Common (모든 관리 페이지 공통) ========== */
+
+:root {
+  --mgr-font: 'Inter','Pretendard','Noto Sans KR', Arial, sans-serif;
+  --mgr-accent: #1ec171;
+  --mgr-accent-2: #2357b2;
+  --mgr-muted: #888;
+  --mgr-border: #e1e4ea;
+  --mgr-bg: #fff;
+  --mgr-sidebar-bg: #f5f6fa;
+  --mgr-selected-bg: #eaf6ff;
+  --mgr-card-bg: #f8f9fa;
+}
+
+/* ---------- Layout ---------- */
+
+.mgr-container{
+  display: flex;
+  /* 헤더(64px)만큼 뺀 높이 → 내부 칼럼이 개별 스크롤 */
+  height: calc(100vh - 64px);
+  margin-top: 64px;       /* padding-top 대신 margin-top */
+  font-family: var(--mgr-font);
+  overflow: hidden;       /* 바깥 페이지 스크롤 방지 */
+}
+
+.mgr-sidebar,
+.mgr-list-area,
+.mgr-detail-area{
+  height: 100%;
+  overflow-y: auto;       /* ★ 각 칼럼 개별 스크롤 */
+}
+
+.mgr-sidebar{
+  width: 260px;
+  min-width: 180px;
+  background: var(--mgr-sidebar-bg);
+  border-right: 1px solid var(--mgr-border);
+  padding: 1.2rem;
+}
+.mgr-list-area{
+  width: 340px;
+  min-width: 200px;
+  background: var(--mgr-bg);
+  border-right: 1px solid var(--mgr-border);
+  padding: 1.2rem;
+}
+.mgr-detail-area{
+  flex: 1;
+  min-width: 280px;
+  padding: 2rem 2.5rem;
+}
+
+/* 모바일/좁은 화면: 하나의 흐름으로 쌓고 페이지 스크롤 */
+@media (max-width:1200px){
+  .mgr-container{
+    height: auto;
+    margin-top: 64px;
+    flex-direction: column;
+    overflow: visible;
+  }
+  .mgr-sidebar,
+  .mgr-list-area,
+  .mgr-detail-area{
+    width: 100%;
+    max-width: 100%;
+    min-width: unset;
+    border-right: 0;
+    border-bottom: 1px solid var(--mgr-border);
+    padding: 1rem;
+    height: auto;
+    overflow: visible;
+  }
+}
+
+/* ---------- Buttons (공통 액션 버튼) ---------- */
+
+.mgr-add-btn {
+  background: var(--mgr-accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 15px;
+  padding: 5px 15px;
+  cursor: pointer;
+  transition: filter .09s;
+}
+
+.mgr-add-btn:disabled {
+  opacity: .7;
+  cursor: not-allowed;
+}
+
+.mgr-add-btn:hover:not(:disabled) {
+  filter: brightness(.92);
+}
+
+/* ---------- Lists ---------- */
+
+.mgr-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.mgr-list-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 7px;
+  margin-bottom: 4px;
+  font-weight: 500;
+  background: #fff;
+  border: 1px solid #eaeaea;
+  user-select: none;
+  transition: background .08s, box-shadow .1s, border-color .1s;
+  will-change: transform;
+}
+
+.mgr-list-item.selected {
+  background: var(--mgr-selected-bg);
+  outline: 2px solid #e5f2ff;
+}
+
+.mgr-list-item.dragging {
+  opacity: .5;
+  border: 1.5px solid #6dc4ec;
+  box-shadow: 0 8px 20px rgba(0,0,0,.12);
+  border-radius: 10px;
+}
+
+/* 드래그 핸들: 두 패턴을 모두 지원 */
+.mgr-drag-handle,
+.mgr-list-item .drag-handle {
+  font-size: 20px;
+  margin-right: 12px;
+  color: #bbb;
+  padding: 2px;
+  cursor: grab;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.mgr-drag-handle:active,
+.mgr-list-item .drag-handle:active {
+  cursor: grabbing;
+}
+
+.mgr-order {
+  font-weight: 600;
+  color: var(--mgr-accent-2);
+  font-size: 17px;
+  min-width: 28px;
+  text-align: right;
+  flex-shrink: 0;
+  margin-right: 6px;
+}
+
+.mgr-icon-img {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  object-fit: cover;
+  vertical-align: middle;
+}
+
+.mgr-name {
+  font-weight: 500;
+  font-size: 17px;
+}
+
+/* ---------- Detail / Title / Row ---------- */
+
+.mgr-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+  font-weight: 800;
+  font-size: 1.3rem;
+  margin-bottom: 8px;
+}
+
+.mgr-title-icon-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.mgr-title-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.mgr-title-text > *:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mgr-edit-btn {
+  background: none;
+  border: none;
+  margin-left: 6px;
+  cursor: pointer;
+  color: var(--mgr-muted);
+  font-size: 18px;
+  transition: color .08s;
+}
+
+.mgr-edit-btn:hover {
+  color: var(--mgr-accent-2);
+}
+
+.mgr-empty {
+  color: var(--mgr-muted);
+  text-align: center;
+  padding: 32px;
+}
+
+.mgr-block {
+  margin-bottom: 14px;
+}
+
+.mgr-label {
+  font-weight: 600;
+}
+
+.mgr-line {
+  background: var(--mgr-card-bg);
+  padding: 8px 13px;
+  border-radius: 7px;
+  border: 1px solid #ededed;
+  white-space: pre-wrap;
+  font-family: monospace;
+  margin-top: 5px;
+}
+
+/* 공통 상세 행 (라벨 + 값 한 줄) */
+.mgr-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 9px;
+}
+
+/* ---------- Modal Common ---------- */
+
+.mgr-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mgr-modal-label {
+  font-weight: 600;
+  font-size: 15px;
+  margin-bottom: 4px;
+  display: block;
+}
+
+.mgr-input {
+  border: 1px solid #ccc;
+  border-radius: 7px;
+  font-size: 17px;
+  padding: 7px 11px;
+  width: 100%;
+}
+
+.mgr-textarea {
+  border: 1px solid #ccc;
+  border-radius: 7px;
+  font-size: 16px;
+  padding: 8px 10px;
+  min-height: 100px;
+  resize: vertical;
+  width: 100%;
+}
+
+.mgr-icon-input-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.mgr-emoji-input {
+  font-size: 22px;
+  width: 50px;
+  text-align: center;
+}
+
+.mgr-icon-sep {
+  font-size: 14px;
+  color: #aaa;
+}
+
+.mgr-image-btn {
+  padding: 4px 14px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #f8f8f8;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.mgr-image-btn:hover {
+  background: #e2fff2;
+}
+
+.mgr-preview-icon {
+  height: 32px;
+  margin-left: 8px;
+  border-radius: 6px;
+}
+
+.mgr-btn-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.mgr-btn {
+  border: none;
+  border-radius: 7px;
+  padding: 7px 18px;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.mgr-btn-primary {
+  background: var(--mgr-accent);
+  color: #fff;
+}
+
+.mgr-btn-secondary {
+  background: #bbb;
+  color: #fff;
+}
+
+.mgr-btn-danger {
+  background: #e43;
+  color: #fff;
+}
+
+/* ---------- Pictures ---------- */
+
+.mgr-pic-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.mgr-pic {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid #ddd;
+}
+
+.mgr-thumb {
+  position: relative;
+  display: inline-block;
+  margin-right: 6px;
+}
+
+.mgr-thumb-img {
+  width: 70px;
+  height: 70px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  object-fit: cover;
+}
+
+.mgr-thumb-remove {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  border: none;
+  background: #fff;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  box-shadow: 0 1px 4px #0002;
+  cursor: pointer;
+  line-height: 24px;
+}
+
+/* ---------- Utilities ---------- */
+
+.mgr-muted {
+  color: #bbb;
+}
+
+.mgr-text-sm {
+  font-size: 13px;
+}
+
+.mgr-ml-10 {
+  margin-left: 10px;
+}
+
+.mgr-mt-8 {
+  margin-top: 8px;
+}
+
+.mgr-space-12 {
+  height: 12px;
+}
+
+.mgr-w-22 {
+  display: inline-block;
+  width: 22px;
+}
+
+.mgr-fallback-icon {
+  font-size: 28px;
+  display: inline-block;
+}
+
+/* ===== Pill / Chip (공통) ==================================== */
+
+/* Key-Value 한 줄 (✎ 버튼 + Key + Value) */
+.mgr-kv {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+/* 왼쪽 Key (작은 타원) */
+.mgr-kv__key {
+  padding: 6px 12px;
+  border-radius: 9999px;
+  background: var(--mgr-selected-bg);
+  color: var(--mgr-accent-2);
+  font-weight: 700;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* 오른쪽 Value (긴 타원) */
+.mgr-kv__val {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 1px solid #eaeaea;
+  line-height: 1.2;
+}
+
+/* 작은 뱃지(보상, 태그 등) */
+.mgr-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 1px solid #e9e9ee;
+  line-height: 1;
+}
+
+.mgr-chip__img {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  object-fit: contain;
+  border: 1px solid #ddd;
+}
+
+/* 긴 메모/설명 박스(연한 카드) */
+.mgr-note {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #e9edf3;
+  border-radius: 14px;
+  background: #fafdfe;
+  color: #222;
+}
+
+.mgr-note__empty {
+  color: #aaa;
+}
+
+.mgr-edit-btn {
+  margin-left: 0;         /* 필 행에서는 좌측에 붙이기 */
+  margin-right: 2px;
+}
+
+/* === Clickable Pill / Note ================================= */
+
+.mgr-kv__val.is-action,
+.mgr-note.is-action {
+  cursor: pointer;
+  transition:
+    background-color .12s,
+    border-color .12s,
+    box-shadow .12s,
+    transform .05s;
+}
+
+.mgr-kv__val.is-action:hover,
+.mgr-note.is-action:hover {
+  background: #f5fbff;
+  border-color: #d6e7ff;
+  box-shadow: 0 2px 8px rgba(18, 93, 199, 0.08);
+}
+
+.mgr-kv__val.is-action:active,
+.mgr-note.is-action:active {
+  transform: translateY(1px);
+}
+
+.mgr-kv__val.is-action:focus-visible,
+.mgr-note.is-action:focus-visible {
+  outline: 2px solid #a8ceff;
+  outline-offset: 2px;
+}
+
+/* ===========================
+   Pill row (라벨+값 한 덩어리)
+   =========================== */
+
+/* 라벨 고정폭(해상도별 미세 조정) */
+:root {
+  --mgr-pill-label-w: 120px;
+}
+@media (min-width: 1280px) {
+  :root { --mgr-pill-label-w: 132px; }
+}
+@media (min-width: 1536px) {
+  :root { --mgr-pill-label-w: 144px; }
+}
+
+.mgr-pill-row {
+  /* 한 줄을 2칸 그리드: [라벨 | 값] */
+  display: grid;
+  grid-template-columns: var(--mgr-pill-label-w) 1fr;
+  align-items: center;
+  gap: 14px;
+
+  padding: 10px 14px;
+  margin-bottom: 12px;
+
+  background: #ffffff;
+  border: 1px solid #e7eef6;
+  border-radius: 999px;
+
+  /* 살짝 고급스러운 느낌 */
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.02),
+    0 2px 10px rgba(30, 90, 160, 0.03);
+
+  cursor: pointer;
+  user-select: none;
+
+  transition:
+    background .12s ease,
+    border-color .14s ease,
+    box-shadow .18s ease;
+}
+.mgr-pill-row:hover {
+  background: #fbfdff;
+  border-color: #d6e7ff;
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.03),
+    0 6px 18px rgba(30, 90, 160, 0.06);
+}
+.mgr-pill-row:focus-visible {
+  outline: 2px solid #bfe0ff;
+  outline-offset: 2px;
+}
+
+/* 여러 줄 값(대사 등) */
+.mgr-pill-row--multi {
+  align-items: flex-start;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+/* 라벨: 고정 폭 칼럼을 꽉 채우는 타원형 */
+.mgr-pill-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 14px;
+
+  color: #2a5fb7;                /* 살짝 선명한 파랑 */
+  font-weight: 800;
+
+  background: linear-gradient(180deg, #f2f7ff, #eaf2ff);
+  border: 1px solid #dbe8ff;
+  border-radius: 999px;
+
+  letter-spacing: 0.2px;
+}
+
+/* 멀티라인일 때 라벨 수직 정렬 보정 */
+.mgr-pill-row--multi .mgr-pill-label {
+  margin-top: 2px;
+}
+
+/* 값 영역 */
+.mgr-pill-value {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  flex: 1;
+  min-width: 0;
+  color: #222;
+}
+.mgr-pill-row--multi .mgr-pill-value {
+  white-space: pre-wrap;
+  line-height: 1.55;
+}
+
+/* 값이 비어있을 때 */
+.mgr-placeholder {
+  color: #a8b2c3;
+}
+
+/* 값 안에서 쓰는 칩(보상 등) */
+.mgr-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  padding: 7px 12px;
+
+  background: #ffffff;
+  border: 1px solid #e8ebf2;
+  border-radius: 999px;
+
+  box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+}
+.mgr-chip img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+.mgr-chip-emoji {
+  width: 20px;
+  text-align: center;
+  font-size: 18px;
+}
+
+/* 사진 미리보기(값 영역 안) */
+.mgr-pill-pic {
+  width: 34px;
+  height: 34px;
+  object-fit: cover;
+
+  border: 1px solid #e0e5ee;
+  border-radius: 8px;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+}
+
+.mgr-title-clickable{
+  cursor: pointer;
+}
+.mgr-title-clickable:focus-visible{
+  outline: 2px solid #bfe0ff;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.mgr-title-inline{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ───── 위치 입력 폼 (세로 스택) ───── */
+.rd-coord-row{
+  display: flex;
+  flex-direction: column;   /* ← 세로 정렬 */
+  gap: 12px;
+}
+
+.rd-coord-item{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  width: 100%;              /* ← 가로 꽉 차게 */
+  background: #f8fafc;
+  border: 1.5px solid #e8eef6;
+  border-radius: 12px;
+}
+
+.rd-chip-label{
+  display: grid;
+  place-items: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 10px;
+  font-weight: 800;
+  color: #1e3a8a;
+  background: #e6f0ff;
+  border-radius: 14px;
+}
+
+.rd-num{
+  flex: 1;                  /* ← 인풋이 남은 공간 전부 */
+  min-width: 0;
+  height: 38px;
+  border: none;
+  background: transparent;
+  padding: 0 6px;
+  outline: none;
+}
+/* number 스피너 제거 */
+.rd-num::-webkit-outer-spin-button,
+.rd-num::-webkit-inner-spin-button{ -webkit-appearance: none; margin:0; }
+.rd-num[type=number]{ appearance: textfield; }
+
+.rd-coord-hint{
+  margin-top: 6px;
+  font-size: 12px;
+  color: #9aa1ab;
+}
+
+/* ── 폼 유틸 ───────────────────────────────── */
+.rd-field {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rd-label {
+  font-weight: 800;
+  color: #1f2937;
+  letter-spacing: -0.02em;
+}
+
+.rd-hint {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #9aa1ab;
+}
+
+/* ── 텍스트 영역 ───────────────────────────── */
+.rd-textarea-wrap {
+  position: relative;
+}
+
+.rd-textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 12px 14px 28px;           /* 하단 카운터 공간 확보 */
+  border: 1.5px solid #dfe4ea;
+  border-radius: 12px;
+  background: #f9fbfd;
+  outline: none;
+  resize: vertical;
+  font-size: 15px;
+  line-height: 1.5;
+  transition: border .15s, box-shadow .15s, background .15s;
+  resize: none;
+  height: 160px;
+  overflow: auto;
+}
+
+.rd-textarea:focus {
+  border-color: #86e291;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(56,179,93,0.12);
+}
+
+/* placeholer 톤 다운 */
+.rd-textarea::placeholder {
+  color: #b6c0cb;
+}
+
+/* ==== Shared: RD Thumbnail Grid (all manage pages) ==== */
+.rd-thumb-grid{ display:flex; flex-wrap:wrap; gap:8px; }
+.rd-thumb{ position:relative; display:inline-block; }
+.rd-thumb img{
+  width:72px; height:72px; border-radius:10px;
+  border:1px solid #e5e8ef; object-fit:cover;
+}
+.rd-thumb-x{
+  position:absolute; top:-8px; right:-8px; width:24px; height:24px;
+  border:0; border-radius:50%; background:#fff; box-shadow:0 1px 6px rgba(0,0,0,.15);
+  cursor:pointer; line-height:24px;
+}
+.rd-muted{ color:#9aa1ab; }

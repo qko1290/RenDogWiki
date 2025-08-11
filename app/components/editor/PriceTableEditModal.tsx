@@ -1,215 +1,190 @@
 // =============================================
 // File: app/components/editor/PriceTableEditModal.tsx
 // =============================================
+'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ModalCard } from '@/components/common/Modal';
 
-// 각 가격 모드별 필드명 정의
-const FIELD_LABELS = {
+type PriceMode = 'normal' | 'awakening' | 'transcend';
+
+// 각 가격 모드별 필드명
+const FIELD_LABELS: Record<PriceMode, string[]> = {
   normal: ['가격'],
   awakening: ['봉인', '1각', '2각', '3각', '4각', 'MAX'],
   transcend: ['거가', '거불'],
 };
 
-type PriceMode = 'normal' | 'awakening' | 'transcend';
+type CardItem = {
+  name?: string;
+  image?: string | null;
+  stages?: string[];
+  prices?: number[];
+  colorType?: 'default' | 'green' | 'yellow' | string;
+};
 
-// item 기반(슬레이트 카드 블록 등)과 mode/prices 기반(외부 호출 등) 모두 지원
-type PriceTableEditModalProps =
-  | {
-      open: boolean;
-      item: {
-        mode?: PriceMode;
-        stages?: string[];
-        prices?: number[];
-      };
-      mode?: never;
-      prices?: never;
-      onClose: () => void;
-      onSave: (data: { stages: string[]; prices: number[] }) => void;
-    }
-  | {
-      open: boolean;
-      item?: never;
-      mode: PriceMode;
-      prices: number[];
-      onClose: () => void;
-      onSave: (data: { stages: string[]; prices: number[] }) => void;
-    };
+type PropsFromItem = {
+  open: boolean;
+  item: CardItem;
+  onClose: () => void;
+  onSave: (data: { stages: string[]; prices: number[] }) => void;
+};
 
-// 가격/강화수치 편집 모달
+type PropsFromValues = {
+  open: boolean;
+  mode: PriceMode;
+  prices: number[];
+  onClose: () => void;
+  onSave: (data: { stages: string[]; prices: number[] }) => void;
+};
+
+type PriceTableEditModalProps = PropsFromItem | PropsFromValues;
+
+/** 시세/강화수치 편집 모달(카드형) */
 export default function PriceTableEditModal(props: PriceTableEditModalProps) {
-  if (!props.open) return null;
+  // 모달 열릴 때 툴바 드롭다운 닫기
+  useEffect(() => {
+    if (props.open) {
+      window.dispatchEvent(new CustomEvent('editor:close-dropdowns'));
+    }
+  }, [props.open]);
 
-  // item 또는 mode/prices 기반으로 초기 상태 구성
-  let initialMode: PriceMode;
-  let initialStages: string[];
-  let initialPrices: number[];
+  // 초기 모드/필드/가격 계산
+  const initial = useMemo(() => {
+    if ('item' in props && props.item) {
+      const stages =
+        props.item.stages && props.item.stages.length
+          ? [...props.item.stages]
+          : [...FIELD_LABELS.normal];
 
-  if ('item' in props && props.item) {
-    initialMode = props.item.mode ?? 'normal';
-    initialStages = props.item.stages ?? FIELD_LABELS[initialMode];
-    initialPrices =
-      Array.isArray(props.item.prices) && props.item.prices.length
-        ? props.item.prices
-        : Array(initialStages.length).fill(0);
-  } else {
-    initialMode = props.mode ?? 'normal';
-    initialStages = FIELD_LABELS[initialMode];
-    initialPrices =
-      Array.isArray(props.prices) && props.prices.length
-        ? props.prices
-        : Array(initialStages.length).fill(0);
-  }
+      const mode: PriceMode =
+        stages.length === 1 ? 'normal' :
+        stages.length === 2 ? 'transcend' :
+        stages.length === 6 ? 'awakening' : 'normal';
 
-  // 모드 및 가격 필드 상태
-  const [mode, setMode] = useState<PriceMode>(initialMode);
-  const [prices, setPrices] = useState<string[]>(
-    initialPrices.length
-      ? initialPrices.map(String)
-      : Array(FIELD_LABELS[initialMode].length).fill('')
+      const prices =
+        Array.isArray(props.item.prices) && props.item.prices.length
+          ? props.item.prices
+          : new Array(stages.length).fill(0);
+
+      return { mode, stages, prices };
+    } else {
+      const mode = (props as PropsFromValues).mode ?? 'normal';
+      const stages = [...FIELD_LABELS[mode]];
+      const p = (props as PropsFromValues).prices ?? [];
+      const prices = p.length ? p : new Array(stages.length).fill(0);
+      return { mode, stages, prices };
+    }
+  }, [props]);
+
+  const [mode, setMode] = useState<PriceMode>(initial.mode);
+  const [stages, setStages] = useState<string[]>(initial.stages);
+  const [priceInputs, setPriceInputs] = useState<string[]>(
+    initial.prices.map(v => (Number.isFinite(v as number) ? String(v) : '0'))
   );
 
-  // 모드(일반/각성/초월) 변경시 가격 필드도 초기화
-  const handleModeChange = (newMode: PriceMode) => {
-    setMode(newMode);
-    setPrices(Array(FIELD_LABELS[newMode].length).fill(''));
-  };
+  // 모드 탭 전환
+  const switchMode = (m: PriceMode) => {
+    setMode(m);
+    const s = FIELD_LABELS[m];
+    setStages([...s]);
 
-  // 저장 버튼 클릭시 콜백 호출
-  const handleSave = () => {
-    props.onSave({
-      stages: FIELD_LABELS[mode],
-      prices: prices.map((p) => Number(p) || 0),
+    setPriceInputs(prev => {
+      const next = [...prev];
+      next.length = s.length;
+      for (let i = 0; i < s.length; i++) {
+        if (typeof next[i] === 'undefined') next[i] = '0';
+      }
+      return next;
     });
   };
 
-  // 실제 모달 UI
+  const handleChange = (idx: number, val: string) => {
+    setPriceInputs(prev => {
+      const next = [...prev];
+      next[idx] = val.replace(/[^\d.-]/g, ''); // 숫자/부호만
+      return next;
+    });
+  };
+
+  const handleSave = () => {
+    const prices = priceInputs.map(v => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    });
+    props.onSave({ stages, prices });
+  };
+
   return (
-    <div
-      style={{
-        position: "absolute",
-        left: 0,
-        top: 0,
-        width: "100vw",
-        height: "100vh",
-        zIndex: 1000,
-        background: "rgba(0,0,0,0.20)",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-      }}
+    <ModalCard
+      open={props.open}
+      onClose={props.onClose}
+      title="가격/강화수치 편집"
+      width={560}
+      actions={
+        <>
+          <button className="rd-btn secondary" onClick={props.onClose}>취소</button>
+          <button className="rd-btn primary" onClick={handleSave}>저장</button>
+        </>
+      }
     >
+      {/* 모드 탭 */}
+      <div style={{ display: 'flex', gap: 8, margin: '6px 0 12px auto' }}>
+        {([
+          ['normal', '일반'],
+          ['awakening', '각성'],
+          ['transcend', '초월'],
+        ] as [PriceMode, string][]).map(([m, label]) => (
+          <button
+            key={m}
+            onClick={() => switchMode(m)}
+            className="rd-btn"
+            style={{
+              height: 34,
+              minWidth: 64,
+              borderRadius: 999,
+              background: m === mode ? '#2563eb' : '#f3f4f6',
+              color: m === mode ? '#fff' : '#475569',
+              fontWeight: 800,
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* 필드들 */}
       <div
         style={{
-          background: "#fff",
-          borderRadius: 16,
-          padding: 24,
-          boxShadow: "0 4px 32px #0002",
-          minWidth: 320,
-          minHeight: 220,
-          position: "relative",
+          display: 'grid',
+          gridTemplateColumns: '120px 1fr',
+          rowGap: 12,
+          columnGap: 12,
         }}
       >
-        {/* 상단: 제목 및 모드 선택 */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 18,
-          }}
-        >
-          <b style={{ fontSize: 18 }}>가격/강화수치 편집</b>
-          <div style={{ display: "flex", gap: 4 }}>
-            {(['normal', 'awakening', 'transcend'] as PriceMode[]).map((m) => (
-              <button
-                key={m}
-                onClick={() => handleModeChange(m)}
-                style={{
-                  padding: "4px 14px",
-                  fontWeight: mode === m ? 700 : 400,
-                  borderRadius: 12,
-                  background: mode === m ? "#377dff" : "#eee",
-                  color: mode === m ? "#fff" : "#222",
-                  border: "none",
-                  cursor: "pointer",
-                }}
-              >
-                {m === "normal"
-                  ? "일반"
-                  : m === "awakening"
-                  ? "각성"
-                  : "초월"}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* 가격 입력 테이블 */}
-        <table style={{ width: "100%", marginBottom: 20 }}>
-          <tbody>
-            {FIELD_LABELS[mode].map((label, i) => (
-              <tr key={label}>
-                <td style={{ padding: 6, textAlign: "right", fontWeight: 600 }}>
-                  {label}
-                </td>
-                <td style={{ padding: 6 }}>
-                  <input
-                    type="number"
-                    style={{
-                      width: 90,
-                      padding: 7,
-                      fontSize: 15,
-                      borderRadius: 8,
-                      border: "1px solid #ddd",
-                    }}
-                    value={prices[i] ?? ""}
-                    onChange={(e) => {
-                      const arr = [...prices];
-                      arr[i] = e.target.value.replace(/[^0-9]/g, "");
-                      setPrices(arr);
-                    }}
-                    placeholder="가격"
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {/* 하단 버튼 영역 */}
-        <div style={{ textAlign: "right", marginTop: 18 }}>
-          <button
-            onClick={handleSave}
-            style={{
-              padding: "8px 22px",
-              borderRadius: 8,
-              background: "#377dff",
-              color: "#fff",
-              fontWeight: 600,
-              border: "none",
-              marginRight: 8,
-              fontSize: 16,
-            }}
-          >
-            저장
-          </button>
-          <button
-            onClick={props.onClose}
-            style={{
-              padding: "8px 22px",
-              borderRadius: 8,
-              background: "#f7f7f7",
-              color: "#333",
-              border: "1px solid #ddd",
-              fontWeight: 500,
-              fontSize: 16,
-            }}
-          >
-            취소
-          </button>
-        </div>
+        {stages.map((label, i) => (
+          <React.Fragment key={`${label}-${i}`}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                color: '#1f2937',
+                fontWeight: 800,
+              }}
+            >
+              {label}
+            </div>
+            <input
+              className="rd-input"
+              type="number"
+              inputMode="numeric"
+              value={priceInputs[i] ?? ''}
+              onChange={e => handleChange(i, e.target.value)}
+              placeholder="0"
+            />
+          </React.Fragment>
+        ))}
       </div>
-    </div>
+    </ModalCard>
   );
 }

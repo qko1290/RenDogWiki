@@ -18,46 +18,80 @@ import { sql } from "@/wiki/lib/db";
  * - body: 수정할 필드들
  * - pictures, rewards는 항상 배열(JSON)로 보장
  */
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  // 1. id 파싱/검증
+
+type NpcRow = {
+  id: number;
+  name: string;
+  icon: string;
+  location_x: number;
+  location_y: number;
+  location_z: number;
+  line: string | null;
+  village_id: number;
+  order: number;
+  requirement: string | null;
+  quest: string;
+  npc_type: string;      // "normal" | "quest"
+  pictures: any;         // DB에 json/text 형태일 수 있음
+  rewards: any;
+};
+
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const id = Number(params.id);
   if (!id || isNaN(id)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
-  // 2. body 파싱
   const body = await req.json();
 
-  // 3. pictures, rewards는 배열로 보장
-  const pictures = Array.isArray(body.pictures) ? body.pictures : [];
-  const rewards = Array.isArray(body.rewards) ? body.rewards : [];
+  // 1) 현재 행 조회 (⚠️ 제네릭 제거)
+  const rows = await sql`SELECT * FROM npc WHERE id = ${id}`;
+  if (!rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // 4. DB 업데이트
+  // 2) 현재값 파싱
+  const cur = rows[0] as NpcRow;
+  const curPictures = Array.isArray(cur.pictures) ? cur.pictures : JSON.parse(cur.pictures ?? "[]");
+  const curRewards  = Array.isArray(cur.rewards)  ? cur.rewards  : JSON.parse(cur.rewards  ?? "[]");
+
+  // 3) body에 온 필드만 덮어쓰는 병합 (없으면 기존값 유지)
+  const merged = {
+    name:        body.name        ?? cur.name,
+    icon:        body.icon        ?? cur.icon,
+    location_x:  body.location_x  ?? cur.location_x,
+    location_y:  body.location_y  ?? cur.location_y,
+    location_z:  body.location_z  ?? cur.location_z,
+    line:        body.line        ?? cur.line,
+    village_id:  body.village_id  ?? cur.village_id,
+    order:       body.order       ?? cur.order,
+    requirement: body.requirement ?? cur.requirement,
+    quest:       body.quest       ?? cur.quest,
+    npc_type:    body.npc_type    ?? cur.npc_type,
+    pictures:    body.pictures === undefined ? curPictures : (Array.isArray(body.pictures) ? body.pictures : []),
+    rewards:     body.rewards  === undefined ? curRewards  : (Array.isArray(body.rewards)  ? body.rewards  : []),
+  };
+
+  // 4) 업데이트
   await sql`
     UPDATE npc SET
-      name = ${body.name},
-      icon = ${body.icon},
-      location_x = ${body.location_x},
-      location_y = ${body.location_y},
-      location_z = ${body.location_z},
-      line = ${body.line},
-      village_id = ${body.village_id},
-      "order" = ${body.order},
-      requirement = ${body.requirement},
-      quest = ${body.quest},
-      npc_type = ${body.npc_type},
-      pictures = ${JSON.stringify(pictures)},
-      rewards = ${JSON.stringify(rewards)}
+      name = ${merged.name},
+      icon = ${merged.icon},
+      location_x = ${merged.location_x},
+      location_y = ${merged.location_y},
+      location_z = ${merged.location_z},
+      line = ${merged.line},
+      village_id = ${merged.village_id},
+      "order" = ${merged.order},
+      requirement = ${merged.requirement},
+      quest = ${merged.quest},
+      npc_type = ${merged.npc_type},
+      pictures = ${JSON.stringify(merged.pictures)},
+      rewards  = ${JSON.stringify(merged.rewards)}
     WHERE id = ${id}
   `;
 
-  // 5. 수정된 NPC 정보 조회 후 반환
-  const [updated] = await sql`
-    SELECT * FROM npc WHERE id = ${id}
-  `;
+  // 5) 갱신본 반환 (⚠️ 제네릭 제거)
+  const updatedRows = await sql`SELECT * FROM npc WHERE id = ${id}`;
+  const updated = updatedRows[0] as NpcRow;
   updated.pictures = Array.isArray(updated.pictures)
     ? updated.pictures
     : JSON.parse(updated.pictures ?? "[]");

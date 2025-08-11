@@ -88,6 +88,7 @@ function Tree({
               style={{
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'space-between', // 👉 화살표 오른쪽 끝으로
                 background: isSelected ? '#eaf2ff' : undefined,
                 borderRadius: 6,
                 padding: '2px 4px',
@@ -97,6 +98,26 @@ function Tree({
               }}
               onClick={() => onSelect(node, [...path, node.id])}
             >
+              {/* 왼쪽: 아이콘 + 텍스트 */}
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                {node.icon?.startsWith('http') ? (
+                  <img
+                    src={node.icon}
+                    alt="icon"
+                    style={{
+                      width: 18,
+                      height: 18,
+                      objectFit: 'cover',
+                      borderRadius: 4,
+                    }}
+                  />
+                ) : (
+                  <span style={{ fontSize: 16 }}>{node.icon ?? ''}</span>
+                )}
+                <span>{node.name}</span>
+              </span>
+
+              {/* 오른쪽: 화살표 */}
               {hasChildren && (
                 <button
                   style={{
@@ -104,15 +125,17 @@ function Tree({
                     background: 'none',
                     fontSize: 14,
                     cursor: 'pointer',
-                    marginRight: 2,
+                    marginLeft: 6,
+                    flexShrink: 0,
                   }}
-                  onClick={e => { e.stopPropagation(); onToggle(node.id); }}
+                  onClick={e => {
+                    e.stopPropagation();
+                    onToggle(node.id);
+                  }}
                 >
                   {isOpen ? '▼' : '▶'}
                 </button>
               )}
-              <span style={{ marginRight: 4 }}>{node.icon ?? ''}</span>
-              <span>{node.name}</span>
             </div>
             {hasChildren && isOpen && (
               <Tree
@@ -338,7 +361,23 @@ export default function WikiLinkModal({
                       onDoubleClick={() => { setSelectedDocId(doc.id); onSelect(doc); }}
                     >
                       {/* 아이콘(이미지/이모지/기본) */}
-                      <span style={{ fontSize: 19, marginRight: 4 }}>{doc.icon ?? '📄'}</span>
+                      <span style={{ marginRight: 6 }}>
+                        {doc.icon?.startsWith('http') ? (
+                          <img
+                            src={doc.icon}
+                            alt="icon"
+                            style={{
+                              width: 18,
+                              height: 18,
+                              objectFit: 'cover',
+                              borderRadius: 4,
+                              verticalAlign: 'middle',
+                            }}
+                          />
+                        ) : (
+                          <span style={{ fontSize: 17 }}>{doc.icon ?? '📄'}</span>
+                        )}
+                      </span>
                       {/* 문서 제목 */}
                       <span style={{
                         flex: 1,

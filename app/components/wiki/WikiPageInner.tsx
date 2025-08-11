@@ -1,6 +1,3 @@
-// =============================================
-// File: components/wiki/WikiPageInner.tsx
-// =============================================
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -46,6 +43,10 @@ type Props = {
   } | null;
 };
 
+function pathToStr(path: number[]) {
+  return path.join('/');
+}
+
 export default function WikiPageInner({ user }: Props) {
   // --------- 주요 상태 ---------
   const [categories, setCategories] = useState<CategoryNode[]>([]);
@@ -63,7 +64,7 @@ export default function WikiPageInner({ user }: Props) {
 
   // 트리 애니메이션 상태
   const [openPaths, setOpenPaths] = useState<number[][]>([]);
-  const [closingPaths, setClosingPaths] = useState<number[][]>([]);
+  const [closingMap, setClosingMap] = useState<Record<string, boolean>>({});
 
   // NPC/머리찾기 관련 상태
   const [npcList, setNpcList] = useState<any[]>([]);
@@ -82,52 +83,47 @@ export default function WikiPageInner({ user }: Props) {
   const searchParams = useSearchParams();
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // 전체 문서 로딩 + fullPath 연결
+  const rootCatName =
+    categoryIdMap[selectedDocPath?.[selectedDocPath.length - 1] || -1]?.name;
+
   useEffect(() => {
-    fetch('/api/documents?all=1')
-      .then(res => res.json())
-      .then(data => {
-        const docs = Array.isArray(data)
-          ? data
-          : Array.isArray(data.documents)
-            ? data.documents
-            : [];
-        if (Object.keys(categoryIdToPathMap).length === 0) {
-          setAllDocuments(docs);
-          return;
+    (async () => {
+      // 1. 카테고리 트리 fetch
+      const resCat = await fetch('/api/categories');
+      const catData = await resCat.json();
+      const mod = await import('@/wiki/lib/buildCategoryTree');
+      const tree = mod.buildCategoryTree(catData) as CategoryNode[];
+      setCategories(tree);
+
+      // 2. 카테고리 매핑
+      const idToPathMap: Record<number, number[]> = {};
+      const categoryMap: Record<number, CategoryNode> = {};
+      const buildMap = (nodes: CategoryNode[], path: number[] = []) => {
+        for (const node of nodes) {
+          const currentPath = [...path, node.id];
+          idToPathMap[node.id] = currentPath;
+          categoryMap[node.id] = node;
+          if (node.children) buildMap(node.children, currentPath);
         }
-        const mapped = docs.map((doc: Document & { path: number }) => ({
-          ...doc,
-          fullPath: categoryIdToPathMap[doc.path] || [doc.path],
-        }));
-        setAllDocuments(mapped);
-      });
-  }, [categoryIdToPathMap]);
+      };
+      buildMap(tree);
+      setCategoryIdToPathMap(idToPathMap);
+      setCategoryIdMap(categoryMap);
 
-  // 카테고리 트리/맵 세팅
-  useEffect(() => {
-    fetch('/api/categories')
-      .then(res => res.json())
-      .then(data => {
-        import('@/wiki/lib/buildCategoryTree').then(mod => {
-          const tree = mod.buildCategoryTree(data) as CategoryNode[];
-          setCategories(tree);
-
-          const idToPathMap: Record<number, number[]> = {};
-          const categoryMap: Record<number, CategoryNode> = {};
-          const buildMap = (nodes: CategoryNode[], path: number[] = []) => {
-            for (const node of nodes) {
-              const currentPath = [...path, node.id];
-              idToPathMap[node.id] = currentPath;
-              categoryMap[node.id] = node;
-              if (node.children) buildMap(node.children, currentPath);
-            }
-          };
-          buildMap(tree);
-          setCategoryIdToPathMap(idToPathMap);
-          setCategoryIdMap(categoryMap);
-        });
-      });
+      // 3. 문서 전체 fetch(단 한 번!)
+      const resDoc = await fetch('/api/documents?all=1');
+      const docsRaw = await resDoc.json();
+      const docs = Array.isArray(docsRaw)
+        ? docsRaw
+        : Array.isArray(docsRaw.documents)
+          ? docsRaw.documents
+          : [];
+      const mapped = docs.map((doc: Document & { path: number }) => ({
+        ...doc,
+        fullPath: idToPathMap[doc.path] || [doc.path],
+      }));
+      setAllDocuments(mapped);
+    })();
   }, []);
 
   // 쿼리 진입시 문서 자동 fetch
@@ -143,13 +139,59 @@ export default function WikiPageInner({ user }: Props) {
     }
   }, [searchParams, categoryIdToPathMap]);
 
-  // --------- 트리 토글/애니메이션 ---------
+  const P = (...args: any[]) => console.log('[WikiPage]', ...args);
+
+  // [핵심] 트리 닫힘(arrow)
+  const closeTreeWithChildren = async (node: CategoryNode, path: number[]) => {
+    const key = pathToStr(path);
+    P('closeTreeWithChildren:markClosing', key);
+    setClosingMap(prev => ({ ...prev, [key]: true }));
+
+    if (node.children && node.children.length > 0) {
+      node.children.forEach(child => {
+        const childPath = [...path, child.id];
+        if (isPathOpen(childPath)) {
+          P('closeTreeWithChildren:child→', pathToStr(childPath));
+          closeTreeWithChildren(child, childPath);
+        } else {
+          P('closeTreeWithChildren:child(skip not open)', pathToStr(childPath));
+        }
+      });
+    }
+  };
+
+  // [핵심] 열림은 openPaths에만 추가!
+  const handleArrowClick = (node: CategoryNode, path: number[]) => {
+    const key = pathToStr(path);
+    const isOpenNow = isPathOpen(path);
+
+    if (isOpenNow) {
+      P('handleArrowClick:CLOSE', key);
+      closeTreeWithChildren(node, path);
+    } else {
+      P('handleArrowClick:OPEN', key, '→ delete closing & add openPaths');
+      setClosingMap(prev => {
+        const next = { ...prev };
+        if (next[key]) P('handleArrowClick:remove closing flag', key);
+        delete next[key];
+        return next;
+      });
+      setOpenPaths(prev => {
+        const already = prev.some(p => pathToStr(p) === key);
+        P('openPaths:add?', { already, key, prev: prev.map(p=>pathToStr(p)) });
+        return already ? prev : [...prev, path];
+      });
+    }
+  };
+
+  // --------- 대표문서(카테고리) 클릭시 openPaths 추가(토글X, 무조건 열림) ---------
   const togglePath = async (path: number[]) => {
+    const key = pathToStr(path);
+    P('togglePath:OPEN', key);
     const catId = path.at(-1)!;
     const category = categoryIdMap[catId];
     const isSamePath = selectedDocPath && JSON.stringify(selectedDocPath) === JSON.stringify(path);
     const isSameDoc = selectedDocId === category?.document_id;
-
     const docId = Number(category?.document_id);
     if (
       category?.document_id &&
@@ -184,32 +226,31 @@ export default function WikiPageInner({ user }: Props) {
         setDocContent([]);
         setSelectedCategoryPath(path);
       }
-    } else if (!category?.document_id || !Number.isInteger(docId)) {
-      alert('대표 문서 ID가 잘못되어 열 수 없습니다: ' + String(category?.document_id));
     }
   };
-  const toggleArrowOnly = (path: number[]) => {
-    const pathStr = JSON.stringify(path);
-    const isOpen = openPaths.some((p) => JSON.stringify(p) === pathStr);
-    const isClosing = closingPaths.some((p) => JSON.stringify(p) === pathStr);
 
-    if (isOpen) {
-      if (isClosing) return;
-      setClosingPaths(prev => [...prev, path]);
-      setTimeout(() => {
-        setOpenPaths(prev => prev.filter(p => JSON.stringify(p) !== pathStr));
-        setClosingPaths(prev => prev.filter(p => JSON.stringify(p) !== pathStr));
-      }, 240);
-    } else {
-      setOpenPaths(prev => {
-        const exists = prev.some(p => JSON.stringify(p) === pathStr);
-        return exists ? prev : [...prev, path];
-      });
-      setClosingPaths(prev => prev.filter(p => JSON.stringify(p) !== pathStr));
-    }
-  };
+  // isPathOpen/isClosing util
   const isPathOpen = (path: number[]) =>
-    openPaths.some(p => JSON.stringify(p) === JSON.stringify(path));
+    openPaths.some(p => pathToStr(p) === pathToStr(path));
+  const isClosing = (path: number[]) =>
+    closingMap[pathToStr(path)] || false;
+
+  const finalizeClose = (path: number[]) => {
+    const key = pathToStr(path);
+    P('finalizeClose', key, {
+      before: {
+        open: openPaths.map(p => pathToStr(p)),
+        closing: { ...closingMap },
+      }
+    });
+    setOpenPaths(prev => prev.filter(p => pathToStr(p) !== key));
+    setClosingMap(prev => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    P('finalizeClose:done', key);
+  };
 
   // --------- 문서 fetch + 분기 ---------
   function fetchDoc(
@@ -343,24 +384,28 @@ export default function WikiPageInner({ user }: Props) {
         <div className="wiki-main-scrollable">
           {/* ---- 사이드바: 카테고리 트리 ---- */}
           <aside className="wiki-sidebar">
-            <h2 className="wiki-sidebar-title">카테고리</h2>
             <CategoryTree
               categories={categories}
               categoryIdMap={categoryIdMap}
               categoryIdToPathMap={categoryIdToPathMap}
               selectedDocPath={selectedDocPath}
+              selectedDocId={selectedDocId}
               selectedCategoryPath={selectedCategoryPath}
               setSelectedDocPath={setSelectedDocPath}
               setSelectedDocId={setSelectedDocId}
               setSelectedDocTitle={setSelectedDocTitle}
               setSelectedCategoryPath={setSelectedCategoryPath}
+              setDocContent={setDocContent}
               fetchDoc={fetchDoc}
               allDocuments={allDocuments}
               openPaths={openPaths}
-              closingPaths={closingPaths}
+              closingMap={closingMap}
+              closeTreeWithChildren={closeTreeWithChildren}
               togglePath={togglePath}
-              toggleArrowOnly={toggleArrowOnly}
+              handleArrowClick={handleArrowClick}
               isPathOpen={isPathOpen}
+              isClosing={isClosing}
+              finalizeClose={finalizeClose}
             />
           </aside>
           {/* ---- 본문 영역 ---- */}
@@ -372,21 +417,18 @@ export default function WikiPageInner({ user }: Props) {
               setSelectedDocTitle={setSelectedDocTitle}
               setDocContent={setDocContent}
             />
-            <h2 className="wiki-content-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <h2 className="wiki-content-title-row wiki-content-title">
               {/* 문서 아이콘 */}
               {(() => {
                 const doc = allDocuments.find(d => d.id === selectedDocId);
                 if (doc?.icon) {
                   return doc.icon.startsWith('http')
-                    ? <img src={doc.icon} alt="icon" style={{
-                      width: 32, height: 32, verticalAlign: 'middle',
-                      marginRight: 8, objectFit: 'contain', display: 'inline-block'
-                    }} />
-                    : <span style={{ fontSize: 28, marginRight: 8 }}>{doc.icon}</span>
+                    ? <img src={doc.icon} alt="icon" className="wiki-doc-icon-img" />
+                    : <span className="wiki-doc-icon-emoji">{doc.icon}</span>
                 }
                 return null;
               })()}
-              {selectedDocTitle || '렌독 위키'}
+              <span className='wiki-title-color'>{selectedDocTitle || '렌독 위키'}</span>
             </h2>
             <div className="wiki-content-body" ref={contentRef}>
               {/* ---- 머리찾기 ---- */}
@@ -417,38 +459,43 @@ export default function WikiPageInner({ user }: Props) {
               }
               {/* ---- 페이징 ---- */}
               {categoryIdMap[selectedDocPath?.[selectedDocPath.length - 1] || -1]?.name === "머리찾기" && headList.length > 21 &&
-                <div style={{ display: 'flex', justifyContent: 'center', gap: 20, margin: '10px 0' }}>
+                <div className="wiki-paging-bar">
                   <button
                     onClick={() => setHeadPage(p => Math.max(0, p - 1))}
                     disabled={headPage === 0}
-                    style={{ fontSize: 20, opacity: headPage === 0 ? 0.5 : 1 }}
+                    className="wiki-paging-btn"
                   >◀</button>
-                  <span style={{ fontSize: 16 }}>{headPage + 1} / {Math.ceil(headList.length / 21)}</span>
+                  <span className="wiki-paging-text">{headPage + 1} / {Math.ceil(headList.length / 21)}</span>
                   <button
                     onClick={() => setHeadPage(p => Math.min(Math.ceil(headList.length / 21) - 1, p + 1))}
                     disabled={headPage === Math.ceil(headList.length / 21) - 1}
-                    style={{ fontSize: 20, opacity: headPage === Math.ceil(headList.length / 21) - 1 ? 0.5 : 1 }}
+                    className="wiki-paging-btn"
                   >▶</button>
                 </div>
               }
               {["퀘스트", "NPC"].includes(categoryIdMap[selectedDocPath?.[selectedDocPath.length - 1] || -1]?.name || "") && npcList.length > 21 &&
-                <div style={{ display: 'flex', justifyContent: 'center', gap: 20, margin: '10px 0' }}>
+                <div className="wiki-paging-bar">
                   <button
                     onClick={() => setNpcPage(p => Math.max(0, p - 1))}
                     disabled={npcPage === 0}
-                    style={{ fontSize: 20, opacity: npcPage === 0 ? 0.5 : 1 }}
+                    className="wiki-paging-btn"
                   >◀</button>
-                  <span style={{ fontSize: 16 }}>{npcPage + 1} / {Math.ceil(npcList.length / 21)}</span>
+                  <span className="wiki-paging-text">{npcPage + 1} / {Math.ceil(npcList.length / 21)}</span>
                   <button
                     onClick={() => setNpcPage(p => Math.min(Math.ceil(npcList.length / 21) - 1, p + 1))}
                     disabled={npcPage === Math.ceil(npcList.length / 21) - 1}
-                    style={{ fontSize: 20, opacity: npcPage === Math.ceil(npcList.length / 21) - 1 ? 0.5 : 1 }}
+                    className="wiki-paging-btn"
                   >▶</button>
                 </div>
               }
               {/* ---- 상세 모달 ---- */}
               {selectedNpc && (
-                <NpcDetailModal npc={selectedNpc} onClose={() => setSelectedNpc(null)} />
+                <NpcDetailModal
+                  npc={selectedNpc}
+                  // 퀘스트 카테고리면 'quest', 그 외(NPC 등)면 'npc'
+                  mode={rootCatName === "퀘스트" ? "quest" : "npc"}
+                  onClose={() => setSelectedNpc(null)}
+                />
               )}
               {selectedHead && (
                 <HeadDetailModal head={selectedHead} docIcon={allDocuments.find(d => d.id === selectedDocId)?.icon} onClose={() => setSelectedHead(null)} />
@@ -461,15 +508,6 @@ export default function WikiPageInner({ user }: Props) {
           <TableOfContents headings={tableOfContents} />
         </aside>
       </div>
-      {/* ---- 햄버거 메뉴 ---- */}
-      {isMenuOpen && (
-        <HamburgerMenu
-          onClose={() => setIsMenuOpen(false)}
-          isLoggedIn={!!user}
-          username={user?.minecraft_name || ''}
-          uuid={''}
-        />
-      )}
     </div>
   );
 }

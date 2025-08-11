@@ -1,7 +1,12 @@
-import React from "react";
-import NpcPictureSlider from "./NpcPictureSlider";
+// components/wiki/NpcDetailModal.tsx
+'use client';
 
-type Npc = {
+import React, { useEffect } from 'react';
+import NpcPictureSlider from './NpcPictureSlider';
+import '@/wiki/css/wiki-detail-modal.css';
+
+type Reward = { icon?: string; text: string };
+export type Npc = {
   id: number;
   name: string;
   icon: string;
@@ -11,113 +16,111 @@ type Npc = {
   location_z: number;
   line?: string;
   quest?: string;
-  rewards?: { icon?: string; text: string }[];
+  rewards?: Reward[];
   requirement?: string;
 };
 
 type Props = {
   npc: Npc;
   onClose: () => void;
+  /** 퀘스트 상세면 'quest', 일반 NPC면 'npc' (위치/대사만 표시) */
+  mode?: 'quest' | 'npc';
 };
 
-export default function NpcDetailModal({ npc, onClose }: Props) {
-  // rootCatName 분기에 따라 퀘스트/일반 NPC 상세 구분 가능(부모에서)
+export default function NpcDetailModal({ npc, onClose, mode = 'quest' }: Props) {
+  // 바디 스크롤 잠금
+  useEffect(() => {
+    document.body.classList.add('rd-modal-open');
+    return () => document.body.classList.remove('rd-modal-open');
+  }, []);
+
+  const isQuest = mode === 'quest';
+
   return (
-    <div
-      style={{
-        position: "fixed", left: 0, top: 0, width: "100vw", height: "100vh",
-        background: "rgba(0,0,0,0.28)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center"
-      }}
-      onClick={onClose}
-    >
-      <div
-        style={{
-          background: "#fff",
-          minWidth: 1200, maxWidth: 1040, minHeight: 560,
-          borderRadius: 24, position: "relative",
-          boxShadow: "0 8px 40px rgba(0,0,0,0.12)",
-          padding: 0, display: "flex", flexDirection: "row", overflow: "hidden",
-          alignItems: "flex-start"
-        }}
-        onClick={e => e.stopPropagation()}
-      >
-        {/* 좌측: 사진 */}
-        <div style={{
-          width: 600, minHeight: 440, background: "#fafbfc",
-          padding: 20, display: "flex", flexDirection: "column", alignItems: "center", borderRight: "1.5px solid #eee", justifyContent: "center"
-        }}>
-          <div style={{
-            display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center",
-            marginBottom: 18, gap: 18
-          }}>
-            <img src={npc.icon} alt="icon"
-              style={{
-                width: 65, height: 65, borderRadius: 12,
-                objectFit: "cover", border: "2px solid #e0e0e0", boxShadow: "0 1.5px 10px #e4e5e8"
-              }} />
-            <div style={{ fontSize: 35, fontWeight: 700 }}>{npc.name}</div>
+    <div className="npc-modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
+      <div className="npc-modal-main" onClick={(e) => e.stopPropagation()}>
+        {/* 좌측: 아이콘 + 사진 */}
+        <div className="npc-modal-left">
+          <div className="npc-modal-profile">
+            {npc.icon?.startsWith('http') ? (
+              <img src={npc.icon} alt="icon" className="npc-modal-icon" />
+            ) : (
+              <span style={{ fontSize: 56 }}>{npc.icon || '🧑'}</span>
+            )}
+            <div className="npc-modal-name">{npc.name}</div>
           </div>
           <NpcPictureSlider pictures={npc.pictures || []} />
         </div>
-        {/* 우측: 정보 */}
-        <div style={{ flex: 1, padding: "54px 44px", display: "flex", flexDirection: "column", justifyContent: "center", minWidth: 350, marginTop: 40 }}>
-          <table style={{ width: "100%", fontSize: 19, lineHeight: 2.1, borderSpacing: 0 }}>
-            <tbody>
-              <tr>
-                <td style={{ color: "#666", width: 120, fontWeight: 600 }}>위치</td>
-                <td><b>{[npc.location_x, npc.location_y, npc.location_z].join(', ')}</b></td>
-              </tr>
-              {npc.quest && (
-                <tr>
-                  <td style={{ color: "#666", fontWeight: 600 }}>퀘스트</td>
-                  <td>{npc.quest}</td>
-                </tr>
+
+        {/* 우측: Pill UI */}
+        <div className="npc-modal-right">
+          {/* 위치: 공통 */}
+          <div className="mgr-pill-row">
+            <span className="mgr-pill-label">위치</span>
+            <span className="mgr-pill-value">
+              <span className="quest-detail-loc">
+                ( {npc.location_x}, {npc.location_y}, {npc.location_z} )
+              </span>
+            </span>
+          </div>
+
+          {/* 퀘스트 전용 필드들 */}
+          {isQuest && (
+            <>
+              <div className="mgr-pill-row">
+                <span className="mgr-pill-label">퀘스트</span>
+                <span className="mgr-pill-value">
+                  {npc.quest?.trim() ? npc.quest : <span className="mgr-placeholder">-</span>}
+                </span>
+              </div>
+
+              <div className="mgr-pill-row">
+                <span className="mgr-pill-label">보상</span>
+                <span className="mgr-pill-value" style={{ flexWrap: 'wrap' }}>
+                  {Array.isArray(npc.rewards) && npc.rewards.length > 0 ? (
+                    npc.rewards.map((rw, i) => (
+                      <span key={i} className="mgr-chip">
+                        {rw.icon ? (
+                          rw.icon.startsWith('http') ? (
+                            <img src={rw.icon} alt="" />
+                          ) : (
+                            <span className="mgr-chip-emoji">{rw.icon}</span>
+                          )
+                        ) : null}
+                        <span>{rw.text}</span>
+                      </span>
+                    ))
+                  ) : (
+                    <span className="mgr-placeholder">-</span>
+                  )}
+                </span>
+              </div>
+
+              <div className="mgr-pill-row">
+                <span className="mgr-pill-label">선행조건</span>
+                <span className="mgr-pill-value">
+                  {npc.requirement?.trim() ? npc.requirement : <span className="mgr-placeholder">-</span>}
+                </span>
+              </div>
+            </>
+          )}
+
+          {/* 대사: 공통 (멀티라인/상단 정렬) */}
+          <div className="mgr-pill-row mgr-pill-row--multi">
+            <span className="mgr-pill-label">대사</span>
+            <span className="mgr-pill-value">
+              {npc.line?.trim() ? (
+                <span style={{ whiteSpace: 'pre-wrap' }}>{npc.line}</span>
+              ) : (
+                <span className="mgr-placeholder">- 대사 없음 -</span>
               )}
-              {npc.rewards && (
-                <tr>
-                  <td style={{ color: "#666", fontWeight: 600 }}>보상</td>
-                  <td>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                      {npc.rewards.map((rw, i) => (
-                        <span key={i} style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                          {rw.icon && (
-                            rw.icon.startsWith('http')
-                              ? <img src={rw.icon} alt="보상" style={{ width: 26, height: 26, verticalAlign: "middle", marginRight: 3 }} />
-                              : <span style={{ fontSize: 22, marginRight: 3 }}>{rw.icon}</span>
-                          )}
-                          <span>{rw.text}</span>
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                </tr>
-              )}
-              {npc.requirement && (
-                <tr>
-                  <td style={{ color: "#666", fontWeight: 600 }}>선행퀘스트</td>
-                  <td>{npc.requirement}</td>
-                </tr>
-              )}
-              <tr>
-                <td style={{ color: "#666", fontWeight: 600, verticalAlign: "top" }}>대사</td>
-                <td>
-                  <div style={{
-                    background: "#f6f8fa", padding: "15px 16px", borderRadius: 8, minHeight: 80, whiteSpace: "pre-line", fontSize: 17
-                  }}>
-                    {npc.line || <span style={{ color: "#bbb" }}>- 대사 없음 -</span>}
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+            </span>
+          </div>
         </div>
-        <button
-          style={{
-            position: "absolute", right: 18, top: 18, fontSize: 30,
-            background: "none", border: "none", cursor: "pointer", color: "#777"
-          }}
-          onClick={onClose}
-        >×</button>
+
+        <button className="npc-modal-close-btn" onClick={onClose} aria-label="닫기">
+          ×
+        </button>
       </div>
     </div>
   );

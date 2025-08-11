@@ -1,13 +1,12 @@
 // =============================================
 // File: app/components/editor/PriceTableInsertModal.tsx
 // =============================================
-import React, { useState } from 'react';
-import Modal from '@/components/common/Modal';
+'use client';
 
-/**
- * 시세표 카드 삽입 모달
- * - 한 줄에 카드 몇 개 삽입할지 선택
- */
+import React, { useEffect, useState } from 'react';
+import { ModalCard } from '@/components/common/Modal';
+
+/** 시세표 카드 삽입 모달 – 한 줄 카드 개수 선택 */
 export default function PriceTableInsertModal({
   open,
   onClose,
@@ -19,34 +18,44 @@ export default function PriceTableInsertModal({
 }) {
   const [count, setCount] = useState(3);
 
+  useEffect(() => {
+    if (open) {
+      window.dispatchEvent(new CustomEvent('editor:close-dropdowns'));
+    }
+  }, [open]);
+
   return (
-    <Modal open={open} onClose={onClose} title="시세표 카드 삽입">
-      <div style={{ fontSize: 16, margin: 10 }}>한 줄에 몇 개의 카드?</div>
-      <select
-        value={count}
-        onChange={e => setCount(Number(e.target.value))}
-        style={{ fontSize: 18, padding: 8 }}
-      >
-        {[1, 2, 3, 4, 5].map(v => (
-          <option key={v} value={v}>
+    <ModalCard
+      open={open}
+      onClose={onClose}
+      title="시세표 카드 삽입"
+      width={420}
+      actions={
+        <>
+          <button className="rd-btn secondary" onClick={onClose}>취소</button>
+          <button className="rd-btn primary" onClick={() => onInsert(count)}>삽입</button>
+        </>
+      }
+    >
+      <div style={{ fontSize: 15, color:'#475569', marginBottom: 10 }}>한 줄에 표시할 카드 개수를 선택하세요.</div>
+      <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+        {[1,2,3,4,5].map(v=>(
+          <button
+            key={v}
+            type="button"
+            className="rd-btn"
+            onClick={()=>setCount(v)}
+            style={{
+              minWidth:56, height:36, borderRadius:10,
+              background: count===v ? '#2563eb' : '#f3f4f6',
+              color: count===v ? '#fff' : '#475569',
+              fontWeight:800
+            }}
+          >
             {v}개
-          </option>
+          </button>
         ))}
-      </select>
-      <button
-        style={{
-          marginTop: 24,
-          fontSize: 17,
-          padding: '8px 22px',
-          borderRadius: 7,
-          background: '#3774e8',
-          color: '#fff',
-          fontWeight: 700
-        }}
-        onClick={() => onInsert(count)}
-      >
-        삽입
-      </button>
-    </Modal>
+      </div>
+    </ModalCard>
   );
 }

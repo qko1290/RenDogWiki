@@ -15,6 +15,8 @@ import { useState } from "react";
 import HamburgerMenu from "@/components/common/HamburgerMenu";
 import '@/wiki/css/header.css';
 import SearchBox from "@/components/common/SearchBox";
+import logo from '../../image/logo.png';
+import Image from 'next/image';
 
 // 유저 타입 정의
 type WikiHeaderProps = {
@@ -35,12 +37,26 @@ export default function WikiHeader({ user }: WikiHeaderProps) {
   // 햄버거 메뉴 오픈 상태
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
+  async function handleLogout() {
+    try {
+      const res = await fetch('/api/auth/logout', { method: 'POST' });
+      if (res.ok) {
+        window.location.href = '/'; // 필요 시 메인 페이지로 이동
+      } else {
+        alert('로그아웃 실패');
+      }
+    } catch {
+      alert('로그아웃 요청 오류');
+    }
+  }
+
   // 렌더링: 로고, 검색창, 햄버거 버튼, HamburgerMenu
   return (
     <header className="wiki-header">
       {/* 로고: 클릭시 위키 홈 이동 */}
+      <Image src={logo} alt={""} width={45} height={40} />
       <Link href="/wiki" className="wiki-logo">
-        RDWIKI
+        &nbsp;RDWIKI
       </Link>
 
       {/* 중앙 검색창 */}
@@ -58,14 +74,14 @@ export default function WikiHeader({ user }: WikiHeaderProps) {
       </button>
 
       {/* 햄버거 메뉴: isMenuOpen true일 때만 표시 */}
-      {isMenuOpen && (
-        <HamburgerMenu
-          onClose={() => setIsMenuOpen(false)}
-          isLoggedIn={!!user}
-          username={user?.minecraft_name || ''}
-          uuid={''}
-        />
-      )}
+      <HamburgerMenu
+        isOpen={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+        isLoggedIn={!!user}
+        username={user?.minecraft_name || ''}
+        uuid={''}
+        onLogout={handleLogout}
+      />
     </header>
   );
 }

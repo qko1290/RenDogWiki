@@ -1,154 +1,48 @@
-/* =============================================
-   File: app/wiki/css/quest-manager.css
-   =============================================
-   퀘스트 관리/상세 페이지, reward 모달 등
-*/
+/* ========== 퀘스트 전용 오버라이드 ========== */
 
-/* ====== [모달 내부/입력] ====== */
-.quest-detail-label-margin {
-  margin-top: 8px;
-}
-.quest-reward-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.quest-reward-emoji {
-  flex: 1;
-}
-.quest-reward-img {
-  width: 24px;
-  height: 24px;
-  border-radius: 5px;
-  margin-left: 6px;
-  object-fit: cover;
-}
-.quest-detail-textarea {
-  min-height: 100px;
-  resize: vertical;
-  font-size: 16px;
-  padding: 8px 10px;
-}
-.quest-add-btn {
-  font-weight: 500;
-  padding: 5px 12px;
-}
+.quest-detail-img{width:48px;height:48px;border-radius:10px;object-fit:cover;background:#fafafa;border:1px solid #e3e3e3;}
+.quest-detail-icon{display:inline-block;font-size:40px;}
+.quest-detail-title{display:flex;align-items:center;flex:1;font-size:22px;font-weight:700;}
+.quest-detail-loc{color:var(--mgr-accent-2);margin-left:3px;}
 
-/* ====== [상세 패널/오른쪽] ====== */
-.quest-detail-title-row {
-  display: flex;
-  align-items: center;
-  margin-bottom: 14px;
-}
-.quest-detail-icon-box {
-  cursor: pointer;
-  margin-right: 18px;
-  display: flex;
-  align-items: center;
-  font-size: 40px;
-}
-.quest-detail-img {
-  width: 48px;
-  height: 48px;
-  border-radius: 10px;
-  object-fit: cover;
-  background: #fafafa;
-  border: 1px solid #e3e3e3;
-}
-.quest-detail-icon {
-  font-size: 40px;
-  display: inline-block;
-}
-.quest-detail-title {
-  font-size: 22px;
-  font-weight: 700;
-  margin-bottom: 2px;
-  display: flex;
-  align-items: center;
-  flex: 1;
-}
-.quest-detail-edit-btn {
-  margin-left: 10px;
-  font-size: 15px;
-  padding: 2px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  color: #888;
-  transition: color 0.1s;
-}
-.quest-detail-edit-btn:hover {
-  color: #2357b2;
-}
+/* ---- RD 모달: 좌표 입력(세로) ---- */
+.rd-coord-row{display:flex;flex-direction:column;gap:12px;}
+.rd-coord-item{display:flex;align-items:center;gap:10px;padding:10px 12px;width:100%;background:#f8fafc;border:1.5px solid #e8eef6;border-radius:12px;}
+.rd-chip-label{display:grid;place-items:center;min-width:28px;height:28px;padding:0 10px;font-weight:800;color:#1e3a8a;background:#e6f0ff;border-radius:14px;}
+.rd-num{flex:1;min-width:0;height:38px;border:none;background:transparent;padding:0 6px;outline:none;}
+.rd-num::-webkit-outer-spin-button,.rd-num::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+.rd-num[type=number]{appearance:textfield;}
 
-.quest-detail-block {
-  margin-top: 8px;
-}
-.quest-detail-row {
-  margin-bottom: 9px;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-.quest-detail-loc {
-  color: #2357b2;
-  margin-left: 3px;
-}
-.quest-detail-value {
-  color: #222;
-  margin-left: 3px;
-}
-.quest-detail-reward {
-  margin-left: 3px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
+/* ---- RD 모달: 텍스트 ---- */
+.rd-textarea{width:100%;min-height:120px;border-radius:12px;border:1.5px solid #dfe4ea;padding:12px 14px;background:#f9fbfd;outline:none;font-size:15px;line-height:1.5;resize:none;height:160px;overflow:auto;}
+.rd-textarea:focus{border-color:#86e291;background:#fff;box-shadow:0 0 0 3px rgba(56,179,93,0.12);}
 
-/* ====== [설명/대사/보상 등] ====== */
-.quest-detail-desc-box {
-  background: #fafdfe;
-  border: 1px solid #e4e9f0;
-  border-radius: 7px;
-  font-size: 15px;
-  padding: 9px 13px;
-  margin-top: 10px;
-  min-height: 50px;
-  white-space: pre-wrap;
-  color: #222;
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-.quest-detail-desc {
-  flex: 1;
-}
-.quest-detail-desc-empty {
-  color: #aaa;
-}
+/* ---- 사진 썸네일 ---- */
+.rd-thumb-grid{display:flex;flex-wrap:wrap;gap:8px;}
+.rd-thumb{position:relative;}
+.rd-thumb img{width:72px;height:72px;border-radius:10px;border:1px solid #e5e8ef;object-fit:cover;}
+.rd-thumb-x{position:absolute;top:-8px;right:-8px;width:24px;height:24px;border:0;border-radius:50%;background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.15);cursor:pointer;line-height:24px;}
+.rd-muted{color:#9aa1ab;}
 
-/* ====== [보상 리스트] ====== */
-.quest-detail-reward-list {
-  margin-top: 2px;
-}
-.quest-detail-reward-item {
-  font-size: 15px;
-  min-height: 28px;
-}
-.quest-detail-reward-img {
-  width: 22px;
-  height: 22px;
-  object-fit: contain;
-  border-radius: 4px;
-  border: 1px solid #ddd;
-  vertical-align: middle;
-}
-.quest-detail-reward-emoji {
-  font-size: 22px;
-  display: inline-block;
-  width: 24px;
-  text-align: center;
-}
-.quest-detail-reward-name {
-  margin-left: 2px;
-}
+/* ==== Reward Editor ==== */
+.rw-list{display:flex;flex-direction:column;gap:10px;}
+.rw-row{display:grid;grid-template-columns:56px 1fr 56px;gap:10px;align-items:center;}
+
+.rw-icon-btn{width:56px;height:56px;display:flex;align-items:center;justify-content:center;border:1.5px solid #e4e7ef;border-radius:12px;background:#f7fafc;cursor:pointer;transition:background .15s,border-color .15s,transform .08s;}
+.rw-icon-btn:hover{background:#eef7ff;border-color:#cfe1ff;}
+.rw-icon-btn:active{transform:scale(.98);}
+.rw-icon-img{width:28px;height:28px;object-fit:contain;border-radius:6px;display:block;}
+.rw-icon-emoji{font-size:26px;line-height:1;}
+.rw-icon-placeholder{width:26px;height:26px;color:#7aa7ff;}
+
+.rw-input{height:56px;border-radius:12px;font-size:16px;}
+
+.rw-del-btn{width:56px;height:56px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:rgb(255,95,95);border:2px solid rgb(255,201,201);cursor:pointer;transition:background .2s,transform .08s;}
+.rw-del-btn:active{transform:scale(.96);}
+.rw-del-btn:hover{background:rgb(255,0,0);}
+.ico-trash{width:20px;height:20px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+
+.rw-add-btn{position:relative;width:100%;height:44px;border-radius:12px;border:1.5px solid #34c759;background:#34c759;color:#fff;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;padding-right:46px;transition:none;}
+.rw-add-btn:hover{background:#2fc151;border-color:#2fc151;}
+.rw-add-iconwrap{position:absolute;right:8px;top:6px;width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,.18);display:grid;place-items:center;transition:none;}
+.rw-plus{width:20px;height:20px;color:#fff;}
