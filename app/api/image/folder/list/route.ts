@@ -3,39 +3,31 @@
 // =============================================
 /**
  * 이미지 폴더 목록 조회 API (상위 폴더별 or 전체)
- * - [GET] 쿼리 파라미터 parent_id로 하위 폴더만 조회(없으면 전체 폴더)
- * - 사용처: 이미지 탐색기/관리 페이지 폴더 트리, 폴더 선택 드롭다운 등
- * - 반환값: image_folders 테이블 row 배열 (ORDER BY id ASC)
- * - 주의: parent_id 없으면 전체 row 반환(트리 초기 렌더 등)
- * - parent_id는 정수로 변환해서 사용
+ * - GET parent_id 없으면 전체, 있으면 하위만
+ * - 캐시 무효화: force-dynamic + no-store
  */
-
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/wiki/lib/db'; // DB 쿼리(Postgres 등)
+import { sql } from '@/wiki/lib/db';
 
-/**
- * [폴더 리스트 조회] GET
- *   parent_id 있으면 해당 id 하위 폴더만 반환
- *   없으면 전체 폴더 반환
- *   반환: image_folders 테이블 row 배열
- */
+export const revalidate = 0;
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
-  // 1. 쿼리 파라미터 파싱 
   const { searchParams } = new URL(req.url);
-  const parent_id = searchParams.get("parent_id");
+  const parent_id = searchParams.get('parent_id');
 
   let rows;
-  // 2. parent_id에 따라 분기
   if (!parent_id) {
-    // parent_id 없으면 전체 폴더 반환
     rows = await sql`SELECT * FROM image_folders ORDER BY id ASC`;
   } else {
-    // parent_id 있으면 해당 하위 폴더만 반환
-    // parseInt: 혹시 모를 잘못된 값이 들어온 경우 NaN이 되어 where parent_id = NaN 조건이 항상 false
-    // → 쿼리 결과는 빈 배열로 안전하게 반환됨
-    rows = await sql`SELECT * FROM image_folders WHERE parent_id = ${parseInt(parent_id)} ORDER BY id ASC`;
+    rows = await sql`
+      SELECT * FROM image_folders
+      WHERE parent_id = ${parseInt(parent_id)}
+      ORDER BY id ASC
+    `;
   }
 
-  // 3. row 배열 반환
-  return NextResponse.json(rows);
+  return NextResponse.json(rows, {
+    headers: { 'Cache-Control': 'no-store' },
+  });
 }

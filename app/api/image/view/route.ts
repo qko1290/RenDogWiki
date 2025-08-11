@@ -3,37 +3,29 @@
 // =============================================
 /**
  * 이미지 폴더별 목록 조회 API
- * - [GET] 쿼리 파라미터 folder_id로 지정 폴더 내 이미지 전부 반환 (최신순)
- * - 반환: images 테이블 row[]
- * - 에러: folder_id 누락시 400 반환
+ * - GET folder_id 필수, 최신순
+ * - 캐시 무효화: force-dynamic + no-store
  */
-
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/wiki/lib/db'; // DB
+import { sql } from '@/wiki/lib/db';
 
 export const revalidate = 0;
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
-/**
- * [폴더 내 이미지 리스트 조회] GET
- * - 입력: folder_id
- * - 1. folder_id 누락시 400 반환
- * - 2. images 테이블에서 folder_id 가 일치하는 row 전부 조회(최신순)
- * - 3. row[] 반환
- */
 export async function GET(req: NextRequest) {
-  // 1. 쿼리 파라미터 파싱 및 필수값 체크
   const { searchParams } = new URL(req.url);
-  const folder_id = searchParams.get("folder_id");
+  const folder_id = searchParams.get('folder_id');
   if (!folder_id) {
-    return NextResponse.json({ error: "폴더 ID 누락" }, { status: 400 });
+    return NextResponse.json({ error: '폴더 ID 누락' }, { status: 400 });
   }
 
-  // 2. 해당 폴더 내 모든 이미지 row 조회(최신순)
   const result = await sql`
-    SELECT * FROM images WHERE folder_id = ${parseInt(folder_id)} ORDER BY id DESC
+    SELECT * FROM images
+    WHERE folder_id = ${parseInt(folder_id)}
+    ORDER BY id DESC
   `;
 
-  // 3. row 배열 반환
-  return NextResponse.json(result);
+  return NextResponse.json(result, {
+    headers: { 'Cache-Control': 'no-store' },
+  });
 }
