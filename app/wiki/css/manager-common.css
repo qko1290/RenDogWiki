@@ -804,3 +804,14 @@
   cursor:pointer; line-height:24px;
 }
 .rd-muted{ color:#9aa1ab; }
+
+/* 다크모드 환경에서도 항상 라이트 톤으로 렌더 */
+:root { color-scheme: light; }
+
+/* 상세 영역 배경을 명시적으로 흰색으로 고정 */
+.mgr-detail-area{
+  flex: 1;
+  min-width: 280px;
+  padding: 2rem 2.5rem;
+  background: var(--mgr-bg); /* ← #fff 로 해도 OK */
+}
