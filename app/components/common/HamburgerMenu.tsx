@@ -30,7 +30,8 @@ interface HamburgerMenuProps {
 
 const SPECIAL_NICKS: Record<string, string> = {
   'q_ko': '큐코',
-  'rounding_': '라운딩'
+  'rounding_': '라운딩',
+  'daramg__': '다람지'
 };
 
 /**
