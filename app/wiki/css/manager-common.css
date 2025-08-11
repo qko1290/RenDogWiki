@@ -805,13 +805,38 @@
 }
 .rd-muted{ color:#9aa1ab; }
 
-/* 다크모드 환경에서도 항상 라이트 톤으로 렌더 */
+/* ── 강제 라이트 스킴 (Auto Dark 무력화) ───────────────── */
 :root { color-scheme: light; }
 
-/* 상세 영역 배경을 명시적으로 흰색으로 고정 */
-.mgr-detail-area{
-  flex: 1;
-  min-width: 280px;
-  padding: 2rem 2.5rem;
-  background: var(--mgr-bg); /* ← #fff 로 해도 OK */
-}
+/* 전체 기본 텍스트/배경 톤 고정 */
+html, body { background:#fff; color:#0f172a; }
+
+/* 매니저 3열과 카드/모달/콘텐츠에 명시적 색상 지정 */
+.mgr-container { background:#f9f9f9; color:#0f172a; }
+.mgr-sidebar { background: var(--mgr-sidebar-bg); color:#0f172a; }
+.mgr-list-area,
+.mgr-detail-area,
+.image-explorer-content,
+.rd-card { background:#fff; color:#0f172a; }
+
+/* 자주 보이는 텍스트 블록들 색 고정 */
+.mgr-list-item,
+.mgr-name,
+.mgr-order,
+.mgr-pill-row,
+.mgr-pill-value,
+.mgr-title,
+.mgr-label,
+.mgr-note,
+.mgr-kv__val { color:#0f172a; }
+
+/* 보조 텍스트 */
+.mgr-muted,
+.mgr-placeholder,
+.text-gray-400,
+.rd-hint,
+.rd-coord-hint { color:#9aa1ab; }
+
+/* 인풋/텍스트에어리어/버튼 텍스트 색 고정 + placeholder 톤 */
+input, textarea, button { color:#0f172a; }
+::placeholder { color:#b6c0cb; opacity:1; }
