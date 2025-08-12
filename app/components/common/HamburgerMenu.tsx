@@ -293,7 +293,7 @@ export default function HamburgerMenu({
       width={360}
     >
       <p className="rd-card-description" style={{ textAlign: 'center', whiteSpace: 'pre-line' }}>
-        권한이 없습니다{'\n'}관리자에게 문의 해주세요
+        권한이 없습니다{'\n'}관리자에게 문의해주세요
       </p>
     </ModalCard>
     </>
