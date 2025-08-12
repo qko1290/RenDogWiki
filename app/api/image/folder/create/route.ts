@@ -37,7 +37,9 @@ export async function POST(req: NextRequest) {
 
   // 4. 같은 parent 내 중복 폴더명 체크
   const existsResult = await sql`
-    SELECT id FROM image_folders WHERE parent_id = ${parent_id} AND name = ${name} LIMIT 1
+    SELECT id FROM image_folders
+    WHERE parent_id IS NOT DISTINCT FROM ${parent_id} AND name = ${name}
+    LIMIT 1
   `;
   if (existsResult.length > 0)
     return NextResponse.json({ error: "중복 폴더명" }, { status: 409 });

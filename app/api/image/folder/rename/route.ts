@@ -40,8 +40,10 @@ export async function PATCH(req: NextRequest) {
 
   // 3. 동일 parent 내 중복 이름 체크(본인 제외)
   const exists = await sql`
-    SELECT id FROM image_folders 
-    WHERE parent_id = ${folder.parent_id} AND name = ${name} AND id != ${id}
+    SELECT id FROM image_folders
+    WHERE parent_id IS NOT DISTINCT FROM ${folder.parent_id}
+      AND name = ${name}
+      AND id != ${id}
     LIMIT 1
   `;
   if (exists.length > 0)

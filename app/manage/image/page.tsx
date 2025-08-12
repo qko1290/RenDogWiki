@@ -425,7 +425,7 @@ export default function ImageManagePage() {
     const res = await fetch('/api/image/folder/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, parent_id: parentId }),
+      body: JSON.stringify({ name, parent_id: parentId ?? null }),
     });
     if (!res.ok) throw new Error((await res.json())?.error || '폴더 생성 실패');
     await reloadFolders(); // 항상 재조회
