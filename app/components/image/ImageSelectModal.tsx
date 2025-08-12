@@ -138,11 +138,12 @@ export default function ImageSelectModal({
   onSelectImage: (url: string, name: string, row: ImageFile) => void;
 }) {
   const [folders, setFolders] = useState<Folder[]>([]);
-  const [allImages, setAllImages] = useState<ImageFile[]>([]);
+  const [images, setImages] = useState<ImageFile[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<number | null>(null);
   const [treeState, setTreeState] = useState<Record<number, boolean>>({});
   const [selectedImg, setSelectedImg] = useState<ImageFile | null>(null);
   const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const normalizeFolders = (data: any[]): Folder[] =>
     data.map((f) => ({
@@ -150,7 +151,6 @@ export default function ImageSelectModal({
       name: String(f.name),
       parent_id: f.parent_id === null || f.parent_id === undefined ? null : Number(f.parent_id),
     }));
-
   const normalizeImages = (data: any[]): ImageFile[] =>
     data.map((i) => ({
       id: Number(i.id),
@@ -166,7 +166,6 @@ export default function ImageSelectModal({
     setSearch('');
 
     const ts = `?ts=${Date.now()}`;
-
     fetch('/api/image/folder/list' + ts, { cache: 'no-store' })
       .then((res) => res.json())
       .then((raw) => {
@@ -185,28 +184,18 @@ export default function ImageSelectModal({
               setTreeState({});
             }
           } else {
-            // 기본: 전부 닫힘
             setTreeState({});
           }
 
           const savedSel = localStorage.getItem('imgsel.selectedFolder');
-          if (savedSel !== null) {
-            if (savedSel === '' || savedSel === 'null') setSelectedFolder(null);
-            else {
-              const n = Number(savedSel);
-              setSelectedFolder(Number.isFinite(n) && n > 0 ? n : null);
-            }
+          if (savedSel !== null && savedSel !== '' && savedSel !== 'null') {
+            const n = Number(savedSel);
+            setSelectedFolder(Number.isFinite(n) && n > 0 ? n : null);
           } else {
             setSelectedFolder(null);
           }
         }
       });
-
-    // 전체 이미지 목록(검색용)
-    fetch('/api/image/list?all=1' + ts, { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((raw) => setAllImages(normalizeImages(raw)))
-      .catch(() => setAllImages([]));
   }, [open]);
 
   useEffect(() => {
@@ -214,26 +203,56 @@ export default function ImageSelectModal({
       localStorage.setItem('imgsel.selectedFolder', selectedFolder === null ? 'null' : String(selectedFolder));
     }
     setSelectedImg(null);
-  }, [selectedFolder]);
+    if (search.trim()) return;
+
+    if (selectedFolder == null) {
+      setImages([]);
+      return;
+    }
+    const ts = `&ts=${Date.now()}`;
+    setLoading(true);
+    fetch(`/api/image/view?folder_id=${selectedFolder}${ts}`, { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((raw) => setImages(normalizeImages(raw)))
+      .finally(() => setLoading(false));
+  }, [selectedFolder, search]);
 
   useEffect(() => {
-    setSelectedImg(null);
-  }, [search]);
+    const q = search.trim();
+    if (!open) return;
+    if (!q) return;
 
-  const imagesToShow = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (q) {
-      return allImages.filter((i) => i.name.toLowerCase().includes(q));
-    }
-    if (selectedFolder == null) return [];
-    return allImages.filter((i) => Number(i.folder_id) === Number(selectedFolder));
-  }, [allImages, selectedFolder, search]);
+    const controller = new AbortController();
+    const t = setTimeout(async () => {
+      try {
+        setLoading(true);
+        const res = await fetch(`/api/image/search?q=${encodeURIComponent(q)}`, {
+          signal: controller.signal,
+          cache: 'no-store',
+        });
+        if (!res.ok) throw new Error('search-failed');
+        const rows = await res.json();
+        setImages(normalizeImages(rows));
+      } catch {
+        setImages([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 220);
+
+    return () => {
+      controller.abort();
+      clearTimeout(t);
+    };
+  }, [search, open]);
 
   const handleInsert = () => {
     if (!selectedImg) return;
     onSelectImage(selectedImg.url, selectedImg.name, selectedImg);
     onClose();
   };
+
+  const titleText = search.trim() ? '검색 결과' : selectedFolder == null ? '루트' : '폴더';
 
   if (!open) return null;
 
@@ -277,13 +296,13 @@ export default function ImageSelectModal({
             }}
           >
             <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#111827' }}>
-              이미지 선택
+              이미지 선택 · {titleText}
             </h3>
 
             <div style={{ marginLeft: 'auto', width: 280 }}>
               <div style={{ position: 'relative' }}>
                 <input
-                  placeholder="이미지 이름 검색"
+                  placeholder="이미지 이름 검색(전체)"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   style={{
@@ -397,15 +416,17 @@ export default function ImageSelectModal({
                 gap: 12,
                 alignContent: 'start',
                 background: '#fff',
+                opacity: loading ? 0.65 : 1,
+                transition: 'opacity .12s',
               }}
             >
-              {imagesToShow.length === 0 && (
+              {images.length === 0 && (
                 <div style={{ color: '#9aa1ad', margin: '40px auto' }}>
                   {search.trim() ? '검색 결과가 없습니다' : '이 폴더에 이미지 없음'}
                 </div>
               )}
 
-              {imagesToShow.map((img) => {
+              {images.map((img) => {
                 const selected = selectedImg?.id === img.id;
                 return (
                   <button
