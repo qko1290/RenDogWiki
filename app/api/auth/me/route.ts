@@ -14,7 +14,7 @@ export async function GET() {
   if (!auth) return NextResponse.json({ loggedIn: false }, { status: 401 });
 
   const rows = await sql`
-    SELECT id, username, email, minecraft_name
+    SELECT id, username, email, minecraft_name, role
     FROM users WHERE id = ${auth.id}
   `;
   if (!Array.isArray(rows) || rows.length === 0) {
@@ -36,7 +36,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: '사용자를 찾을 수 없습니다.' }, { status: 404 });
   }
 
-  const ok = await bcrypt.compare(password, (rows[0] as any).password_hash);
+  const ok = await bcrypt.compare((password as string), (rows[0] as any).password_hash);
   if (!ok) return NextResponse.json({ error: '비밀번호가 일치하지 않습니다.' }, { status: 401 });
 
   await sql`DELETE FROM users WHERE id = ${auth.id}`;
@@ -50,3 +50,4 @@ export async function DELETE(req: NextRequest) {
   });
   return res;
 }
+

@@ -17,6 +17,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faUserPlus
 } from '@fortawesome/free-solid-svg-icons';
+import { ModalCard } from '@/components/common/Modal';
 
 // 메뉴 props 타입 정의
 interface HamburgerMenuProps {
@@ -27,6 +28,8 @@ interface HamburgerMenuProps {
   uuid?: string;            // 유저 프로필용 UUID (optional)
   onLogout: () => void;
 }
+
+type Role = 'guest' | 'writer' | 'admin';
 
 const SPECIAL_NICKS: Record<string, string> = {
   'q_ko': '큐코',
@@ -45,6 +48,8 @@ export default function HamburgerMenu({
 
   // uuid 값이 없을 경우, username으로 Mojang API에서 조회
   const [resolvedUUID, setResolvedUUID] = useState<string | null>(uuid || null);
+  const [role, setRole] = useState<Role>('guest');
+  const [denyOpen, setDenyOpen] = useState(false);
 
   const normName = (username ?? '').trim().toLowerCase();
   const specialDisplay = SPECIAL_NICKS[normName];
@@ -77,6 +82,37 @@ export default function HamburgerMenu({
         });
     }
   }, [username, uuid]);
+
+  // 로그인 시 /api/me에서 role 조회(없으면 guest로 처리)
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setRole('guest');
+      return;
+    }
+    let aborted = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/me', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        const r = (data?.user?.role ?? 'guest') as Role;
+        if (!aborted) setRole(r);
+      } catch {
+        if (!aborted) setRole('guest');
+      }
+    })();
+    return () => { aborted = true; };
+  }, [isLoggedIn]);
+
+  // writer 이상 필요한 메뉴 클릭 가드(디자인 변경 없음)
+  const handleGuardedClick = (e: React.MouseEvent) => {
+    const allowed = isLoggedIn && (role === 'writer' || role === 'admin');
+    if (!allowed) {
+      e.preventDefault();
+      e.stopPropagation();
+      setDenyOpen(true);
+    }
+  };
 
   // 마인크래프트 스킨 이미지 URL (없으면 기본값)
   const skinUrl = resolvedUUID
@@ -128,7 +164,7 @@ export default function HamburgerMenu({
         <ul className="hamburger-menu-list">
           <li className="hamburger-menu-item">
             <div className="btn-conteiner-1">
-              <Link href="/manage/image" className="btn-content">
+              <Link href="/manage/image" className="btn-content" onClick={handleGuardedClick}>
                 <span className="btn-title">IMAGE</span>
                 <span className="icon-arrow">
                   <svg width="66px" height="43px" viewBox="0 0 66 43" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink">
@@ -144,7 +180,7 @@ export default function HamburgerMenu({
           </li>
           <li className="hamburger-menu-item">
             <div className="btn-conteiner-2">
-              <Link href="/manage/category" className="btn-content">
+              <Link href="/manage/category" className="btn-content" onClick={handleGuardedClick}>
                 <span className="btn-title">Category</span>
                 <span className="icon-arrow">
                   <svg width="66px" height="43px" viewBox="0 0 66 43" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink">
@@ -160,7 +196,7 @@ export default function HamburgerMenu({
           </li>
           <li className="hamburger-menu-item">
             <div className="btn-conteiner-3">
-              <Link href="/manage/npc" className="btn-content">
+              <Link href="/manage/npc" className="btn-content" onClick={handleGuardedClick}>
                 <span className="btn-title">NPC</span>
                 <span className="icon-arrow">
                   <svg width="66px" height="43px" viewBox="0 0 66 43" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink">
@@ -176,13 +212,13 @@ export default function HamburgerMenu({
           </li>
           <li className="hamburger-menu-item">
             <div className="btn-conteiner-4">
-              <Link href="/manage/quest" className="btn-content">
+              <Link href="/manage/quest" className="btn-content" onClick={handleGuardedClick}>
                 <span className="btn-title">QUEST</span>
                 <span className="icon-arrow">
                   <svg width="66px" height="43px" viewBox="0 0 66 43" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink">
                     <g id="arrow" stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
                       <path id="arrow-icon-one" d="M40.1543933,3.89485454 L43.9763149,0.139296592 C44.1708311,-0.0518420739 44.4826329,-0.0518571125 44.6771675,0.139262789 L65.6916134,20.7848311 C66.0855801,21.1718824 66.0911863,21.8050225 65.704135,22.1989893 C65.7000188,22.2031791 65.6958657,22.2073326 65.6916762,22.2114492 L44.677098,42.8607841 C44.4825957,43.0519059 44.1708242,43.0519358 43.9762853,42.8608513 L40.1545186,39.1069479 C39.9575152,38.9134427 39.9546793,38.5968729 40.1481845,38.3998695 C40.1502893,38.3977268 40.1524132,38.395603 40.1545562,38.3934985 L56.9937789,21.8567812 C57.1908028,21.6632968 57.193672,21.3467273 57.0001876,21.1497035 C56.9980647,21.1475418 56.9959223,21.1453995 56.9937605,21.1432767 L40.1545208,4.60825197 C39.9574869,4.41477773 39.9546013,4.09820839 40.1480756,3.90117456 C40.1501626,3.89904911 40.1522686,3.89694235 40.1543933,3.89485454 Z" fill="#FFFFFF"></path>
-                      <path id="arrow-icon-two" d="M20.1543933,3.89485454 L23.9763149,0.139296592 C24.1708311,-0.0518420739 24.4826329,-0.0518571125 24.6771675,0.139262789 L45.6916134,20.7848311 C46.0855801,21.1718824 46.0911863,21.8050225 45.704135,22.1989893 C45.7000188,22.2031791 45.6958657,22.2073326 45.6916762,22.2114492 L24.677098,42.8607841 C24.4825957,43.0519059 24.1708242,43.0519358 23.9762853,42.8608513 L20.1545186,39.1069479 C19.9575152,38.9134427 19.9546793,38.5968729 20.1481845,38.3998695 C20.1502893,38.3977268 20.1524132,38.395603 20.1545562,38.3934985 L36.9937789,21.8567812 C37.1908028,21.6632968 37.193672,21.3467273 37.0001876,21.1497035 C36.9980647,21.1475418 36.9959223,21.1453995 36.9937605,21.1432767 L20.1545208,4.60825197 C19.9574869,4.41477773 19.9546013,4.09820839 20.1480756,3.90117456 C20.1501626,3.89904911 20.1522686,3.89694235 20.1543933,3.89485454 Z" fill="#FFFFFF"></path>
+                      <path id="arrow-icon-two" d="M20.1543933,3.89485454 L23.9763149,0.139296592 C24.1708311,-0.0518420739 24.4826329,-0.0518571125 24.6771675,0.139262789 L45.6916134,20.7848311 C46.0855801,21.1718824 46.0911863,21.8050225 45.704135,22.1989893 C45.7000188,22.2031791 45.6958657,22.2073326 45.6916762,22.2114492 L24.677098,42.8607841 C24.4825957,43.0519059 24.1708242,43.0519358 23.9762853,42.8608513 L20.1545186,39.1069479 C19.9575152,38.9134427 19.9546793,38.5968729 20.1481845,38.3998695 C20.1502893,38.3977268 20.1524132,38.395603 20.1545562,38.3934985 L36.9937789,21.8567812 C37.1908028,21.6632968 37.193672,21.3467273 37.0001876,21.1497035 C36.9980647,21.1475418 36.9959223,21.1453995 36.9937605,21.1432767 L20.1545208,4.60825197 C19.9574869,4.41477773 19.9546013,4.09820839 19.1480756,3.90117456 C19.1501626,3.89904911 19.1522686,3.89694235 19.1543933,3.89485454 Z" fill="#FFFFFF"></path>
                       <path id="arrow-icon-three" d="M0.154393339,3.89485454 L3.97631488,0.139296592 C4.17083111,-0.0518420739 4.48263286,-0.0518571125 4.67716753,0.139262789 L25.6916134,20.7848311 C26.0855801,21.1718824 26.0911863,21.8050225 25.704135,22.1989893 C25.7000188,22.2031791 25.6958657,22.2073326 25.6916762,22.2114492 L4.67709797,42.8607841 C4.48259567,43.0519059 4.17082418,43.0519358 3.97628526,42.8608513 L0.154518591,39.1069479 C-0.0424848215,38.9134427 -0.0453206733,38.5968729 0.148184538,38.3998695 C0.150289256,38.3977268 0.152413239,38.395603 0.154556228,38.3934985 L16.9937789,21.8567812 C17.1908028,21.6632968 17.193672,21.3467273 17.0001876,21.1497035 C16.9980647,21.1475418 16.9959223,21.1453995 16.9937605,21.1432767 L0.15452076,4.60825197 C-0.0425130651,4.41477773 -0.0453986756,4.09820839 0.148075568,3.90117456 C0.150162624,3.89904911 0.152268631,3.89694235 0.154393339,3.89485454 Z" fill="#FFFFFF"></path>
                     </g>
                   </svg>
@@ -192,7 +228,7 @@ export default function HamburgerMenu({
           </li>
           <li className="hamburger-menu-item">
             <div className="btn-conteiner-5">
-              <Link href="/manage/head" className="btn-content">
+              <Link href="/manage/head" className="btn-content" onClick={handleGuardedClick}>
                 <span className="btn-title">HEAD</span>
                 <span className="icon-arrow">
                   <svg width="66px" height="43px" viewBox="0 0 66 43" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink">
@@ -223,7 +259,7 @@ export default function HamburgerMenu({
               </div>
             </Link>
             <button className="hm-btn hm-btn-logout" onClick={handleLogout}>
-              <div className="hm-btn-sign"><svg viewBox="0 0 512 512"><path d="M377.9 105.9L500.7 228.7c7.2 7.2 11.3 17.1 11.3 27.3s-4.1 20.1-11.3 27.3L377.9 406.1c-6.4 6.4-15 9.9-24 9.9c-18.7 0-33.9-15.2-33.9-33.9l0-62.1-128 0c-17.7 0-32-14.3-32-32l0-64c0-17.7 14.3-32 32-32l128 0 0-62.1c0-18.7 15.2-33.9 33.9-33.9c9 0 17.6 3.6 24 9.9zM160 96L96 96c-17.7 0-32 14.3-32 32l0 256c0 17.7 14.3 32 32 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-64 0c-53 0-96-43-96-96L0 128C0 75 43 32 96 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32z"></path></svg></div>
+              <div className="hm-btn-sign"><svg viewBox="0 0 512 512"><path d="M377.9 105.9L500.7 228.7c7.2 7.2 11.3 17.1 11.3 27.3s-4.1 20.1-11.3 27.3L377.9 406.1c-6.4 6.4-15 9.9-24 9.9c-18.7 0-33.9-15.2-33.9-33.9l0-62.1-128 0c-17.7 0-32-14.3-32-32l0-64c0-17.7 14.3-32 32-32l128 0 0-62.1c0-18.7 15.2-33.9 33.9-33.9c9 0 17.6 3.6 24 9.9zM160 96L96 96c-17.7 0-32 14.3-32 32l0 256c0 17.7 14.3 32 32 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-64 0c-53 0-96-43-96-96L0 128C0 75 43 32 96 32l64 0c17.7 0 32 14.3 32 32s-14.3 32 32 32z"></path></svg></div>
               <div className="hm-btn-text">로그아웃</div>
             </button>
           </>
@@ -231,7 +267,7 @@ export default function HamburgerMenu({
           <>
             <Link href="/login" className="hm-btn hm-btn-login">
               <div className="hm-btn-sign">
-                <svg viewBox="0 0 512 512"><path d="M217.9 105.9L340.7 228.7c7.2 7.2 11.3 17.1 11.3 27.3s-4.1 20.1-11.3 27.3L217.9 406.1c-6.4 6.4-15 9.9-24 9.9c-18.7 0-33.9-15.2-33.9-33.9l0-62.1L32 320c-17.7 0-32-14.3-32-32l0-64c0-17.7 14.3-32 32-32l128 0 0-62.1c0-18.7 15.2-33.9 33.9-33.9c9 0 17.6 3.6 24 9.9zM352 416l64 0c17.7 0 32-14.3 32-32l0-256c0-17.7-14.3-32-32-32l-64 0c-17.7 0-32-14.3-32-32s14.3-32 32-32l64 0c53 0 96 43 96 96l0 256c0 53-43 96-96 96l-64 0c-17.7 0-32-14.3-32-32s14.3-32 32-32z"></path></svg>
+                <svg viewBox="0 0 512 512"><path d="M217.9 105.9L340.7 228.7c7.2 7.2 11.3 17.1 11.3 27.3s-4.1 20.1-11.3 27.3L217.9 406.1c-6.4 6.4-15 9.9-24 9.9c-18.7 0-33.9-15.2-33.9-33.9l0-62.1L32 320c-17.7 0-32-14.3-32-32l0-64c0-17.7 14.3-32 32-32l128 0 0-62.1c0-18.7 15.2-33.9 33.9-33.9c9 0 17.6 3.6 24 9.9zM352 416l64 0c17.7 0 32-14.3 32-32l0-256c0-17.7-14.3-32-32-32l-64 0c-17.7 0-32-14.3-32-32s-14.3-32 32-32l64 0c53 0 96 43 96 96l0 256c0 53-43 96-96 96l-64 0c-17.7 0-32-14.3-32-32s-14.3-32 32-32z"></path></svg>
               </div>
               <div className="hm-btn-text">&nbsp;&nbsp;로그인</div>
             </Link>
@@ -245,6 +281,21 @@ export default function HamburgerMenu({
         )}
       </div>
     </div>
+    <ModalCard
+      open={denyOpen}
+      onClose={() => setDenyOpen(false)}
+      title="경고"
+      actions={
+        <button className="rd-btn danger" onClick={() => setDenyOpen(false)}>
+          확인
+        </button>
+      }
+      width={360}
+    >
+      <p className="rd-card-description" style={{ textAlign: 'center', whiteSpace: 'pre-line' }}>
+        권한이 없습니다{'\n'}관리자에게 문의 해주세요
+      </p>
+    </ModalCard>
     </>
   );
 }
