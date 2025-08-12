@@ -318,7 +318,7 @@ export default function ImageManagePage() {
     Array<{ id: number; name: string; url: string; folder_id: number }>
   >([]);
   const [selectedFolder, setSelectedFolder] = useState<number | null>(null);
-  const [selectedFolderIds, setSelectedFolderIds] = useState<number[]>([]); // ▶ 추가: 폴더 다중 선택
+  const [selectedFolderIds, setSelectedFolderIds] = useState<number[]>([]); // ▶ 폴더 다중 선택
 
   const [selectedItems, setSelectedItems] = useState<any[]>([]);
   const [editingTarget, setEditingTarget] = useState<{ type: 'image' | 'folder'; id: number } | null>(
@@ -801,7 +801,8 @@ export default function ImageManagePage() {
             className="image-explorer-content"
             onMouseDown={(e) => {
               const el = e.target as HTMLElement;
-              if (isClickOnInteractive(el)) return;
+              // 썸네일 클릭은 외부 클릭으로 간주하지 않음 (다중 선택 유지)
+              if (isClickOnInteractive(el) || el.closest('.image-explorer-thumbnail')) return;
               clearImageSelection();
             }}
           >
@@ -977,6 +978,8 @@ export default function ImageManagePage() {
             <div
               className="image-explorer-filelist-outer"
               onMouseDown={(e) => {
+                // 여기서 먼저 버블링 차단 → 섹션 onMouseDown이 실행되지 않음
+                e.stopPropagation();
                 const el = e.target as HTMLElement;
                 if (el.closest('.image-explorer-thumbnail')) return;
                 clearImageSelection();
