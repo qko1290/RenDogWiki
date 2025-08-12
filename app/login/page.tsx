@@ -1,12 +1,14 @@
-// =============================================
-// File: app/login/page.tsx
-// =============================================
 'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import WikiHeader from '@/components/common/Header';
 import '@/wiki/css/login.css';
+
+/* ===== 한글 차단 유틸 ===== */
+const HANGUL_GLOBAL = /[\uAC00-\uD7A3\u1100-\u11FF\u3131-\u318E]/g;
+const stripHangul = (s: string) => s.replace(HANGUL_GLOBAL, '');
+/* ======================== */
 
 export default function LoginPage() {
   const [form, setForm] = useState({ username: '', password: '' });
@@ -15,8 +17,11 @@ export default function LoginPage() {
 
   const router = useRouter();
 
+  // ✅ 아이디/비번 모두 한글 차단
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    const v = (name === 'username' || name === 'password') ? stripHangul(value) : value;
+    setForm(prev => ({ ...prev, [name]: v }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -68,6 +73,8 @@ export default function LoginPage() {
                     value={form.username}
                     onChange={handleChange}
                     autoComplete="username"
+                    autoCapitalize="off"
+                    autoCorrect="off"
                     placeholder=" "
                     spellCheck={false}
                   />
@@ -113,6 +120,10 @@ export default function LoginPage() {
           </form>
         </div>
       </main>
+
+      <style jsx global>{`
+        .login-message { white-space: pre-line; }
+      `}</style>
     </div>
   );
 }

@@ -1,9 +1,10 @@
 /**
  * 이미지 선택 모달(세련된 버전, 이미지 모달 전용 카드 포함)
  * - 공용 Modal은 오버레이(배경 딤)만 사용
- * - 카드(흰 배경 / 그림자 / 라운드)와 중앙 정렬은 이 컴포넌트에서 처리 → 다른 모달 영향 없음
+ * - 카드(흰 배경 / 그림자 / 라운드)와 중앙 정렬은 이 컴포넌트에서 처리
  * - 폴더 트리: 오른쪽 화살표(접기/펼치기), 행 클릭으로 선택
  * - 썸네일: 클릭 선택, 더블클릭 시 즉시 삽입
+ * - ✅ 최근 사용 경로 복원(localStorage) + 타입 정규화 + 숫자 비교 자식 감지
  */
 
 'use client';
@@ -51,8 +52,9 @@ function FolderTree({
   return (
     <ul style={{ margin: 0, paddingLeft: depth === 0 ? 0 : 12, listStyle: 'none' }}>
       {list.map(folder => {
-        const hasChildren = folders.some(f => f.parent_id === folder.id);
-        const isOpen = treeState[folder.id] ?? true;
+        // ✅ 숫자 비교로 자식 감지
+        const hasChildren = folders.some(f => Number(f.parent_id) === Number(folder.id));
+        const isOpen = treeState[folder.id] ?? false;
 
         const rowBase: React.CSSProperties = {
           display: 'flex',
@@ -95,7 +97,13 @@ function FolderTree({
                     aria-expanded={isOpen}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setTreeState(prev => ({ ...prev, [folder.id]: !isOpen }));
+                      setTreeState(prev => {
+                        const next = { ...prev, [folder.id]: !isOpen };
+                        if (typeof window !== 'undefined') {
+                          localStorage.setItem('imgsel.treeState', JSON.stringify(next));
+                        }
+                        return next;
+                      });
                     }}
                     style={{
                       display: 'inline-flex',
@@ -160,22 +168,79 @@ export default function ImageSelectModal({
   const [treeState, setTreeState] = useState<Record<number, boolean>>({});
   const [selectedImg, setSelectedImg] = useState<ImageFile | null>(null);
 
+  const normalizeFolders = (data: any[]): Folder[] =>
+    data.map((f) => ({
+      id: Number(f.id),
+      name: String(f.name),
+      parent_id: f.parent_id === null || f.parent_id === undefined ? null : Number(f.parent_id),
+    }));
+
+  const normalizeImages = (data: any[]): ImageFile[] =>
+    data.map((i) => ({
+      id: Number(i.id),
+      name: String(i.name),
+      url: String(i.url),
+      folder_id: Number(i.folder_id),
+    }));
+
   useEffect(() => {
     if (!open) return;
+
+    // ✅ 폴더 로드 + 최근 트리/선택 복원
     fetch('/api/image/folder/list')
       .then(res => res.json())
-      .then(setFolders);
+      .then((raw) => {
+        const data = normalizeFolders(raw);
+        setFolders(data);
+
+        if (typeof window !== 'undefined') {
+          const savedTree = localStorage.getItem('imgsel.treeState');
+          if (savedTree) {
+            try {
+              const parsed: Record<string, boolean> = JSON.parse(savedTree);
+              const cast: Record<number, boolean> = {};
+              Object.keys(parsed).forEach((k) => (cast[Number(k)] = !!parsed[k]));
+              setTreeState(cast);
+            } catch {
+              // 루트만 오픈
+              const init: Record<number, boolean> = {};
+              data.forEach((f) => {
+                if (f.parent_id == null) init[f.id] = true;
+              });
+              setTreeState(init);
+            }
+          } else {
+            const init: Record<number, boolean> = {};
+            data.forEach((f) => {
+              if (f.parent_id == null) init[f.id] = true;
+            });
+            setTreeState(init);
+          }
+
+          const savedSel = localStorage.getItem('imgsel.selectedFolder');
+          if (savedSel !== null) {
+            const v = Number(savedSel);
+            setSelectedFolder(Number.isFinite(v) ? v : null);
+          } else {
+            setSelectedFolder(null);
+          }
+        }
+      });
   }, [open]);
 
   useEffect(() => {
     if (selectedFolder) {
       fetch(`/api/image/view?folder_id=${selectedFolder}`)
         .then(res => res.json())
-        .then(setImages);
+        .then((raw) => setImages(normalizeImages(raw)));
     } else {
       setImages([]);
     }
     setSelectedImg(null);
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('imgsel.selectedFolder', selectedFolder === null ? '' : String(selectedFolder));
+    }
   }, [selectedFolder]);
 
   const handleThumbClick = (img: ImageFile) => setSelectedImg(img);
@@ -208,7 +273,7 @@ export default function ImageSelectModal({
             maxWidth: 'calc(100vw - 40px)',
             maxHeight: 'calc(100vh - 80px)',
             overflow: 'hidden',
-            background: '#fff',            // ✅ 투명 아님 (흰 배경)
+            background: '#fff',
             borderRadius: 20,
             boxShadow: '0 24px 40px rgba(0,0,0,.12)',
             display: 'grid',
@@ -297,7 +362,7 @@ export default function ImageSelectModal({
                 return (
                   <button
                     key={img.id}
-                    onClick={() => handleThumbClick(img)}
+                    onClick={() => setSelectedImg(img)}
                     onDoubleClick={handleInsert}
                     title={img.name}
                     style={{

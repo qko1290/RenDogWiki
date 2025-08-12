@@ -7,64 +7,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import WikiHeader from '@/components/common/Header';
 import ImageUploadModal from '@/components/image/ImageUploadModal';
+import { ModalCard } from '@/components/common/Modal'; // ✅ 공용 모달 카드만 사용(중복 제거)
 import '@/wiki/css/image.css';
-
-/* ───────────────── BareModal ───────────────── */
-function BareModal({
-  open,
-  onClose,
-  children,
-}: {
-  open: boolean;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  if (!open) return null;
-  return (
-    <div
-      className="rd-overlay"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-/* ───────────────── ModalCard ───────────────── */
-function ModalCard({
-  open,
-  onClose,
-  title,
-  children,
-  actions,
-}: {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  children?: React.ReactNode;
-  actions?: React.ReactNode;
-}) {
-  return (
-    <BareModal open={open} onClose={onClose}>
-      <div className="rd-card" role="dialog" aria-labelledby="rdm-title">
-        <button className="rd-exit-btn" onClick={onClose} aria-label="닫기">
-          <svg height="20" viewBox="0 0 384 512">
-            <path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z" />
-          </svg>
-        </button>
-        <div className="rd-card-content">
-          <p className="rd-card-heading" id="rdm-title">
-            {title}
-          </p>
-          {children}
-        </div>
-        {actions && <div className="rd-card-button-wrapper">{actions}</div>}
-      </div>
-    </BareModal>
-  );
-}
 
 /* ─────────────── ArrowIcon ─────────────── */
 const ArrowIcon = ({ open }: { open: boolean }) => (
@@ -88,20 +32,20 @@ function FolderTree({
   parentId,
   selectedId,
   onSelect,
-  editingId,
-  setEditingId,
+  editingTarget,
+  setEditingTarget,
   onRename,
   depth = 0,
   treeState,
   setTreeState,
   setContextMenu,
 }: {
-  folders: any[];
+  folders: Array<{ id: number; name: string; parent_id: number | null }>;
   parentId: number | null;
   selectedId: number | null;
   onSelect: (id: number | null) => void;
-  editingId: number | null;
-  setEditingId: (id: number | null) => void;
+  editingTarget: { type: 'folder' | 'image'; id: number } | null;
+  setEditingTarget: (t: { type: 'folder' | 'image'; id: number } | null) => void;
   onRename: (id: number, newName: string) => void;
   depth?: number;
   treeState: Record<number, boolean>;
@@ -111,18 +55,18 @@ function FolderTree({
       visible: boolean;
       x: number;
       y: number;
-      folderId: number | null;
+      target: { type: 'folder' | 'image'; id: number } | null;
     }>
   >;
 }) {
   const [editName, setEditName] = useState('');
 
   useEffect(() => {
-    if (editingId) {
-      const t = folders.find((f) => f.id === editingId);
+    if (editingTarget?.type === 'folder') {
+      const t = folders.find((f) => f.id === editingTarget.id);
       if (t) setEditName(t.name);
     }
-  }, [editingId, folders]);
+  }, [editingTarget, folders]);
 
   const list = folders.filter((f) =>
     parentId === null ? f.parent_id == null : Number(f.parent_id) === Number(parentId)
@@ -132,13 +76,16 @@ function FolderTree({
   return (
     <ul className="folder-list" style={{ paddingLeft: depth === 0 ? 0 : 16 }}>
       {list.map((folder) => {
-        const hasChildren = folders.some((f) => f.parent_id === folder.id);
+        // ✅ 숫자 비교로 자식 감지(타입 불일치 방지)
+        const hasChildren = folders.some((f) => Number(f.parent_id) === Number(folder.id));
         const isOpen = treeState[folder.id] ?? false;
+        const isEditingThisFolder =
+          editingTarget?.type === 'folder' && editingTarget.id === folder.id;
 
         return (
           <li key={folder.id} className="folder-item" style={{ position: 'relative' }}>
             <div className="folder-row">
-              {editingId === folder.id ? (
+              {isEditingThisFolder ? (
                 <input
                   type="text"
                   className="folder-edit-input"
@@ -147,16 +94,20 @@ function FolderTree({
                   onChange={(e) => setEditName(e.target.value)}
                   onBlur={() => {
                     const v = editName.trim();
-                    if (v && v !== folder.name) onRename(folder.id, v);
-                    setEditingId(null);
+                    if (v && v !== (folders.find((f) => f.id === folder.id)?.name ?? '')) {
+                      onRename(folder.id, v);
+                    }
+                    setEditingTarget(null);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       const v = editName.trim();
-                      if (v && v !== folder.name) onRename(folder.id, v);
-                      setEditingId(null);
+                      if (v && v !== (folders.find((f) => f.id === folder.id)?.name ?? '')) {
+                        onRename(folder.id, v);
+                      }
+                      setEditingTarget(null);
                     } else if (e.key === 'Escape') {
-                      setEditingId(null);
+                      setEditingTarget(null);
                     }
                   }}
                   style={{ width: 120 }}
@@ -177,7 +128,7 @@ function FolderTree({
                       visible: true,
                       x: e.clientX,
                       y: e.clientY,
-                      folderId: folder.id,
+                      target: { type: 'folder', id: folder.id },
                     });
                   }}
                 >
@@ -192,7 +143,14 @@ function FolderTree({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    setTreeState((prev) => ({ ...prev, [folder.id]: !isOpen }));
+                    setTreeState((prev) => {
+                      const next = { ...prev, [folder.id]: !isOpen };
+                      // ✅ 최근 트리상태 저장
+                      if (typeof window !== 'undefined') {
+                        localStorage.setItem('imgmgr.treeState', JSON.stringify(next));
+                      }
+                      return next;
+                    });
                   }}
                   aria-label={isOpen ? '접기' : '펼치기'}
                   className="folder-tree-arrowbtn"
@@ -209,8 +167,8 @@ function FolderTree({
                 parentId={folder.id}
                 selectedId={selectedId}
                 onSelect={onSelect}
-                editingId={editingId}
-                setEditingId={setEditingId}
+                editingTarget={editingTarget}
+                setEditingTarget={setEditingTarget}
                 onRename={onRename}
                 depth={depth + 1}
                 treeState={treeState}
@@ -230,12 +188,14 @@ function FileList({
   images,
   currentFolderId,
   onSelect,
+  onContextMenuImage,
   selectedItems,
   searchQuery,
 }: {
-  images: any[];
+  images: Array<{ id: number; name: string; url: string; folder_id: number }>;
   currentFolderId: number | null;
   onSelect: (item: any, e: React.MouseEvent) => void;
+  onContextMenuImage: (item: any, e: React.MouseEvent) => void;
   selectedItems: any[];
   searchQuery: string;
 }) {
@@ -259,6 +219,11 @@ function FileList({
           onClick={(e) => {
             e.stopPropagation();
             onSelect({ ...img, type: 'image' }, e);
+          }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onContextMenuImage({ ...img, type: 'image' }, e);
           }}
           tabIndex={0}
         >
@@ -295,12 +260,12 @@ export default function ImageManagePage() {
       .then((d) => setUser(d?.user ?? null));
   }, []);
 
-  const [folders, setFolders] = useState<any[]>([]);
-  const [images, setImages] = useState<any[]>([]);
+  const [folders, setFolders] = useState<Array<{ id: number; name: string; parent_id: number | null }>>([]);
+  const [images, setImages] = useState<Array<{ id: number; name: string; url: string; folder_id: number }>>([]);
   const [selectedFolder, setSelectedFolder] = useState<number | null>(null);
 
   const [selectedItems, setSelectedItems] = useState<any[]>([]);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingTarget, setEditingTarget] = useState<{ type: 'image' | 'folder'; id: number } | null>(null); // ✅ 독립 상태
   const [imageEditName, setImageEditName] = useState('');
   const [treeState, setTreeState] = useState<Record<number, boolean>>({});
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -308,27 +273,68 @@ export default function ImageManagePage() {
     visible: boolean;
     x: number;
     y: number;
-    folderId: number | null;
-  }>({ visible: false, x: 0, y: 0, folderId: null });
+    target: { type: 'folder' | 'image'; id: number } | null;
+  }>({ visible: false, x: 0, y: 0, target: null });
   const [deletingType, setDeletingType] = useState<'folder' | 'image' | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   // --- 공통 재조회: 폴더/이미지 ---
+  const normalizeFolders = (data: any[]) =>
+    data.map((f) => ({
+      id: Number(f.id),
+      name: String(f.name),
+      parent_id: f.parent_id === null || f.parent_id === undefined ? null : Number(f.parent_id),
+    }));
+
+  const normalizeImages = (data: any[]) =>
+    data.map((i) => ({
+      id: Number(i.id),
+      name: String(i.name),
+      url: String(i.url),
+      folder_id: Number(i.folder_id),
+    }));
+
   const reloadFolders = useCallback(async () => {
     const q = `?ts=${Date.now()}`;
     const res = await fetch('/api/image/folder/list' + q, { cache: 'no-store' });
-    const data = await res.json();
+    const raw = await res.json();
+    const data = normalizeFolders(raw);
     setFolders(data);
-    // 루트 자동 펼침 유지(최초만)
-    if (Object.keys(treeState).length === 0) {
-      const init: Record<number, boolean> = {};
-      data.forEach((f: any) => {
-        if (f.parent_id == null) init[f.id] = true;
-      });
-      setTreeState(init);
+
+    // ✅ 트리 상태 복원(최초만) 또는 로컬 저장된 상태 사용
+    if (typeof window !== 'undefined') {
+      const savedTree = localStorage.getItem('imgmgr.treeState');
+      if (savedTree) {
+        try {
+          const parsed: Record<string, boolean> = JSON.parse(savedTree);
+          const cast: Record<number, boolean> = {};
+          Object.keys(parsed).forEach((k) => (cast[Number(k)] = !!parsed[k]));
+          setTreeState((prev) => (Object.keys(prev).length ? prev : cast));
+        } catch {
+          // 루트 자동 펼침
+          const init: Record<number, boolean> = {};
+          data.forEach((f: any) => {
+            if (f.parent_id == null) init[f.id] = true;
+          });
+          setTreeState(init);
+        }
+      } else {
+        const init: Record<number, boolean> = {};
+        data.forEach((f: any) => {
+          if (f.parent_id == null) init[f.id] = true;
+        });
+        setTreeState(init);
+      }
+
+      // ✅ 최근 선택 폴더 복원
+      const savedSel = localStorage.getItem('imgmgr.selectedFolder');
+      if (savedSel !== null) {
+        const v = Number(savedSel);
+        setSelectedFolder(Number.isFinite(v) ? v : null);
+      }
     }
-  }, [treeState]);
+  }, []);
 
   const refreshImages = useCallback(() => {
     if (!selectedFolder) {
@@ -338,7 +344,7 @@ export default function ImageManagePage() {
     const q = `&ts=${Date.now()}`;
     fetch(`/api/image/view?folder_id=${selectedFolder}${q}`, { cache: 'no-store' })
       .then((res) => res.json())
-      .then(setImages);
+      .then((raw) => setImages(normalizeImages(raw)));
   }, [selectedFolder]);
 
   // 초기 폴더 로드
@@ -346,9 +352,12 @@ export default function ImageManagePage() {
     reloadFolders();
   }, [reloadFolders]);
 
-  // 폴더 변경 시 이미지 리프레시
+  // 폴더 변경 시 이미지 리프레시 + 최근 경로 저장
   useEffect(() => {
     setSelectedItems([]);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('imgmgr.selectedFolder', selectedFolder === null ? '' : String(selectedFolder));
+    }
     refreshImages();
   }, [selectedFolder, refreshImages]);
 
@@ -362,8 +371,7 @@ export default function ImageManagePage() {
       body: JSON.stringify({ name, parent_id: parentId }),
     });
     if (!res.ok) throw new Error((await res.json())?.error || '폴더 생성 실패');
-    // 서버가 { ok, folder } 반환하지만, 로컬 반영 대신 항상 재조회
-    await reloadFolders();
+    await reloadFolders(); // 항상 재조회
   };
 
   const [newFolderOpen, setNewFolderOpen] = useState(false);
@@ -378,7 +386,13 @@ export default function ImageManagePage() {
       setNewFolderOpen(false);
       // 방금 만든 폴더가 보이도록 현재 부모는 열어둠
       if (selectedFolder) {
-        setTreeState((prev) => ({ ...prev, [selectedFolder]: true }));
+        setTreeState((prev) => {
+          const next = { ...prev, [selectedFolder]: true };
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('imgmgr.treeState', JSON.stringify(next));
+          }
+          return next;
+        });
       }
     } catch (e: any) {
       alert(e.message || '폴더 생성 실패');
@@ -419,13 +433,14 @@ export default function ImageManagePage() {
     setDeletingType(null);
   };
 
-  // 이미지 삭제
-  const handleDeleteImages = async () => {
-    if (!selectedItems.length) return;
+  // 이미지 삭제 (선택 항목 기준)
+  const handleDeleteImages = async (idsOverride?: number[]) => {
+    const ids = idsOverride ?? selectedItems.map((i) => i.id);
+    if (!ids.length) return;
     const res = await fetch('/api/image/delete', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids: selectedItems.map((i) => i.id) }),
+      body: JSON.stringify({ ids }),
     });
     if (res.ok) {
       refreshImages();
@@ -439,15 +454,15 @@ export default function ImageManagePage() {
 
   // 이미지 이름변경
   const handleImageRename = async () => {
-    if (editingId == null) return;
+    if (!editingTarget || editingTarget.type !== 'image') return;
     const res = await fetch('/api/image/rename', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: editingId, name: imageEditName.trim() }),
+      body: JSON.stringify({ id: editingTarget.id, name: imageEditName.trim() }),
     });
     if (res.ok) {
       refreshImages();
-      setEditingId(null);
+      setEditingTarget(null);
     } else {
       alert('이름 변경 실패');
     }
@@ -463,7 +478,21 @@ export default function ImageManagePage() {
     } else {
       setSelectedItems([item]);
     }
-    setEditingId(null);
+    // 이미지 rename 모달과 독립
+    if (editingTarget?.type === 'image' && editingTarget.id !== item.id) {
+      // 선택 바뀌어도 모달은 유지(독립). 여기서는 아무 것도 하지 않음.
+    }
+  };
+
+  // 썸네일 컨텍스트 메뉴(우클릭)
+  const handleThumbContextMenu = (item: any, e: React.MouseEvent) => {
+    setSelectedItems([item]); // 우클릭 시 그 이미지를 단일 선택으로 맞춤
+    setContextMenu({
+      visible: true,
+      x: (e as any).clientX,
+      y: (e as any).clientY,
+      target: { type: 'image', id: item.id },
+    });
   };
 
   // 단축키
@@ -485,18 +514,18 @@ export default function ImageManagePage() {
       }
       if (e.key === 'F2') {
         if (selectedItems.length === 1 && selectedItems[0].type === 'image') {
-          setEditingId(selectedItems[0].id);
+          setEditingTarget({ type: 'image', id: selectedItems[0].id });
           setImageEditName(selectedItems[0].name);
           e.preventDefault();
         } else if (!selectedItems.length && selectedFolder) {
-          setEditingId(selectedFolder); // 폴더는 트리 인라인 rename
+          setEditingTarget({ type: 'folder', id: selectedFolder }); // 폴더는 트리 인라인 rename
           e.preventDefault();
         }
       }
     };
     window.addEventListener('keydown', onKey, { capture: true });
     return () => window.removeEventListener('keydown', onKey, { capture: true });
-  }, [selectedFolder, selectedItems]);
+  }, [selectedFolder, selectedItems, editingTarget]);
 
   // 컨텍스트 메뉴 닫기
   useEffect(() => {
@@ -532,8 +561,20 @@ export default function ImageManagePage() {
               onClick={() => {
                 setSelectedFolder(null);
                 setSelectedItems([]);
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem('imgmgr.selectedFolder', '');
+                }
               }}
               style={{ cursor: 'pointer' }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setContextMenu({
+                  visible: true,
+                  x: e.clientX,
+                  y: e.clientY,
+                  target: null,
+                });
+              }}
             >
               <span>📂</span> RDWIKI
             </div>
@@ -544,8 +585,8 @@ export default function ImageManagePage() {
               onSelect={(id) => {
                 setSelectedFolder(id);
               }}
-              editingId={editingId}
-              setEditingId={setEditingId}
+              editingTarget={editingTarget}
+              setEditingTarget={setEditingTarget}
               onRename={handleRename}
               treeState={treeState}
               setTreeState={setTreeState}
@@ -651,10 +692,10 @@ export default function ImageManagePage() {
                     className="seg-btn"
                     onClick={() => {
                       if (canRenameImage) {
-                        setEditingId(selectedItems[0].id);
+                        setEditingTarget({ type: 'image', id: selectedItems[0].id });
                         setImageEditName(selectedItems[0].name);
                       } else if (!selectedItems.length && selectedFolder) {
-                        setEditingId(selectedFolder); // 트리 인라인 rename
+                        setEditingTarget({ type: 'folder', id: selectedFolder }); // 트리 인라인 rename
                         setContextMenu((v) => ({ ...v, visible: false }));
                       }
                     }}
@@ -691,6 +732,7 @@ export default function ImageManagePage() {
                 images={images}
                 currentFolderId={selectedFolder}
                 onSelect={handleFileListSelect}
+                onContextMenuImage={handleThumbContextMenu}
                 selectedItems={selectedItems}
                 searchQuery={searchQuery}
               />
@@ -699,8 +741,8 @@ export default function ImageManagePage() {
         </div>
       </div>
 
-      {/* 컨텍스트 메뉴 */}
-      {contextMenu.visible && contextMenu.folderId && (
+      {/* 컨텍스트 메뉴 (폴더/이미지 공용) */}
+      {contextMenu.visible && (
         <div
           style={{
             position: 'fixed',
@@ -711,32 +753,80 @@ export default function ImageManagePage() {
             borderRadius: 8,
             boxShadow: '0 2px 14px 0 rgba(0,0,0,0.13)',
             zIndex: 3000,
-            minWidth: 128,
-            padding: '4px 0',
+            minWidth: 160,
+            padding: '6px 0',
           }}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
-          <button
-            className="w-full px-4 py-2 text-left hover:bg-gray-100"
-            onClick={() => {
-              setEditingId(contextMenu.folderId!);
-              setContextMenu((v) => ({ ...v, visible: false }));
-            }}
-          >
-            ✏️ 이름 변경
-          </button>
-          <button
-            className="w-full px-4 py-2 text-left hover:bg-gray-100 text-red-500"
-            onClick={() => {
-              setSelectedFolder(contextMenu.folderId!);
-              setShowDeleteModal(true);
-              setDeletingType('folder');
-              setContextMenu((v) => ({ ...v, visible: false }));
-            }}
-          >
-            🗑 삭제
-          </button>
+          {contextMenu.target?.type === 'folder' && (
+            <>
+              <button
+                className="w-full px-4 py-2 text-left hover:bg-gray-100"
+                onClick={() => {
+                  setEditingTarget({ type: 'folder', id: contextMenu.target!.id });
+                  setContextMenu((v) => ({ ...v, visible: false }));
+                }}
+              >
+                ✏️ 이름 변경
+              </button>
+              <button
+                className="w-full px-4 py-2 text-left hover:bg-gray-100 text-red-500"
+                onClick={() => {
+                  setSelectedFolder(contextMenu.target!.id);
+                  setShowDeleteModal(true);
+                  setDeletingType('folder');
+                  setContextMenu((v) => ({ ...v, visible: false }));
+                }}
+              >
+                🗑 삭제
+              </button>
+            </>
+          )}
+
+          {contextMenu.target?.type === 'image' && (
+            <>
+              <button
+                className="w-full px-4 py-2 text-left hover:bg-gray-100"
+                onClick={() => {
+                  // 선택을 해당 이미지로 맞추고 이름변경
+                  setSelectedItems([{ id: contextMenu.target!.id, type: 'image', name: images.find(i => i.id === contextMenu.target!.id)?.name }]);
+                  const target = images.find((i) => i.id === contextMenu.target!.id);
+                  setEditingTarget({ type: 'image', id: contextMenu.target!.id });
+                  setImageEditName(target?.name ?? '');
+                  setContextMenu((v) => ({ ...v, visible: false }));
+                }}
+              >
+                ✏️ 이름 변경
+              </button>
+              <button
+                className="w-full px-4 py-2 text-left hover:bg-gray-100"
+                onClick={async () => {
+                  const target = images.find((i) => i.id === contextMenu.target!.id);
+                  if (!target) return;
+                  try {
+                    await navigator.clipboard.writeText(target.url);
+                    setContextMenu((v) => ({ ...v, visible: false }));
+                  } catch {
+                    alert('클립보드 복사 실패');
+                  }
+                }}
+              >
+                🔗 URL 복사
+              </button>
+              <button
+                className="w-full px-4 py-2 text-left hover:bg-gray-100 text-red-500"
+                onClick={() => {
+                  setShowDeleteModal(true);
+                  setDeletingType('image');
+                  setSelectedItems([{ id: contextMenu.target!.id, type: 'image' }]);
+                  setContextMenu((v) => ({ ...v, visible: false }));
+                }}
+              >
+                🗑 삭제
+              </button>
+            </>
+          )}
         </div>
       )}
 
@@ -772,12 +862,12 @@ export default function ImageManagePage() {
 
       {/* 이미지 이름변경 (이미지에만 사용) */}
       <ModalCard
-        open={!!editingId && selectedItems.some((i) => i.id === editingId)}
-        onClose={() => setEditingId(null)}
+        open={!!editingTarget && editingTarget.type === 'image'}
+        onClose={() => setEditingTarget(null)}
         title="이름 변경"
         actions={
           <>
-            <button className="rd-btn secondary" onClick={() => setEditingId(null)}>
+            <button className="rd-btn secondary" onClick={() => setEditingTarget(null)}>
               취소
             </button>
             <button className="rd-btn primary" onClick={handleImageRename}>
@@ -794,7 +884,7 @@ export default function ImageManagePage() {
           autoFocus
           onKeyDown={(e) => {
             if (e.key === 'Enter') handleImageRename();
-            if (e.key === 'Escape') setEditingId(null);
+            if (e.key === 'Escape') setEditingTarget(null);
           }}
         />
       </ModalCard>
@@ -820,7 +910,9 @@ export default function ImageManagePage() {
             </button>
             <button
               className="rd-btn danger"
-              onClick={deletingType === 'folder' ? handleDeleteFolder : handleDeleteImages}
+              onClick={() =>
+                deletingType === 'folder' ? handleDeleteFolder() : handleDeleteImages()
+              }
             >
               삭제
             </button>
@@ -830,21 +922,26 @@ export default function ImageManagePage() {
         <p className="rd-card-description">
           {deletingType === 'folder' ? (
             <>
-              {' '}
-              <b>{folders.find((f) => f.id === selectedFolder)?.name}</b> 폴더와 모든 하위 항목이 삭제됩니다. 계속하시겠습니까?
+              <b>{folders.find((f) => f.id === selectedFolder)?.name}</b> 폴더와 모든 하위 항목이 삭제됩니다.
+              계속하시겠습니까?
             </>
           ) : selectedItems.length > 1 ? (
             <>
               <b>{selectedItems.length}개</b> 이미지를 삭제하시겠습니까?
             </>
           ) : (
-            <>정말 <b>{selectedItems[0]?.name}</b> 이미지를 삭제하시겠습니까?</>
+            <>정말 <b>{selectedItems[0]?.name ?? '선택 이미지'}</b> 이미지를 삭제하시겠습니까?</>
           )}
         </p>
       </ModalCard>
 
       {/* 업로드 모달 */}
-      <ImageUploadModal open={uploadOpen} onClose={() => setUploadOpen(false)} folderId={selectedFolder} onUploaded={handleImagesUploaded} />
+      <ImageUploadModal
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+        folderId={selectedFolder}
+        onUploaded={handleImagesUploaded}
+      />
     </div>
   );
 }

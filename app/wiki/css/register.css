@@ -6,7 +6,7 @@
 
 /* ===== [배경/컨테이너] ===== */
 .register-bg {
-  min-height: 100vh;
+  min-height: 90vh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -96,4 +96,20 @@
   font-size: 0.97rem;
   text-align: center;
   color: #38bdf8; /* sky-400 */
+}
+
+.login-message { white-space: pre-line; }
+
+#form {
+  padding: 18px 22px;            /* 내부 여백 살짝 축소 */
+}
+
+.login-input-group {
+  margin: 20px 0;                /* 인풋 사이 간격 축소 */
+}
+
+#submit-button {
+  height: 44px;
+  font-size: 15px;
+  padding: 10px 0;
 }

@@ -116,7 +116,7 @@ export default function HamburgerMenu({
           <div className="hamburger-login-info">
             <span className="hamburger-welcome">
               {!isLoggedIn
-                ? '로그인 해주세요'
+                ? <Link href="/login" className="hamburger-welcome no-underline">로그인 해주세요</Link> 
                 : specialDisplay
                   ? `환영합니다 ${specialDisplay}님`
                   : '환영합니다'}

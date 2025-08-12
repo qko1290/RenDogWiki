@@ -108,10 +108,6 @@
 .hamburger-login-info a {
   cursor: pointer;
   text-decoration: none;
-  color: white;
-}
-.hamburger-login-info a:hover {
-  text-decoration: underline;
 }
 
 .hamburger-welcome {
@@ -119,6 +115,8 @@
   color: #ff8b00;
   font-weight: 900;
 }
+
+.no-underline { text-decoration: none !important; border-bottom: 0 !important; }
 
 /* 메뉴 리스트(내비, 프로필 등) */
 .hamburger-menu-list {
@@ -213,11 +211,9 @@
   text-align: center;
 }
 .hamburger-login-info a {
-  color: #1fd1ff !important;
   font-weight: bold;
 }
 .hamburger-login-info a:hover {
-  color: #fff !important;
   text-decoration: underline;
 }
 

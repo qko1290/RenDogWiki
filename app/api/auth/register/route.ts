@@ -37,13 +37,34 @@ export async function POST(req: NextRequest) {
 
     // 2. 중복 체크 (이메일, 아이디, 닉네임)
     // email, username, minecraftName 중 하나라도 기존에 있으면 가입 불가
+    // ⚠️ 변경: 한 번의 조회로 가져오고 필드별로 어떤 것이 중복인지 알려준다.
     const existing = await sql`
-      SELECT * FROM users WHERE email = ${email} OR username = ${username} OR minecraft_name = ${minecraftName}
+      SELECT email, username, minecraft_name
+      FROM users
+      WHERE email = ${email}
+         OR username = ${username}
+         OR minecraft_name = ${minecraftName}
     `;
 
     // 중복된 값이 존재하면 에러 반환
+    // ⚠️ 변경: 필드별 플래그를 만들어 클라이언트가 어디가 중복인지 알 수 있게 함
     if (Array.isArray(existing) && existing.length > 0) {
-      return NextResponse.json({ error: '이미 존재하는 이메일/아이디/닉네임입니다.' }, { status: 409 });
+      const emailTaken = existing.some((r: any) => r.email === email);
+      const usernameTaken = existing.some((r: any) => r.username === username);
+      const minecraftTaken = existing.some((r: any) => r.minecraft_name === minecraftName);
+
+      return NextResponse.json(
+        {
+          error: '중복된 항목이 있습니다.',
+          // 클라이언트에서 각 입력 아래에 메시지를 띄우기 위함
+          fields: {
+            email: emailTaken,
+            username: usernameTaken,
+            minecraftName: minecraftTaken,
+          },
+        },
+        { status: 409 }
+      );
     }
 
     // 3. 비밀번호 해시 및 인증 토큰 생성
