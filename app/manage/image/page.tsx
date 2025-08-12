@@ -1,6 +1,6 @@
 // =============================================
 // File: app/manage/image/page.tsx
-// (클라이언트: 캐시 무효화 & 재조회 패턴 적용)
+// (클라이언트: 캐시 무효화 & 재조회 패턴 + 폴더 DnD 이동)
 // =============================================
 'use client';
 
@@ -39,6 +39,11 @@ function FolderTree({
   treeState,
   setTreeState,
   setContextMenu,
+  draggingFolderId,
+  dragOverFolderId,
+  setDraggingFolderId,
+  setDragOverFolderId,
+  onMoveFolder,
 }: {
   folders: Array<{ id: number; name: string; parent_id: number | null }>;
   parentId: number | null;
@@ -58,6 +63,11 @@ function FolderTree({
       target: { type: 'folder' | 'image'; id: number } | null;
     }>
   >;
+  draggingFolderId: number | null;
+  dragOverFolderId: number | null;
+  setDraggingFolderId: (id: number | null) => void;
+  setDragOverFolderId: (id: number | null) => void;
+  onMoveFolder: (dragId: number, newParentId: number) => void;
 }) {
   const [editName, setEditName] = useState('');
 
@@ -76,11 +86,11 @@ function FolderTree({
   return (
     <ul className="folder-list" style={{ paddingLeft: depth === 0 ? 0 : 16 }}>
       {list.map((folder) => {
-        // ✅ 숫자 비교로 자식 감지(타입 불일치 방지)
         const hasChildren = folders.some((f) => Number(f.parent_id) === Number(folder.id));
         const isOpen = treeState[folder.id] ?? false;
         const isEditingThisFolder =
           editingTarget?.type === 'folder' && editingTarget.id === folder.id;
+        const isDropTarget = dragOverFolderId === folder.id;
 
         return (
           <li key={folder.id} className="folder-item" style={{ position: 'relative' }}>
@@ -115,7 +125,12 @@ function FolderTree({
               ) : (
                 <button
                   className={'folder-btn' + (selectedId === folder.id ? ' active' : '')}
-                  style={{ zIndex: 2, minHeight: 28 }}
+                  style={{
+                    zIndex: 2,
+                    minHeight: 28,
+                    outline: isDropTarget ? '2px dashed #86e291' : undefined,
+                    background: isDropTarget ? '#f3fff7' : undefined,
+                  }}
                   onClick={(e) => {
                     e.stopPropagation();
                     onSelect(folder.id);
@@ -130,6 +145,31 @@ function FolderTree({
                       y: e.clientY,
                       target: { type: 'folder', id: folder.id },
                     });
+                  }}
+                  draggable
+                  onDragStart={(e) => {
+                    setDraggingFolderId(folder.id);
+                    e.dataTransfer.setData('text/plain', String(folder.id));
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
+                  onDragOver={(e) => {
+                    if (draggingFolderId === folder.id) return; // 자기 자신 위 하이라이트 방지
+                    e.preventDefault();
+                    setDragOverFolderId(folder.id);
+                    e.dataTransfer.dropEffect = 'move';
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const dragId =
+                      draggingFolderId ?? Number(e.dataTransfer.getData('text/plain'));
+                    setDragOverFolderId(null);
+                    if (Number.isFinite(dragId) && dragId !== folder.id) {
+                      onMoveFolder(dragId, folder.id);
+                    }
+                  }}
+                  onDragEnd={() => {
+                    setDraggingFolderId(null);
+                    setDragOverFolderId(null);
                   }}
                 >
                   <span role="img" aria-label="folder">
@@ -174,6 +214,11 @@ function FolderTree({
                 treeState={treeState}
                 setTreeState={setTreeState}
                 setContextMenu={setContextMenu}
+                draggingFolderId={draggingFolderId}
+                dragOverFolderId={dragOverFolderId}
+                setDraggingFolderId={setDraggingFolderId}
+                setDragOverFolderId={setDragOverFolderId}
+                onMoveFolder={onMoveFolder}
               />
             )}
           </li>
@@ -260,12 +305,18 @@ export default function ImageManagePage() {
       .then((d) => setUser(d?.user ?? null));
   }, []);
 
-  const [folders, setFolders] = useState<Array<{ id: number; name: string; parent_id: number | null }>>([]);
-  const [images, setImages] = useState<Array<{ id: number; name: string; url: string; folder_id: number }>>([]);
+  const [folders, setFolders] = useState<
+    Array<{ id: number; name: string; parent_id: number | null }>
+  >([]);
+  const [images, setImages] = useState<
+    Array<{ id: number; name: string; url: string; folder_id: number }>
+  >([]);
   const [selectedFolder, setSelectedFolder] = useState<number | null>(null);
 
   const [selectedItems, setSelectedItems] = useState<any[]>([]);
-  const [editingTarget, setEditingTarget] = useState<{ type: 'image' | 'folder'; id: number } | null>(null); // ✅ 독립 상태
+  const [editingTarget, setEditingTarget] = useState<{ type: 'image' | 'folder'; id: number } | null>(
+    null
+  );
   const [imageEditName, setImageEditName] = useState('');
   const [treeState, setTreeState] = useState<Record<number, boolean>>({});
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -278,6 +329,9 @@ export default function ImageManagePage() {
   const [deletingType, setDeletingType] = useState<'folder' | 'image' | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const [draggingFolderId, setDraggingFolderId] = useState<number | null>(null);
+  const [dragOverFolderId, setDragOverFolderId] = useState<number | null>(null);
 
   // --- 공통 재조회: 폴더/이미지 ---
   const normalizeFolders = (data: any[]) =>
@@ -356,7 +410,10 @@ export default function ImageManagePage() {
   useEffect(() => {
     setSelectedItems([]);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('imgmgr.selectedFolder', selectedFolder === null ? '' : String(selectedFolder));
+      localStorage.setItem(
+        'imgmgr.selectedFolder',
+        selectedFolder === null ? '' : String(selectedFolder)
+      );
     }
     refreshImages();
   }, [selectedFolder, refreshImages]);
@@ -478,10 +535,6 @@ export default function ImageManagePage() {
     } else {
       setSelectedItems([item]);
     }
-    // 이미지 rename 모달과 독립
-    if (editingTarget?.type === 'image' && editingTarget.id !== item.id) {
-      // 선택 바뀌어도 모달은 유지(독립). 여기서는 아무 것도 하지 않음.
-    }
   };
 
   // 썸네일 컨텍스트 메뉴(우클릭)
@@ -494,6 +547,85 @@ export default function ImageManagePage() {
       target: { type: 'image', id: item.id },
     });
   };
+
+  // 특정 폴더의 모든 자손 id 집합
+  const getDescendantIds = useCallback(
+    (rootId: number) => {
+      const childrenMap = new Map<number, number[]>();
+      folders.forEach((f) => {
+        const pid = f.parent_id ?? -1;
+        childrenMap.set(pid, [...(childrenMap.get(pid) || []), f.id]);
+      });
+      const out = new Set<number>();
+      const walk = (id: number) => {
+        const kids = childrenMap.get(id) || [];
+        for (const k of kids) {
+          if (!out.has(k)) {
+            out.add(k);
+            walk(k);
+          }
+        }
+      };
+      walk(rootId);
+      return out;
+    },
+    [folders]
+  );
+
+  // 이동 실행
+  const moveFolder = useCallback(
+    async (dragId: number, newParentId: number | null) => {
+      if (dragId === newParentId) return;
+      // 클라 선제 검증(서버에서도 다시 검사)
+      if (newParentId !== null) {
+        const descendants = getDescendantIds(dragId);
+        if (descendants.has(newParentId)) {
+          alert('하위 폴더로는 이동할 수 없어요.');
+          return;
+        }
+      }
+      // 동일 부모에 동명이 있는지 체크
+      const drag = folders.find((f) => f.id === dragId);
+      if (drag) {
+        const dup = folders.some(
+          (f) =>
+            (f.parent_id ?? null) === (newParentId ?? null) &&
+            f.name === drag.name &&
+            f.id !== dragId
+        );
+        if (dup) {
+          alert('해당 위치에 같은 이름의 폴더가 있어요.');
+          return;
+        }
+      }
+
+      const res = await fetch('/api/image/folder/move', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: dragId, new_parent_id: newParentId }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        alert(d?.error || '폴더 이동 실패');
+        return;
+      }
+
+      // 새 부모를 열어 두고, 트리/선택 경로 저장
+      setTreeState((prev) => {
+        const next = { ...prev };
+        if (newParentId !== null) next[newParentId] = true;
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('imgmgr.treeState', JSON.stringify(next));
+        }
+        return next;
+      });
+
+      await reloadFolders();
+      setDraggingFolderId(null);
+      setDragOverFolderId(null);
+    },
+    [folders, getDescendantIds, reloadFolders]
+  );
 
   // 단축키
   useEffect(() => {
@@ -565,7 +697,11 @@ export default function ImageManagePage() {
                   localStorage.setItem('imgmgr.selectedFolder', '');
                 }
               }}
-              style={{ cursor: 'pointer' }}
+              style={{
+                cursor: 'pointer',
+                outline: dragOverFolderId === -1 ? '2px dashed #86e291' : undefined,
+                background: dragOverFolderId === -1 ? '#f3fff7' : undefined,
+              }}
               onContextMenu={(e) => {
                 e.preventDefault();
                 setContextMenu({
@@ -574,6 +710,25 @@ export default function ImageManagePage() {
                   y: e.clientY,
                   target: null,
                 });
+              }}
+              // 루트로 드롭 → parent_id = null
+              onDragOver={(e) => {
+                if (draggingFolderId != null) {
+                  e.preventDefault();
+                  setDragOverFolderId(-1);
+                }
+              }}
+              onDragLeave={() => {
+                if (dragOverFolderId === -1) setDragOverFolderId(null);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const dragId =
+                  draggingFolderId ?? Number(e.dataTransfer.getData('text/plain'));
+                setDragOverFolderId(null);
+                if (Number.isFinite(dragId)) {
+                  moveFolder(dragId, null);
+                }
               }}
             >
               <span>📂</span> RDWIKI
@@ -591,6 +746,11 @@ export default function ImageManagePage() {
               treeState={treeState}
               setTreeState={setTreeState}
               setContextMenu={setContextMenu}
+              draggingFolderId={draggingFolderId}
+              dragOverFolderId={dragOverFolderId}
+              setDraggingFolderId={setDraggingFolderId}
+              setDragOverFolderId={setDragOverFolderId}
+              onMoveFolder={(dragId, newPid) => moveFolder(dragId, newPid)}
             />
           </aside>
 
@@ -602,7 +762,14 @@ export default function ImageManagePage() {
               {/* 검색 */}
               <div className="toolbar-search">
                 <div className="seg-input">
-                  <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                  <svg
+                    className="ico"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    aria-hidden="true"
+                  >
                     <circle cx="11" cy="11" r="7" />
                     <path d="M20 20l-3.5-3.5" strokeLinecap="round" />
                   </svg>
@@ -621,7 +788,14 @@ export default function ImageManagePage() {
                       aria-label="검색어 지우기"
                       title="지우기"
                     >
-                      <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                      <svg
+                        className="ico"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        aria-hidden="true"
+                      >
                         <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
                       </svg>
                     </button>
@@ -632,8 +806,19 @@ export default function ImageManagePage() {
               {/* 세그먼트 버튼 */}
               <div className="image-explorer-header-btns">
                 <div className="toolbar-seg">
-                  <button type="button" className="seg-btn" onClick={() => setNewFolderOpen(true)} title="새 폴더">
-                    <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <button
+                    type="button"
+                    className="seg-btn"
+                    onClick={() => setNewFolderOpen(true)}
+                    title="새 폴더"
+                  >
+                    <svg
+                      className="ico"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                    >
                       <path
                         d="M3.75 7.5h6l1.5 1.5h9a1.5 1.5 0 011.5 1.5v7.5A1.5 1.5 0 0120.75 21h-15A2.25 2.25 0 013.5 18.75V9A1.5 1.5 0 013.75 7.5Z"
                         strokeLinecap="round"
@@ -651,13 +836,23 @@ export default function ImageManagePage() {
                     disabled={!selectedFolder}
                     title="업로드"
                   >
-                    <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <svg
+                      className="ico"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                    >
                       <path
                         d="M6.75 19.5A4.5 4.5 0 015.34 10.725 5.25 5.25 0 0115.573 8.395 3 3 0 0118 14.25h-.75"
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       />
-                      <path d="M12 15.75V9.75m0 0l3 3m-3-3l-3 3" strokeLinecap="round" strokeLinejoin="round" />
+                      <path
+                        d="M12 15.75V9.75m0 0l3 3m-3-3l-3 3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                     </svg>
                     <span className="seg-label">업로드</span>
                   </button>
@@ -677,7 +872,13 @@ export default function ImageManagePage() {
                     disabled={!selectedFolder && !selectedItems.length}
                     title="삭제"
                   >
-                    <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <svg
+                      className="ico"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                    >
                       <path
                         d="M9.75 9.75v6.75M14.25 9.75v6.75M4.5 7.5h15M9 4.5h6m-8.25 3L7.5 19.5a2.25 2.25 0 002.25 2.25h4.5A2.25 2.25 0 0016.5 19.5L18.75 7.5"
                         strokeLinecap="round"
@@ -702,8 +903,18 @@ export default function ImageManagePage() {
                     disabled={!(canRenameImage || (!selectedItems.length && selectedFolder))}
                     title="이름변경"
                   >
-                    <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <path d="M16.5 3.75l3.75 3.75M4.5 19.5l3.75-.938L19.5 7.875l-3.75-3.75L4.5 15.75V19.5Z" strokeLinecap="round" strokeLinejoin="round" />
+                    <svg
+                      className="ico"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                    >
+                      <path
+                        d="M16.5 3.75l3.75 3.75M4.5 19.5l3.75-.938L19.5 7.875l-3.75-3.75L4.5 15.75V19.5Z"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                     </svg>
                     <span className="seg-label">이름변경</span>
                   </button>
@@ -789,8 +1000,13 @@ export default function ImageManagePage() {
               <button
                 className="w-full px-4 py-2 text-left hover:bg-gray-100"
                 onClick={() => {
-                  // 선택을 해당 이미지로 맞추고 이름변경
-                  setSelectedItems([{ id: contextMenu.target!.id, type: 'image', name: images.find(i => i.id === contextMenu.target!.id)?.name }]);
+                  setSelectedItems([
+                    {
+                      id: contextMenu.target!.id,
+                      type: 'image',
+                      name: images.find((i) => i.id === contextMenu.target!.id)?.name,
+                    },
+                  ]);
                   const target = images.find((i) => i.id === contextMenu.target!.id);
                   setEditingTarget({ type: 'image', id: contextMenu.target!.id });
                   setImageEditName(target?.name ?? '');
@@ -840,7 +1056,11 @@ export default function ImageManagePage() {
             <button className="rd-btn secondary" onClick={() => setNewFolderOpen(false)}>
               취소
             </button>
-            <button className="rd-btn primary" onClick={handleCreateFolder} disabled={!newFolderName.trim()}>
+            <button
+              className="rd-btn primary"
+              onClick={handleCreateFolder}
+              disabled={!newFolderName.trim()}
+            >
               생성
             </button>
           </>
@@ -922,15 +1142,18 @@ export default function ImageManagePage() {
         <p className="rd-card-description">
           {deletingType === 'folder' ? (
             <>
-              <b>{folders.find((f) => f.id === selectedFolder)?.name}</b> 폴더와 모든 하위 항목이 삭제됩니다.
-              계속하시겠습니까?
+              <b>{folders.find((f) => f.id === selectedFolder)?.name}</b> 폴더와 모든 하위 항목이
+              삭제됩니다. 계속하시겠습니까?
             </>
           ) : selectedItems.length > 1 ? (
             <>
               <b>{selectedItems.length}개</b> 이미지를 삭제하시겠습니까?
             </>
           ) : (
-            <>정말 <b>{selectedItems[0]?.name ?? '선택 이미지'}</b> 이미지를 삭제하시겠습니까?</>
+            <>
+              정말 <b>{selectedItems[0]?.name ?? '선택 이미지'}</b> 이미지를
+              삭제하시겠습니까?
+            </>
           )}
         </p>
       </ModalCard>
