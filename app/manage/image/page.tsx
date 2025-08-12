@@ -636,6 +636,11 @@ export default function ImageManagePage() {
     [folders, getDescendantIds, reloadFolders]
   );
 
+  const clearImageSelection = useCallback(() => {
+    setSelectedItems([]);
+    setEditingTarget((t) => (t?.type === 'image' ? null : t));
+  }, []);
+
   // 단축키
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -660,6 +665,12 @@ export default function ImageManagePage() {
           e.preventDefault();
         } else if (!selectedItems.length && selectedFolder) {
           setEditingTarget({ type: 'folder', id: selectedFolder }); // 폴더는 트리 인라인 rename
+          e.preventDefault();
+        }
+      }
+      if (e.key === 'Escape') {
+        if (selectedItems.length || editingTarget?.type === 'image') {
+          clearImageSelection();
           e.preventDefault();
         }
       }
@@ -696,7 +707,13 @@ export default function ImageManagePage() {
       <div className="image-explorer-viewport">
         <div className="image-explorer-layout">
           {/* 좌측: 폴더 트리 */}
-          <aside className="image-explorer-sidebar">
+          <aside className="image-explorer-sidebar"
+            onMouseDown={(e) => {
+            // 폴더 인라인 이름편집 중일 땐 유지
+            const el = e.target as HTMLElement;
+            if (el.closest('.folder-edit-input')) return;
+            clearImageSelection();
+          }}>
             <div
               className={'folder-btn' + (selectedFolder === null ? ' active bg-blue-100' : '')}
               onClick={() => {
@@ -748,6 +765,7 @@ export default function ImageManagePage() {
               selectedId={selectedFolder}
               onSelect={(id) => {
                 setSelectedFolder(id);
+                clearImageSelection(); 
               }}
               editingTarget={editingTarget}
               setEditingTarget={setEditingTarget}
@@ -765,7 +783,13 @@ export default function ImageManagePage() {
 
           {/* 우측: 헤더 + 파일리스트 */}
           <section className="image-explorer-content">
-            <div className="image-explorer-header-bar">
+            <div className="image-explorer-header-bar"
+              onMouseDown={(e) => {
+              const el = e.target as HTMLElement;
+              // 검색 인풋/버튼 클릭은 유지
+              if (el.closest('.seg-input')) return;
+              clearImageSelection();
+            }}>
               <h1 className="image-explorer-title">이미지 업로드/관리</h1>
 
               {/* 검색 */}
@@ -933,6 +957,11 @@ export default function ImageManagePage() {
 
             <div
               className="image-explorer-filelist-outer"
+              onMouseDown={(e) => {
+                const el = e.target as HTMLElement;
+                if (el.closest('.image-explorer-thumbnail')) return;
+                clearImageSelection();
+              }}
               onDragEnter={(e) => {
                 e.preventDefault();
                 e.currentTarget.classList.add('dragover');
@@ -984,6 +1013,7 @@ export default function ImageManagePage() {
               <button
                 className="w-full px-4 py-2 text-left hover:bg-gray-100"
                 onClick={() => {
+                  clearImageSelection();
                   setEditingTarget({ type: 'folder', id: contextMenu.target!.id });
                   setContextMenu((v) => ({ ...v, visible: false }));
                 }}
@@ -993,6 +1023,7 @@ export default function ImageManagePage() {
               <button
                 className="w-full px-4 py-2 text-left hover:bg-gray-100 text-red-500"
                 onClick={() => {
+                  clearImageSelection();
                   setSelectedFolder(contextMenu.target!.id);
                   setShowDeleteModal(true);
                   setDeletingType('folder');
