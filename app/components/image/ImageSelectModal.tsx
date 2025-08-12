@@ -3,7 +3,7 @@
 // =============================================
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Modal from '@/components/common/Modal';
 
 type Folder = { id: number; name: string; parent_id: number | null };
@@ -29,7 +29,7 @@ function FolderTree({
   depth = 0,
 }: FolderTreeProps) {
   const list = folders.filter((f) =>
-    parentId === null ? f.parent_id == null : Number(f.parent_id) === Number(parentId),
+    parentId === null ? f.parent_id == null : Number(f.parent_id) === Number(parentId)
   );
   if (!list.length) return null;
 
@@ -49,9 +49,9 @@ function FolderTree({
                 style={{
                   display: 'flex',
                   alignItems: 'center',
+                  justifyContent: 'space-between',
                   gap: 8,
                   width: '100%',
-                  justifyContent: 'space-between',
                   borderRadius: 10,
                   padding: '6px 8px',
                   border: '1px solid',
@@ -76,13 +76,7 @@ function FolderTree({
                     aria-expanded={isOpen}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setTreeState((prev) => {
-                        const next = { ...prev, [folder.id]: !isOpen };
-                        if (typeof window !== 'undefined') {
-                          localStorage.setItem('imgsel.treeState', JSON.stringify(next));
-                        }
-                        return next;
-                      });
+                      setTreeState((prev) => ({ ...prev, [folder.id]: !isOpen }));
                     }}
                     style={{
                       display: 'inline-flex',
@@ -143,16 +137,18 @@ export default function ImageSelectModal({
   const [treeState, setTreeState] = useState<Record<number, boolean>>({});
   const [selectedImg, setSelectedImg] = useState<ImageFile | null>(null);
   const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [searchRows, setSearchRows] = useState<ImageFile[]>([]);
+  const searching = search.trim().length > 0;
 
   const normalizeFolders = (data: any[]): Folder[] =>
-    data.map((f) => ({
+    data.map((f: any) => ({
       id: Number(f.id),
       name: String(f.name),
       parent_id: f.parent_id === null || f.parent_id === undefined ? null : Number(f.parent_id),
     }));
+
   const normalizeImages = (data: any[]): ImageFile[] =>
-    data.map((i) => ({
+    data.map((i: any) => ({
       id: Number(i.id),
       name: String(i.name),
       url: String(i.url),
@@ -162,97 +158,59 @@ export default function ImageSelectModal({
   useEffect(() => {
     if (!open) return;
 
+    setSelectedFolder(null);
     setSelectedImg(null);
     setSearch('');
+    setSearchRows([]);
+    setTreeState({}); // 모두 닫힘
 
-    const ts = `?ts=${Date.now()}`;
-    fetch('/api/image/folder/list' + ts, { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((raw) => {
-        const data = normalizeFolders(raw);
-        setFolders(data);
-
-        if (typeof window !== 'undefined') {
-          const savedTree = localStorage.getItem('imgsel.treeState');
-          if (savedTree) {
-            try {
-              const parsed: Record<string, boolean> = JSON.parse(savedTree);
-              const cast: Record<number, boolean> = {};
-              Object.keys(parsed).forEach((k) => (cast[Number(k)] = !!parsed[k]));
-              setTreeState(cast);
-            } catch {
-              setTreeState({});
-            }
-          } else {
-            setTreeState({});
-          }
-
-          const savedSel = localStorage.getItem('imgsel.selectedFolder');
-          if (savedSel !== null && savedSel !== '' && savedSel !== 'null') {
-            const n = Number(savedSel);
-            setSelectedFolder(Number.isFinite(n) && n > 0 ? n : null);
-          } else {
-            setSelectedFolder(null);
-          }
-        }
-      });
+    (async () => {
+      const res = await fetch('/api/image/folder/list', { cache: 'no-store' });
+      const raw = await res.json();
+      setFolders(normalizeFolders(raw));
+      setImages([]); // 폴더 선택 전까지 비움
+    })();
   }, [open]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('imgsel.selectedFolder', selectedFolder === null ? 'null' : String(selectedFolder));
+    if (!open || searching) return;
+    if (selectedFolder) {
+      fetch(`/api/image/view?folder_id=${selectedFolder}&ts=${Date.now()}`, { cache: 'no-store' })
+        .then((r) => r.json())
+        .then((raw) => setImages(normalizeImages(raw)));
+    } else {
+      setImages([]);
     }
     setSelectedImg(null);
-    if (search.trim()) return;
-
-    if (selectedFolder == null) {
-      setImages([]);
-      return;
-    }
-    const ts = `&ts=${Date.now()}`;
-    setLoading(true);
-    fetch(`/api/image/view?folder_id=${selectedFolder}${ts}`, { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((raw) => setImages(normalizeImages(raw)))
-      .finally(() => setLoading(false));
-  }, [selectedFolder, search]);
+  }, [open, selectedFolder, searching]);
 
   useEffect(() => {
-    const q = search.trim();
     if (!open) return;
-    if (!q) return;
+    const q = search.trim();
+    if (!q) {
+      setSearchRows([]);
+      return;
+    }
+    const ctrl = new AbortController();
+    (async () => {
+      const res = await fetch(`/api/image/search?q=${encodeURIComponent(q)}&limit=200&ts=${Date.now()}`, {
+        cache: 'no-store',
+        signal: ctrl.signal,
+      });
+      const rows = await res.json();
+      setSearchRows(normalizeImages(rows));
+      setSelectedImg(null);
+    })();
+    return () => ctrl.abort();
+  }, [open, search]);
 
-    const controller = new AbortController();
-    const t = setTimeout(async () => {
-      try {
-        setLoading(true);
-        const res = await fetch(`/api/image/search?q=${encodeURIComponent(q)}`, {
-          signal: controller.signal,
-          cache: 'no-store',
-        });
-        if (!res.ok) throw new Error('search-failed');
-        const rows = await res.json();
-        setImages(normalizeImages(rows));
-      } catch {
-        setImages([]);
-      } finally {
-        setLoading(false);
-      }
-    }, 220);
-
-    return () => {
-      controller.abort();
-      clearTimeout(t);
-    };
-  }, [search, open]);
+  const listToShow = searching ? searchRows : images;
 
   const handleInsert = () => {
     if (!selectedImg) return;
     onSelectImage(selectedImg.url, selectedImg.name, selectedImg);
     onClose();
   };
-
-  const titleText = search.trim() ? '검색 결과' : selectedFolder == null ? '루트' : '폴더';
 
   if (!open) return null;
 
@@ -291,27 +249,24 @@ export default function ImageSelectModal({
               display: 'flex',
               alignItems: 'center',
               gap: 12,
-              padding: '14px 16px',
+              padding: '16px 18px',
               borderBottom: '1px solid #f0f2f6',
             }}
           >
-            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#111827' }}>
-              이미지 선택 · {titleText}
-            </h3>
-
-            <div style={{ marginLeft: 'auto', width: 280 }}>
+            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#111827' }}>이미지 선택</h3>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
               <div style={{ position: 'relative' }}>
                 <input
-                  placeholder="이미지 이름 검색(전체)"
+                  placeholder="이미지 이름 검색"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   style={{
-                    width: '100%',
+                    width: 240,
                     height: 34,
-                    padding: '0 30px 0 10px',
+                    padding: '0 28px 0 10px',
                     borderRadius: 8,
-                    border: '1px solid #e5e7eb',
-                    background: '#fcfcfd',
+                    border: '1px solid #e6eaf0',
+                    background: '#fbfcfd',
                     fontSize: 14,
                   }}
                 />
@@ -321,47 +276,43 @@ export default function ImageSelectModal({
                     aria-label="검색어 지우기"
                     style={{
                       position: 'absolute',
-                      right: 6,
-                      top: 6,
-                      width: 22,
-                      height: 22,
+                      right: 4,
+                      top: 4,
+                      width: 26,
+                      height: 26,
                       borderRadius: 6,
                       border: 'none',
-                      background: '#eef2f7',
+                      background: '#f3f4f6',
                       cursor: 'pointer',
-                      fontSize: 12,
-                      color: '#6b7280',
                     }}
                   >
-                    ✕
+                    ×
                   </button>
                 )}
               </div>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="닫기"
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  display: 'grid',
+                  placeItems: 'center',
+                }}
+              >
+                <svg height="18" viewBox="0 0 384 512">
+                  <path
+                    d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"
+                    fill="#9aa4b2"
+                  />
+                </svg>
+              </button>
             </div>
-
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="닫기"
-              style={{
-                marginLeft: 8,
-                width: 32,
-                height: 32,
-                borderRadius: 8,
-                border: 'none',
-                background: 'transparent',
-                cursor: 'pointer',
-                display: 'grid',
-                placeItems: 'center',
-              }}
-            >
-              <svg height="18" viewBox="0 0 384 512">
-                <path
-                  d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"
-                  fill="#9aa4b2"
-                />
-              </svg>
-            </button>
           </div>
 
           <div
@@ -380,21 +331,6 @@ export default function ImageSelectModal({
                 overflowY: 'auto',
               }}
             >
-              <div
-                className={'folder-btn' + (selectedFolder === null ? ' active bg-blue-100' : '')}
-                onClick={() => setSelectedFolder(null)}
-                style={{
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '6px 8px',
-                  borderRadius: 10,
-                }}
-              >
-                <span>📂</span> RDWIKI
-              </div>
-
               <FolderTree
                 folders={folders}
                 parentId={null}
@@ -416,17 +352,15 @@ export default function ImageSelectModal({
                 gap: 12,
                 alignContent: 'start',
                 background: '#fff',
-                opacity: loading ? 0.65 : 1,
-                transition: 'opacity .12s',
               }}
             >
-              {images.length === 0 && (
+              {listToShow.length === 0 && (
                 <div style={{ color: '#9aa1ad', margin: '40px auto' }}>
-                  {search.trim() ? '검색 결과가 없습니다' : '이 폴더에 이미지 없음'}
+                  {searching ? '검색 결과가 없습니다.' : '이 폴더에 이미지 없음'}
                 </div>
               )}
 
-              {images.map((img) => {
+              {listToShow.map((img) => {
                 const selected = selectedImg?.id === img.id;
                 return (
                   <button
@@ -445,9 +379,7 @@ export default function ImageSelectModal({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      boxShadow: selected
-                        ? '0 2px 10px rgba(74,144,226,.15)'
-                        : '0 1px 2px rgba(16,24,40,.05)',
+                      boxShadow: selected ? '0 2px 10px rgba(74,144,226,.15)' : '0 1px 2px rgba(16,24,40,.05)',
                       overflow: 'hidden',
                       cursor: 'pointer',
                       padding: 0,
@@ -456,13 +388,7 @@ export default function ImageSelectModal({
                     <img
                       src={img.url}
                       alt={img.name}
-                      style={{
-                        width: 88,
-                        height: 88,
-                        borderRadius: 8,
-                        objectFit: 'contain',
-                        background: '#fff',
-                      }}
+                      style={{ width: 88, height: 88, borderRadius: 8, objectFit: 'contain', background: '#fff' }}
                     />
                     {selected && (
                       <span
@@ -516,9 +442,7 @@ export default function ImageSelectModal({
                       background: '#fafafa',
                     }}
                   />
-                  <span style={{ color: '#374151', fontSize: 14, fontWeight: 600 }}>
-                    {selectedImg.name}
-                  </span>
+                  <span style={{ color: '#374151', fontSize: 14, fontWeight: 600 }}>{selectedImg.name}</span>
                 </div>
               )}
             </div>
@@ -537,13 +461,6 @@ export default function ImageSelectModal({
                 background: selectedImg ? '#2357b2' : '#e9eef6',
                 color: selectedImg ? '#fff' : '#90a3bf',
                 cursor: selectedImg ? 'pointer' : 'not-allowed',
-              }}
-              onMouseDown={(e) => {
-                if (!selectedImg) return;
-                (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(1px)';
-              }}
-              onMouseUp={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)';
               }}
             >
               삽입
