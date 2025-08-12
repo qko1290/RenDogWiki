@@ -349,46 +349,50 @@ export default function ImageManagePage() {
       folder_id: Number(i.folder_id),
     }));
 
-  const reloadFolders = useCallback(async () => {
-    const q = `?ts=${Date.now()}`;
-    const res = await fetch('/api/image/folder/list' + q, { cache: 'no-store' });
-    const raw = await res.json();
-    const data = normalizeFolders(raw);
-    setFolders(data);
+  const reloadFolders = useCallback(
+    async ({ restoreSelection = false }: { restoreSelection?: boolean } = {}) => {
+      const q = `?ts=${Date.now()}`;
+      const res = await fetch('/api/image/folder/list' + q, { cache: 'no-store' });
+      const raw = await res.json();
+      const data = normalizeFolders(raw);
+      setFolders(data);
 
-    // ✅ 트리 상태 복원(최초만) 또는 로컬 저장된 상태 사용
-    if (typeof window !== 'undefined') {
-      const savedTree = localStorage.getItem('imgmgr.treeState');
-      if (savedTree) {
-        try {
-          const parsed: Record<string, boolean> = JSON.parse(savedTree);
-          const cast: Record<number, boolean> = {};
-          Object.keys(parsed).forEach((k) => (cast[Number(k)] = !!parsed[k]));
-          setTreeState((prev) => (Object.keys(prev).length ? prev : cast));
-        } catch {
-          // 루트 자동 펼침
+      // 트리 상태 복원
+      if (typeof window !== 'undefined') {
+        const savedTree = localStorage.getItem('imgmgr.treeState');
+        if (savedTree) {
+          try {
+            const parsed: Record<string, boolean> = JSON.parse(savedTree);
+            const cast: Record<number, boolean> = {};
+            Object.keys(parsed).forEach((k) => (cast[Number(k)] = !!parsed[k]));
+            setTreeState((prev) => (Object.keys(prev).length ? prev : cast));
+          } catch {
+            const init: Record<number, boolean> = {};
+            data.forEach((f) => { if (f.parent_id == null) init[f.id] = true; });
+            setTreeState(init);
+          }
+        } else {
           const init: Record<number, boolean> = {};
-          data.forEach((f: any) => {
-            if (f.parent_id == null) init[f.id] = true;
-          });
+          data.forEach((f) => { if (f.parent_id == null) init[f.id] = true; });
           setTreeState(init);
         }
-      } else {
-        const init: Record<number, boolean> = {};
-        data.forEach((f: any) => {
-          if (f.parent_id == null) init[f.id] = true;
-        });
-        setTreeState(init);
-      }
 
-      // ✅ 최근 선택 폴더 복원
-      const savedSel = localStorage.getItem('imgmgr.selectedFolder');
-      if (savedSel !== null) {
-        const v = Number(savedSel);
-        setSelectedFolder(Number.isFinite(v) ? v : null);
+        // ✅ 선택 폴더는 "최초 진입시에만" 복원
+        if (restoreSelection) {
+          const savedSel = localStorage.getItem('imgmgr.selectedFolder');
+          if (savedSel !== null) {
+            if (savedSel === '' || savedSel === 'null') {
+              setSelectedFolder(null);
+            } else {
+              const n = Number(savedSel);
+              setSelectedFolder(Number.isFinite(n) && n > 0 ? n : null);
+            }
+          }
+        }
       }
-    }
-  }, []);
+    },
+    []
+  );
 
   const refreshImages = useCallback(() => {
     if (!selectedFolder) {
@@ -403,7 +407,7 @@ export default function ImageManagePage() {
 
   // 초기 폴더 로드
   useEffect(() => {
-    reloadFolders();
+    reloadFolders({ restoreSelection: true });
   }, [reloadFolders]);
 
   // 폴더 변경 시 이미지 리프레시 + 최근 경로 저장
@@ -427,8 +431,9 @@ export default function ImageManagePage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, parent_id: parentId ?? null }),
     });
-    if (!res.ok) throw new Error((await res.json())?.error || '폴더 생성 실패');
-    await reloadFolders(); // 항상 재조회
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.error || '폴더 생성 실패');
+    return data.folder; // 필요시 새 폴더 정보 사용 가능
   };
 
   const [newFolderOpen, setNewFolderOpen] = useState(false);
@@ -438,10 +443,11 @@ export default function ImageManagePage() {
     const name = newFolderName.trim();
     if (!name) return;
     try {
-      await createFolderRequest(name, selectedFolder ?? null);
+      const folder = await createFolderRequest(name, selectedFolder ?? null);
       setNewFolderName('');
       setNewFolderOpen(false);
-      // 방금 만든 폴더가 보이도록 현재 부모는 열어둠
+
+      // 새로 만든 폴더가 보이도록 부모를 열어두기
       if (selectedFolder) {
         setTreeState((prev) => {
           const next = { ...prev, [selectedFolder]: true };
@@ -451,6 +457,9 @@ export default function ImageManagePage() {
           return next;
         });
       }
+
+      // ✅ 재조회하되 선택은 유지(restoreSelection: false)
+      await reloadFolders({ restoreSelection: false });
     } catch (e: any) {
       alert(e.message || '폴더 생성 실패');
     }
@@ -464,7 +473,7 @@ export default function ImageManagePage() {
       body: JSON.stringify({ id, name: newName }),
     });
     if (res.ok) {
-      await reloadFolders();
+      await reloadFolders({ restoreSelection: false });
     } else {
       alert((await res.json()).error || '이름 변경 실패');
     }
@@ -479,7 +488,7 @@ export default function ImageManagePage() {
       body: JSON.stringify({ id: selectedFolder }),
     });
     if (res.ok) {
-      await reloadFolders();
+      await reloadFolders({ restoreSelection: false });
       setSelectedFolder(null);
       setSelectedItems([]);
       setImages([]);
@@ -615,7 +624,7 @@ export default function ImageManagePage() {
         const next = { ...prev };
         if (newParentId !== null) next[newParentId] = true;
         if (typeof window !== 'undefined') {
-          localStorage.setItem('imgmgr.treeState', JSON.stringify(next));
+          localStorage.setItem('imgmgr.selectedFolder', selectedFolder === null ? 'null' : String(selectedFolder));
         }
         return next;
       });
@@ -694,7 +703,7 @@ export default function ImageManagePage() {
                 setSelectedFolder(null);
                 setSelectedItems([]);
                 if (typeof window !== 'undefined') {
-                  localStorage.setItem('imgmgr.selectedFolder', '');
+                  localStorage.setItem('imgmgr.selectedFolder', 'null');
                 }
               }}
               style={{

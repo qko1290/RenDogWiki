@@ -31,6 +31,13 @@ export async function POST(req: NextRequest) {
   if (!user)
     return NextResponse.json({ error: "로그인 필요" }, { status: 401 });
 
+  const normParentId = ((): number | null => {
+    if (parent_id === null || parent_id === undefined || parent_id === '') return null;
+    const n = Number(parent_id);
+    if (!Number.isFinite(n) || n <= 0) return null; // 0, NaN 모두 null 취급
+    return n;
+  })();
+
   // 3. 필수값 체크(name, parent_id 모두 필수)
   if (!name || parent_id === undefined)
     return NextResponse.json({ error: "필수값 누락" }, { status: 400 });
@@ -38,7 +45,7 @@ export async function POST(req: NextRequest) {
   // 4. 같은 parent 내 중복 폴더명 체크
   const existsResult = await sql`
     SELECT id FROM image_folders
-    WHERE parent_id IS NOT DISTINCT FROM ${parent_id} AND name = ${name}
+    WHERE parent_id IS NOT DISTINCT FROM ${normParentId} AND name = ${name}
     LIMIT 1
   `;
   if (existsResult.length > 0)
@@ -47,7 +54,7 @@ export async function POST(req: NextRequest) {
   // 5. 폴더 생성(DB insert, uploader는 유저 닉네임)
   const insertResult = await sql`
     INSERT INTO image_folders (name, parent_id, uploader)
-    VALUES (${name}, ${parent_id}, ${user.minecraft_name}) RETURNING id
+    VALUES (${name}, ${normParentId}, ${user.minecraft_name}) RETURNING id
   `;
   const folderId = insertResult[0].id;
 
