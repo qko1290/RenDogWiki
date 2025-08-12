@@ -641,6 +641,11 @@ export default function ImageManagePage() {
     setEditingTarget((t) => (t?.type === 'image' ? null : t));
   }, []);
 
+  const isClickOnInteractive = (el: HTMLElement | null) =>
+  !!el?.closest(
+    '.seg-input, .seg-btn, .rd-context-menu, .rd-btn'
+  );
+
   // 단축키
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -787,7 +792,7 @@ export default function ImageManagePage() {
               onMouseDown={(e) => {
               const el = e.target as HTMLElement;
               // 검색 인풋/버튼 클릭은 유지
-              if (el.closest('.seg-input')) return;
+              if (isClickOnInteractive(el)) return;
               clearImageSelection();
             }}>
               <h1 className="image-explorer-title">이미지 업로드/관리</h1>
