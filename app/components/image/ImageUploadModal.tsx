@@ -2,7 +2,7 @@
 // File: app/components/image/ImageUploadModal.tsx
 // =============================================
 import { useRef, useState } from "react";
-import Modal from "@/components/common/Modal";
+import { ModalCard } from "@/components/common/Modal";
 
 type ImageFile = {
   id: number;
@@ -75,10 +75,12 @@ export default function ImageUploadModal({ open, onClose, folderId, onUploaded }
   };
 
   return (
-    // ✅ title prop 제거, 내부에서 제목 출력
-    <Modal open={open} onClose={onClose}>
-      <h3 className="text-lg font-semibold mb-3">이미지 업로드</h3>
-
+    <ModalCard
+      open={open}
+      onClose={onClose}
+      title="이미지 업로드"
+      width={520}   // 필요시 조절
+    >
       <label
         htmlFor="rd-upload-input"
         className={`custum-file-upload ${dragOver ? "dragover" : ""}`}
@@ -130,6 +132,6 @@ export default function ImageUploadModal({ open, onClose, folderId, onUploaded }
           {loading ? "업로드 중..." : "업로드"}
         </button>
       </div>
-    </Modal>
+    </ModalCard>
   );
 }
