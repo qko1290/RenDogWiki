@@ -32,12 +32,11 @@ function normalizeAvatarUrl(url: string | null | undefined, size: number) {
   return u;
 }
 
-/** 동일 출처 프록시로 바꾸되, 배포/유저 단위 캐시 버스터를 부여 */
+/** 동일 출처 프록시 + 배포/유저 단위 캐시 버스터 */
 function toProxy(raw: string, keyHint: string) {
   if (!raw) return '';
   const u = encodeURIComponent(raw);
   const k = encodeURIComponent(keyHint || 'u');
-  // v=배포버전(배포 바뀌면 캐시 자동 갱신), k=유저키(소스 변경/폴백 이동시 혼동 최소화)
   return `/api/proxy/avatar?u=${u}&v=${DEPLOY_V}&k=${k}`;
 }
 
@@ -55,43 +54,37 @@ function MCHead({
   size?: number;
   className?: string;
 }) {
-  const [srcs, setSrcs] = React.useState<string[]>([]);
-  const [idx, setIdx] = React.useState(0);
-
-  React.useEffect(() => {
+  // 1) 렌더 시점에 "바로" 사용할 수 있는 후보 리스트를 먼저 만든다.
+  const initialSrcs = useMemo(() => {
     const list: string[] = [];
     const n = minecraftName ? encodeURIComponent(minecraftName) : null;
     const keyHint = (minecraftUUID || minecraftName || avatarUrlHint || 'anon') as string;
 
-    // 1) UUID 최우선: crafatar
     if (minecraftUUID) {
       list.push(`https://crafatar.com/avatars/${minecraftUUID}?overlay&size=${size}`);
     }
-
-    // 2) 닉네임 기반 미러들 (PNG 확장자 고정)
     if (n) {
       list.push(`https://crafthead.net/helm/${n}/${size}.png`);
       list.push(`https://minotar.net/helm/${n}/${size}.png`);
       list.push(`https://mc-heads.net/avatar/${n}/${size}.png`);
     }
-
-    // 3) 서버 힌트 URL은 마지막 폴백으로
     const hint = normalizeAvatarUrl(avatarUrlHint, size);
     if (hint) list.push(hint);
-
-    // 4) 최종 폴백(스티브 유사)
     list.push(`https://crafatar.com/avatars/94cf9511-c5d6-433a-b565-14010caac235?overlay&size=${size}`);
 
-    // ✅ 동일 출처 프록시 + 캐시 버스터
-    const proxied = list.map((raw) => toProxy(raw, keyHint));
-
-    setSrcs(proxied);
-    setIdx(0);
-
-    if (process.env.NODE_ENV !== 'production') {
-      console.debug('[MCHead] sources', { minecraftName, minecraftUUID, avatarUrlHint, list, proxied });
-    }
+    // 동일 출처 프록시로 즉시 변환
+    return list.map((raw) => toProxy(raw, keyHint));
   }, [minecraftName, minecraftUUID, avatarUrlHint, size]);
+
+  // 2) 초깃값을 동기 주입 → 첫 페인트부터 src가 채워진다.
+  const [srcs, setSrcs] = React.useState<string[]>(initialSrcs);
+  const [idx, setIdx] = React.useState(0);
+
+  // 3) 의존성 변경 시에만 후보군 갱신(보조)
+  React.useEffect(() => {
+    setSrcs(initialSrcs);
+    setIdx(0);
+  }, [initialSrcs]);
 
   const src = srcs[idx] ?? '';
 
@@ -103,10 +96,22 @@ function MCHead({
       alt={minecraftName ? `${minecraftName} face` : 'MC face'}
       className={['rounded-full object-cover ring-1 ring-neutral-200', className].join(' ')}
       style={{ background: 'transparent' }}
-      loading="lazy"
+      // 새로고침에서도 즉시 요청되도록 lazy 미사용
       decoding="async"
       draggable={false}
-      onError={() => setIdx(i => Math.min(i + 1, srcs.length - 1))}
+      onLoad={(e) => {
+        if (process.env.NODE_ENV !== 'production') {
+          // eslint-disable-next-line no-console
+          console.log('[MCHead] onLoad', { idx, src: (e.target as HTMLImageElement).src });
+        }
+      }}
+      onError={() => {
+        if (process.env.NODE_ENV !== 'production') {
+          // eslint-disable-next-line no-console
+          console.warn('[MCHead] onError', { idx, src });
+        }
+        setIdx(i => Math.min(i + 1, srcs.length - 1));
+      }}
       title={minecraftName ?? undefined}
     />
   );
@@ -171,17 +176,6 @@ export default function ChatMessageItem({ m, isReplyToMe, onReply }: Props) {
   const dislikeCount = (m as any).dislike_count ?? 0;
   const iLiked = Boolean((m as any).i_liked);
   const iDisliked = Boolean((m as any).i_disliked);
-
-  if (process.env.NODE_ENV !== 'production') {
-    console.debug('[ChatMessageItem] user/skin debug', {
-      msgId: m.id,
-      userId,
-      minecraftName,
-      minecraftUUIDRaw: minecraftUUID,
-      avatarUrlHint,
-      wholeUserObj: userObj,
-    });
-  }
 
   return (
     <div
