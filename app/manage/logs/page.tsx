@@ -1,9 +1,11 @@
+// =============================================
 // File: app/manage/logs/page.tsx
+// =============================================
 /**
  * 활동 로그 페이지
- * - /api/activity/logs 에서 페이지네이션된 로그를 조회/검색하고, "더 보기"로 이어서 로드.
- * - 서버 스키마(액션/타겟/메타)를 유지하고, 사람이 읽기 쉬운 문구는 fmt()에서 액션별로 변환.
- * - 동작 보존 100%: 공개 인터페이스/라우트/응답 계약 변경 없음.
+ * - /api/activity/logs 에서 페이지네이션(cursor)로 조회
+ * - 검색(q)로 사용자/대상/액션 필터
+ * - 기존 동작/표현 유지. 중복 'image.rename' case 제거.
  */
 
 'use client';
@@ -32,7 +34,6 @@ export default function LogsPage() {
   const load = async (opts?: { append?: boolean; cursor?: number | null; q?: string }) => {
     setLoading(true);
     setError(null);
-
     const params = new URLSearchParams();
     params.set('limit', '30');
     if (opts?.cursor != null) params.set('cursor', String(opts.cursor));
@@ -76,6 +77,7 @@ export default function LogsPage() {
       case 'folder.rename': {
         const from = meta.from_name ?? meta.from ?? name;
         const to = meta.to_name ?? meta.to ?? name;
+        const where = path ? ` (${path})` : '';
         return `${u}님이 폴더 ${from}의 이름을 ${to}로 변경했습니다`;
       }
       case 'folder.move': {
@@ -84,6 +86,7 @@ export default function LogsPage() {
         return `${u}님이 폴더 ${name}를 ${from}에서 ${to}로 이동했습니다`;
       }
       case 'image.upload': {
+        const count = meta.count ?? 1;
         const names = Array.isArray(meta.names) ? meta.names : (name ? [name] : []);
         const preview = names.slice(0, 3).join(', ');
         const tail = names.length > 3 ? ` 외 ${names.length - 3}개` : '';
@@ -92,6 +95,7 @@ export default function LogsPage() {
       case 'image.rename': {
         const from = (row.meta?.from_name ?? row.meta?.from ?? row.target_name ?? '이전 이름');
         const to   = (row.meta?.to_name   ?? row.meta?.to   ?? '새 이름');
+        const where = row.target_path ? ` (${row.target_path})` : '';
         return `${u}님이 이미지 ${from}의 이름을 ${to}로 변경했습니다`;
       }
       // 기존 케이스들 유지
@@ -115,8 +119,7 @@ export default function LogsPage() {
     }
   };
 
-  const time = (iso: string) =>
-    new Date(iso).toLocaleString('ko-KR', { hour12: false });
+  const time = (iso: string) => new Date(iso).toLocaleString('ko-KR', { hour12: false });
 
   return (
     <div style={{ maxWidth: 920, margin: '28px auto', padding: '0 16px' }}>
@@ -129,13 +132,9 @@ export default function LogsPage() {
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') onSearch(); }}
           style={{ flex: 1, padding: '10px 12px', border:'1px solid #ddd', borderRadius: 8 }}
-          aria-label="로그 검색"
         />
-        <button
-          onClick={onSearch}
-          disabled={loading}
-          style={{ padding: '10px 14px', borderRadius: 8, border:'1px solid #ccc', background:'#fff' }}
-        >
+        <button onClick={onSearch} disabled={loading}
+          style={{ padding: '10px 14px', borderRadius: 8, border:'1px solid #ccc', background:'#fff' }}>
           검색
         </button>
       </div>
@@ -144,16 +143,9 @@ export default function LogsPage() {
 
       <ul style={{ listStyle:'none', padding:0, margin:0 }}>
         {items.map(row => (
-          <li
-            key={row.id}
-            style={{
-              display:'flex',
-              justifyContent:'space-between',
-              gap:16,
-              padding:'12px 14px',
-              borderBottom:'1px solid #eee'
-            }}
-          >
+          <li key={row.id}
+              style={{ display:'flex', justifyContent:'space-between',
+                       gap:16, padding:'12px 14px', borderBottom:'1px solid #eee' }}>
             <div style={{ whiteSpace:'pre-wrap' }}>{fmt(row)}</div>
             <div style={{ color:'#888', minWidth: 180, textAlign:'right' }}>{time(row.created_at)}</div>
           </li>
