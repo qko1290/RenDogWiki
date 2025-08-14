@@ -66,7 +66,6 @@ function MCHead({
 
     // 2) 닉네임 기반 미러들 (PNG 확장자로 고정)
     if (n) {
-      list.push(`https://crafthead.net/helm/${n}/${size}.png`);
       list.push(`https://minotar.net/helm/${n}/${size}.png`);
       // 보조 미러(선택): 안정성 향상
       list.push(`https://mc-heads.net/avatar/${n}/${size}.png`);
