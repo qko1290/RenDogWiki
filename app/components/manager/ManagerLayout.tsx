@@ -1,16 +1,25 @@
-// 전체 코드
+// =============================================
+// File: app/components/manager/ManagerLayout.tsx
+// =============================================
 import React from 'react';
 
 /**
- * 공통 3단 레이아웃
- * - sidebar / list / detail 를 props로 넘기는 방식을 기본으로 합니다.
- * - 혹시 children으로 [sidebar, list, detail]을 넘겨도 동작하도록 fallback 지원.
+ * 공통 3단 매니저 레이아웃
+ * - 기본 사용: <ManagerLayout sidebar={} list={} detail={} />
+ * - 예외 지원: children으로 [sidebar, list, detail]를 전달해도 동일하게 렌더
+ * - 외부 API/클래스/구조를 변경하지 않고 배치만 담당
  */
+
 type ManagerLayoutProps = {
+  /** 좌측 사이드바 영역 */
   sidebar?: React.ReactNode;
+  /** 중앙 목록 영역 */
   list?: React.ReactNode;
+  /** 우측 상세 영역 */
   detail?: React.ReactNode;
-  children?: React.ReactNode; // [sidebar, list, detail]로 넘겨도 됨
+  /** [sidebar, list, detail] 형태로 전달 시 fallback */
+  children?: React.ReactNode;
+  /** 컨테이너에 추가할 클래스 */
   className?: string;
 };
 
@@ -25,7 +34,7 @@ export default function ManagerLayout({
   let ls = list;
   let dt = detail;
 
-  // children으로 들어온 경우도 지원 (안전장치)
+  // children으로 [sidebar, list, detail] 전달한 경우에도 동작하도록 지원
   if (!sb && !ls && !dt && children) {
     const arr = React.Children.toArray(children);
     sb = arr[0] ?? null;

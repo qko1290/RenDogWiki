@@ -840,3 +840,109 @@ html, body { background:#fff; color:#0f172a; }
 /* 인풋/텍스트에어리어/버튼 텍스트 색 고정 + placeholder 톤 */
 input, textarea, button { color:#0f172a; }
 ::placeholder { color:#b6c0cb; opacity:1; }
+
+/* ── Compact icon field (input left, small preview right) ───────────── */
+.mgr-icon-field {
+  display: grid;
+  grid-template-columns: 1fr 96px; /* 입력 영역 / 미리보기 */
+  gap: 12px;
+  align-items: start;
+}
+
+.mgr-icon-inputs {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* 이모지 한 글자 입력폼은 과하게 길지 않게 제한 */
+.mgr-icon-field .rd-emoji-input {
+  max-width: 120px;
+}
+
+/* 작은 미리보기 박스 */
+.mgr-icon-preview {
+  width: 96px;
+  height: 96px;
+  border-radius: 12px;
+  background: var(--rd-gray-50, #f6f7f9);
+  border: 1px solid rgba(0,0,0,.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.mgr-icon-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mgr-icon-placeholder {
+  font-size: .8rem;
+  color: #9aa0a6;
+}
+
+/* 상세영역 우상단 툴바 */
+.mgr-detail-area { position: relative; } /* 기준 컨테이너 */
+.mgr-detail-toolbar{
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  display: flex;
+  gap: 8px;
+  z-index: 2;
+}
+
+.mgr-toolbar-btn{
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: .15s ease;
+}
+.mgr-toolbar-btn:hover{ background:#eef2f7; }
+.mgr-toolbar-btn.danger{
+  background:#ffe9ea;
+  color:#d92d20;
+  border-color:#f5c2c7;
+}
+.mgr-toolbar-btn.danger:hover{ background:#ffdfe2; }
+
+/* 아이콘 입력폼을 왼쪽으로 줄이고, 오른쪽에 작은 미리보기 박스 */
+.mgr-icon-field{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+}
+.mgr-icon-inputs{
+  flex:1;
+  display:flex;
+  gap:8px;
+}
+.mgr-icon-preview{
+  width:120px; height:120px;       /* 필요시 96px로 더 줄여도 OK */
+  border:1px dashed #e5e7eb;
+  border-radius:12px;
+  background:#fafbfc;
+  display:flex; align-items:center; justify-content:center;
+  overflow:hidden; flex-shrink:0;
+  color:#9aa4b2; font-size:12px;
+}
+.mgr-icon-preview img{
+  max-width:100%; max-height:100%; object-fit:contain; display:block;
+}
+.mgr-icon-placeholder{ opacity:.6; }
+
+.mgr-detail-area { position: relative; }
+.mgr-detail-actions {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  z-index: 2;
+}

@@ -12,7 +12,7 @@ import { Editor, Transforms, Range, Path, Element as SlateElement } from 'slate'
 import { ReactEditor } from 'slate-react';
 import type { LinkElement, LinkBlockElement, ParagraphElement } from '@/types/slate';
 
-// 링크 뒤로 커서를 확실히 빼내는 유틸
+// 링크 뒤로 커서를 확실히 빼내는 유틸(인라인 <a> 전용)
 function moveCaretOutOfLink(editor: Editor) {
   // 현재 커서 기준으로 가장 가까운 link 요소 찾기
   const linkEntry = Editor.above(editor, {
@@ -34,6 +34,7 @@ function moveCaretOutOfLink(editor: Editor) {
   }
 
   // 3) fallback: 링크의 다음 위치에 빈 텍스트 노드 삽입 후 그리로 이동
+  // (블록 자식 레벨에서는 텍스트 노드가 유효)
   const afterPath = Path.next(linkPath);
   Transforms.insertNodes(editor, { text: '' }, { at: afterPath, select: true });
   ReactEditor.focus(editor);
@@ -47,11 +48,14 @@ function moveCaretOutOfLink(editor: Editor) {
 export const insertLink = (editor: Editor, url: string, text?: string) => {
   if (!editor.selection) return;
 
+  const trimmed = (url ?? '').trim();
+  if (!trimmed) return;
+
   const isCollapsed = Range.isCollapsed(editor.selection);
-  const linkEl = {
+  const linkEl: LinkElement = {
     type: 'link',
-    url,
-    children: isCollapsed ? [{ text: text ?? url }] : [],
+    url: trimmed,
+    children: isCollapsed ? [{ text: text ?? trimmed }] : [],
   };
 
   // 이미 링크 안이면 먼저 unwrap (중첩 방지)
@@ -67,8 +71,7 @@ export const insertLink = (editor: Editor, url: string, text?: string) => {
   if (isCollapsed) {
     // 커서만 있을 때: 링크 노드 자체를 삽입
     Transforms.insertNodes(editor, linkEl as any);
-    // 링크 밖으로 이동
-    // (normalize 과정에서 selection이 살짝 튈 수 있어 다음 tick에 이동)
+    // 링크 밖으로 이동 (normalize 이후 다음 tick에)
     setTimeout(() => moveCaretOutOfLink(editor), 0);
   } else {
     // 드래그 선택: 선택 범위 래핑
@@ -88,6 +91,9 @@ export const insertLinkBlock = (
   url: string,
   opts?: Partial<LinkBlockElement>
 ) => {
+  const trimmed = (url ?? '').trim();
+  if (!trimmed) return;
+
   // selection이 없으면 문서 끝에 강제로 위치 지정
   if (!editor.selection) {
     ReactEditor.focus(editor);
@@ -99,7 +105,7 @@ export const insertLinkBlock = (
   if (opts?.isWiki) {
     linkBlock = {
       type: 'link-block',
-      url,
+      url: trimmed,
       size: opts.size || 'large',
       sitename: opts.sitename || opts.wikiTitle || '',
       favicon: undefined,
@@ -113,13 +119,16 @@ export const insertLinkBlock = (
     let sitename = '';
     let favicon = '';
     try {
-      const parsed = new URL(url);
+      const parsed = new URL(trimmed);
       sitename = parsed.hostname.replace(/^www\./, '');
+      // favicon 경로는 보편적인 /favicon.ico로 시도(없으면 표시만 실패)
       favicon = `${parsed.protocol}//${parsed.hostname}/favicon.ico`;
-    } catch {}
+    } catch {
+      // 잘못된 URL은 sitename/favicon 비움
+    }
     linkBlock = {
       type: 'link-block',
-      url,
+      url: trimmed,
       size: opts?.size || 'large',
       sitename,
       favicon,
@@ -129,10 +138,8 @@ export const insertLinkBlock = (
   }
 
   // 링크 블록과 빈 단락을 한 번에 삽입 (sibling)
-  Transforms.insertNodes(editor, [
-    linkBlock,
-    { type: 'paragraph', children: [{ text: '' }] }
-  ]);
+  const afterBlock: ParagraphElement = { type: 'paragraph', children: [{ text: '' }] };
+  Transforms.insertNodes(editor, [linkBlock as any, afterBlock as any]);
 };
 
 /**
@@ -146,6 +153,9 @@ export function insertHalfLinkBlock(
   opts: Partial<LinkBlockElement> = {}
 ) {
   if (!editor.selection) return;
+
+  const trimmed = (url ?? '').trim();
+  if (!trimmed) return;
 
   const blockEntry = Editor.above(editor, {
     at: editor.selection,
@@ -161,7 +171,7 @@ export function insertHalfLinkBlock(
     : [];
 
   const halfBlocks = children.filter(
-    (n: any) => n.type === "link-block" && n.size === "small"
+    (n: any) => n.type === 'link-block' && n.size === 'small'
   );
 
   // 이미 1개만 있는 경우 같은 줄에 insert
@@ -169,16 +179,19 @@ export function insertHalfLinkBlock(
     const insertPath = blockPath.concat(children.length);
     Transforms.insertNodes(
       editor,
-      [{
-        type: "link-block",
-        url,
-        size: "small",
-        children: [{ text: "" }],
-        ...opts,
-      } as LinkBlockElement],
+      [
+        {
+          type: 'link-block',
+          url: trimmed,
+          size: 'small',
+          children: [{ text: '' }],
+          ...opts,
+        } as LinkBlockElement,
+      ],
       { at: insertPath }
     );
-    Transforms.select(editor, Editor.after(editor, insertPath)!);
+    const after = Editor.after(editor, insertPath);
+    if (after) Transforms.select(editor, after);
     ReactEditor.focus(editor);
     return;
   }
@@ -189,20 +202,21 @@ export function insertHalfLinkBlock(
     editor,
     [
       {
-        type: "link-block",
-        url,
-        size: "small",
-        children: [{ text: "" }],
+        type: 'link-block',
+        url: trimmed,
+        size: 'small',
+        children: [{ text: '' }],
         ...opts,
       } as LinkBlockElement,
       {
-        type: "paragraph",
-        children: [{ text: "" }],
+        type: 'paragraph',
+        children: [{ text: '' }],
       } as ParagraphElement,
     ],
     { at: insertPath }
   );
-  Transforms.select(editor, Editor.after(editor, insertPath)!);
+  const after = Editor.after(editor, insertPath);
+  if (after) Transforms.select(editor, after);
   ReactEditor.focus(editor);
 }
 
@@ -213,7 +227,7 @@ export function insertHalfLinkBlock(
  */
 export const unwrapLink = (editor: Editor) => {
   Transforms.unwrapNodes(editor, {
-    match: n => SlateElement.isElement(n) && n.type === 'link',
+    match: n => SlateElement.isElement(n) && (n as any).type === 'link',
     split: true,
   });
 
@@ -224,17 +238,17 @@ export const unwrapLink = (editor: Editor) => {
     if (after) Transforms.select(editor, after);
   }
 
-  // 블록이 link 타입인 경우 paragraph로 교체
+  // 블록이 link 타입인 경우 paragraph로 교체(안전 장치)
   if (selection) {
     const [blockEntry] = Editor.nodes(editor, {
       match: n => SlateElement.isElement(n) && Editor.isBlock(editor, n),
     });
     if (blockEntry) {
       const [blockNode, path] = blockEntry;
-      if (SlateElement.isElement(blockNode) && blockNode.type === 'link') {
+      if (SlateElement.isElement(blockNode) && (blockNode as any).type === 'link') {
         Transforms.setNodes(
           editor,
-          { type: 'paragraph' },
+          { type: 'paragraph' } as Partial<ParagraphElement>,
           { at: path }
         );
       }
@@ -248,7 +262,7 @@ export const unwrapLink = (editor: Editor) => {
  */
 export const isLinkActive = (editor: Editor) => {
   const [match] = Editor.nodes(editor, {
-    match: n => SlateElement.isElement(n) && n.type === 'link',
+    match: n => SlateElement.isElement(n) && (n as any).type === 'link',
   });
   return !!match;
 };

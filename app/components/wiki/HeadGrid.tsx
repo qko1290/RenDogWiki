@@ -1,5 +1,14 @@
-// components/wiki/HeadGrid.tsx
+// =============================================
+// File: components/wiki/HeadGrid.tsx
+// =============================================
 import React from "react";
+
+/**
+ * 머리(Head) 카드 그리드
+ * - 7열 그리드로 머리 목록을 미리보기(첫 사진 썸네일 표시)
+ * - 카드 클릭 시 상위 onClick(head) 호출
+ * - 선택된 카드 배경만 하이라이트(선택 상태 표시)
+ */
 
 export type Head = {
   id: number;

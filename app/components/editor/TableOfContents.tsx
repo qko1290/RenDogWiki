@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faAlignLeft } from '@fortawesome/free-solid-svg-icons';
 
 type Heading = {
   text: string;
@@ -11,18 +13,13 @@ type Heading = {
 
 type Props = {
   headings: Heading[];
-  headerOffset?: number;           // 고정 헤더 높이 보정
+  headerOffset?: number;
   right?: number;
   top?: number;
   width?: number;
   title?: string;
-  scrollRootSelector?: string;     // 스크롤 컨테이너를 명시하고 싶을 때
+  scrollRootSelector?: string;
 };
-
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import {
-  faAlignLeft
-} from '@fortawesome/free-solid-svg-icons';
 
 export default function TableOfContents({
   headings,
@@ -36,14 +33,15 @@ export default function TableOfContents({
   const [activeId, setActiveId] = useState<string>('');
   const rootRef = useRef<HTMLElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const [rootKey, setRootKey] = useState(0); // 루트 변경 트리거 키
 
-  // 동일 id에 발생 순번 부여(키/타겟 식별)
+  // 동일 id에 발생 순번 부여
   const indexed = useMemo(() => {
     const seen: Record<string, number> = {};
     return headings.map(h => {
       const occ = seen[h.id] ?? 0;
       seen[h.id] = occ + 1;
-      return { ...h, __occ: occ };
+      return { ...h, __occ: occ } as Heading & { __occ: number };
     });
   }, [headings]);
 
@@ -59,15 +57,23 @@ export default function TableOfContents({
     return null;
   };
 
-  // root 결정(명시 selector > 자동 > null(window))
+  // root 결정(명시 selector > 자동 > window), 변경 시 rootKey 갱신
   useEffect(() => {
     if (scrollRootSelector) {
       rootRef.current = document.querySelector<HTMLElement>(scrollRootSelector);
+      setRootKey(k => k + 1);
       return;
     }
-    // 첫 헤딩 기준 자동
-    const first = document.querySelector<HTMLElement>(`[id="${(headings[0]?.id ?? '').replace(/"/g, '\\"')}"]`);
-    rootRef.current = findScrollableAncestor(first) || null;
+    if (headings.length) {
+      const first = document.querySelector<HTMLElement>(
+        `[id="${(headings[0].id ?? '').replace(/"/g, '\\"')}"]`
+      );
+      rootRef.current = findScrollableAncestor(first) || null;
+      setRootKey(k => k + 1);
+    } else {
+      rootRef.current = null;
+      setRootKey(k => k + 1);
+    }
   }, [scrollRootSelector, headings]);
 
   const getRootForObserver = () => rootRef.current ?? null;
@@ -120,25 +126,37 @@ export default function TableOfContents({
     observerRef.current = obs;
 
     // 동일 id 전부 observe
-    const seen: Record<string, number> = {};
+    const observed: HTMLElement[] = [];
+    const seenIds = new Set<string>();
     indexed.forEach(({ id }) => {
+      if (seenIds.has(id)) return; // 같은 id는 한 번만 전체 observe
+      seenIds.add(id);
       const esc = id.replace(/"/g, '\\"');
-      document.querySelectorAll<HTMLElement>(`[id="${esc}"]`).forEach(el => obs.observe(el));
-      seen[id] = (seen[id] ?? 0) + 1;
+      document.querySelectorAll<HTMLElement>(`[id="${esc}"]`).forEach(el => {
+        obs.observe(el);
+        observed.push(el);
+      });
     });
 
-    // 컨테이너 변경 시 다시 연결
-    const root = getRootForObserver();
-    const cleanupScroll = () => {};
     return () => {
-      cleanupScroll();
+      observed.forEach(el => obs.unobserve(el));
       obs.disconnect();
     };
-  }, [indexed, headerOffset, rootRef.current]);
+  }, [indexed, headerOffset, rootKey]); // ✅ ref.current 대신 rootKey 사용
 
-  // ----- UI (같음, 위치만 고정) -----
+  // 초기 진입 시 URL 해시가 있으면 해당 위치로 스크롤
+  useEffect(() => {
+    if (!indexed.length) return;
+    const hash = decodeURIComponent(window.location.hash || '').replace(/^#/, '');
+    if (!hash) return;
+
+    // 동일 id 중 첫 번째로 이동(필요하면 __occ를 URL에 넣어 확장 가능)
+    requestAnimationFrame(() => scrollToId(hash, 0));
+  }, [indexed, rootKey]);
+
+  // ----- UI -----
   const boxStyle: React.CSSProperties = {
-    position: 'fixed', right: right, top: top, width,
+    position: 'fixed', right, top, width,
     background: '#fff',
     border: '1px solid #eef1f5',
     borderRadius: 12,
@@ -151,7 +169,9 @@ export default function TableOfContents({
   const titleStyle: React.CSSProperties = { fontSize: 14, fontWeight: 800, color: '#0f172a', margin: '0 0 10px 8px' };
   const textStyle: React.CSSProperties = { fontSize: 13.5, fontWeight: 600, letterSpacing: '-0.15px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
 
-  if (!indexed.length) return <aside style={{ ...boxStyle, display: 'grid', placeItems: 'center', color: '#9aa1ad' }}>목차 없음</aside>;
+  if (!indexed.length) {
+    return <aside style={{ ...boxStyle, display: 'grid', placeItems: 'center', color: '#9aa1ad' }}>목차 없음</aside>;
+  }
 
   return (
     <aside style={boxStyle} aria-label="Table of contents">
@@ -165,6 +185,7 @@ export default function TableOfContents({
               <button
                 onClick={() => scrollToId(h.id, h.__occ)}
                 title={h.text}
+                aria-current={active ? 'true' : undefined}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 8, width: '100%',
                   cursor: 'pointer', border: 0, background: active ? '#eff6ff' : 'transparent',

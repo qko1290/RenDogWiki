@@ -1,5 +1,15 @@
-// components/wiki/HeadDetailModal.tsx
+// =============================================
+// File: components/wiki/HeadDetailModal.tsx
+// =============================================
 'use client';
+
+/**
+ * 머리(Head) 상세 모달
+ * - 좌: 문서 아이콘 + 사진 슬라이더
+ * - 우: 좌표(Pill UI)
+ * - 배경 클릭 시 닫힘, 내부 클릭은 전파 차단
+ * - body 스크롤 잠금 클래스(rd-modal-open) 적용/해제
+ */
 
 import React, { useEffect } from "react";
 import NpcPictureSlider from "./NpcPictureSlider";

@@ -1,11 +1,10 @@
+// File: C:\next\rdwiki\app\manage\category\page.tsx
 // =============================================
-// File: app/manage/category/page.tsx
+// 카테고리 관리 페이지 (모달 리팩터링)
+// - 트리형 카테고리(드래그 정렬, 중첩), 문서 목록, 상세/수정/생성/삭제/하위 추가
+// - 카테고리 추가/삭제: rd-card 모달 적용 (이미지 관리 페이지 스타일과 동일)
+// - 외부 API/타입/데이터 계약 보존
 // =============================================
-/**
- * 카테고리 관리 페이지 (모달 리팩터링)
- * - 트리형 카테고리(드래그 정렬, 중첩), 문서 목록, 상세/수정/생성/삭제/하위 추가
- * - 카테고리 추가/삭제: rd-card 모달 적용 (이미지 관리 페이지 스타일과 동일)
- */
 
 'use client';
 
@@ -19,7 +18,7 @@ import {
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import WikiHeader from "@/components/common/Header";
-import '@wiki/css/manage-category.css';
+import '@/wiki/css/manage-category.css'; // 🚑 경로 수정(@ → @/)
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faList, faBook } from '@fortawesome/free-solid-svg-icons';
 import ImageSelectModal from "@/components/image/ImageSelectModal";
@@ -62,6 +61,7 @@ function BareModal({
   return (
     <div
       className="rd-overlay"
+      role="presentation"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       {children}
@@ -84,20 +84,24 @@ function SortableCategoryItem({
     attributes, listeners, setNodeRef, transform, transition, isDragging,
   } = useSortable({ id: node.id.toString() });
 
-  const style = {
+  const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.4 : 1,
   };
 
+  const isOpen = open.has(node.id);
+
   return (
     <li ref={setNodeRef} className="sortable-category-item" style={style} {...attributes}>
       <div className={`category-row${selected?.id === node.id ? " active" : ""}`}>
-        <span className="grab-handle" {...listeners}>⠿</span>
-        <span
+        <span className="grab-handle" {...listeners} aria-label="드래그로 순서 변경">⠿</span>
+        <button
+          type="button"
           className="category-label"
           onClick={onClick}
           style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          aria-current={selected?.id === node.id ? 'true' : undefined}
         >
           {node.icon
             ? node.icon.startsWith('http')
@@ -111,14 +115,16 @@ function SortableCategoryItem({
               : <span>{node.icon}</span>
             : null}
           <span>{node.name}</span>
-        </span>
+        </button>
         {node.children.length > 0 && (
           <button
             onClick={(e) => { e.stopPropagation(); onToggleOpen(node.id); }}
             className="category-toggle-btn"
             tabIndex={-1}
+            aria-expanded={isOpen}
+            aria-label={isOpen ? '하위 닫기' : '하위 열기'}
           >
-            {open.has(node.id) ? '▼' : '▶'}
+            {isOpen ? '▼' : '▶'}
           </button>
         )}
       </div>
@@ -156,7 +162,8 @@ export default function CategoryManager() {
   useEffect(() => {
     fetch('/api/auth/me')
       .then(res => res.ok ? res.json() : null)
-      .then(data => setUser(data?.user ?? null));
+      .then(data => setUser(data?.user ?? null))
+      .catch(() => setUser(null));
   }, []);
 
   // 카테고리 & 토글 핸들러
@@ -181,7 +188,8 @@ export default function CategoryManager() {
           fullPath: categoryIdToPathMap[Number(doc.path)] || [Number(doc.path)],
         }));
         setAllDocuments(mapped);
-      });
+      })
+      .catch(() => setAllDocuments([]));
   }, [categoryIdToPathMap]);
 
   // 카테고리 선택
@@ -203,29 +211,35 @@ export default function CategoryManager() {
 
   // 카테고리 fetch + 맵 생성
   const fetchCategories = async () => {
-    const res = await fetch('/api/categories');
-    const flat: Category[] = await res.json();
-    const built = buildTree(flat);
+    try {
+      const res = await fetch('/api/categories');
+      if (!res.ok) throw new Error();
+      const flat: Category[] = await res.json();
+      const built = buildTree(flat);
 
-    const idToPathMap: Record<number, number[]> = {};
-    (function buildMap(nodes: Category[], path: number[] = []) {
-      for (const node of nodes) {
-        const currentPath = [...path, node.id];
-        idToPathMap[node.id] = currentPath;
-        if (node.children.length) buildMap(node.children, currentPath);
-      }
-    })(built);
-    setCategoryIdToPathMap(idToPathMap);
+      const idToPathMap: Record<number, number[]> = {};
+      (function buildMap(nodes: Category[], path: number[] = []) {
+        for (const node of nodes) {
+          const currentPath = [...path, node.id];
+          idToPathMap[node.id] = currentPath;
+          if (node.children.length) buildMap(node.children, currentPath);
+        }
+      })(built);
+      setCategoryIdToPathMap(idToPathMap);
 
-    setTree([{
-      id: 0,
-      name: 'RenDog Wiki',
-      parent_id: null,
-      order: 0,
-      icon: '📚',
-      document_path: '',
-      children: built,
-    }]);
+      setTree([{
+        id: 0,
+        name: 'RenDog Wiki',
+        parent_id: null,
+        order: 0,
+        icon: '📚',
+        document_path: '',
+        children: built,
+      }]);
+    } catch {
+      setTree([]);
+      setCategoryIdToPathMap({});
+    }
   };
 
   const buildTree = (list: Category[]): Category[] => {
@@ -260,7 +274,7 @@ export default function CategoryManager() {
     const activeId = parseInt(active.id as string);
     const overId = parseInt(over.id as string);
 
-    const newTree = structuredClone(tree);
+    const newTree: Category[] = structuredClone(tree);
     const parentA = findParent(newTree, activeId);
     const parentB = findParent(newTree, overId);
     if (!parentA || !parentB || parentA !== parentB) return;
@@ -277,12 +291,13 @@ export default function CategoryManager() {
       if (newSelected) setSelected(newSelected);
     }
 
+    // 순서 저장(비차단)
     parentA.children.forEach((item, idx) => {
       fetch(`/api/categories/${item.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ order: idx }),
-      });
+      }).catch(() => {});
     });
   };
 
@@ -340,7 +355,7 @@ export default function CategoryManager() {
   // 트리 재귀 렌더
   const renderTree = (nodes: Category[], currentPath: number[] = [], depth = 0): JSX.Element => (
     <SortableContext items={nodes.map(n => n.id.toString())} strategy={verticalListSortingStrategy}>
-      <ul className="category-tree-list">
+      <ul className="category-tree-list" role={depth === 0 ? 'tree' : 'group'}>
         {nodes.map(node => {
           const path = [...currentPath, node.id];
           return (
@@ -575,7 +590,7 @@ export default function CategoryManager() {
                     autoCorrect="off"
                     autoCapitalize="off"
                   />
-                  {/* ⬇️ 한글 대신 이모지 버튼 */}
+                  {/* 이미지 선택(내부 라이브러리) */}
                   <button
                     className="chip-btn emoji"
                     type="button"
@@ -610,7 +625,7 @@ export default function CategoryManager() {
       <BareModal open={newCatOpen} onClose={() => setNewCatOpen(false)}>
         <div className="rd-card" role="dialog" aria-labelledby="rd-newcat-title">
           <button className="rd-exit-btn" onClick={() => setNewCatOpen(false)} aria-label="닫기">
-            <svg height="20" viewBox="0 0 384 512"><path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c12.5 12.5 12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"/></svg>
+            <svg height="20" viewBox="0 0 384 512"><path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"/></svg>
           </button>
           <div className="rd-card-content">
             <p className="rd-card-heading" id="rd-newcat-title">카테고리 추가</p>
@@ -638,7 +653,7 @@ export default function CategoryManager() {
       <BareModal open={deleteOpen} onClose={() => setDeleteOpen(false)}>
         <div className="rd-card" role="dialog" aria-labelledby="rd-delcat-title">
           <button className="rd-exit-btn" onClick={() => setDeleteOpen(false)} aria-label="닫기">
-            <svg height="20" viewBox="0 0 384 512"><path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c12.5 12.5 12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"/></svg>
+            <svg height="20" viewBox="0 0 384 512"><path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"/></svg>
           </button>
           <div className="rd-card-content">
             <p className="rd-card-heading" id="rd-delcat-title">카테고리 삭제</p>

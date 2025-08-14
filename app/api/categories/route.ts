@@ -2,77 +2,117 @@
 // File: app/api/categories/route.ts
 // =============================================
 /**
- * 카테고리 전체 리스트 조회 및 신규 카테고리 생성 API
- * - [GET] 전체 카테고리 목록 조회(트리, 목록, 드롭다운 등에 사용)
- * - [POST] 신규 카테고리 생성(카테고리 추가 버튼)
- * - Postgres DB 사용, categories 테이블 관리
- * - parent_id, order, document_path, icon 등 트리/디자인 관리 필드
- * - order는 Postgres 예약어이므로 쌍따옴표 필수
+ * 카테고리 전체 조회/생성 API
+ * - GET  -> 모든 카테고리 목록을 parent_id, "order" 순으로 반환
+ * - POST -> 신규 카테고리 생성(name 필수, parent/document/icon 선택)
+ * - 메모: "order"는 Postgres 예약어라 항상 쌍따옴표 필요
  */
 
-import { sql } from '@/wiki/lib/db'; // DB (neon serverless)
+import { sql } from '@/wiki/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { logActivity, resolveCategoryName } from '@wiki/lib/activity';
+import { getAuthUser } from '@/wiki/lib/auth';
 
-/**
- * [카테고리 전체 조회] GET
- * - 모든 카테고리 row 반환(parent_id, order 순 정렬)
- * - wiki 페이지/카테고리 관리 페이지 트리/목록/드롭다운 등에서 사용
- * - order: 같은 parent_id 를 가진 카테고리 끼리 정렬하는 기준
- * - parent_id: 트리 계층 구조(null로 설정할 시 루트로 연결됨)
- * - order는 예약어라 반드시 "order" 쌍따옴표 사용
- */
-export async function GET() {
-  // 전체 row parent_id, order 기준 정렬
-  const result = await sql`
-    SELECT * FROM categories ORDER BY parent_id, "order"
-  `;
-  // 프론트에 배열로 반환
-  return NextResponse.json(result);
+// 숫자/문자/널 입력을 정수 또는 null로 정규화
+function toNullableInt(v: unknown): number | null {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.trunc(n) : null;
 }
 
-/**
- * [카테고리 신규 생성] POST
- * - 프론트 카테고리 관리 페이지의 "카테고리 추가" 버튼에서 호출
- * - parent_id: 소속 카테고리 번호  
- * - order: 같은 parent 내에서의 표시 순서(없으면 0)
- * - document_path: 대표 문서 경로 (카테고리 클릭 시 로드되는 문서의 경로)
- * - icon: 카테고리 아이콘
- * - 반환: 새로 생성된 카테고리 id
- */
+export async function GET() {
+  try {
+    // 전체 row를 parent_id, "order" 기준으로 정렬해서 반환
+    const rows = await sql`
+      SELECT * FROM categories
+      ORDER BY parent_id, "order"
+    `;
+    return NextResponse.json(rows, {
+      headers: { 'Cache-Control': 'no-store' },
+    });
+  } catch (err) {
+    console.error('[categories GET] unexpected error:', err);
+    return NextResponse.json(
+      { error: '카테고리 목록을 가져오는 중 오류가 발생했습니다.' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(req: NextRequest) {
-  // 1. 입력값 파싱
-  const { name, parent_id, document_id, icon } = await req.json();
+  try {
+    // 1) 입력 파싱
+    const body = await req.json().catch(() => null);
+    const rawName = typeof body?.name === 'string' ? body.name : '';
+    const name = rawName.trim();
+    const parent_id = toNullableInt(body?.parent_id);
+    const document_id = toNullableInt(body?.document_id);
+    const icon =
+      typeof body?.icon === 'string' && body.icon.trim() !== ''
+        ? body.icon.trim()
+        : null;
 
-  // 2. 필수값(name) 체크
-  if (!name) {
-    return NextResponse.json({ error: 'name is required' }, { status: 400 });
+    // 2) 필수값(name) 확인
+    if (!name) {
+      return NextResponse.json(
+        { error: 'name is required' },
+        { status: 400, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+
+    // 3) 같은 parent 내 다음 order 계산 -> MAX("order") + 1
+    let nextOrder = 0;
+    const orderResult = (await sql`
+      SELECT MAX("order") AS max_order
+      FROM categories
+      WHERE parent_id ${parent_id === null ? sql`IS NULL` : sql`= ${parent_id}`}
+    `) as unknown as Array<{ max_order: number | string | null }>;
+
+    const maxOrder = orderResult?.[0]?.max_order;
+    if (maxOrder !== null && maxOrder !== undefined) {
+      const parsed = Number(maxOrder);
+      nextOrder = Number.isFinite(parsed) ? parsed + 1 : 0;
+    }
+
+    // 4) INSERT -> 새 id 반환
+    const insertRows = (await sql`
+      INSERT INTO categories (name, parent_id, "order", document_id, icon)
+      VALUES (${name}, ${parent_id}, ${nextOrder}, ${document_id}, ${icon})
+      RETURNING id
+    `) as unknown as Array<{ id: number | string }>;
+    const newId = Number(insertRows?.[0]?.id);
+
+    // 5) 활동 로그(부모 라벨은 사람이 읽을 수 있게)
+    const user = getAuthUser();
+    const username =
+      user?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
+    const parentLabel = await resolveCategoryName(parent_id);
+
+    await logActivity({
+      action: 'category.create',
+      username,
+      targetType: 'category',
+      targetId: newId,
+      targetName: name,
+      targetPath: parentLabel,
+      meta: {
+        parent_id,
+        order: nextOrder,
+        document_id: document_id ?? null,
+        icon: icon ?? null,
+      },
+    });
+
+    // 6) 생성된 id 반환
+    return NextResponse.json(
+      { id: newId },
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
+  } catch (err) {
+    console.error('[categories POST] unexpected error:', err);
+    return NextResponse.json(
+      { error: '카테고리 생성 중 오류가 발생했습니다.' },
+      { status: 500 }
+    );
   }
-
-  // 3. 신규 카테고리 INSERT
-  // parent_id, order, document_path, icon은 선택값(없으면 null/0)
-  // Postgres "order" 예약어 주의
-  // RETURNING id로 신규 PK 반환
-  const parentIdFixed =
-    parent_id === undefined || parent_id === '' || parent_id === null
-      ? null
-      : Number(parent_id);
-
-  // 같은 parent_id 내에서 order의 최대값 구하기 (order + 1이 새 order)
-  let nextOrder = 0;
-  const orderResult = await sql`
-    SELECT MAX("order") AS max_order FROM categories WHERE parent_id
-    ${parentIdFixed === null ? sql`IS NULL` : sql`= ${parentIdFixed}`}
-  `;
-  if (orderResult.length > 0 && orderResult[0].max_order !== null) {
-    nextOrder = Number(orderResult[0].max_order) + 1;
-  }
-
-  const result = await sql`
-    INSERT INTO categories (name, parent_id, "order", document_id, icon)
-    VALUES (${name}, ${parentIdFixed}, ${nextOrder}, ${document_id || null}, ${icon || null})
-    RETURNING id
-  `;
-
-  // 4. 생성된 id 반환
-  return NextResponse.json({ id: result[0].id });
 }

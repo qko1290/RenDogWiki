@@ -1,57 +1,64 @@
-// =============================================
 // File: app/components/editor/helpers/insertHeading.ts
 // =============================================
-/**
- * 에디터에서 현재 커서 위치의 블록을 heading(제목) 블록으로 변환하고,
- * heading 바로 뒤에 빈 단락(paragraph)을 자동으로 삽입해주는 유틸리티 함수.
- * - heading-one, heading-two, heading-three 중 원하는 타입으로 변환
- * - heading 앞에 아이콘(이모지/이미지)도 부여 가능
- * - heading 뒤에 자동으로 빈 단락이 따라붙으므로, 사용자 입력 흐름이 끊기지 않음
- *   (heading만 있으면 그 다음에 커서가 제대로 이동하지 않아 바로 입력이 불가능한 Slate 특성 대응)
- */
+// 목적: 현재 커서가 있는 블록을 heading(one/two/three)으로 바꾸고,
+//       그 바로 뒤에 빈 단락을 삽입해 사용자 입력 흐름을 끊지 않게 한다.
+// 사용처: 에디터 툴바/단축키의 "제목" 전환 액션
+// - 블록 단위로 정확히 변환
+// - 새 단락 삽입 후 커서를 해당 단락 앞으로 이동
+// - setNodes/insertNodes 제네릭 명시로 타입 오류 방지
+// =============================================
 
-import { Editor, Transforms } from 'slate';
+import { Editor, Transforms, Path, Element as SlateElement } from 'slate';
 import type { ParagraphElement, CustomText } from '@/types/slate';
 
 // HeadingElement 타입 선언
 export type HeadingElement = {
   type: 'heading-one' | 'heading-two' | 'heading-three';
-  icon?: string;                // heading 앞에 붙는 아이콘(이모지/이미지)
-  children: CustomText[];       // Slate 텍스트 노드
+  icon?: string;          // heading 앞에 붙는 아이콘(이모지/이미지)
+  children: CustomText[]; // Slate 텍스트 노드
 };
 
 /**
  * insertHeading
  * - 에디터에서 현재 커서 위치 블록을 heading으로 변환, heading 뒤에 빈 단락 삽입
- * @param editor Slate Editor 인스턴스
+ * @param editor  Slate Editor 인스턴스
  * @param heading 'heading-one' | 'heading-two' | 'heading-three'
- * @param icon (옵션) 아이콘(이모지/이미지 URL)
+ * @param icon    (옵션) 아이콘(이모지/이미지 URL). 기본값: 빈 문자열(기존 아이콘 초기화)
  */
 export const insertHeading = (
   editor: Editor,
   heading: 'heading-one' | 'heading-two' | 'heading-three',
   icon: string = ''
-) => {
-  // 1. 선택된 영역(커서)이 없으면 동작 안 함
+): void => {
+  // 선택(커서)이 없으면 동작하지 않음
   if (!editor.selection) return;
 
-  // 2. 현재 블록을 heading 타입 + 아이콘으로 변환
-  Transforms.setNodes(
-    editor,
-    { type: heading, icon } as Partial<HeadingElement>
-  );
+  // 커서가 속한 블록 엔트리 획득
+  const entry = Editor.above(editor, { match: n => SlateElement.isElement(n) });
+  if (!entry) return;
+  const [, blockPath] = entry;
 
-  // 3. heading 바로 뒤에 빈 단락(paragraph) 추가
+  // heading 뒤에 붙일 빈 단락
   const paragraph: ParagraphElement = {
     type: 'paragraph',
     children: [{ text: '' }],
   };
 
-  // 4. 커서가 있는 위치의 "다음"에 빈 단락 삽입
-  //    (heading 뒤에 바로 입력 가능하도록)
-  const nextPoint = Editor.after(editor, editor.selection.focus.path);
-  if (nextPoint) {
-    Transforms.insertNodes(editor, paragraph, { at: nextPoint });
-    Transforms.select(editor, nextPoint);
-  }
+  // 중간 정규화 최소화
+  Editor.withoutNormalizing(editor, () => {
+    // 현재 블록을 heading 타입(+ 아이콘)으로 변환
+    Transforms.setNodes<HeadingElement>(
+      editor,
+      { type: heading, icon } as Partial<HeadingElement>,
+      { match: n => SlateElement.isElement(n) }
+    );
+
+    // 변환한 블록 "다음 경로"에 빈 단락 삽입
+    const insertPath = Path.next(blockPath);
+    Transforms.insertNodes<ParagraphElement>(editor, paragraph, { at: insertPath });
+
+    // 커서를 새 단락의 시작으로 이동(바로 입력 가능)
+    const startOfNew = Editor.start(editor, insertPath);
+    Transforms.select(editor, startOfNew);
+  });
 };

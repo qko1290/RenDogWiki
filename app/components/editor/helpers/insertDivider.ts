@@ -1,13 +1,11 @@
-// =============================================
 // File: app/components/editor/helpers/insertDivider.ts
 // =============================================
-/**
- * 에디터에 구분선(divider) 블록을 삽입하는 유틸리티 함수.
- * - 현재 커서 위치에 divider 블록과 그 뒤에 빈 단락(paragraph) 블록을 연속 삽입한다.
- * - paragraph를 함께 추가하는 이유는, 커서가 divider 내에 머무르지 않고 다음 줄로 자동 이동하게 하기 위함.
- *   (divider만 단독 삽입하면, 사용자가 그 뒤에 내용을 바로 입력할 수 없기 때문)
- * - DividerElement/ParagraphElement 타입은 @/types/slate.ts에서 정의됨.
- */
+// 목적: 에디터에 구분선(divider) 블록을 삽입하고, 즉시 이어 쓸 수 있도록
+//       뒤에 빈 단락(paragraph)을 함께 삽입한다.
+// 사용처: 툴바/단축키에서 구분선 추가 액션
+// - 선택 영역이 없을 때도 문서 끝에 안전하게 삽입
+// - 두 노드 삽입을 한 덩어리로 처리하여 불필요한 중간 정규화 최소화
+// =============================================
 
 import { Editor, Transforms } from 'slate';
 import type { DividerElement, ParagraphElement } from '@/types/slate';
@@ -16,26 +14,31 @@ import type { DividerElement, ParagraphElement } from '@/types/slate';
  * insertDivider
  * - 에디터 인스턴스(editor)에 divider(구분선)와 빈 단락을 차례대로 삽입한다.
  * @param editor Slate Editor 인스턴스
- * @param style divider의 스타일 (기본값: "default")
+ * @param style  divider의 스타일 (기본값: "default")
  */
 export const insertDivider = (
   editor: Editor,
-  style: DividerElement["style"] = "default"
-) => {
-  // 1. 구분선(divider) 블록 생성
+  style: DividerElement['style'] = 'default'
+): void => {
+  // 1) 구분선(divider) 블록
   const divider: DividerElement = {
     type: 'divider',
     style,
     children: [{ text: '' }],
   };
 
-  // 2. 뒤따를 빈 단락(paragraph) 블록 생성
+  // 2) 뒤따를 빈 단락(paragraph) 블록
   const paragraph: ParagraphElement = {
     type: 'paragraph',
     children: [{ text: '' }],
   };
 
-  // 3. 두 블록을 연속 삽입
-  //    (이렇게 해야 커서가 divider에 머물지 않고, 다음 줄로 이동함)
-  Transforms.insertNodes(editor, [divider, paragraph]);
+  // 3) 삽입 위치: 커서가 없으면 문서 끝에 삽입
+  const at = editor.selection ?? Editor.end(editor, []);
+
+  // 4) 두 블록을 연속 삽입
+  //    - withoutNormalizing으로 묶어 불필요한 중간 정규화/리렌더를 방지
+  Editor.withoutNormalizing(editor, () => {
+    Transforms.insertNodes(editor, [divider, paragraph], { at });
+  });
 };

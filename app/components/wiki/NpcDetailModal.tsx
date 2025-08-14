@@ -1,9 +1,18 @@
-// components/wiki/NpcDetailModal.tsx
+// =============================================
+// File: components/wiki/NpcDetailModal.tsx
+// =============================================
 'use client';
 
 import React, { useEffect } from 'react';
 import NpcPictureSlider from './NpcPictureSlider';
 import '@/wiki/css/wiki-detail-modal.css';
+
+/**
+ * NPC/퀘스트 상세 모달
+ * - 좌측: 아이콘 + 사진 슬라이더
+ * - 우측: Pill UI(위치/퀘스트/보상/선행조건/대사)
+ * - backdrop 클릭으로 닫힘, 모달 열리는 동안 body 스크롤 잠금
+ */
 
 type Reward = { icon?: string; text: string };
 export type Npc = {
@@ -28,7 +37,7 @@ type Props = {
 };
 
 export default function NpcDetailModal({ npc, onClose, mode = 'quest' }: Props) {
-  // 바디 스크롤 잠금
+  // 바디 스크롤 잠금 (마운트/언마운트 시점만)
   useEffect(() => {
     document.body.classList.add('rd-modal-open');
     return () => document.body.classList.remove('rd-modal-open');

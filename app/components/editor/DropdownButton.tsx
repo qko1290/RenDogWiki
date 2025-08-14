@@ -2,16 +2,16 @@
 // File: app/components/editor/DropdownButton.tsx
 // =============================================
 /**
- * 에디터 툴바의 드롭다운(글자색/폰트/배경 등) 버튼 컴포넌트
- * - label(버튼 표시명)과 items(옵션 리스트) 전달
- * - 드롭다운이 열릴 때 selectionRef로 현재 selection 저장
- * - 옵션 클릭 시 해당 마크(editor 스타일) 바로 적용
- * - 열림/닫힘 상태, 드롭다운 간 컨트롤 지원
+ * 에디터 툴바 드롭다운 버튼
+ * - label(표시명) + items(옵션 문자열 배열) 렌더링
+ * - 드롭다운이 열릴 때 selectionRef에 현재 selection 저장
+ * - 항목 클릭(또는 Enter/Space) 시 selectionRef로 커서 복원 → 포커스 → 해당 마크 적용
+ * - 열림/닫힘은 부모의 openDropdown 상태로 제어(동일 툴바 내 상호 배타 열림)
  */
 
 'use client';
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useSlate, ReactEditor } from 'slate-react';
 import { Editor, Range, Transforms } from 'slate';
 
@@ -34,42 +34,80 @@ const DropdownButton = ({
   const isOpen = openDropdown === dropdownId;
 
   /**
-   * [옵션 클릭 시 동작]
-   * - selectionRef를 사용해 드롭다운 열렸던 위치로 커서 복원
-   * - 해당 마크(editor 스타일) 적용
-   * - 드롭다운 닫음
+   * [옵션 선택 처리]
+   * - 이벤트 흐름상 드롭다운 DOM 업데이트 전 selection 복원이 필요하므로
+   *   다음 tick에서: selection 복원 → 포커스 → 마크 적용 순으로 실행
+   * - markType은 dropdownId를 그대로 사용(color, fontSize, backgroundColor 등)
    */
-  const handleSelect = (item: string) => {
-    // markType은 dropdownId를 그대로 사용 (color, fontSize, backgroundColor 등)
+  const handleSelect = useCallback((item: string) => {
     const markType = dropdownId;
+
     setTimeout(() => {
-      if (selectionRef.current) Transforms.select(editor, selectionRef.current);
+      if (selectionRef.current) {
+        Transforms.select(editor, selectionRef.current);
+      }
       ReactEditor.focus(editor);
       Editor.addMark(editor, markType, item);
     }, 0);
 
-    if (onSelect) onSelect(item);
+    onSelect?.(item);
     setOpenDropdown(null);
+  }, [dropdownId, editor, onSelect, selectionRef, setOpenDropdown]);
+
+  /** 키보드 접근성: Enter/Space로 선택 */
+  const onItemKeyDown: React.KeyboardEventHandler<HTMLLIElement> = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      const value = (e.currentTarget.getAttribute('data-value') ?? '') as string;
+      handleSelect(value);
+    }
+  };
+
+  /** 드롭다운 전체에서 Escape로 닫기 */
+  const onMenuKeyDown: React.KeyboardEventHandler<HTMLUListElement> = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      setOpenDropdown(null);
+      // 닫힌 뒤 원래 에디터로 포커스 복구
+      setTimeout(() => ReactEditor.focus(editor), 0);
+    }
   };
 
   // 렌더링: 버튼 + 드롭다운 메뉴
   return (
     <div className="editor-dropdown">
       <button
+        type="button" // 폼 내에서 암묵적 submit 방지
         onMouseDown={e => {
-          e.preventDefault();
-          selectionRef.current = editor.selection;
+          e.preventDefault(); // 버튼 포커스/블러로 selection 유실 방지
+          selectionRef.current = editor.selection ?? null;
           setOpenDropdown(isOpen ? null : dropdownId);
         }}
         className="editor-toolbar-btn"
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+        aria-controls={isOpen ? `${dropdownId}-menu` : undefined}
       >
         {label}
       </button>
 
-      {isOpen && (
-        <ul className="editor-dropdown-menu">
+      {isOpen && items.length > 0 && (
+        <ul
+          id={`${dropdownId}-menu`}
+          className="editor-dropdown-menu"
+          role="menu"
+          aria-label={typeof label === 'string' ? label : undefined}
+          onKeyDown={onMenuKeyDown}
+        >
           {items.map((item, idx) => (
-            <li key={idx} onMouseDown={() => handleSelect(item)}>
+            <li
+              key={idx}
+              role="menuitem"
+              tabIndex={0}
+              data-value={item}
+              onMouseDown={() => handleSelect(item)}   // 마우스 선택(버블링 전 처리)
+              onKeyDown={onItemKeyDown}                // 키보드 선택
+            >
               {item}
             </li>
           ))}
@@ -79,4 +117,4 @@ const DropdownButton = ({
   );
 };
 
-export default DropdownButton;
+export default React.memo(DropdownButton);

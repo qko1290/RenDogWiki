@@ -5,11 +5,11 @@
  * Slate JSON(Descendant[])을 React JSX로 렌더링하는 컴포넌트
  * - renderSlateToHtml.ts 기능 100% 커버
  * - heading, info-box, divider, 링크, 이미지, 인라인마크, price-table-card 등 지원
+ * - 서버/클라이언트 헤딩 ID 불일치 경고 억제를 위해 heading에 suppressHydrationWarning 사용
  */
 
 import React, { useState } from "react";
 import { Descendant, Text } from "slate";
-
 
 function toHeadingIdFromText(text: string) {
   const cleaned = text.replace(/^[^\w\s]|[\u{1F300}-\u{1F6FF}]/gu, '').trim();
@@ -238,7 +238,6 @@ function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key 
           const showArrows = hovered === idx && stages.length > 1;
           const leftArrowBtn = showArrows && (
             <button
-              key="left"
               style={{
                 position: "absolute",
                 left: -12,
@@ -268,7 +267,6 @@ function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key 
           );
           const rightArrowBtn = showArrows && (
             <button
-              key="right"
               style={{
                 position: "absolute",
                 right: -12,
@@ -373,7 +371,7 @@ function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key 
 }
 
 // 뱃지 컬러 함수 (renderSlateToHtml과 1:1 동일)
-function getPriceBadgeColor(stage: string, type?: string) {
+function getPriceBadgeColor(stage: string, _type?: string) {
   switch (stage) {
     case "봉인":
       return "#444";
@@ -489,6 +487,7 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
         <Tag
           key={key}
           id={id}
+          suppressHydrationWarning
           style={{
             display: "flex",
             alignItems: "center",

@@ -1,3 +1,5 @@
+// C:\next\rdwiki\app\wiki\write\layout.tsx
+
 'use client';
 
 import { useEffect, useState } from 'react';

@@ -1,85 +1,170 @@
 // =============================================
-// File: app/api/npc/route.ts (예시)
+// File: app/api/npc/route.ts
 // =============================================
 /**
- * NPC 목록 조회/추가 API
- * - [GET] 특정 마을(village_id)과 유형(npc_type)별 NPC 목록 반환
- * - [POST] 신규 NPC 추가
- * - pictures, rewards는 항상 배열로 처리 및 반환
+ * NPC 목록 조회/추가
+ * - GET  -> village_id(필수), npc_type(선택) 기준 목록 반환 (order, name 순)
+ * - POST -> 신규 NPC 추가 (필수: name, icon, village_id)
+ * - pictures/rewards는 항상 배열로 보정해서 저장/반환
+ * - 응답은 실시간 갱신 성격 -> 캐시 금지
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { sql } from "@/wiki/lib/db";
+import { NextRequest, NextResponse } from 'next/server';
+import { sql } from '@/wiki/lib/db';
+import { getAuthUser } from '@/wiki/lib/auth';
+import { logActivity, resolveVillageName } from '@wiki/lib/activity';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+// 문자열/JSON/배열을 안전한 배열로 정규화
+function toArray(v: unknown): any[] {
+  if (Array.isArray(v)) return v;
+  if (v == null) return [];
+  if (typeof v === 'string') {
+    try {
+      const j = JSON.parse(v);
+      return Array.isArray(j) ? j : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+// 숫자 필드 -> 유효 숫자면 정수로, 아니면 fallback
+function numOr<T extends number>(v: unknown, fallback: T): T {
+  const n = Number(v);
+  return (Number.isFinite(n) ? Math.trunc(n) : fallback) as T;
+}
+
+// 문자열 필드 -> 문자열이면 trim, 아니면 fallback
+function strOr<T extends string | null>(v: unknown, fallback: T): T {
+  if (typeof v === 'string') return (v as string).trim() as T;
+  return fallback;
+}
 
 /**
  * [NPC 목록 조회] GET
- * - 쿼리: village_id(필수), npc_type(quest|normal, 기본 normal)
- * - 반환: 해당 조건에 맞는 NPC 목록 (order, name 순 정렬)
- * - pictures, rewards는 항상 배열로 파싱되어 반환됨
+ * - 쿼리: village_id(필수), npc_type(선택, 기본 'normal')
+ * - 반환: 조건에 맞는 NPC 배열 (order, name 순)
+ * - pictures/rewards는 배열로 보정해서 내려줌
  */
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const village_id = Number(searchParams.get("village_id"));
-  const npc_type = searchParams.get("npc_type") || "normal";
+  try {
+    const { searchParams } = new URL(req.url);
+    const villageParam = searchParams.get('village_id');
+    const npcTypeParam = (searchParams.get('npc_type') ?? 'normal').trim();
 
-  // village_id 없으면 빈 배열 반환
-  if (!village_id) return NextResponse.json([], { status: 200 });
+    const village_id = Number(villageParam);
+    if (!Number.isFinite(village_id) || village_id <= 0) {
+      // village_id가 없거나 숫자 아님 -> 빈 배열
+      return NextResponse.json([], { headers: { 'Cache-Control': 'no-store' } });
+    }
 
-  const rows = await sql`
-    SELECT * FROM npc
-    WHERE village_id = ${village_id}
-      AND npc_type = ${npc_type}
-    ORDER BY "order", name
-  `;
+    const rows = (await sql/*sql*/`
+      SELECT *
+      FROM npc
+      WHERE village_id = ${village_id}
+        AND npc_type = ${npcTypeParam}
+      ORDER BY "order", name
+    `) as unknown as any[];
 
-  // pictures, rewards는 항상 배열로 보장
-  rows.forEach(row => {
-    row.pictures = Array.isArray(row.pictures)
-      ? row.pictures
-      : JSON.parse(row.pictures ?? "[]");
-    row.rewards = Array.isArray(row.rewards)
-      ? row.rewards
-      : JSON.parse(row.rewards ?? "[]");
-  });
-  return NextResponse.json(rows);
+    const normalized = rows.map((row) => ({
+      ...row,
+      pictures: toArray(row.pictures),
+      rewards: toArray(row.rewards),
+    }));
+
+    return NextResponse.json(normalized, {
+      headers: { 'Cache-Control': 'no-store' },
+    });
+  } catch (err) {
+    console.error('[npc GET] unexpected error:', err);
+    return NextResponse.json(
+      { error: 'server error' },
+      { status: 500, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
 }
 
 /**
  * [NPC 추가] POST
- * - name, icon, village_id 필수
- * - 나머지 필드는 옵션
- * - pictures, rewards는 항상 배열로 저장
- * - 성공 시 추가된 NPC row 반환
+ * - 필수: name, icon, village_id
+ * - 옵션: order(기본 0), requirement, line, location_x/y/z(기본 0),
+ *         quest(기본 ''), npc_type(기본 'normal'), pictures/rewards(배열)
+ * - 성공 시 삽입된 row 반환(배열 필드는 보정)
  */
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  try {
+    const body = await req.json().catch(() => ({} as any));
 
-  if (!body.name || !body.icon || !body.village_id) {
-    return NextResponse.json({ error: "필수값 누락" }, { status: 400 });
+    const name = strOr(body?.name, '');
+    const icon = strOr(body?.icon, '');
+    const village_id = Number(body?.village_id);
+
+    if (!name || !icon || !Number.isFinite(village_id) || village_id <= 0) {
+      return NextResponse.json(
+        { error: '필수값 누락' },
+        { status: 400, headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
+
+    const order = numOr(body?.order, 0);
+    const requirement = body?.requirement === undefined ? null : strOr(body?.requirement, null);
+    const line = body?.line === undefined ? null : strOr(body?.line, null);
+    const location_x = numOr(body?.location_x, 0);
+    const location_y = numOr(body?.location_y, 0);
+    const location_z = numOr(body?.location_z, 0);
+    const quest = strOr(body?.quest, '');
+    const npc_type = strOr(body?.npc_type ?? 'normal', 'normal');
+
+    const pictures = toArray(body?.pictures);
+    const rewards = toArray(body?.rewards);
+
+    const inserted = (await sql/*sql*/`
+      INSERT INTO npc
+        (name, icon, village_id, "order", requirement, line,
+         location_x, location_y, location_z, quest, npc_type, pictures, rewards)
+      VALUES (
+        ${name}, ${icon}, ${village_id}, ${order},
+        ${requirement}, ${line},
+        ${location_x}, ${location_y}, ${location_z},
+        ${quest}, ${npc_type},
+        ${JSON.stringify(pictures)},
+        ${JSON.stringify(rewards)}
+      )
+      RETURNING *
+    `) as unknown as any[];
+
+    const row = inserted[0];
+    row.pictures = toArray(row.pictures);
+    row.rewards = toArray(row.rewards);
+
+    // 활동 로그(경로에는 village 이름)
+    const me = getAuthUser();
+    const username = me?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
+    const villageLabel = await resolveVillageName(row.village_id);
+
+    await logActivity({
+      action: 'npc.create',
+      username,
+      targetType: 'npc',
+      targetId: row.id,
+      targetName: row.name,
+      targetPath: villageLabel,
+      meta: { npc_type: row.npc_type },
+    });
+
+    return NextResponse.json(row, {
+      headers: { 'Cache-Control': 'no-store' },
+    });
+  } catch (err) {
+    console.error('[npc POST] unexpected error:', err);
+    return NextResponse.json(
+      { error: 'server error' },
+      { status: 500, headers: { 'Cache-Control': 'no-store' } },
+    );
   }
-
-  const pictures = Array.isArray(body.pictures) ? body.pictures : [];
-  const rewards = Array.isArray(body.rewards) ? body.rewards : [];
-
-  const [row] = await sql`
-    INSERT INTO npc
-      (name, icon, village_id, "order", requirement, line,
-      location_x, location_y, location_z, quest, npc_type, pictures, rewards)
-    VALUES (
-      ${body.name}, ${body.icon}, ${body.village_id}, ${body.order},
-      ${body.requirement ?? null}, ${body.line ?? null},
-      ${body.location_x}, ${body.location_y}, ${body.location_z},
-      ${body.quest}, ${body.npc_type},
-      ${JSON.stringify(pictures)},
-      ${JSON.stringify(rewards)}
-    )
-    RETURNING *
-  `;
-  row.pictures = Array.isArray(row.pictures)
-    ? row.pictures
-    : JSON.parse(row.pictures ?? "[]");
-  row.rewards = Array.isArray(row.rewards)
-    ? row.rewards
-    : JSON.parse(row.rewards ?? "[]");
-  return NextResponse.json(row);
 }

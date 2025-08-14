@@ -1,3 +1,6 @@
+// =============================================
+// File: app/components/editor/Element.tsx
+// =============================================
 'use client';
 
 /**
@@ -16,7 +19,17 @@ import { Node, Transforms, Path, Editor, Element as SlateElement } from 'slate';
 import { getHeadingId } from './helpers/getHeadingId';
 import ImageSizeModal from './ImageSizeModal';
 import ImageSelectModal from '@/components/image/ImageSelectModal';
-import type { InlineMarkElement, InlineImageElement, PriceTableCardElement, CustomElement, LinkElement, LinkBlockElement, InfoBoxElement, HeadingOneElement, HeadingTwoElement, HeadingThreeElement, ImageElement, ParagraphElement } from '@/types/slate';
+import type {
+  InlineMarkElement,
+  InlineImageElement,
+  PriceTableCardElement,
+  CustomElement,
+  LinkBlockElement,
+  HeadingOneElement,
+  HeadingTwoElement,
+  HeadingThreeElement,
+  ParagraphElement
+} from '@/types/slate';
 
 type PriceTableEditState = {
   blockPath: Path | null;
@@ -30,84 +43,6 @@ type ElementProps = RenderElementProps & {
   priceTableEdit: PriceTableEditState;
   setPriceTableEdit: React.Dispatch<React.SetStateAction<PriceTableEditState>>;
 };
-
-function InfoPhotoIcon({ tone }: { tone: 'note' | 'tip' | 'warn' | 'danger' }) {
-  const color =
-    tone === 'danger' ? '#ef4444' :
-    tone === 'warn'   ? '#f59e0b' :
-    tone === 'tip'    ? '#10b981' :
-                        '#2563eb' ;
-
-  // 각 톤별 아이콘(사진 느낌의 심볼)
-  // - danger  : 삼각 경고
-  // - warn    : 둥근 느낌표
-  // - note    : 둥근 i
-  // - tip     : 전구
-  if (tone === 'danger') {
-    return (
-      <svg viewBox="0 0 48 48" width="22" height="22" aria-hidden>
-        <defs>
-          <linearGradient id="g-danger" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#ff8a8a" />
-            <stop offset="1" stopColor={color} />
-          </linearGradient>
-        </defs>
-        <path
-          d="M22.5 7.5 4.8 38.2c-.9 1.6.2 3.6 2 3.6h34.4c1.8 0 2.9-2 2-3.6L25.5 7.5a2.3 2.3 0 0 0-3 0Z"
-          fill="url(#g-danger)"
-          stroke={color}
-          strokeWidth="1"
-        />
-        <rect x="22" y="17" width="4" height="14" rx="2" fill="#fff"/>
-        <circle cx="24" cy="36" r="2" fill="#fff"/>
-      </svg>
-    );
-  }
-  if (tone === 'warn') {
-    return (
-      <svg viewBox="0 0 48 48" width="22" height="22" aria-hidden>
-        <defs>
-          <linearGradient id="g-warn" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#ffd899" />
-            <stop offset="1" stopColor={color} />
-          </linearGradient>
-        </defs>
-        <circle cx="24" cy="24" r="20" fill="url(#g-warn)" stroke={color} strokeWidth="1"/>
-        <rect x="22.5" y="13" width="3" height="16" rx="1.5" fill="#fff"/>
-        <circle cx="24" cy="33" r="2" fill="#fff"/>
-      </svg>
-    );
-  }
-  if (tone === 'tip') {
-    return (
-      <svg viewBox="0 0 48 48" width="22" height="22" aria-hidden>
-        <defs>
-          <linearGradient id="g-tip" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#78ffd6" />
-            <stop offset="1" stopColor={color} />
-          </linearGradient>
-        </defs>
-        <path d="M24 6c7 0 12 5.3 12 11.7 0 4-2 7.2-5 9.3-1.2.9-1.9 2.3-2 3.8v.6h-10v-.6c0-1.5-.8-2.9-2-3.8-3-2.1-5-5.4-5-9.3C12 11.3 17 6 24 6Z" fill="url(#g-tip)"/>
-        <rect x="18" y="33" width="12" height="3.5" rx="1.8" fill="#0b6b52" opacity=".15"/>
-        <rect x="20" y="37" width="8" height="4" rx="2" fill="#0b6b52" opacity=".25"/>
-      </svg>
-    );
-  }
-  // note (info)
-  return (
-    <svg viewBox="0 0 48 48" width="22" height="22" aria-hidden>
-      <defs>
-        <linearGradient id="g-note" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#bcd3ff" />
-          <stop offset="1" stopColor={color} />
-        </linearGradient>
-      </defs>
-      <circle cx="24" cy="24" r="20" fill="url(#g-note)" stroke={color} strokeWidth="1"/>
-      <circle cx="24" cy="15" r="2.6" fill="#fff"/>
-      <rect x="22.4" y="19" width="3.2" height="14" rx="1.6" fill="#fff"/>
-    </svg>
-  );
-}
 
 /**
  * 각 상태(각성, 초월, MAX 등)에 맞는 뱃지 배경색 반환
@@ -140,6 +75,10 @@ function guessPriceMode(item: any): 'normal' | 'awakening' | 'transcend' {
 const Element: React.FC<ElementProps> = ({
   attributes, children, element, editor, onIconClick, priceTableEdit, setPriceTableEdit,
 }) => {
+  // ✅ 훅은 항상 최상단에서 호출(조건부 호출 금지)
+  const slateEditor = useSlate();
+  const editorStatic = useSlateStatic();
+
   // 카드형 가격테이블의 각 아이템에 hover 효과 주기 위해 인덱스 관리
   const [hovered, setHovered] = useState<number | null>(null);
 
@@ -147,7 +86,7 @@ const Element: React.FC<ElementProps> = ({
     // 인라인 링크
     case 'link': {
       return (
-        <a {...attributes} href={element.url} style={{ color: '#2676ff' }}>
+        <a {...attributes} href={(element as any).url} style={{ color: '#2676ff' }}>
           {children}
         </a>
       );
@@ -176,6 +115,8 @@ const Element: React.FC<ElementProps> = ({
           {/* 삭제 버튼(읽기 전용이 아닐 때만) */}
           {!isReadOnly && (
             <button
+              type="button"
+              aria-label="링크 카드 삭제"
               contentEditable={false}
               onClick={() => {
                 const path = ReactEditor.findPath(editor, element);
@@ -248,7 +189,7 @@ const Element: React.FC<ElementProps> = ({
 
     // Divider(구분선)
     case 'divider': {
-      const style = element.style || "default";
+      const style = (element as any).style || "default";
       const borderColor = "#e0e0e0";
       switch (style) {
         case "bold":
@@ -316,7 +257,6 @@ const Element: React.FC<ElementProps> = ({
       // 연속된 indentLine 단락 구분을 위한 class 추가
       let extraClass = "";
       if (indentLine) {
-        const slateEditor = useSlate();
         const path = ReactEditor.findPath(slateEditor, element);
         let isFirst = true, isLast = true;
         try {
@@ -383,7 +323,7 @@ const Element: React.FC<ElementProps> = ({
 
       // 이미지 크기 편집 아이콘
       const EditIcon = ({ size = 18, color = "#2a90ff" }) => (
-        <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+        <svg width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden>
           <path d="M3 17h3.8a1 1 0 0 0 .7-.3l8.4-8.4a2 2 0 0 0 0-2.8l-1.7-1.7a2 2 0 0 0-2.8 0L3.3 12.2a1 1 0 0 0-.3.7V17z" stroke={color} strokeWidth="1.7"/>
           <path d="M11.7 6.3l2.5 2.5" stroke={color} strokeWidth="1.7"/>
         </svg>
@@ -444,6 +384,8 @@ const Element: React.FC<ElementProps> = ({
             />
             {(selected && focused) && (
               <button
+                type="button"
+                aria-label="이미지 크기 편집"
                 style={{
                   position: "absolute", top: 8, right: 8,
                   background: "#fff",
@@ -526,22 +468,21 @@ const Element: React.FC<ElementProps> = ({
     // 가격표 카드 블럭 (아이템 가격·이미지·이름 인라인 편집, 단계별 가격 전환)
     case 'price-table-card': {
       const el = element as PriceTableCardElement;
-      const editor = useSlateStatic();
-      const path = ReactEditor.findPath(editor, el);
+      const path = ReactEditor.findPath(editorStatic, el);
 
       // 가격표 블럭 내에서 Backspace 방지(전체 삭제 방지)
       useEffect(() => {
         const handler = (e: KeyboardEvent) => {
-          const { selection } = editor;
-          if (!selection || !ReactEditor.isFocused(editor)) return;
-          const [node] = Editor.node(editor, selection, { depth: 1 });
+          const { selection } = editorStatic;
+          if (!selection || !ReactEditor.isFocused(editorStatic)) return;
+          const [node] = Editor.node(editorStatic, selection, { depth: 1 });
           if (SlateElement.isElement(node) && node.type === 'price-table-card' && e.key === 'Backspace') {
             e.preventDefault();
           }
         };
         window.addEventListener('keydown', handler, true);
         return () => window.removeEventListener('keydown', handler, true);
-      }, [editor]);
+      }, [editorStatic]);
 
       // 단계별 인덱스 관리
       const [stageIdxArr, setStageIdxArr] = useState(el.items.map(() => 0));
@@ -573,6 +514,8 @@ const Element: React.FC<ElementProps> = ({
         >
           {/* 카드 전체 삭제 */}
           <button
+            type="button"
+            aria-label="시세표 블럭 삭제"
             style={{
               position: 'absolute',
               top: 10,
@@ -594,8 +537,8 @@ const Element: React.FC<ElementProps> = ({
             tabIndex={-1}
             onClick={e => {
               e.stopPropagation();
-              const path = ReactEditor.findPath(editor, element);
-              Transforms.removeNodes(editor, { at: path });
+              const pathToRemove = ReactEditor.findPath(editorStatic, element);
+              Transforms.removeNodes(editorStatic, { at: pathToRemove });
             }}
           >×</button>
 
@@ -629,7 +572,7 @@ const Element: React.FC<ElementProps> = ({
                 const newItems = el.items.map((itm, i) =>
                   i === idx ? { ...itm, image: url } : itm
                 );
-                Transforms.setNodes(editor, { items: newItems }, { at: path });
+                Transforms.setNodes(editorStatic, { items: newItems }, { at: path });
                 setImageModalOpen(false);
               };
 
@@ -637,7 +580,7 @@ const Element: React.FC<ElementProps> = ({
                 const newItems = el.items.map((itm, i) =>
                   i === idx ? { ...itm, name: editNameValue } : itm
                 );
-                Transforms.setNodes(editor, { items: newItems }, { at: path });
+                Transforms.setNodes(editorStatic, { items: newItems }, { at: path });
                 setEditingName(false);
               };
 
@@ -694,6 +637,8 @@ const Element: React.FC<ElementProps> = ({
                   {hovered === idx && (
                     <>
                       <button
+                        type="button"
+                        aria-label="이전 단계"
                         style={{
                           position: 'absolute', left: -12, top: '50%',
                           transform: 'translateY(-50%)',
@@ -708,6 +653,8 @@ const Element: React.FC<ElementProps> = ({
                         title="이전"
                       >◀</button>
                       <button
+                        type="button"
+                        aria-label="다음 단계"
                         style={{
                           position: 'absolute', right: -12, top: '50%',
                           transform: 'translateY(-50%)',

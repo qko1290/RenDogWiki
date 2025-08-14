@@ -4,7 +4,7 @@
 
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { ModalCard } from '@/components/common/Modal';
 
 type Props = {
@@ -24,23 +24,55 @@ export default function ImageUrlInputModal({
   const [url, setUrl] = useState(defaultValue);
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const descId = 'image-url-error';
+
+  /** http/https URL만 허용하는 검증 */
+  const isValidUrl = useCallback((s: string) => {
+    try {
+      const u = new URL(s.trim());
+      return u.protocol === 'http:' || u.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }, []);
 
   useEffect(() => {
     if (!open) return;
     setUrl(defaultValue);
     setError('');
-    const t = setTimeout(() => inputRef.current?.focus(), 60);
+    // 포커스 + 전체 선택
+    const t = setTimeout(() => {
+      const el = inputRef.current;
+      if (el) {
+        el.focus();
+        el.select();
+      }
+    }, 60);
+    // 툴바 드롭다운 닫기(기존 연동 유지)
     window.dispatchEvent(new CustomEvent('editor:close-dropdowns'));
     return () => clearTimeout(t);
   }, [open, defaultValue]);
 
-  const valid = /^https?:\/\//i.test(url.trim()); // 확장자 제한 없이 http(s)만 확인
+  // Esc 키로 닫기
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [open, onClose]);
 
-  const handleSubmit = () => {
-    if (!valid) { setError('http(s)로 시작하는 올바른 URL을 입력하세요.'); return; }
+  const valid = isValidUrl(url);
+
+  const handleSubmit = useCallback(() => {
+    if (!valid) {
+      setError('http(s)로 시작하는 올바른 URL을 입력하세요.');
+      return;
+    }
     onSubmit(url.trim());
     onClose();
-  };
+  }, [onClose, onSubmit, url, valid]);
 
   return (
     <ModalCard
@@ -61,10 +93,23 @@ export default function ImageUrlInputModal({
         type="url"
         placeholder="https://example.com/image.png"
         value={url}
-        onChange={(e)=>{ setUrl(e.target.value); setError(''); }}
-        onKeyDown={(e)=>{ if(e.key==='Enter'){ e.preventDefault(); handleSubmit(); } }}
+        onChange={(e) => { setUrl(e.target.value); setError(''); }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { e.preventDefault(); handleSubmit(); }
+        }}
+        aria-invalid={!valid}
+        aria-describedby={error ? descId : undefined}
+        inputMode="url"
+        autoCapitalize="off"
+        autoCorrect="off"
+        spellCheck={false}
+        pattern="https?://.*"
       />
-      {error && <p className="rd-card-description" style={{ color:'#d32f2f' }}>{error}</p>}
+      {error && (
+        <p id={descId} className="rd-card-description" style={{ color: '#d32f2f' }}>
+          {error}
+        </p>
+      )}
     </ModalCard>
   );
 }

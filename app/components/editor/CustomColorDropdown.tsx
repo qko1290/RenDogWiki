@@ -3,6 +3,14 @@
 // =============================================
 'use client';
 
+/**
+ * 에디터 색상 선택 드롭다운
+ * - 최근 색상/회색 스케일/고정 팔레트(12×7) + 확장 피커(react-colorful)
+ * - 선택 시 onChange(hex) 호출, '지우기'는 빈 문자열 전달
+ * - 접근성: 스와치 키보드(Enter/Space) 선택, aria-label 부여
+ * - 입력 안전성: 수동 입력 HEX 검증/정규화(#abc → #aabbcc, 잘못된 값 무시)
+ */
+
 import React, { useMemo, useState } from 'react';
 import { HexColorPicker } from 'react-colorful';
 
@@ -15,7 +23,7 @@ type Props = {
   kind?: 'text' | 'background';
 };
 
-/** HSL -> HEX */
+/** HSL -> HEX (#rrggbb) */
 function hslToHex(h: number, s: number, l: number) {
   s /= 100; l /= 100;
   const c = (1 - Math.abs(2 * l - 1)) * s;
@@ -43,6 +51,26 @@ function buildColorGrid(): string[][] {
 
 const GRAYS = ['#ffffff', '#f8fafc', '#f1f5f9', '#e5e7eb', '#d1d5db', '#9ca3af', '#6b7280', '#4b5563', '#374151', '#111827', '#000000'];
 
+/** 최근 색상 최대 보관 개수 */
+const MAX_RECENTS = 16;
+
+/** HEX 정규화
+ * - 허용: #rrggbb, rrggbb, #rgb, rgb
+ * - 반환: #rrggbb (소문자), 실패 시 빈 문자열
+ */
+function toFullHex(input: string): string {
+  if (!input) return '';
+  let s = input.trim();
+  if (!s) return '';
+  if (s[0] !== '#') s = `#${s}`;
+  // #rgb → #rrggbb
+  if (/^#[0-9a-fA-F]{3}$/.test(s)) {
+    s = '#' + s.slice(1).split('').map(ch => ch + ch).join('');
+  }
+  if (/^#[0-9a-fA-F]{6}$/.test(s)) return s.toLowerCase();
+  return '';
+}
+
 /** 레이아웃 상수 */
 const CELL = 14;   // 정사각 타일 한 변
 const GAP  = 4;
@@ -57,12 +85,12 @@ const baseSwatch: React.CSSProperties = {
   height: CELL,
   border: '1px solid #e5e7eb',
   borderRadius: 3,
-  padding: 0,                 // ← 기본 padding 제거
+  padding: 0,
   margin: 0,
   boxSizing: 'border-box',
   display: 'inline-block',
   cursor: 'pointer',
-  appearance: 'none' as any,  // 브라우저 기본 스타일 제거
+  appearance: 'none' as any,
   WebkitAppearance: 'none' as any,
   MozAppearance: 'none' as any,
 };
@@ -77,18 +105,37 @@ export default function CustomColorDropdown({
 }: Props) {
   const GRID = useMemo(buildColorGrid, []);
   const [showPicker, setShowPicker] = useState(false);
-  const [hex, setHex] = useState<string>(value || '#000000');
+  const [hex, setHex] = useState<string>(toFullHex(value) || '#000000');
 
   const title = kind === 'background' ? '최근 사용한 배경색' : '최근 사용한 글자색';
 
+  /** 스와치/입력 공통 선택 로직 */
   const select = (c: string) => {
-    onChange(c);
-    if (c) {
-      setRecentColors(prev => {
-        const next = [c, ...prev.filter(x => x.toLowerCase() !== c.toLowerCase())];
-        return next.slice(0, 16);
-      });
-      setHex(c);
+    // 빈 문자열은 “지우기”
+    if (!c) {
+      onChange('');
+      setHex('#000000');
+      return;
+    }
+
+    const full = toFullHex(c);
+    if (!full) return; // 잘못된 입력은 무시
+
+    onChange(full);
+    setRecentColors(prev => {
+      const exists = new Set(prev.map(x => x.toLowerCase()));
+      // 중복 제거(대소문자 무시) + 최신 우선
+      const next = [full, ...prev.filter(x => !exists.has(full.toLowerCase()) )];
+      return next.slice(0, MAX_RECENTS);
+    });
+    setHex(full);
+  };
+
+  /** 키보드 접근성: Enter/Space → 클릭과 동일 */
+  const onSwatchKeyDown: React.KeyboardEventHandler<HTMLButtonElement> = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      (e.currentTarget as HTMLButtonElement).click();
     }
   };
 
@@ -125,14 +172,21 @@ export default function CustomColorDropdown({
           width: GRID_W
         }}
       >
-        {recentColors.slice(0, COLS).map(c => (
-          <button
-            key={c}
-            onClick={() => select(c)}
-            title={c}
-            style={{ ...baseSwatch, background: c }}
-          />
-        ))}
+        {recentColors.slice(0, COLS).map(c => {
+          const full = toFullHex(c);
+          if (!full) return null;
+          return (
+            <button
+              key={full}
+              onClick={() => select(full)}
+              onKeyDown={onSwatchKeyDown}
+              title={full}
+              aria-label={`recent color ${full}`}
+              tabIndex={0}
+              style={{ ...baseSwatch, background: full }}
+            />
+          );
+        })}
       </div>
 
       {/* 지우기 + Grays */}
@@ -146,7 +200,10 @@ export default function CustomColorDropdown({
       >
         <button
           onClick={() => select('')}
+          onKeyDown={onSwatchKeyDown}
           title="지우기"
+          aria-label="clear color"
+          tabIndex={0}
           style={{
             ...baseSwatch,
             background:
@@ -157,7 +214,10 @@ export default function CustomColorDropdown({
           <button
             key={g}
             onClick={() => select(g)}
+            onKeyDown={onSwatchKeyDown}
             title={g}
+            aria-label={`gray ${g}`}
+            tabIndex={0}
             style={{ ...baseSwatch, background: g }}
           />
         ))}
@@ -179,7 +239,10 @@ export default function CustomColorDropdown({
               <button
                 key={`${rIdx}-${i}`}
                 onClick={() => select(c)}
+                onKeyDown={onSwatchKeyDown}
                 title={c}
+                aria-label={`palette ${c}`}
+                tabIndex={0}
                 style={{ ...baseSwatch, background: c }}
               />
             ))}
@@ -190,6 +253,7 @@ export default function CustomColorDropdown({
       {/* 더보기 */}
       <button
         onClick={() => setShowPicker(v => !v)}
+        aria-expanded={showPicker}
         style={{
           marginTop: 10,
           width: '100%',
@@ -218,6 +282,7 @@ export default function CustomColorDropdown({
               onChange={(e) => setHex(e.target.value)}
               onBlur={() => select(hex)}
               placeholder="#000000"
+              spellCheck={false}
               style={{
                 flex: 1,
                 border: '1px solid #e5e7eb',
@@ -226,6 +291,7 @@ export default function CustomColorDropdown({
                 fontSize: 13,
                 minWidth: 0
               }}
+              aria-label="hex input"
             />
             <button
               onClick={() => { select(hex); onClose(); }}

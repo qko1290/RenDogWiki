@@ -1,19 +1,11 @@
 // =============================================
 // File: components/common/Modal.tsx
 // =============================================
-/**
- * 공통 Modal 컴포넌트
- * - props: 열림/닫힘(open), 닫기 콜백(onClose), 제목(title), 자식(children), 너비(width) 지정 가능
- * - React Portal로 body에 렌더 (z-index 충돌 방지)
- * - 배경 클릭 시 닫힘, 내용 클릭 시 닫힘 방지 (버블링 차단)
- * - 포커스 트랩 및 접근성(arai-modal) 적용
- */
-
 'use client';
 
-import React from 'react';
+import React, { useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import '@/wiki/css/image.css'; // rd-overlay/rd-card 등 공용 스타일
+import '@/wiki/css/image.css';
 
 type BaseProps = {
   open: boolean;
@@ -21,7 +13,6 @@ type BaseProps = {
   children: React.ReactNode;
 };
 
-/** 공통 오버레이: 항상 화면 정중앙에 위치 (그리드 중앙 정렬 + 포털) */
 function Overlay({
   onClose,
   children,
@@ -35,7 +26,6 @@ function Overlay({
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      // 스타일 누락/오버라이드 대비 안전장치(필요 시 클래스와 함께 적용)
       style={{
         display: 'grid',
         placeItems: 'center',
@@ -49,7 +39,6 @@ function Overlay({
   );
 }
 
-/** 프레임(카드 스킨) 없이 내용만 중앙 배치하고 싶은 경우 */
 export default function Modal({ open, onClose, children }: BaseProps) {
   if (!open) return null;
   return createPortal(
@@ -60,7 +49,6 @@ export default function Modal({ open, onClose, children }: BaseProps) {
   );
 }
 
-/** 카드형 모달: 제목/닫기/액션 영역이 있는 표준 패널 */
 export function ModalCard({
   open,
   onClose,
@@ -76,13 +64,73 @@ export function ModalCard({
   actions?: React.ReactNode;
   width?: number;
 }) {
+  const titleId = useId();
+  const panelRef = useRef<HTMLDivElement>(null);
+  const lastActiveRef = useRef<HTMLElement | null>(null);
+
+  // -> 열릴 때: 스크롤 잠금, 포커스 이동, Esc/탭 처리
+  useEffect(() => {
+    if (!open) return;
+
+    lastActiveRef.current = document.activeElement as HTMLElement | null;
+
+    // 스크롤 잠금
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    // 포커스 이동
+    const panel = panelRef.current!;
+    const focusables = panel.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
+    );
+    (focusables[0] ?? panel).focus();
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+      if (e.key === 'Tab') {
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        const active = document.activeElement as HTMLElement | null;
+
+        if (e.shiftKey) {
+          if (active === first || !panel.contains(active)) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (active === last || !panel.contains(active)) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener('keydown', onKeyDown);
+      lastActiveRef.current?.focus?.();
+    };
+  }, [open, onClose]);
+
   if (!open) return null;
+
   return createPortal(
     <Overlay onClose={onClose}>
       <div
+        ref={panelRef}
         className="rd-card"
         role="dialog"
-        aria-labelledby="rdm-title"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
         onMouseDown={(e) => e.stopPropagation()}
         style={{
           width,
@@ -102,13 +150,11 @@ export function ModalCard({
         </button>
 
         <div className="rd-card-content">
-          <p className="rd-card-heading" id="rdm-title">{title}</p>
+          <p className="rd-card-heading" id={titleId}>{title}</p>
           {children}
         </div>
 
-        {actions && (
-          <div className="rd-card-button-wrapper">{actions}</div>
-        )}
+        {actions && <div className="rd-card-button-wrapper">{actions}</div>}
       </div>
     </Overlay>,
     document.body

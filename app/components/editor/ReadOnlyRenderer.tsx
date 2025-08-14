@@ -3,52 +3,56 @@
 // =============================================
 /**
  * 읽기 전용 Slate 문서 뷰어
- * - 슬레이트 JSON 문서 데이터를 readOnly로 그대로 출력
- * - 마크업/블록/스타일 유지, 편집 기능 완전 비활성화
- * - 인라인/블록 렌더러는 편집 모드와 동일하게 재사용
+ * - 슬레이트 JSON(Descendant[])을 readOnly로 그대로 출력
+ * - 편집 기능 완전 비활성화(키 입력/변경 무시)
+ * - 편집 모드에서 쓰는 Element/Leaf 렌더러 재사용
+ * - Element가 요구하는 priceTableEdit 관련 prop은 안전한 no-op으로 전달
  */
 
 'use client';
 
-import { Descendant, Path } from 'slate';
+import React, { useMemo, type Dispatch, type SetStateAction } from 'react';
+import { createEditor, type Descendant, type Path } from 'slate';
 import { Slate, Editable, withReact } from 'slate-react';
-import { SetStateAction, useMemo } from 'react';
-import { createEditor } from 'slate';
 
 import Element from './Element'; // 커스텀 블록 요소 렌더
 import Leaf from './Leaf';       // 인라인 스타일(leaf) 렌더
 
-/**
- * @param value Slate Descendant[] 문서 데이터(JSON)
- * @returns readOnly로 렌더링되는 Slate 문서(편집 불가)
- */
+// Element.tsx 내부의 PriceTableEditState와 구조를 맞춘 로컬 타입(해당 타입이 export 되지 않음)
+type PriceTableEditLike = {
+  blockPath: Path | null;
+  idx: number | null;
+  item: any | null;
+};
+
 export default function ReadOnlyRenderer({ value }: { value: Descendant[] }) {
-  // 슬레이트 에디터 인스턴스 (readOnly라 메모리 관리만)
+  // 읽기 전용 에디터 인스턴스
   const editor = useMemo(() => withReact(createEditor()), []);
 
+  // 읽기 전용에서 사용할 고정 상태/함수(no-op)
+  const readOnlyPriceTableEdit = useMemo<PriceTableEditLike>(
+    () => ({ blockPath: null, idx: null, item: null }),
+    []
+  );
+  const noopSetPriceTableEdit = useMemo<
+    Dispatch<SetStateAction<PriceTableEditLike>>
+  >(() => () => {}, []);
+
   return (
-    <Slate
-      editor={editor}
-      value={value}
-      onChange={() => {}} // 읽기 전용: 변경 무시
-    >
+    <Slate editor={editor} value={value} onChange={() => { /* readOnly: 변경 무시 */ }}>
       <Editable
-        readOnly // 모든 입력/편집 비활성화
-        renderElement={props =>
+        readOnly
+        renderElement={(props) => (
           <Element
-          priceTableEdit={{
-            blockPath: null,
-            idx: null,
-            item: undefined
-          }} setPriceTableEdit={function (value: SetStateAction<{ blockPath: Path | null; idx: number | null; item: any | null; }>): void {
-            throw new Error('Function not implemented.');
-          } } {...props}
-          editor={editor}
-          onIconClick={() => { } } // heading 등 아이콘 클릭도 무효
+            {...props}
+            editor={editor}
+            onIconClick={() => { /* readOnly: 무시 */ }}
+            priceTableEdit={readOnlyPriceTableEdit}
+            setPriceTableEdit={noopSetPriceTableEdit}
           />
-        }
-        renderLeaf={props => <Leaf {...props} />}
-        style={{ padding: '16px' }} // 기본 padding만 적용
+        )}
+        renderLeaf={(props) => <Leaf {...props} />}
+        style={{ padding: '16px' }}
       />
     </Slate>
   );

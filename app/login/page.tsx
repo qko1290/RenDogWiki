@@ -1,4 +1,12 @@
+// File: C:\next\rdwiki\app\login\page.tsx
 'use client';
+/**
+ * 로그인 페이지
+ * - 아이디/비밀번호 입력 및 /api/auth/login 호출
+ * - 아이디/비밀번호에 한글 입력 차단
+ * - 성공 시 /wiki로 이동, 결과 메시지는 페이지 내에 표시
+ * - 외부 API/라우트/스타일 계약 유지
+ */
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -17,7 +25,7 @@ export default function LoginPage() {
 
   const router = useRouter();
 
-  // ✅ 아이디/비번 모두 한글 차단
+  // 아이디/비번 모두 한글 차단
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     const v = (name === 'username' || name === 'password') ? stripHangul(value) : value;
@@ -43,10 +51,11 @@ export default function LoginPage() {
       } else {
         setMessage(data.error || '로그인 실패');
       }
-    } catch (err) {
+    } catch {
       setMessage('서버 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -61,6 +70,7 @@ export default function LoginPage() {
                 <div id="welcome-line-1">RDWIKI</div>
                 <div id="welcome-line-2">렌독서버의 모든 것</div>
               </div>
+
               <div id="input-area">
                 {/* --- 아이디 입력 --- */}
                 <div className="login-input-group">
@@ -78,11 +88,10 @@ export default function LoginPage() {
                     placeholder=" "
                     spellCheck={false}
                   />
-                  <label htmlFor="username" className="login-label">
-                    아이디
-                  </label>
+                  <label htmlFor="username" className="login-label">아이디</label>
                   <span className="login-underline"></span>
                 </div>
+
                 {/* --- 비밀번호 입력 --- */}
                 <div className="login-input-group">
                   <input
@@ -97,25 +106,26 @@ export default function LoginPage() {
                     placeholder=" "
                     spellCheck={false}
                   />
-                  <label htmlFor="password" className="login-label">
-                    비밀번호
-                  </label>
+                  <label htmlFor="password" className="login-label">비밀번호</label>
                   <span className="login-underline"></span>
                 </div>
               </div>
+
               <div id="submit-button-cvr">
-                <button
-                  id="submit-button"
-                  type="submit"
-                  disabled={loading}
-                >
+                <button id="submit-button" type="submit" disabled={loading}>
                   {loading ? '처리 중...' : '로그인'}
                 </button>
               </div>
+
               <div id="forgot-pass">
                 <a href="#">비밀번호를 잊으셨나요?</a>
               </div>
-              {message && <p className="login-message">{message}</p>}
+
+              {message && (
+                <p className="login-message" aria-live="polite">
+                  {message}
+                </p>
+              )}
             </div>
           </form>
         </div>

@@ -11,7 +11,7 @@ import ImageSelectModal from '@/components/image/ImageSelectModal';
 
 import { SectionHeader, EmptyState, IconCell, SortableList, DetailTitle } from '@/components/manager';
 
-import '@/wiki/css/image.css';          // rd-* 모달/버튼/인풋
+import '@/wiki/css/image.css';          // rd-* 모달/버튼/인풋 (toolbar-seg/seg-btn 포함)
 import '@/wiki/css/manager-common.css'; // mgr-* 공통 레이아웃/리스트/필
 import '@/wiki/css/head-manager.css';   // Head 전용 오버라이드
 
@@ -297,19 +297,39 @@ export default function HeadManager() {
         </div>
         <div className="rd-field">
           <label className="rd-label">마을 아이콘</label>
-          <div className="rd-icon-row">
-            <input className="rd-input rd-emoji-input" maxLength={2}
-                   value={villageIcon && !villageIcon.startsWith('http') ? villageIcon : ''}
-                   onChange={(e) => setVillageIcon(e.target.value)} />
-            <button type="button" className="rd-btn secondary" onClick={() => setImageModalOpen(true)}>이미지 선택</button>
-            {villageIcon && villageIcon.startsWith('http') && <img src={villageIcon} className="rd-preview" alt="icon" />}
+          {/* 공통: 작은 입력 + 오른쪽 미리보기 */}
+          <div className="mgr-icon-field">
+            <div className="mgr-icon-inputs">
+              <input
+                className="rd-input rd-emoji-input"
+                maxLength={2}
+                value={villageIcon && !villageIcon.startsWith('http') ? villageIcon : ''}
+                onChange={(e) => setVillageIcon(e.target.value)}
+              />
+              <button type="button" className="rd-btn secondary" onClick={() => setImageModalOpen(true)}>
+                이미지 선택
+              </button>
+            </div>
+            <div className="mgr-icon-preview">
+              {villageIcon?.startsWith('http')
+                ? <img src={villageIcon} alt="icon" />
+                : <span className="mgr-icon-placeholder">미리보기</span>}
+            </div>
           </div>
         </div>
         <div className="rd-field">
           <label className="rd-label">머리 아이콘</label>
-          <div className="rd-icon-row">
-            <button type="button" className="rd-btn secondary" onClick={() => setHeadIconModalOpen(true)}>이미지 선택</button>
-            {villageHeadIcon && villageHeadIcon.startsWith('http') && <img src={villageHeadIcon} className="rd-preview" alt="head_icon" />}
+          <div className="mgr-icon-field">
+            <div className="mgr-icon-inputs">
+              <button type="button" className="rd-btn secondary" onClick={() => setHeadIconModalOpen(true)}>
+                이미지 선택
+              </button>
+            </div>
+            <div className="mgr-icon-preview">
+              {villageHeadIcon?.startsWith('http')
+                ? <img src={villageHeadIcon} alt="head_icon" />
+                : <span className="mgr-icon-placeholder">미리보기</span>}
+            </div>
           </div>
         </div>
 
@@ -349,19 +369,38 @@ export default function HeadManager() {
         </div>
         <div className="rd-field">
           <label className="rd-label">마을 아이콘</label>
-          <div className="rd-icon-row">
-            <input className="rd-input rd-emoji-input" maxLength={2}
-                   value={editVillageIcon && !editVillageIcon.startsWith('http') ? editVillageIcon : ''}
-                   onChange={(e) => setEditVillageIcon(e.target.value)} />
-            <button type="button" className="rd-btn secondary" onClick={() => setEditImageModalOpen(true)}>이미지 선택</button>
-            {editVillageIcon && editVillageIcon.startsWith('http') && <img src={editVillageIcon} className="rd-preview" alt="icon" />}
+          <div className="mgr-icon-field">
+            <div className="mgr-icon-inputs">
+              <input
+                className="rd-input rd-emoji-input"
+                maxLength={2}
+                value={editVillageIcon && !editVillageIcon.startsWith('http') ? editVillageIcon : ''}
+                onChange={(e) => setEditVillageIcon(e.target.value)}
+              />
+              <button type="button" className="rd-btn secondary" onClick={() => setEditImageModalOpen(true)}>
+                이미지 선택
+              </button>
+            </div>
+            <div className="mgr-icon-preview">
+              {editVillageIcon?.startsWith('http')
+                ? <img src={editVillageIcon} alt="icon" />
+                : <span className="mgr-icon-placeholder">미리보기</span>}
+            </div>
           </div>
         </div>
         <div className="rd-field">
           <label className="rd-label">머리 아이콘</label>
-          <div className="rd-icon-row">
-            <button type="button" className="rd-btn secondary" onClick={() => setEditHeadIconModalOpen(true)}>이미지 선택</button>
-            {editVillageHeadIcon && editVillageHeadIcon.startsWith('http') && <img src={editVillageHeadIcon} className="rd-preview" alt="head_icon" />}
+          <div className="mgr-icon-field">
+            <div className="mgr-icon-inputs">
+              <button type="button" className="rd-btn secondary" onClick={() => setEditHeadIconModalOpen(true)}>
+                이미지 선택
+              </button>
+            </div>
+            <div className="mgr-icon-preview">
+              {editVillageHeadIcon?.startsWith('http')
+                ? <img src={editVillageHeadIcon} alt="head_icon" />
+                : <span className="mgr-icon-placeholder">미리보기</span>}
+            </div>
           </div>
         </div>
 
@@ -426,7 +465,7 @@ export default function HeadManager() {
             ))}
           </div>
 
-          <div style={{ display:'flex', justifyContent:'flex-end', marginTop:8 }}>
+        <div style={{ display:'flex', justifyContent:'flex-end', marginTop:8 }}>
             <button type="button" className="rd-btn secondary" onClick={() => setImageModalOpen(true)}>
               + 사진 추가
             </button>
@@ -519,6 +558,45 @@ export default function HeadManager() {
         <div className="mgr-detail-area">
           {selectedHead ? (
             <div>
+              {/* 우측 상단 툴바: 이미지 관리 페이지 스타일의 삭제 버튼 */}
+              <div className="toolbar-seg mgr-detail-actions">
+                <button
+                  type="button"
+                  className="seg-btn danger"
+                  onClick={async () => {
+                    if (!selectedHead) return;
+                    if (!window.confirm('이 항목을 삭제할까요?')) return;
+                    const res = await fetch(`/api/head/${selectedHead.id}`, { method: 'DELETE' });
+                    if (!res.ok) {
+                      const d = await res.json().catch(() => ({}));
+                      alert(d?.error || '삭제 실패');
+                      return;
+                    }
+                    if (selectedVillage) {
+                      const rows = await fetch(`/api/head?village_id=${selectedVillage.id}`).then(r => r.json());
+                      setHeadList(Array.isArray(rows) ? rows : []);
+                    }
+                    setSelectedHead(null);
+                  }}
+                  title="삭제"
+                >
+                  <svg
+                    className="ico"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  >
+                    <path
+                      d="M9.75 9.75v6.75M14.25 9.75v6.75M4.5 7.5h15M9 4.5h6m-8.25 3L7.5 19.5a2.25 2.25 0 002.25 2.25h4.5A2.25 2.25 0 0016.5 19.5L18.75 7.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <span className="seg-label">삭제</span>
+                </button>
+              </div>
+
               <DetailTitle
                 icon={
                   selectedVillage?.head_icon

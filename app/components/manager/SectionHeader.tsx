@@ -1,5 +1,14 @@
-// app/components/manager/SectionHeader.tsx
-// 섹션 타이틀 + 우측 액션 영역
+// =============================================
+// File: app/components/manager/SectionHeader.tsx
+// =============================================
+'use client';
+
+/**
+ * 섹션 타이틀 + 우측 액션 영역 헤더
+ * - 좌측에 제목, 우측에 커스텀 영역(right) 또는 기본 액션 버튼을 배치
+ * - 버튼 클릭 핸들러 지원으로 반드시 클라이언트 컴포넌트여야 함
+ */
+
 import React from 'react';
 
 export type SectionHeaderProps = {
@@ -44,10 +53,12 @@ export function SectionHeader({
         {right}
         {actionLabel ? (
           <button
+            type="button"
             className="npc-sidebar-add-btn"
             onClick={onAction}
             disabled={!!actionDisabled}
             title={actionTitle}
+            aria-label={actionTitle || (typeof actionLabel === 'string' ? actionLabel : undefined)}
           >
             {actionLabel}
           </button>
@@ -56,4 +67,3 @@ export function SectionHeader({
     </div>
   );
 }
-

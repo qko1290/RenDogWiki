@@ -3,7 +3,15 @@
 // =============================================
 'use client';
 
-import { useEffect, useState } from 'react';
+/**
+ * 이미지 선택 모달
+ * - 좌측 폴더 트리 / 우측 썸네일 그리드
+ * - 단일 선택, 더블클릭 또는 "삽입" 버튼으로 콜백 호출
+ * - 검색 시 서버 검색 결과를 표시
+ * - onSelectImage는 (url) 1인자 방식과 (url, name, row) 3인자 방식을 모두 지원(하위 호환)
+ */
+
+import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import Modal from '@/components/common/Modal';
 
 type Folder = { id: number; name: string; parent_id: number | null };
@@ -15,7 +23,7 @@ type FolderTreeProps = {
   selectedId: number | null;
   onSelect: (id: number | null) => void;
   treeState: Record<number, boolean>;
-  setTreeState: React.Dispatch<React.SetStateAction<Record<number, boolean>>>;
+  setTreeState: Dispatch<SetStateAction<Record<number, boolean>>>;
   depth?: number;
 };
 
@@ -129,7 +137,8 @@ export default function ImageSelectModal({
 }: {
   open: boolean;
   onClose: () => void;
-  onSelectImage: (url: string, name: string, row: ImageFile) => void;
+  /** 하위 호환: (url) 또는 (url, name, row) 모두 허용 */
+  onSelectImage: (url: string, name?: string, row?: ImageFile) => void;
 }) {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [images, setImages] = useState<ImageFile[]>([]);
@@ -155,6 +164,7 @@ export default function ImageSelectModal({
       folder_id: Number(i.folder_id),
     }));
 
+  // 모달 열릴 때 폴더 목록 초기화
   useEffect(() => {
     if (!open) return;
 
@@ -165,25 +175,41 @@ export default function ImageSelectModal({
     setTreeState({}); // 모두 닫힘
 
     (async () => {
-      const res = await fetch('/api/image/folder/list', { cache: 'no-store' });
-      const raw = await res.json();
-      setFolders(normalizeFolders(raw));
-      setImages([]); // 폴더 선택 전까지 비움
+      try {
+        const res = await fetch('/api/image/folder/list', { cache: 'no-store' });
+        const raw = await res.json();
+        setFolders(normalizeFolders(raw));
+        setImages([]); // 폴더 선택 전까지 비움
+      } catch {
+        setFolders([]);
+        setImages([]);
+      }
     })();
   }, [open]);
 
+  // 폴더 선택 시 이미지 조회
   useEffect(() => {
     if (!open || searching) return;
     if (selectedFolder) {
-      fetch(`/api/image/view?folder_id=${selectedFolder}&ts=${Date.now()}`, { cache: 'no-store' })
-        .then((r) => r.json())
-        .then((raw) => setImages(normalizeImages(raw)));
+      (async () => {
+        try {
+          const r = await fetch(
+            `/api/image/view?folder_id=${selectedFolder}&ts=${Date.now()}`,
+            { cache: 'no-store' }
+          );
+          const raw = await r.json();
+          setImages(normalizeImages(raw));
+        } catch {
+          setImages([]);
+        }
+      })();
     } else {
       setImages([]);
     }
     setSelectedImg(null);
   }, [open, selectedFolder, searching]);
 
+  // 검색
   useEffect(() => {
     if (!open) return;
     const q = search.trim();
@@ -193,13 +219,17 @@ export default function ImageSelectModal({
     }
     const ctrl = new AbortController();
     (async () => {
-      const res = await fetch(`/api/image/search?q=${encodeURIComponent(q)}&limit=200&ts=${Date.now()}`, {
-        cache: 'no-store',
-        signal: ctrl.signal,
-      });
-      const rows = await res.json();
-      setSearchRows(normalizeImages(rows));
-      setSelectedImg(null);
+      try {
+        const res = await fetch(
+          `/api/image/search?q=${encodeURIComponent(q)}&limit=200&ts=${Date.now()}`,
+          { cache: 'no-store', signal: ctrl.signal }
+        );
+        const rows = await res.json();
+        setSearchRows(normalizeImages(rows));
+        setSelectedImg(null);
+      } catch {
+        if (!ctrl.signal.aborted) setSearchRows([]);
+      }
     })();
     return () => ctrl.abort();
   }, [open, search]);
@@ -208,6 +238,7 @@ export default function ImageSelectModal({
 
   const handleInsert = () => {
     if (!selectedImg) return;
+    // 1인자만 받는 기존 핸들러도 정상 작동(추가 인자는 무시됨)
     onSelectImage(selectedImg.url, selectedImg.name, selectedImg);
     onClose();
   };

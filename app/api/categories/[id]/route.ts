@@ -2,139 +2,273 @@
 // File: app/api/categories/[id]/route.ts
 // =============================================
 /**
- * 단일 카테고리의 정보 수정, 삭제, 순서(정렬) 변경을 담당하는 API 라우트
- * - [PUT] 카테고리 정보 수정 (이름, 상위 카테고리, 순서, 대표문서, 아이콘)
- * - [DELETE] 카테고리 삭제 (하위 카테고리 연쇄삭제는 아직 미구현이에요)
- * - [POST] 카테고리 순서 변경 (드래그 앤 드롭 시 order 갱신)
- * - id는 카테고리의 고유번호
+ * 카테고리 단건에 대한 수정/삭제/정렬 API
+ * - PUT  -> 카테고리 정보 수정(name/parent_id/order/document_id/icon)
+ * - DELETE -> 재귀적으로 하위 카테고리와 그 안의 문서/본문 삭제
+ * - POST -> 드래그 앤 드롭 결과를 반영해 order만 갱신
+ * - 참고: 활동 로그는 사람이 읽을 수 있는 라벨로 남김 -> resolveCategoryName 사용
  */
 
-import { sql } from '@/wiki/lib/db'; // DB (neon 방식)
-import { NextRequest, NextResponse } from 'next/server'; // Next.js API 타입
+import { sql } from '@/wiki/lib/db';
+import { NextRequest, NextResponse } from 'next/server';
+import { logActivity, resolveCategoryName } from '@wiki/lib/activity';
+import { getAuthUser } from '@/wiki/lib/auth';
 
-/**
- * [카테고리 정보 수정] PUT
- * - name은 반드시 입력
- * - parent_id(상위 카테고리), order(순서), document_path(대표문서 경로), icon(아이콘)은 선택(없으면 null/0)
- * - id는 URL 파라미터에서 추출 (카테고리 고유번호)
- */
+// 문자열/숫자/널을 받아 정수 또는 null로 정규화
+function toNullableInt(v: unknown): number | null {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.trunc(n) : null;
+}
+
+// 숫자처럼 보이면 정수, 아니면 0(기본값)으로
+function toIntOrDefault(v: unknown, d = 0): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.trunc(n) : d;
+}
+
 export async function PUT(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  // 입력값 파싱
-  const { name, parent_id, order, document_id, icon } = await req.json();
-  const { id } = params; // URL에서 id 추출
+  try {
+    const idNum = Number(params.id);
+    if (!Number.isFinite(idNum)) {
+      return NextResponse.json(
+        { error: 'invalid category id' },
+        { status: 400, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
 
-  // 유효성 검사 name(이름) 필수, 빈값/공백 X
-  if (!name || name.trim() === '') {
-    // 빈 문자열도 허용하지 않음
-    return NextResponse.json({ error: 'name is required' }, { status: 400 });
-  }
+    // 본문 파싱 -> name 필수, 나머지는 선택
+    const body = await req.json().catch(() => null);
+    const rawName = typeof body?.name === 'string' ? body.name : '';
+    const name = rawName.trim();
+    const parent_id = body?.parent_id;
+    const order = body?.order;
+    const document_id = body?.document_id;
+    const icon = typeof body?.icon === 'string' && body.icon !== '' ? body.icon : null;
 
-  const parentIdFixed =
-    parent_id === undefined || parent_id === '' || parent_id === null || parent_id === 0
-      ? null
-      : Number(parent_id);
-  const orderFixed =
-    order === undefined || order === '' || order === null ? 0 : Number(order);
+    if (!name) {
+      return NextResponse.json(
+        { error: 'name is required' },
+        { status: 400, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
 
-  // 필드 업데이트
-  await sql`
-    UPDATE categories SET
-      name = ${name},
-      parent_id = ${parentIdFixed},
-      "order" = ${orderFixed},
-      document_id = ${document_id === undefined || document_id === null || document_id === '' ? null : Number(document_id)},
-      icon = ${icon || null}
-    WHERE id = ${Number(id)}
-  `;
+    const parentIdFixed = toNullableInt(parent_id);
+    const orderFixed = toIntOrDefault(order, 0);
+    const documentIdFixed = toNullableInt(document_id);
 
-  if (document_id) {
-    // 1) 이 카테고리의 기존 대표문서 전부 false
+    // 자기 자신을 부모로 지정하는 것은 금지(순환 방지)
+    if (parentIdFixed !== null && parentIdFixed === idNum) {
+      return NextResponse.json(
+        { error: 'parent_id cannot be the same as id' },
+        { status: 400, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+
+    // 업데이트 수행
     await sql`
-      UPDATE documents
-      SET is_featured = false
-      WHERE id IN (SELECT document_id::integer FROM categories WHERE id = ${Number(id)})
+      UPDATE categories SET
+        name = ${name},
+        parent_id = ${parentIdFixed},
+        "order" = ${orderFixed},
+        document_id = ${documentIdFixed},
+        icon = ${icon}
+      WHERE id = ${idNum}
     `;
-    // 2) 새로 지정된 문서만 true
-    await sql`
-      UPDATE documents SET is_featured = true WHERE id = ${Number(document_id)}
-    `;
-  }
 
-  // 성공 응답
-  return NextResponse.json({ message: 'updated' });
+    // 대표문서 지정 시 is_featured 토글
+    if (documentIdFixed !== null) {
+      // 1) 기존 대표문서 해제
+      await sql`
+        UPDATE documents
+        SET is_featured = false
+        WHERE id IN (SELECT document_id::integer FROM categories WHERE id = ${idNum})
+      `;
+      // 2) 새 대표문서 지정
+      await sql`
+        UPDATE documents
+        SET is_featured = true
+        WHERE id = ${documentIdFixed}
+      `;
+    }
+
+    // 활동 로그 -> 상위 카테고리 라벨을 사람이 읽을 수 있게 기록
+    const user = getAuthUser();
+    const username =
+      user?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
+    const parentLabel = await resolveCategoryName(parentIdFixed);
+
+    await logActivity({
+      action: 'category.update',
+      username,
+      targetType: 'category',
+      targetId: idNum,
+      targetName: name,
+      targetPath: parentLabel,
+      meta: {
+        parent_id: parentIdFixed,
+        order: orderFixed,
+        document_id: documentIdFixed,
+        icon,
+      },
+    });
+
+    return NextResponse.json(
+      { message: 'updated' },
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
+  } catch (err) {
+    console.error('[categories:id PUT] unexpected error:', err);
+    return NextResponse.json(
+      { error: '카테고리 업데이트 중 오류가 발생했습니다.' },
+      { status: 500 }
+    );
+  }
 }
 
-/**
- * [카테고리 삭제] DELETE
- * - 카테고리 관리 페이지에서 "삭제" 버튼 클릭 시 호출
- * - id(카테고리 고유번호)는 URL 파라미터로 전달됨
- * - 하위 카테고리 연쇄 삭제 로직은 아직 구현되지 않았어요
- * - 현재는 단일 카테고리만 바로 삭제
- */
 export async function DELETE(
-  _: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const { id } = params;
-  // 1. 재귀적으로 모든 하위 카테고리 id 조회
-  const subCatResult = await sql`
-    WITH RECURSIVE subcategories AS (
-      SELECT id FROM categories WHERE id = ${id}
-      UNION ALL
-      SELECT c.id FROM categories c
+  try {
+    const idNum = Number(params.id);
+    if (!Number.isFinite(idNum)) {
+      return NextResponse.json(
+        { error: 'invalid category id' },
+        { status: 400, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+
+    // 재귀적으로 자신 포함 모든 하위 카테고리 id 수집
+    const subCatResult = (await sql`
+      WITH RECURSIVE subcategories AS (
+        SELECT id FROM categories WHERE id = ${idNum}
+        UNION ALL
+        SELECT c.id FROM categories c
         INNER JOIN subcategories sc ON c.parent_id = sc.id
-    )
-    SELECT id FROM subcategories
-  `;
-  const catIds = subCatResult.map((r: any) => r.id);
+      )
+      SELECT id FROM subcategories
+    `) as unknown as { id: number }[];
 
-  if (catIds.length === 0) {
-    return NextResponse.json({ message: 'not found' }, { status: 404 });
+    const catIds = (subCatResult || []).map((r) => r.id);
+    if (catIds.length === 0) {
+      return NextResponse.json(
+        { message: 'not found' },
+        { status: 404, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+
+    // 루트 카테고리의 이름/부모 라벨(로그용)
+    const rootRow = (await sql`
+      SELECT id, name, parent_id
+      FROM categories
+      WHERE id = ${idNum}
+      LIMIT 1
+    `) as unknown as { id: number; name: string | null; parent_id: number | null }[];
+    const rootName = rootRow[0]?.name ?? null;
+    const parentLabel = await resolveCategoryName(rootRow[0]?.parent_id ?? null);
+
+    // 해당 경로(catIds)에 속한 문서 id 수집
+    const docResult = (await sql`
+      SELECT id FROM documents WHERE path = ANY(${catIds})
+    `) as unknown as { id: number }[];
+    const docIds = (docResult || []).map((r) => r.id);
+
+    // 문서 본문 -> 문서 순으로 삭제
+    if (docIds.length > 0) {
+      await sql`DELETE FROM document_contents WHERE document_id = ANY(${docIds})`;
+      await sql`DELETE FROM documents WHERE id = ANY(${docIds})`;
+    }
+
+    // 카테고리 일괄 삭제
+    await sql`DELETE FROM categories WHERE id = ANY(${catIds})`;
+
+    // 활동 로그
+    const user = getAuthUser();
+    const username =
+      user?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
+
+    await logActivity({
+      action: 'category.delete',
+      username,
+      targetType: 'category',
+      targetId: idNum,
+      targetName: rootName,
+      targetPath: parentLabel,
+      meta: {
+        deleted_category_ids: catIds,
+        deleted_document_ids: docIds,
+      },
+    });
+
+    return NextResponse.json(
+      { message: 'deleted' },
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
+  } catch (err) {
+    console.error('[categories:id DELETE] unexpected error:', err);
+    return NextResponse.json(
+      { error: '카테고리 삭제 중 오류가 발생했습니다.' },
+      { status: 500 }
+    );
   }
-
-  // 2. 해당 카테고리 id에 속한 문서 id 전부 조회
-  const docResult = await sql`
-    SELECT id FROM documents WHERE path = ANY(${catIds})
-  `;
-  const docIds = docResult.map((r: any) => r.id);
-
-  // 3. 문서 본문 삭제 －＞ 문서 삭제 (존재할 때만)
-  if (docIds.length > 0) {
-    await sql`
-      DELETE FROM document_contents WHERE document_id = ANY(${docIds})
-    `;
-    await sql`
-      DELETE FROM documents WHERE id = ANY(${docIds})
-    `;
-  }
-
-  // 4. 카테고리 삭제 (루트 포함 모든 하위)
-  await sql`
-    DELETE FROM categories WHERE id = ANY(${catIds})
-  `;
-
-  return NextResponse.json({ message: 'deleted' });
 }
 
-/**
- * [순서 변경(정렬)] POST
- * - 카테고리 관리 트리에서 드래그 앤 드롭 시 order 변경에 사용
- * - order 값만 변경
- * - 클라이언트가 드롭 후 계산한 순서를 그대로 전달함
- */
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const { order } = await req.json();
-  const { id } = params;
+  try {
+    const idNum = Number(params.id);
+    if (!Number.isFinite(idNum)) {
+      return NextResponse.json(
+        { error: 'invalid category id' },
+        { status: 400, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
 
-  // DB에서 order(순서)만 업데이트
-  await sql`
-    UPDATE categories SET "order" = ${order} WHERE id = ${id}
-  `;
-  return NextResponse.json({ message: 'order updated' });
+    // 본문에서 order만 사용
+    const body = await req.json().catch(() => null);
+    const order = toIntOrDefault(body?.order, 0);
+
+    await sql`UPDATE categories SET "order" = ${order} WHERE id = ${idNum}`;
+
+    // 로그에 표시할 라벨
+    const catRows = (await sql`
+      SELECT name, parent_id
+      FROM categories
+      WHERE id = ${idNum}
+      LIMIT 1
+    `) as unknown as { name: string | null; parent_id: number | null }[];
+    const catName = catRows[0]?.name ?? null;
+    const parentLabel = await resolveCategoryName(catRows[0]?.parent_id ?? null);
+
+    const user = getAuthUser();
+    const username =
+      user?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
+
+    await logActivity({
+      action: 'category.reorder',
+      username,
+      targetType: 'category',
+      targetId: idNum,
+      targetName: catName,
+      targetPath: parentLabel,
+      meta: { order },
+    });
+
+    return NextResponse.json(
+      { message: 'order updated' },
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
+  } catch (err) {
+    console.error('[categories:id POST] unexpected error:', err);
+    return NextResponse.json(
+      { error: '카테고리 순서 변경 중 오류가 발생했습니다.' },
+      { status: 500 }
+    );
+  }
 }

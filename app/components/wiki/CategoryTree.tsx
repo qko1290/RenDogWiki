@@ -4,7 +4,14 @@
 // =============================================
 "use client";
 
-import React, { useRef, useLayoutEffect } from "react";
+import React, { useRef, useLayoutEffect, useMemo } from "react";
+
+/**
+ * 위키 카테고리 트리 + 문서 목록
+ * - 카테고리/문서 트리를 토글하며 표시
+ * - StrictMode에서의 재마운트/가짜 닫힘에 대비해 닫힘 애니메이션을 안전하게 처리
+ * - 접근성: 토글 버튼에 aria 속성 부여, 장식 아이콘은 스크린리더에서 숨김
+ */
 
 type CategoryNode = {
   id: number;
@@ -57,6 +64,13 @@ function pathToStr(path: number[]) {
   return path.join("/");
 }
 
+function equalsPath(a?: number[] | null, b?: number[] | null) {
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
 /**
  * CollapsibleList
  * - prevOpen을 기억해서 "실제 전환"시에만 애니메이션 수행
@@ -83,7 +97,13 @@ function CollapsibleList({
     const el = ref.current;
     if (!el) return;
 
-    const D = 280;
+    // 사용자 선호: 모션 줄이기면 즉시 상태만 반영
+    const prefersReduced =
+      typeof window !== "undefined" &&
+      window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const D = prefersReduced ? 0 : 280;
     const E = "cubic-bezier(.2,.8,.2,1)";
 
     // 초기 세팅
@@ -115,7 +135,8 @@ function CollapsibleList({
       el.style.opacity = "0";
 
       requestAnimationFrame(() => {
-        el.style.transition = `height ${D}ms ${E}, opacity 200ms ease`;
+        el.style.transition =
+          D === 0 ? "" : `height ${D}ms ${E}, opacity 200ms ease`;
         el.style.height = full + "px";
         el.style.opacity = "1";
       });
@@ -124,11 +145,9 @@ function CollapsibleList({
         if (e.propertyName !== "height") return;
         el.removeEventListener("transitionend", onEnd);
 
-        // 트랜지션 해제하고 현재 픽셀값으로 잠깐 고정
         el.style.transition = "";
         const frozen = el.getBoundingClientRect().height;
         el.style.height = `${Math.ceil(frozen)}px`;
-        // overflow는 hidden 유지 (마진 컬랩스 방지)
 
         const releaseToAuto = () => {
           if (!prevOpenRef.current) return; // 이미 닫히는 중이면 스킵
@@ -144,7 +163,13 @@ function CollapsibleList({
           requestAnimationFrame(() => requestAnimationFrame(releaseToAuto));
         }
       };
-      el.addEventListener("transitionend", onEnd);
+
+      if (D === 0) {
+        // 모션 줄이기: 즉시 완료 처리
+        el.style.height = "auto";
+      } else {
+        el.addEventListener("transitionend", onEnd);
+      }
       return;
     }
 
@@ -162,7 +187,8 @@ function CollapsibleList({
       el.style.opacity = "1";
 
       requestAnimationFrame(() => {
-        el.style.transition = `height ${D}ms ${E}, opacity 180ms ease`;
+        el.style.transition =
+          D === 0 ? "" : `height ${D}ms ${E}, opacity 180ms ease`;
         el.style.height = "0px";
         el.style.opacity = "0";
       });
@@ -173,7 +199,12 @@ function CollapsibleList({
         el.removeEventListener("transitionend", onEnd);
         onCollapseEnd?.();
       };
-      el.addEventListener("transitionend", onEnd);
+
+      if (D === 0) {
+        onCollapseEnd?.();
+      } else {
+        el.addEventListener("transitionend", onEnd);
+      }
     }
   }, [isOpen, isClosing, onCollapseEnd]);
 
@@ -207,12 +238,19 @@ const CategoryTree: React.FC<Props> = ({
   isClosing,
   finalizeClose,
 }) => {
-  const getDocumentsForCategory = (pathArr: number[]) =>
-    allDocuments.filter(
-      (doc) =>
-        JSON.stringify(doc.fullPath) === JSON.stringify(pathArr) &&
-        !doc.is_featured
-    );
+  // 경로 문자열 키로 문서 배열 캐시 → O(1) 조회
+  const docsByPath = useMemo(() => {
+    const map = new Map<string, Document[]>();
+    for (const doc of allDocuments) {
+      if (doc.is_featured) continue;
+      const key = Array.isArray(doc.fullPath) ? pathToStr(doc.fullPath) : "";
+      if (!key) continue;
+      const arr = map.get(key);
+      if (arr) arr.push(doc);
+      else map.set(key, [doc]);
+    }
+    return map;
+  }, [allDocuments]);
 
   const isReallyOpen = (path: number[]) => isPathOpen(path) && !isClosing(path);
 
@@ -220,15 +258,16 @@ const CategoryTree: React.FC<Props> = ({
     nodes.map((node) => {
       const currentPath = [...parentPath, node.id];
       const key = pathToStr(currentPath);
-      const docs = getDocumentsForCategory(currentPath);
+      const docs = docsByPath.get(key) ?? [];
 
       const open = isReallyOpen(currentPath); // 실열림
       const closing = isClosing(currentPath); // 닫힘 중
-      const shouldRender = open || closing;   // 닫힘 중에도 컨텐츠 유지
+      const shouldRender = open || closing; // 닫힘 중에도 컨텐츠 유지
 
-      const isCategoryActive =
-        !!selectedCategoryPath &&
-        JSON.stringify(selectedCategoryPath) === JSON.stringify(currentPath);
+      const isCategoryActive = equalsPath(selectedCategoryPath, currentPath);
+
+      // 접근성: 토글 대상 id 부여
+      const panelId = `wiki-doc-list-${key}`;
 
       return (
         <li key={`cat-${node.id}`}>
@@ -252,17 +291,20 @@ const CategoryTree: React.FC<Props> = ({
                 }
               }
             }}
+            aria-expanded={open}
+            aria-controls={panelId}
           >
             <span className="wiki-category-main">
               <span className="wiki-cat-icon-token">
                 {node.icon?.startsWith("http") ? (
                   <img
                     src={node.icon}
-                    alt="icon"
+                    alt=""
+                    aria-hidden="true"
                     className="wiki-category-icon-img"
                   />
                 ) : (
-                  <span className="wiki-category-icon-emoji">
+                  <span className="wiki-category-icon-emoji" aria-hidden="true">
                     {node.icon || "📁"}
                   </span>
                 )}
@@ -278,6 +320,7 @@ const CategoryTree: React.FC<Props> = ({
                   handleArrowClick(node, currentPath);
                 }}
                 style={{ display: "inline-block", verticalAlign: "middle" }}
+                aria-hidden="true"
               >
                 <svg
                   width="16"
@@ -325,11 +368,12 @@ const CategoryTree: React.FC<Props> = ({
                         {doc.icon?.startsWith("http") ? (
                           <img
                             src={doc.icon}
-                            alt="icon"
+                            alt=""
+                            aria-hidden="true"
                             style={{ width: "1em", verticalAlign: "middle" }}
                           />
                         ) : (
-                          doc.icon || "📄"
+                          <span aria-hidden="true">{doc.icon || "📄"}</span>
                         )}
                       </span>
                       <span className="doc-title">{doc.title}</span>

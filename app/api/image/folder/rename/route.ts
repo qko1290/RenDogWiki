@@ -2,56 +2,96 @@
 // File: app/api/image/folder/rename/route.ts
 // =============================================
 /**
- * 이미지 폴더 이름 수정 API
- * - [PATCH] 폴더 id, 새로운 name 받아 이름 변경
- * - 로그인 필요(getAuthUser)
- * - 동일 parent 내 중복 이름 허용 안함(중복시 409)
- * - 에러: 미인증(401), 입력값 누락(400), 폴더 없음(404), 중복 폴더명(409)
+ * 이미지 폴더 이름 변경
+ * - PATCH body -> { id, name }
+ * - 동작 -> 대상 폴더 조회 -> 같은 parent 내 중복 이름 검사 -> 이름 업데이트 -> 활동 로그
+ * - 로그: folder.rename
+ *   - targetName -> 새 이름
+ *   - targetPath -> parent_id 숫자(활동 로그에서 라벨로 치환됨)
+ *   - meta -> { from_name, to_name }
+ * - 응답은 실시간 성격 -> 캐시 금지
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/wiki/lib/db';           // DB
-import { getAuthUser } from '@/wiki/lib/auth'; // 로그인 유저
+import { sql } from '@/wiki/lib/db';
+import { getAuthUser } from '@/wiki/lib/auth';
+import { logActivity } from '@/wiki/lib/activity';
 
-/**
- * [폴더 이름 수정] PATCH
- * - 입력: id(폴더 pk), name(변경할 이름)
- * - 1. 로그인 체크(401)
- * - 2. 입력값 누락(400)
- * - 3. 폴더 존재 확인(404)
- * - 4. 동일 parent 내 name 중복 체크(409)
- * - 5. DB에서 이름 수정
- * - 6. 성공 시 ok: true 반환
- */
+export const runtime = 'nodejs';
+
 export async function PATCH(req: NextRequest) {
-  // 1. 입력 파싱 및 인증 체크
-  const { id, name } = await req.json();
-  const user = getAuthUser();
-  if (!user)
-    return NextResponse.json({ error: "로그인 필요" }, { status: 401 });
-  if (!id || !name)
-    return NextResponse.json({ error: "필수값 누락" }, { status: 400 });
+  try {
+    // 1) 입력 파싱 -> id는 양의 정수, name은 공백 제거 후 1자 이상
+    const body = await req.json().catch(() => null);
+    const idNum = Number(body?.id);
+    const rawName = typeof body?.name === 'string' ? body.name : '';
+    const name = rawName.trim();
 
-  // 2. 기존 폴더 존재 여부 확인
-  const folders = await sql`SELECT * FROM image_folders WHERE id = ${id}`;
-  const folder = folders[0];
-  if (!folder)
-    return NextResponse.json({ error: "폴더 없음" }, { status: 404 });
+    if (!Number.isFinite(idNum) || idNum <= 0 || !name) {
+      return NextResponse.json(
+        { error: 'id와 name이 필요합니다.' },
+        { status: 400, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
 
-  // 3. 동일 parent 내 중복 이름 체크(본인 제외)
-  const exists = await sql`
-    SELECT id FROM image_folders
-    WHERE parent_id IS NOT DISTINCT FROM ${folder.parent_id}
-      AND name = ${name}
-      AND id != ${id}
-    LIMIT 1
-  `;
-  if (exists.length > 0)
-    return NextResponse.json({ error: "중복 폴더명" }, { status: 409 });
+    // 2) 대상 폴더 조회
+    const rows = (await sql`
+      SELECT id, name, parent_id
+      FROM image_folders
+      WHERE id = ${idNum}
+      LIMIT 1
+    `) as unknown as Array<{ id: number; name: string; parent_id: number | null }>;
+    if (!rows.length) {
+      return NextResponse.json(
+        { error: 'not found' },
+        { status: 404, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+    const before = rows[0];
 
-  // 4. DB에서 폴더 이름 변경
-  await sql`UPDATE image_folders SET name = ${name} WHERE id = ${id}`;
+    // 3) 같은 parent 내 중복 이름 금지 -> 자기 자신은 제외
+    const dup = (await sql`
+      SELECT 1
+      FROM image_folders
+      WHERE parent_id IS NOT DISTINCT FROM ${before.parent_id}
+        AND name = ${name}
+        AND id <> ${idNum}
+      LIMIT 1
+    `) as unknown as Array<{ '?column?': 1 }>;
+    if (dup.length > 0) {
+      return NextResponse.json(
+        { error: '중복 폴더명' },
+        { status: 409, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
 
-  // 5. 성공 응답
-  return NextResponse.json({ ok: true });
+    // 4) 이름 업데이트
+    await sql`UPDATE image_folders SET name = ${name} WHERE id = ${idNum}`;
+
+    // 5) 활동 로그 -> 사용자명은 로그인 정보 우선, 없으면 헤더
+    const user = getAuthUser();
+    const username = user?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
+
+    await logActivity({
+      action: 'folder.rename',
+      username,
+      targetType: 'folder',
+      targetId: idNum,
+      targetName: name,
+      // 숫자 경로를 넣어두면 /activity/logs 단계에서 라벨로 치환됨
+      targetPath: before.parent_id == null ? null : String(before.parent_id),
+      meta: { from_name: before.name, to_name: name },
+    });
+
+    return NextResponse.json(
+      { success: true },
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
+  } catch (err) {
+    console.error('[image/folder/rename PATCH] unexpected error:', err);
+    return NextResponse.json(
+      { error: 'server error' },
+      { status: 500, headers: { 'Cache-Control': 'no-store' } }
+    );
+  }
 }

@@ -1,3 +1,12 @@
+// File: app/register/page.tsx
+/**
+ * 회원가입 페이지
+ * - /api/auth/register 호출로 계정 생성
+ * - 주요 입력(이메일/아이디/비번/MC 닉네임)에서 한글을 즉시 제거
+ * - 성공 시 로그인 페이지로 짧은 지연 후 이동(타이머/요청 안전화)
+ * - 외부 API/응답 스키마/라우트 변경 없음
+ */
+
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
@@ -14,7 +23,9 @@ type FormState = {
   minecraftName: string;
 };
 
-type FieldErrors = Partial<Record<'email'|'username'|'minecraftName'|'password'|'confirmPassword', string>>;
+type FieldErrors = Partial<
+  Record<'email' | 'username' | 'minecraftName' | 'password' | 'confirmPassword', string>
+>;
 
 /* ===== 한글 차단 유틸 ===== */
 const HANGUL_GLOBAL = /[\uAC00-\uD7A3\u1100-\u11FF\u3131-\u318E]/g;
@@ -23,8 +34,11 @@ const stripHangul = (s: string) => s.replace(HANGUL_GLOBAL, '');
 
 export default function RegisterPage() {
   const router = useRouter();
+
+  // 성공 시 리다이렉트 타이머 / 제출 중 요청 취소용 컨트롤러
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  
+  const submitControllerRef = useRef<AbortController | null>(null);
+
   const [form, setForm] = useState<FormState>({
     email: '',
     username: '',
@@ -53,8 +67,8 @@ export default function RegisterPage() {
       v = stripHangul(v);
     }
 
-    setForm(prev => ({ ...prev, [name]: v }));
-    setErrors(prev => ({ ...prev, [name]: undefined })); // 입력 시 해당 에러 클리어
+    setForm((prev) => ({ ...prev, [name]: v }));
+    setErrors((prev) => ({ ...prev, [name]: undefined })); // 입력 시 해당 에러 클리어
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -62,11 +76,18 @@ export default function RegisterPage() {
     setMessage('');
     setErrors({});
 
-    // 비밀번호 재입력 검증
+    // 비밀번호 재입력 검증(클라이언트 즉시 피드백)
     if (form.password !== form.confirmPassword) {
       setErrors({ confirmPassword: '비밀번호가 일치하지 않습니다.' });
       return;
     }
+
+    // 기존 진행 중인 제출이 있으면 취소(중복 제출 방지)
+    if (submitControllerRef.current) {
+      submitControllerRef.current.abort();
+    }
+    const ac = new AbortController();
+    submitControllerRef.current = ac;
 
     setLoading(true);
     try {
@@ -76,38 +97,60 @@ export default function RegisterPage() {
         body: JSON.stringify({
           email: form.email.trim(),
           username: form.username.trim(),
-          password: form.password,
+          password: form.password, // 서버 정책 유지
           minecraftName: form.minecraftName.trim(),
         }),
+        signal: ac.signal,
       });
-      const data = await res.json();
+
+      const data = await res.json().catch(() => ({}));
+
+      if (ac.signal.aborted) return; // 취소되면 이후 처리 생략
 
       if (res.ok) {
         setMessage('회원가입 성공! 이메일을 확인해주세요.\n잠시후 로그인 페이지로 이동합니다.');
+
+        // 이전 타이머가 남아 있다면 정리 후 재설정
+        if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
         redirectTimerRef.current = setTimeout(() => {
           router.push('/login');
         }, 1800);
-        setForm({ email: '', username: '', password: '', confirmPassword: '', minecraftName: '' });
-      } else if (res.status === 409 && data?.fields) {
+
+        setForm({
+          email: '',
+          username: '',
+          password: '',
+          confirmPassword: '',
+          minecraftName: '',
+        });
+      } else if (res.status === 409 && (data as any)?.fields) {
         const fe: FieldErrors = {};
-        if (data.fields.email) fe.email = '이미 사용 중인 이메일입니다.';
-        if (data.fields.username) fe.username = '이미 사용 중인 아이디입니다.';
-        if (data.fields.minecraftName) fe.minecraftName = '이미 사용 중인 닉네임입니다.';
+        const fields = (data as any).fields || {};
+        if (fields.email) fe.email = '이미 사용 중인 이메일입니다.';
+        if (fields.username) fe.username = '이미 사용 중인 아이디입니다.';
+        if (fields.minecraftName) fe.minecraftName = '이미 사용 중인 닉네임입니다.';
         setErrors(fe);
         setMessage('중복된 항목이 있습니다. 빨간 메시지를 확인하세요.');
       } else {
-        setMessage(data?.error || '회원가입 실패');
+        setMessage((data as any)?.error || '회원가입 실패');
       }
-    } catch {
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return; // 제출 취소는 조용히 무시
       setMessage('네트워크 오류가 발생했습니다.');
     } finally {
-      setLoading(false);
+      if (!ac.signal.aborted) setLoading(false);
+      // 제출이 끝났다면 컨트롤러 비움(다음 제출 대비)
+      if (submitControllerRef.current === ac) {
+        submitControllerRef.current = null;
+      }
     }
   };
 
   useEffect(() => {
+    // 언마운트 시 타이머/진행 중 제출 정리
     return () => {
       if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
+      if (submitControllerRef.current) submitControllerRef.current.abort();
     };
   }, []);
 
@@ -116,7 +159,13 @@ export default function RegisterPage() {
       <WikiHeader user={null} />
       <main className="login-bg">
         <div id="form-ui">
-          <form id="form" onSubmit={handleSubmit} autoComplete="on" noValidate>
+          <form
+            id="form"
+            onSubmit={handleSubmit}
+            autoComplete="on"
+            noValidate
+            aria-busy={loading}
+          >
             <div id="form-body">
               <div id="welcome-lines">
                 <div id="welcome-line-1">RDWIKI</div>

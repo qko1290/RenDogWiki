@@ -1,3 +1,12 @@
+// File: app/mypage/page.tsx
+/**
+ * 마이페이지
+ * - /api/auth/me 로 로그인 사용자 정보를 로드하고 표시
+ * - Mojang UUID 조회해 Crafatar 아바타 출력(없으면 닉네임 폴백)
+ * - 비밀번호 변경, 계정 삭제 수행
+ * - 로딩/비로그인 상태 표시, 컨텐츠 깜빡임 최소화
+ */
+
 'use client';
 
 import WikiHeader from '@/components/common/Header';
@@ -18,11 +27,9 @@ export default function MyPage() {
   const [loading, setLoading] = useState(true);
 
   // 폼 토글/상태
-  const [openNickForm, setOpenNickForm] = useState(false);
   const [openPwForm, setOpenPwForm] = useState(false);
   const [openDeleteForm, setOpenDeleteForm] = useState(false);
 
-  const [newNick, setNewNick] = useState('');
   const [curPw, setCurPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [delPw, setDelPw] = useState('');
@@ -34,60 +41,50 @@ export default function MyPage() {
     return `${base}/${uuid ?? user?.minecraft_name}?overlay`;
   }, [uuid, user?.minecraft_name]);
 
-  // 유저 로딩
-  const loadMe = async () => {
+  // 유저 로딩 (언마운트 시 fetch 취소)
+  const loadMe = async (signal?: AbortSignal) => {
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/me', { cache: 'no-store' });
+      const res = await fetch('/api/auth/me', { cache: 'no-store', signal });
       if (!res.ok) throw 0;
       const data = await res.json();
+      if (signal?.aborted) return; // 취소되면 무시
       setUser(data?.user ?? null);
-    } catch {
+    } catch (e: any) {
+      if (e?.name === 'AbortError') return; // 언마운트 취소는 조용히 무시
       setUser(null);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   };
 
-  useEffect(() => { loadMe(); }, []);
-
-  // 닉네임 → UUID 조회
   useEffect(() => {
+    const ac = new AbortController();
+    loadMe(ac.signal);
+    return () => ac.abort();
+  }, []);
+
+  // 닉네임 → UUID 조회 (언마운트 시 취소)
+  useEffect(() => {
+    if (!user?.minecraft_name) return;
+    const ac = new AbortController();
     (async () => {
-      if (!user?.minecraft_name) return;
       try {
-        const r = await fetch(`/api/mojang/uuid?name=${encodeURIComponent(user.minecraft_name)}`);
-        if (!r.ok) return setUuid(null);
+        const r = await fetch(
+          `/api/mojang/uuid?name=${encodeURIComponent(user.minecraft_name)}`,
+          { signal: ac.signal }
+        );
+        if (!r.ok) { setUuid(null); return; }
         const j = await r.json();
-        setUuid(j.uuid);
-      } catch {
-        setUuid(null);
+        if (!ac.signal.aborted) setUuid(j.uuid);
+      } catch (e: any) {
+        if (e?.name !== 'AbortError') setUuid(null);
       }
     })();
+    return () => ac.abort();
   }, [user?.minecraft_name]);
 
   // ========== handlers ==========
-  const handleChangeNick = async () => {
-    if (!newNick.trim()) return alert('새 닉네임을 입력하세요.');
-    try {
-      const res = await fetch('/api/profile/minecraft-name', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ newName: newNick.trim() }),
-      });
-      const j = await res.json();
-      if (!res.ok) return alert(j?.error || '닉네임 변경 실패');
-
-      // 성공: 최신 정보 재로딩(서버가 새 JWT도 재발급)
-      await loadMe();
-      setNewNick('');
-      setOpenNickForm(false);
-      alert('닉네임이 변경되었습니다.');
-    } catch {
-      alert('서버 오류로 실패했습니다.');
-    }
-  };
-
   const handleChangePassword = async () => {
     if (!curPw || !newPw) return alert('현재/새 비밀번호를 입력하세요.');
     if (newPw.length < 8) return alert('새 비밀번호는 8자 이상 권장합니다.');
@@ -109,7 +106,7 @@ export default function MyPage() {
 
   const handleDelete = async () => {
     if (!delPw) return alert('비밀번호를 입력하세요.');
-    if (!confirm('정말 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
+    if (!window.confirm('정말 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
     try {
       const res = await fetch('/api/auth/me', {
         method: 'DELETE',
@@ -174,40 +171,35 @@ export default function MyPage() {
             </div>
           </div>
 
-          {/* 버튼 */}
-          {/*
-            <button className="mypage-btn" type="button"
-              onClick={() => { setOpenNickForm(v => !v); setOpenPwForm(false); setOpenDeleteForm(false); }}>
-              마인크래프트 닉네임 변경
-            </button>
-            {openNickForm && (
-              <div className="mypage-form">
-                <div className="row">
-                  <label htmlFor="newNick">새 닉네임</label>
-                  <input id="newNick" value={newNick} onChange={e => setNewNick(e.target.value)} />
-                </div>
-                <div className="actions">
-                  <button className="ghost" onClick={() => setOpenNickForm(false)}>취소</button>
-                  <button className="primary" onClick={handleChangeNick}>변경</button>
-                </div>
-              </div>
-            )}
-              */}
-
           <div className="mypage-btn-row">
-            <button className="mypage-btn" type="button"
-              onClick={() => { setOpenPwForm(v => !v); setOpenNickForm(false); setOpenDeleteForm(false); }}>
+            <button
+              className="mypage-btn"
+              type="button"
+              onClick={() => { setOpenPwForm(v => !v); setOpenDeleteForm(false); }}
+            >
               비밀번호 재설정
             </button>
             {openPwForm && (
               <div className="mypage-form">
                 <div className="row">
                   <label htmlFor="curPw">현재 비밀번호</label>
-                  <input id="curPw" type="password" value={curPw} onChange={e => setCurPw(e.target.value)} />
+                  <input
+                    id="curPw"
+                    type="password"
+                    value={curPw}
+                    onChange={e => setCurPw(e.target.value)}
+                    autoComplete="current-password"
+                  />
                 </div>
                 <div className="row">
                   <label htmlFor="newPw">새 비밀번호</label>
-                  <input id="newPw" type="password" value={newPw} onChange={e => setNewPw(e.target.value)} />
+                  <input
+                    id="newPw"
+                    type="password"
+                    value={newPw}
+                    onChange={e => setNewPw(e.target.value)}
+                    autoComplete="new-password"
+                  />
                 </div>
                 <div className="actions">
                   <button className="ghost" onClick={() => setOpenPwForm(false)}>취소</button>
@@ -216,15 +208,24 @@ export default function MyPage() {
               </div>
             )}
 
-            <button className="mypage-btn" type="button"
-              onClick={() => { setOpenDeleteForm(v => !v); setOpenNickForm(false); setOpenPwForm(false); }}>
+            <button
+              className="mypage-btn"
+              type="button"
+              onClick={() => { setOpenDeleteForm(v => !v); setOpenPwForm(false); }}
+            >
               회원 탈퇴
             </button>
             {openDeleteForm && (
               <div className="mypage-form">
                 <div className="row">
                   <label htmlFor="delPw">비밀번호 확인</label>
-                  <input id="delPw" type="password" value={delPw} onChange={e => setDelPw(e.target.value)} />
+                  <input
+                    id="delPw"
+                    type="password"
+                    value={delPw}
+                    onChange={e => setDelPw(e.target.value)}
+                    autoComplete="current-password"
+                  />
                 </div>
                 <div className="actions">
                   <button className="ghost" onClick={() => setOpenDeleteForm(false)}>취소</button>

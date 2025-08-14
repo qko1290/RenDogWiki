@@ -1,15 +1,24 @@
-// app/components/manager/PictureGrid.tsx
+// =============================================
+// File: app/components/manager/PictureGrid.tsx
+// =============================================
 
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
+
+/**
+ * 간단한 썸네일 그리드
+ * - pictures 또는 urls 중 하나로 이미지 배열을 받아 렌더링
+ * - 빈 상태 메시지/추가 버튼, 각 썸네일별 삭제 버튼(옵션)
+ * - 퍼포먼스/접근성 보강: lazy loading, async decoding, 버튼 aria/타입 지정
+ */
 
 type PictureGridProps = {
-  /** 이미지 배열: pictures 또는 urls 아무거나 사용 가능 */
+  /** 이미지 배열: pictures 또는 urls 아무거나 사용 가능 (pictures 우선) */
   pictures?: string[];
   urls?: string[];
 
-  /** 썸네일 크기/간격 */
+  /** 썸네일 크기(px) / 간격(px) */
   size?: number;
   gap?: number;
 
@@ -30,14 +39,21 @@ export function PictureGrid({
   onRemove,
   onAddClick,
 }: PictureGridProps) {
-  const items = (pictures ?? urls ?? []) as string[];
+  // pictures가 있으면 사용, 아니면 urls 사용
+  const items = useMemo(() => (pictures ?? urls ?? []) as string[], [pictures, urls]);
 
   if (!items.length) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ color: '#bbb' }}>{emptyText ?? '사진 없음'}</span>
         {onAddClick && (
-          <button className="npc-modal-image-btn" onClick={onAddClick}>
+          <button
+            type="button"
+            className="npc-modal-image-btn"
+            onClick={onAddClick}
+            aria-label="사진 추가"
+            title="사진 추가"
+          >
             + 사진 추가
           </button>
         )}
@@ -48,10 +64,13 @@ export function PictureGrid({
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap }}>
       {items.map((url, idx) => (
-        <div key={url + idx} style={{ position: 'relative' }}>
+        <div key={`${idx}-${url}`} style={{ position: 'relative' }}>
           <img
             src={url}
             alt={`pic-${idx}`}
+            loading="lazy"
+            decoding="async"
+            draggable={false}
             style={{
               width: size,
               height: size,
@@ -62,7 +81,10 @@ export function PictureGrid({
           />
           {onRemove && (
             <button
+              type="button"
               onClick={() => onRemove(idx)}
+              aria-label={`사진 ${idx + 1} 삭제`}
+              title="삭제"
               style={{
                 position: 'absolute',
                 top: -8,
@@ -75,17 +97,20 @@ export function PictureGrid({
                 boxShadow: '0 1px 4px #0002',
                 cursor: 'pointer',
               }}
-              title="삭제"
             >
               ✕
             </button>
           )}
         </div>
       ))}
+
       {onAddClick && (
         <button
+          type="button"
           className="npc-modal-image-btn"
           onClick={onAddClick}
+          aria-label="사진 추가"
+          title="사진 추가"
           style={{ alignSelf: 'center' }}
         >
           + 사진 추가

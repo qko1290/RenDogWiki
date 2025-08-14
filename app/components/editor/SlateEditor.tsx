@@ -12,9 +12,13 @@
 
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import {
-  createEditor, Descendant, Editor, Transforms, Range, Point, Element as SlateElement, Node, Path
+  createEditor, Descendant, Editor, Transforms, Range, Point,
+  Element as SlateElement, Node, Path
 } from 'slate';
-import { Slate, Editable, withReact, ReactEditor, RenderLeafProps, RenderElementProps } from 'slate-react';
+import {
+  Slate, Editable, withReact, ReactEditor,
+  type RenderLeafProps, type RenderElementProps
+} from 'slate-react';
 import { withHistory } from 'slate-history';
 import isHotkey from 'is-hotkey';
 
@@ -57,7 +61,7 @@ type PriceTableEditState = {
 export default function SlateEditor({ initialDoc, isMain = false }: Props) {
   if (!initialDoc) return <div>잘못된 접근입니다.</div>;
 
-  // Slate 커스텀 인라인 요소 설정
+  /** 커스텀 인라인 요소(link/inline-mark/inline-image)를 인라인으로 취급 */
   const withCustomInline = (editor: Editor) => {
     const { isInline } = editor;
     editor.isInline = element =>
@@ -69,34 +73,33 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     return editor;
   };
 
-  // 에디터 인스턴스 생성, info-box 블록 텍스트 복구 지원
+  /** 에디터 인스턴스: info-box 텍스트 병합(normalize 보정 포함) */
   const editor = useMemo(() => {
     const e = withCustomInline(withHistory(withReact(createEditor())));
     const { normalizeNode } = e;
+
     e.normalizeNode = ([node, path]) => {
       if (SlateElement.isElement(node) && node.type === 'info-box') {
         const text = Node.string(node);
-        if (text === '') return;
+        if (text === '') return; // 완전 빈 상자면 스킵(사용자 입력 대기)
         if (node.children.length > 1) {
-          const merged = {
-            ...node,
-            children: [{ text }],
-          };
+          const merged = { ...node, children: [{ text }] };
           Transforms.removeNodes(e, { at: path });
           Transforms.insertNodes(e, merged, { at: path });
-          return;
+          return; // 한 번만 수행
         }
       }
       normalizeNode([node, path]);
     };
+
     return e;
   }, []);
 
   // 커서 위치 Ref, 에디터 상태
   const selectionRef = useRef<Range | null>(null);
-  const [editorKey, setEditorKey] = useState(0);
-  const [isIconModalOpen, setIsIconModalOpen] = useState(false);
-  const [iconEditTarget, setIconEditTarget] = useState<CustomElement | null>(null);
+  const [editorKey] = useState(0); // 필요 시 리셋 용도
+  const [isIconModalOpen, setIsIconModalOpen] = useState(false); // 현재 UI에선 미사용(계약 유지)
+  const [iconEditTarget, setIconEditTarget] = useState<CustomElement | null>(null); // 현재 UI에선 미사용
   const [loading, setLoading] = useState(false);
   const [moveCursorPending, setMoveCursorPending] = useState(false);
   const [lastLinkPath, setLastLinkPath] = useState<Path | null>(null);
@@ -127,7 +130,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastScrollTopRef = useRef<number>(0);
 
-  // priceTable 모달 열릴 때 스크롤 위치 저장/복원
+  /** priceTable 모달 열릴 때 스크롤 위치 저장 */
   useEffect(() => {
     if (priceTableEdit.blockPath)
       lastScrollTopRef.current = scrollRef.current?.scrollTop || 0;
@@ -137,51 +140,33 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     if (scrollRef.current)
       scrollRef.current.scrollTop = lastScrollTopRef.current;
   };
-  
+
   const handlePriceModalClose = () => {
     setPriceTableEdit({ blockPath: null, idx: null, item: null });
     setTimeout(restoreScroll, 60);
   };
 
-  // 상단 import가 없다면 추가
-  // import { Editor, Transforms, Element as SlateElement, Path } from 'slate';
-  // import { ReactEditor } from 'slate-react';
-
+  /** priceTable 편집 저장: 해당 아이템만 교체 */
   const handlePriceModalSave = (data: { stages: string[]; prices: number[] }) => {
     const { blockPath, idx } = priceTableEdit;
-
     if (blockPath && typeof idx === 'number') {
       Editor.withoutNormalizing(editor, () => {
-        // 현재 카드 블록 읽기
         const [cardNode] = Editor.node(editor, blockPath) as [any, Path];
-
         if (cardNode && Array.isArray(cardNode.items)) {
-          // 해당 아이템만 교체한 items 생성
           const nextItems = cardNode.items.map((itm: any, i: number) =>
             i === idx ? { ...itm, stages: data.stages, prices: data.prices } : itm
           );
-
-          // 카드 블록에 items만 갱신
-          Transforms.setNodes(
-            editor,
-            { items: nextItems },
-            { at: blockPath }
-          );
+          Transforms.setNodes(editor, { items: nextItems }, { at: blockPath });
         }
       });
-
-      // (선택) 포커스 복원
-      // ReactEditor.focus(editor);
     }
-
-    // 모달 상태 닫기 + 스크롤 복원(보수적)
     setPriceTableEdit({ blockPath: null, idx: null, item: null });
     requestAnimationFrame(() => {
       if (scrollRef.current) scrollRef.current.scrollTop = lastScrollTopRef.current;
     });
   };
 
-  // 문서 초기값 반영
+  /** 문서 초기값 반영 */
   useEffect(() => {
     setDoc({
       id: initialDoc?.id ?? undefined,
@@ -196,7 +181,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     });
   }, [initialDoc]);
 
-  // 브라우저 백스페이스 뒤로가기 방지
+  /** 브라우저 Backspace 뒤로가기 방지(입력 포커스 외에서) */
   useEffect(() => {
     const preventBackspaceNavigation = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -210,7 +195,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     return () => window.removeEventListener('keydown', preventBackspaceNavigation);
   }, []);
 
-  // 링크 등에서 포커스 복원
+  /** 링크 등에서 포커스 복원 */
   useEffect(() => {
     if (moveCursorPending && lastLinkPath) {
       const after = Editor.after(editor, lastLinkPath);
@@ -221,12 +206,12 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       setMoveCursorPending(false);
       setLastLinkPath(null);
     }
-  }, [doc.content, moveCursorPending, lastLinkPath]);
+  }, [doc.content, moveCursorPending, lastLinkPath, editor]);
 
   // 목차(heading) 추출
   const headings = useMemo(() => extractHeadings(doc.content), [doc.content]);
 
-  // heading 아이콘 클릭 핸들러
+  // heading 아이콘 클릭(현재는 상태만 세팅 — 모달 미연결)
   const handleIconClick = (element: CustomElement) => {
     setIconEditTarget(element);
     setIsIconModalOpen(true);
@@ -244,10 +229,10 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
         setPriceTableEdit={setPriceTableEdit}
       />
     ),
-    [editor, priceTableEdit, setPriceTableEdit]
+    [editor, priceTableEdit]
   );
 
-  // 문서 저장 핸들러
+  /** 문서 저장(신규/수정) */
   const handleSave = async () => {
     const res = await fetch(`/api/documents?all=1`);
     const allDocs = await res.json();
@@ -255,7 +240,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       alert('서버 오류: 문서 목록 조회 실패');
       return;
     }
-    // 같은 경로/제목 중복 체크
+    // 같은 경로/제목 중복 체크(자기 자신 제외)
     const isDuplicate = allDocs.some(
       d =>
         String(d.path) === String(doc.path) &&
@@ -266,7 +251,6 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       alert('같은 카테고리(경로)에 동일한 제목의 문서가 존재합니다.');
       return;
     }
-    // 저장(신규/수정)
     try {
       const res = await fetch('/api/save', {
         method: 'POST',
@@ -303,13 +287,14 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       } else {
         alert('저장 실패');
       }
-    } catch (err) {
+    } catch {
       alert('문서 저장 실패');
     }
   };
 
-  // 에디터 키 이벤트(단축키/블록 커스텀 등) 
+  /** 에디터 키 이벤트(단축키/커스텀 블록 동작) */
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    // 기본 텍스트 마크 단축키
     const HOTKEYS: Record<string, string> = {
       'mod+b': 'bold',
       'mod+i': 'italic',
@@ -328,7 +313,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       }
     }
 
-    // heading 블록에서 Enter시 단락 추가
+    // Heading에서 Enter → 바로 아래에 단락 추가
     if (event.key === 'Enter') {
       const [match] = Editor.nodes(editor, {
         match: n =>
@@ -337,15 +322,12 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       });
       if (match) {
         event.preventDefault();
-        Transforms.insertNodes(editor, {
-          type: 'paragraph',
-          children: [{ text: '' }],
-        });
+        Transforms.insertNodes(editor, { type: 'paragraph', children: [{ text: '' }] });
         return;
       }
     }
 
-    // info-box에서 Enter 무시
+    // info-box 내부에서 Enter 무시(한 줄 유지)
     if (event.key === 'Enter') {
       const [match] = Editor.nodes(editor, {
         match: n => SlateElement.isElement(n) && n.type === 'info-box',
@@ -356,7 +338,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       }
     }
 
-    // heading 블록에서 Backspace로 단락 변환
+    // Heading 맨 앞에서 Backspace → paragraph로 변환
     if (event.key === 'Backspace') {
       const { selection } = editor;
       if (selection && Range.isCollapsed(selection)) {
@@ -371,10 +353,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
           if (Point.equals(selection.anchor, start)) {
             event.preventDefault();
             Transforms.removeNodes(editor, { at: path });
-            Transforms.insertNodes(editor, {
-              type: 'paragraph',
-              children: [{ text: '' }],
-            });
+            Transforms.insertNodes(editor, { type: 'paragraph', children: [{ text: '' }] });
             const point = Editor.start(editor, [0]);
             Transforms.select(editor, point);
           }
@@ -382,45 +361,31 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       }
     }
 
-    // info-box 바로 밑 빈 줄에서 Backspace로 info-box도 같이 제거
+    // info-box 바로 밑 빈 줄에서 Backspace → info-box까지 함께 제거
     if (event.key === 'Backspace') {
       const { selection } = editor;
-
       if (selection && Range.isCollapsed(selection)) {
         const [currentBlock] = Editor.nodes(editor, {
           match: n => SlateElement.isElement(n) && Editor.isBlock(editor, n),
         });
-
         if (!currentBlock) return;
 
         const [, currentPath] = currentBlock;
-
-        // [0]일 경우 예외 방지
-        if (currentPath[0] === 0) return;
+        if (currentPath[0] === 0) return; // 문서 첫 블록이면 스킵
 
         const prevPath = Path.previous(currentPath);
-
         try {
           const prevNode = Node.get(editor, prevPath);
-
           if (SlateElement.isElement(prevNode) && prevNode.type === 'info-box') {
             const isEmpty = Node.string(currentBlock[0]).length === 0;
-
             if (isEmpty) {
               event.preventDefault();
-
-              // 빈 줄 삭제
-              Transforms.removeNodes(editor, { at: currentPath });
-
-              // info-box 삭제
-              Transforms.removeNodes(editor, { at: prevPath });
-
-              // 커서 위치 조정
+              Transforms.removeNodes(editor, { at: currentPath }); // 빈 줄
+              Transforms.removeNodes(editor, { at: prevPath });    // info-box
               const newPath = prevPath[0] > 0 ? [prevPath[0] - 1] : [0];
               const point = Editor.end(editor, newPath);
               Transforms.select(editor, point);
               ReactEditor.focus(editor);
-
               return;
             }
           }
@@ -430,49 +395,45 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       }
     }
 
+    // 시세 블록 바로 뒤의 빈 단락에서 Backspace 방지
     if (event.key === 'Backspace') {
       const { selection } = editor;
       if (selection && Range.isCollapsed(selection)) {
-        // 현재 블럭의 경로
         const [currentNode, currentPath] = Editor.node(editor, selection, { depth: 1 });
-        // 현재 블럭이 "빈 단락"
-        const isEmpty = SlateElement.isElement(currentNode) && currentNode.type === 'paragraph' && Node.string(currentNode) === '';
+        const isEmpty =
+          SlateElement.isElement(currentNode) &&
+          currentNode.type === 'paragraph' &&
+          Node.string(currentNode) === '';
         if (isEmpty && currentPath[0] > 0) {
-          // 이전 블럭
           const prevPath = [currentPath[0] - 1];
           const prevNode = Node.get(editor, prevPath);
           if (SlateElement.isElement(prevNode) && prevNode.type === 'price-table-card') {
-            // 시세 블럭 바로 뒤에서 백스페이스 → 방지
             event.preventDefault();
             return;
           }
         }
       }
     }
-    
-    if (event.key === "Enter" && event.shiftKey) {
-      event.preventDefault();
 
-      // 현재 위치에서 블록 분할 (커서가 아래 새 블록으로 이동)
+    // Shift+Enter: 새 블록(아래) 생성 + 마크/일부 속성 해제
+    if (event.key === 'Enter' && event.shiftKey) {
+      event.preventDefault();
       Transforms.splitNodes(editor, { always: true });
 
-      // (옵션) soft break 삽입 필요시: editor.insertText('\n'); // 보통 splitNodes만 하면 새 줄이 생김
-
-      // 새 블록에 마크 제거
-      Object.keys(Editor.marks(editor) || {}).forEach(mark => {
-        editor.removeMark(mark);
+      // ✅ 마크 제거: Editor.removeMark 사용 (기존 editor.removeMark 호출 버그 수정)
+      const marks = Editor.marks(editor) || {};
+      Object.keys(marks).forEach((mark) => {
+        Editor.removeMark(editor, mark);
       });
 
-      // 새 블록의 모든 속성 해제 (indentLine, textAlign 등)
+      // 새 블록의 일부 속성 초기화(indentLine, textAlign 등)
       const { selection } = editor;
       if (selection) {
-        // 이제 selection이 **아래 새 블록**에 위치함
         const [block, path] = Editor.node(editor, selection, { depth: 1 });
         if (SlateElement.isElement(block)) {
           const patch: any = {};
           if ('indentLine' in block) patch.indentLine = false;
           if ('textAlign' in block) patch.textAlign = undefined;
-          // 다른 블록 속성도 필요하면 여기서 추가
           if (Object.keys(patch).length > 0) {
             Transforms.setNodes(editor, patch, { at: path });
           }
@@ -481,26 +442,22 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       return;
     }
 
+    // 방향키로 link-block-row에 진입하려 할 때 이동 차단(포커싱 혼란 방지)
     const { selection } = editor;
-
     if (
       selection &&
       Range.isCollapsed(selection) &&
-      ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)
+      ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)
     ) {
-      let nextPoint: Point | undefined = undefined;
-      if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
-        nextPoint = Editor.before(editor, selection, { unit: "block" });
-      } else if (event.key === "ArrowRight" || event.key === "ArrowDown") {
-        nextPoint = Editor.after(editor, selection, { unit: "block" });
+      let nextPoint: Point | undefined;
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+        nextPoint = Editor.before(editor, selection, { unit: 'block' }) as Point | undefined;
+      } else {
+        nextPoint = Editor.after(editor, selection, { unit: 'block' }) as Point | undefined;
       }
-
-      if (typeof nextPoint !== "undefined") {
+      if (typeof nextPoint !== 'undefined') {
         const [node] = Editor.node(editor, nextPoint, { depth: 1 });
-        if (
-          SlateElement.isElement(node) &&
-          node.type === "link-block-row"
-        ) {
+        if (SlateElement.isElement(node) && node.type === 'link-block-row') {
           event.preventDefault();
           return;
         }
@@ -613,7 +570,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
               </div>
             </div>
 
-            {/* 저장 버튼 */}
+            {/* 저장 */}
             <button className="meta-save" onClick={handleSave}>저장</button>
           </div>
         </div>
@@ -629,7 +586,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
                 if (editor.selection) selectionRef.current = editor.selection;
               }}
             >
-              {/* Toolbar는 Slate 내부에, Sticky로 상단 고정 */}
+              {/* Toolbar는 Slate 내부에 배치(Sticky 상단) */}
               <div className="editor-toolbar-wrapper">
                 <Toolbar selectionRef={selectionRef} />
               </div>
@@ -646,6 +603,8 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
                 }}
               />
             </Slate>
+
+            {/* 시세표 편집 모달 */}
             {priceTableEdit.blockPath && typeof priceTableEdit.idx === 'number' && priceTableEdit.item && (
               <PriceTableEditModal
                 open={true}

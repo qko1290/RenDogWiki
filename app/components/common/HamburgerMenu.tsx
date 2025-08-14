@@ -49,6 +49,7 @@ export default function HamburgerMenu({
   // uuid 값이 없을 경우, username으로 Mojang API에서 조회
   const [resolvedUUID, setResolvedUUID] = useState<string | null>(uuid || null);
   const [role, setRole] = useState<Role>('guest');
+  const [roleLoaded, setRoleLoaded] = useState(false);
   const [denyOpen, setDenyOpen] = useState(false);
 
   const normName = (username ?? '').trim().toLowerCase();
@@ -87,18 +88,40 @@ export default function HamburgerMenu({
   useEffect(() => {
     if (!isLoggedIn) {
       setRole('guest');
+      setRoleLoaded(true);
       return;
     }
     let aborted = false;
+    setRoleLoaded(false);
     (async () => {
       try {
-        const res = await fetch('/api/me', { cache: 'no-store' });
-        if (!res.ok) return;
+        const res = await fetch('/api/auth/me', { cache: 'no-store' });
+        if (!res.ok) {
+          if (!aborted) {
+            setRole('guest');
+            setRoleLoaded(true);
+          }
+          return;
+        }
+
         const data = await res.json();
-        const r = (data?.user?.role ?? 'guest') as Role;
-        if (!aborted) setRole(r);
+        // ✅ role 정규화 (대소문자/키 다양성 대비)
+        const raw = (data?.user?.role ?? data?.role ?? 'guest');
+        const normalized = typeof raw === 'string' ? raw.toLowerCase() : 'guest';
+        const finalRole: Role =
+          normalized === 'admin' || normalized === 'writer'
+            ? (normalized as Role)
+            : 'guest';
+
+        if (!aborted) {
+          setRole(finalRole);
+          setRoleLoaded(true);
+        }
       } catch {
-        if (!aborted) setRole('guest');
+        if (!aborted) {
+          setRole('guest');
+          setRoleLoaded(true);
+        }
       }
     })();
     return () => { aborted = true; };
@@ -106,7 +129,15 @@ export default function HamburgerMenu({
 
   // writer 이상 필요한 메뉴 클릭 가드(디자인 변경 없음)
   const handleGuardedClick = (e: React.MouseEvent) => {
-    const allowed = isLoggedIn && (role === 'writer' || role === 'admin');
+    // 로딩 전이면 우선 막고 안내
+    if (!roleLoaded) {
+      e.preventDefault();
+      e.stopPropagation();
+      setDenyOpen(true);
+      return;
+    }
+    // ✅ 권한만으로 결정: writer 또는 admin이면 통과
+    const allowed = role === 'writer' || role === 'admin';
     if (!allowed) {
       e.preventDefault();
       e.stopPropagation();
@@ -267,7 +298,7 @@ export default function HamburgerMenu({
           <>
             <Link href="/login" className="hm-btn hm-btn-login">
               <div className="hm-btn-sign">
-                <svg viewBox="0 0 512 512"><path d="M217.9 105.9L340.7 228.7c7.2 7.2 11.3 17.1 11.3 27.3s-4.1 20.1-11.3 27.3L217.9 406.1c-6.4 6.4-15 9.9-24 9.9c-18.7 0-33.9-15.2-33.9-33.9l0-62.1L32 320c-17.7 0-32-14.3-32-32l0-64c0-17.7 14.3-32 32-32l128 0 0-62.1c0-18.7 15.2-33.9 33.9-33.9c9 0 17.6 3.6 24 9.9zM352 416l64 0c17.7 0 32-14.3 32-32l0-256c0-17.7-14.3-32-32-32l-64 0c-17.7 0-32-14.3-32-32s-14.3-32 32-32l64 0c53 0 96 43 96 96l0 256c0 53-43 96-96 96l-64 0c-17.7 0-32-14.3-32-32s-14.3-32 32-32z"></path></svg>
+                <svg viewBox="0 0 512 512"><path d="M217.9 105.9L340.7 228.7c7.2 7.2 11.3 17.1 11.3 27.3s-4.1 20.1-11.3 27.3L217.9 406.1c-6.4 6.4-15 9.9-24 9.9c-18.7 0-33.9-15.2-33.9-33.9l0-62.1L32 320c-17.7 0-32-14.3-32-32l0-64c0-17.7 14.3-32 32-32l128 0 0-62.1c0-18.7 15.2-33.9 33.9-33.9c9 0 17.6 3.6 24 9.9zM352 416l64 0c17.7 0 32-14.3 32-32l0-256c0-17.7-14.3-32-32-32l-64 0c-17.7 0-32-14.3-32-32s-14.3-32 32-32l64 0c53 0 96 43 96 96l0 256c0 53-43 96-96 96l-64 0c-17.7 0-32-14.3-32-32s-14.3 32 32 32z"></path></svg>
               </div>
               <div className="hm-btn-text">&nbsp;&nbsp;로그인</div>
             </Link>
