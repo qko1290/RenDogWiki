@@ -1,5 +1,5 @@
 // =============================================
-// File: app/components/chat/ChatMessageItem.tsx — 전체 코드 (교체용)
+// File: app/components/chat/ChatMessageItem.tsx
 // =============================================
 'use client';
 
