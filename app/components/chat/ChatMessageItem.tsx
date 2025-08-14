@@ -1,18 +1,11 @@
 // =============================================
-// File: app/components/chat/ChatMessageItem.tsx
+// File: app/components/chat/ChatMessageItem.tsx — 전체 코드 (교체용)
 // =============================================
 'use client';
 
 import React, { useMemo } from 'react';
 import type { ChatMessage } from '@/wiki/lib/chat-types';
 import { useChat } from './ChatProvider';
-
-/**
- * 컴포넌트 목적
- * - 채팅 메시지 1개를 디스코드 느낌으로 렌더링
- * - 닉네임/아바타/시간/본문/리액션/답장 버튼 표시
- * - 서버가 계산해준 필드(예: reply_to_me, like/dislike 카운트)를 그대로 활용
- */
 
 /** 외부 아바타 URL을 헬멧 스타일 + 사이즈로 정규화 */
 function normalizeAvatarUrl(url: string | null | undefined, size: number) {
@@ -25,8 +18,16 @@ function normalizeAvatarUrl(url: string | null | undefined, size: number) {
   // minotar/crafthead: /avatar -> /helm
   u = u.replace(/(minotar\.net|crafthead\.net)\/avatar\//, '$1/helm/');
 
-  // 경로 마지막 숫자(사이즈) 교체
-  u = u.replace(/\/(\d+)(\/)?(\?.*)?$/, `/${size}$2$3`);
+  // 경로 마지막 숫자(사이즈) 또는 png 확장자 처리
+  // size 세그먼트가 있으면 png 확장자로 통일, 없으면 추가
+  if (/(crafthead\.net|minotar\.net)\/helm\/[^/?]+\/\d+($|[/?])/.test(u)) {
+    // 이미 /<size>가 있으면 .png 확장자 보장
+    u = u.replace(/\/(\d+)(\/)?(\?.*)?$/, '/$1.png$2$3');
+  } else if (/(crafthead\.net|minotar\.net)\/helm\/[^/?]+($|[/?])/.test(u)) {
+    // size 세그먼트가 없다면 추가
+    const sep = u.endsWith('/') ? '' : '/';
+    u = `${u}${sep}${size}.png`;
+  }
 
   // crafatar: overlay/size 파라미터 강제
   if (/crafatar\.com/.test(u)) {
@@ -56,24 +57,26 @@ function MCHead({
 
   React.useEffect(() => {
     const list: string[] = [];
+    const n = minecraftName ? encodeURIComponent(minecraftName) : null;
 
-    // 1) UUID가 있으면 최우선
+    // 1) UUID 최우선: crafatar
     if (minecraftUUID) {
       list.push(`https://crafatar.com/avatars/${minecraftUUID}?overlay&size=${size}`);
     }
 
-    // 2) 닉네임 기반 헬멧
-    if (minecraftName) {
-      const n = encodeURIComponent(minecraftName);
-      list.push(`https://crafthead.net/helm/${n}/${size}`);
-      list.push(`https://minotar.net/helm/${n}/${size}`);
+    // 2) 닉네임 기반 미러들 (PNG 확장자로 고정)
+    if (n) {
+      list.push(`https://crafthead.net/helm/${n}/${size}.png`);
+      list.push(`https://minotar.net/helm/${n}/${size}.png`);
+      // 보조 미러(선택): 안정성 향상
+      list.push(`https://mc-heads.net/avatar/${n}/${size}.png`);
     }
 
-    // 3) 서버에서 준 힌트 URL
+    // 3) 서버 힌트 URL은 마지막 폴백으로
     const hint = normalizeAvatarUrl(avatarUrlHint, size);
     if (hint) list.push(hint);
 
-    // 4) 마지막 폴백(스티브 비슷한 기본값)
+    // 4) 최종 폴백(스티브 유사)
     list.push(`https://crafatar.com/avatars/94cf9511-c5d6-433a-b565-14010caac235?overlay&size=${size}`);
 
     setSrcs(list);
@@ -95,8 +98,9 @@ function MCHead({
       alt={minecraftName ? `${minecraftName} face` : 'MC face'}
       className={['rounded-full object-cover ring-1 ring-neutral-200', className].join(' ')}
       style={{ background: 'transparent' }}
-      referrerPolicy="no-referrer"
-      crossOrigin="anonymous"
+      // ❌ 잠정 제거: 일부 CDN이 crossOrigin/no-referrer 조합을 싫어함
+      // referrerPolicy="no-referrer"
+      // crossOrigin="anonymous"
       loading="lazy"
       decoding="async"
       draggable={false}
@@ -115,7 +119,7 @@ function toInt(val: unknown): number | null {
 
 type Props = {
   m: ChatMessage;
-  isReplyToMe?: boolean;            // 상위에서 바로 주면 그대로 사용
+  isReplyToMe?: boolean;
   onReply?: (m: ChatMessage | null) => void;
 };
 
@@ -151,7 +155,7 @@ export default function ChatMessageItem({ m, isReplyToMe, onReply }: Props) {
     return `user#${userId ?? '?'}`;
   }, [minecraftName, userObj, userId]);
 
-  // 시간 라벨(불필요한 재계산 방지)
+  // 시간 라벨
   const timeLabel = useMemo(() => {
     try {
       return new Date(m.created_at).toLocaleString();
@@ -160,7 +164,6 @@ export default function ChatMessageItem({ m, isReplyToMe, onReply }: Props) {
     }
   }, [m.created_at]);
 
-  // 서버가 계산한 값 우선 사용
   const internalIsReplyToMe =
     typeof isReplyToMe === 'boolean'
       ? isReplyToMe
