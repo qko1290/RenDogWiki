@@ -1,5 +1,5 @@
 // =============================================
-// File: app/api/chat/message/route.ts
+// File: app/api/chat/message/route.ts  — 전체 코드 (교체용)
 // =============================================
 /**
  * 채팅 메시지 작성
@@ -12,9 +12,10 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
 import { getAuthUser } from '@/wiki/lib/auth';
-import { ablyRest, GLOBAL_CHANNEL } from '@/wiki/lib/ably';
 
+// 빌드/프리렌더 단계에서 정적 처리 시도를 막고 Node 런타임 고정
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
@@ -64,6 +65,14 @@ export async function POST(req: Request) {
       i_disliked: false,
       created_at: row.created_at,
     };
+
+    // ⚠️ 중요한 변경점: ably 모듈을 요청 시점에 동적 import (빌드 타임 실행 방지)
+    const { ablyRest, GLOBAL_CHANNEL } = await import('@/wiki/lib/ably');
+
+    // 환경변수/초기화 누락 시 명확한 에러
+    if (!ablyRest) {
+      throw new Error('Ably 클라이언트가 초기화되지 않았습니다. 환경변수를 확인하세요.');
+    }
 
     // 브로드캐스트(실패 시 예외 -> catch에서 500 처리)
     await ablyRest.channels.get(GLOBAL_CHANNEL).publish('message.created', msg);
