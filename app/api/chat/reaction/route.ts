@@ -1,114 +1,120 @@
 // =============================================
-// File: app/api/chat/reaction/route.ts
+// File: app/api/chat/reaction/route.ts — 전체 코드 (교체용)
 // =============================================
 /**
- * 메시지 반응 토글
- * - POST body -> { messageId: number, kind: 'like' | 'dislike' }
- * - 규칙 -> 같은 반응을 다시 누르면 해제, 다른 반응을 누르면 기존 반응 제거 후 새 반응 추가
- * - 배열 컬럼이 null일 수 있어도 동작하도록 COALESCE 처리
+ * 채팅 메시지 리액션 토글
+ * - POST body -> { id: number, type: 'like' | 'dislike' }
+ * - 인증 필요 -> getAuthUser()
+ * - 동작:
+ *   1) 기존 내 리액션 조회
+ *   2) 같은 타입이면 취소(삭제), 다른 타입이면 전환, 없으면 추가
+ *   3) 최신 집계(like/dislike)와 내 상태(i_liked/i_disliked) 반환
+ *   4) Ably 브로드캐스트('reaction.updated')
+ * - 응답은 실시간 특성상 캐시 금지
  */
 
 import { NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
 import { getAuthUser } from '@/wiki/lib/auth';
-import { ablyRest, GLOBAL_CHANNEL } from '@/wiki/lib/ably';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+type ReactionType = 'like' | 'dislike';
 
 export async function POST(req: Request) {
   try {
     const me = getAuthUser();
     if (!me) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401, headers: { 'Cache-Control': 'no-store' } }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await req.json().catch(() => null);
-    const id = Number(body?.messageId);
-    const rawKind = typeof body?.kind === 'string' ? body.kind.trim() : '';
-    const kind = rawKind === 'dislike' ? 'dislike' : rawKind === 'like' ? 'like' : '';
+    const msgId = Number(body?.id);
+    const type = body?.type as ReactionType;
 
-    if (!Number.isFinite(id) || id <= 0) {
-      return NextResponse.json(
-        { error: 'bad-id' },
-        { status: 400, headers: { 'Cache-Control': 'no-store' } }
-      );
-    }
-    if (!kind) {
-      return NextResponse.json(
-        { error: 'bad-kind' },
-        { status: 400, headers: { 'Cache-Control': 'no-store' } }
-      );
+    if (!Number.isFinite(msgId) || (type !== 'like' && type !== 'dislike')) {
+      return NextResponse.json({ error: 'BAD_REQUEST' }, { status: 400 });
     }
 
-    // 한 번의 UPDATE로 상호배타 토글 -> 배열이 null이어도 빈 배열로 간주
-    const updated = (await sql/*sql*/`
-      UPDATE chat_messages
-      SET
-        liked_by =
-          CASE
-            WHEN ${kind} = 'like' THEN
-              CASE
-                WHEN ${me.id} = ANY(COALESCE(liked_by, '{}'::int[]))
-                  THEN array_remove(COALESCE(liked_by, '{}'::int[]), ${me.id})
-                ELSE array_append(array_remove(COALESCE(liked_by, '{}'::int[]), ${me.id}), ${me.id})
-              END
-            ELSE array_remove(COALESCE(liked_by, '{}'::int[]), ${me.id})
-          END,
-        disliked_by =
-          CASE
-            WHEN ${kind} = 'dislike' THEN
-              CASE
-                WHEN ${me.id} = ANY(COALESCE(disliked_by, '{}'::int[]))
-                  THEN array_remove(COALESCE(disliked_by, '{}'::int[]), ${me.id})
-                ELSE array_append(array_remove(COALESCE(disliked_by, '{}'::int[]), ${me.id}), ${me.id})
-              END
-            ELSE array_remove(COALESCE(disliked_by, '{}'::int[]), ${me.id})
-          END
-      WHERE id = ${id} AND deleted_at IS NULL
-      RETURNING
-        id,
-        cardinality(liked_by)    AS like_count,
-        cardinality(disliked_by) AS dislike_count,
-        COALESCE(${me.id} = ANY(liked_by), false)    AS i_liked,
-        COALESCE(${me.id} = ANY(disliked_by), false) AS i_disliked
-    `) as unknown as Array<{
-      id: number;
-      like_count: number;
-      dislike_count: number;
-      i_liked: boolean;
-      i_disliked: boolean;
-    }>;
+    // ===== 트랜잭션처럼 순서 보장해서 처리 =====
+    // 1) 내 기존 리액션 조회
+    const existing = (await sql/*sql*/`
+      SELECT id, type
+      FROM chat_reactions
+      WHERE message_id = ${msgId} AND user_id = ${me.id}
+      LIMIT 1
+    `) as unknown as Array<{ id: number; type: ReactionType }>;
 
-    const row = updated[0];
-    if (!row) {
-      return NextResponse.json(
-        { error: 'not-found' },
-        { status: 404, headers: { 'Cache-Control': 'no-store' } }
-      );
+    if (existing.length) {
+      const prev = existing[0];
+      if (prev.type === type) {
+        // 같은 타입 -> 취소(삭제)
+        await sql/*sql*/`
+          DELETE FROM chat_reactions
+          WHERE id = ${prev.id}
+        `;
+      } else {
+        // 다른 타입 -> 전환(update)
+        await sql/*sql*/`
+          UPDATE chat_reactions
+          SET type = ${type}
+          WHERE id = ${prev.id}
+        `;
+      }
+    } else {
+      // 없으면 추가
+      await sql/*sql*/`
+        INSERT INTO chat_reactions (message_id, user_id, type)
+        VALUES (${msgId}, ${me.id}, ${type})
+      `;
     }
+
+    // 2) 최신 집계
+    const counts = (await sql/*sql*/`
+      SELECT
+        SUM(CASE WHEN type = 'like' THEN 1 ELSE 0 END)::int AS like_count,
+        SUM(CASE WHEN type = 'dislike' THEN 1 ELSE 0 END)::int AS dislike_count
+      FROM chat_reactions
+      WHERE message_id = ${msgId}
+    `) as unknown as Array<{ like_count: number; dislike_count: number }>;
+    const { like_count = 0, dislike_count = 0 } = counts[0] ?? { like_count: 0, dislike_count: 0 };
+
+    // 3) 내 현재 상태
+    const mine = (await sql/*sql*/`
+      SELECT type
+      FROM chat_reactions
+      WHERE message_id = ${msgId} AND user_id = ${me.id}
+      LIMIT 1
+    `) as unknown as Array<{ type: ReactionType }>;
+    const i_liked = !!mine.length && mine[0].type === 'like';
+    const i_disliked = !!mine.length && mine[0].type === 'dislike';
 
     const payload = {
-      id: row.id,
-      like_count: row.like_count,
-      dislike_count: row.dislike_count,
+      id: msgId,
+      like_count,
+      dislike_count,
+      i_liked,
+      i_disliked,
+      user_id: me.id,
     };
 
-    // 전체에게 카운트 브로드캐스트
+    // 4) Ably — 요청 시점 동적 import (빌드 타임 실행 방지)
+    const { ablyRest, GLOBAL_CHANNEL } = await import('@/wiki/lib/ably');
+    if (!ablyRest) {
+      throw new Error('Ably 클라이언트가 초기화되지 않았습니다. 환경변수를 확인하세요.');
+    }
+
     await ablyRest.channels.get(GLOBAL_CHANNEL).publish('reaction.updated', payload);
 
-    // 내 클라이언트는 즉시 상태 적용 가능하도록 현재 사용자 기준 상태도 함께 반환
-    return NextResponse.json(
-      { ...payload, i_liked: row.i_liked, i_disliked: row.i_disliked },
-      { headers: { 'Cache-Control': 'no-store' } }
-    );
+    return NextResponse.json(payload, {
+      headers: { 'Cache-Control': 'no-store' },
+    });
   } catch (e: any) {
     console.error('/api/chat/reaction error:', e);
     return NextResponse.json(
       { error: 'reaction-failed', detail: String(e?.message || e) },
-      { status: 500, headers: { 'Cache-Control': 'no-store' } }
+      { status: 500 }
     );
   }
 }
