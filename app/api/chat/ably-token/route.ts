@@ -6,16 +6,19 @@
  * - GET -> Ably REST SDK로 tokenRequest 생성 후 그대로 반환
  * - clientId -> 로그인 유저면 "user:<id>", 아니면 "anon"
  * - capability -> 특정 채널에 한해 publish/subscribe 허용
- * - 보안 메모 -> 응답은 실시간 성격이라 캐시 금지
+ * - 응답은 실시간 성격이라 캐시 금지
  */
 
 import { NextResponse } from 'next/server';
-import Ably from 'ably';
 import { getAuthUser } from '@/wiki/lib/auth';
+
+// 빌드/프리렌더 단계에서 정적 개입을 막고, Ably는 Node 런타임에서만 다룸
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    // 1) 환경 변수 확인 -> 키가 없으면 서버 미설정 상태
+    // 1) 환경 변수 확인
     const KEY = process.env.ABLY_API_KEY;
     if (!KEY) {
       return NextResponse.json(
@@ -24,28 +27,26 @@ export async function GET() {
       );
     }
 
-    // 형식 경고는 로그로만 남긴다(동작은 계속 진행)
-    if (!KEY.includes(':')) {
-      console.warn('[ably-token] ABLY_API_KEY 형식이 비정상 같습니다(콜론 누락?).');
-    }
-
-    // 2) 사용자 식별 -> 토큰에 clientId 부여
+    // 2) 사용자 식별 -> 토큰 clientId
     const me = getAuthUser();
     const clientId = me ? `user:${me.id}` : 'anon';
 
-    // 3) Ably REST 인스턴스 생성
-    const client = new Ably.Rest(KEY);
+    // 3) Ably SDK를 요청 시점에만 로드(빌드 타임 실행 방지)
+    const Ably = (await import('ably')).default; // promises 빌드 사용
+    const client = new Ably.Rest({ key: KEY });
 
-    // 4) 토큰 요청 생성 -> ttl(ms), capability(JSON string)
-    const tokenRequest = await client.auth.createTokenRequest({
-      clientId,
-      ttl: 1000 * 60 * 60, // 1시간
-      capability: JSON.stringify({
-        'rdwiki-chat': ['publish', 'subscribe'],
-      }),
+    // 4) capability: 필요한 채널만 권한 부여
+    const capability = JSON.stringify({
+      'rdwiki-chat': ['publish', 'subscribe'],
     });
 
-    // 5) 그대로 반환(클라이언트는 이 객체로 auth 요청 수행)
+    // 5) 토큰 요청 생성 (1시간 유효)
+    const tokenRequest = await client.auth.createTokenRequest({
+      clientId,
+      ttl: 1000 * 60 * 60,
+      capability,
+    });
+
     return NextResponse.json(tokenRequest, {
       headers: { 'Cache-Control': 'no-store' },
     });

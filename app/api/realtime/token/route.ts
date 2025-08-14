@@ -9,7 +9,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { ablyRest } from '@/wiki/lib/ably';
+// ⚠️ 상단 import 제거: import { ablyRest } from '@/wiki/lib/ably';
 import { getAuthUser } from '@/wiki/lib/auth';
 
 export const runtime = 'nodejs';
@@ -26,10 +26,16 @@ export async function GET() {
       );
     }
 
+    // ✅ 요청 시점에만 모듈 로드 (빌드 타임 import 실행 방지)
+    const { ablyRest } = await import('@/wiki/lib/ably');
+    if (!ablyRest) {
+      throw new Error('Ably 클라이언트 초기화 실패(ablyRest 미존재). 환경변수를 확인하세요.');
+    }
+
     const tokenRequest = await ablyRest.auth.createTokenRequest({
       clientId: String(user.id),
-      // 필요 시 TTL/Capability를 여기에 지정 가능(현 동작 유지 위해 기본값 사용)
-      // ttl: 1000 * 60 * 60,
+      // 필요 시 아래 옵션 사용 가능
+      // ttl: 1000 * 60 * 60, // 1시간
       // capability: JSON.stringify({ 'rdwiki-chat': ['publish', 'subscribe'] }),
     });
 
