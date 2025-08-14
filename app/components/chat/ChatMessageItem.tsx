@@ -12,30 +12,28 @@ function normalizeAvatarUrl(url: string | null | undefined, size: number) {
   if (!url) return '';
   let u = url.trim();
 
-  // http -> https 강제 (혼합 콘텐츠 예방)
   if (u.startsWith('http://')) u = 'https://' + u.slice('http://'.length);
-
-  // minotar/crafthead: /avatar -> /helm
   u = u.replace(/(minotar\.net|crafthead\.net)\/avatar\//, '$1/helm/');
 
-  // 경로 마지막 숫자(사이즈) 또는 png 확장자 처리
-  // size 세그먼트가 있으면 png 확장자로 통일, 없으면 추가
   if (/(crafthead\.net|minotar\.net)\/helm\/[^/?]+\/\d+($|[/?])/.test(u)) {
-    // 이미 /<size>가 있으면 .png 확장자 보장
     u = u.replace(/\/(\d+)(\/)?(\?.*)?$/, '/$1.png$2$3');
   } else if (/(crafthead\.net|minotar\.net)\/helm\/[^/?]+($|[/?])/.test(u)) {
-    // size 세그먼트가 없다면 추가
     const sep = u.endsWith('/') ? '' : '/';
     u = `${u}${sep}${size}.png`;
   }
 
-  // crafatar: overlay/size 파라미터 강제
   if (/crafatar\.com/.test(u)) {
     if (!/[?&]overlay\b/.test(u)) u += (u.includes('?') ? '&' : '?') + 'overlay';
     if (!/[?&]size=/.test(u)) u += (u.includes('?') ? '&' : '?') + `size=${size}`;
     u = u.replace(/([?&])size=\d+/g, `$1size=${size}`);
   }
   return u;
+}
+
+/** 동일 출처 프록시로 바꿔서 CSP/Referrer/CORS 문제를 제거 */
+function toProxy(raw: string) {
+  if (!raw) return '';
+  return `/api/proxy/avatar?u=${encodeURIComponent(raw)}`;
 }
 
 /** 작은 원형 MC 헤드 이미지(다중 소스 폴백) */
@@ -64,10 +62,10 @@ function MCHead({
       list.push(`https://crafatar.com/avatars/${minecraftUUID}?overlay&size=${size}`);
     }
 
-    // 2) 닉네임 기반 미러들 (PNG 확장자로 고정)
+    // 2) 닉네임 기반 미러들 (PNG 확장자 고정)
     if (n) {
+      list.push(`https://crafthead.net/helm/${n}/${size}.png`);
       list.push(`https://minotar.net/helm/${n}/${size}.png`);
-      // 보조 미러(선택): 안정성 향상
       list.push(`https://mc-heads.net/avatar/${n}/${size}.png`);
     }
 
@@ -78,12 +76,14 @@ function MCHead({
     // 4) 최종 폴백(스티브 유사)
     list.push(`https://crafatar.com/avatars/94cf9511-c5d6-433a-b565-14010caac235?overlay&size=${size}`);
 
-    setSrcs(list);
+    // ✅ 동일 출처 프록시로 변환
+    const proxied = list.map(toProxy);
+
+    setSrcs(proxied);
     setIdx(0);
 
     if (process.env.NODE_ENV !== 'production') {
-      // eslint-disable-next-line no-console
-      console.debug('[MCHead] sources', { minecraftName, minecraftUUID, avatarUrlHint, list });
+      console.debug('[MCHead] sources', { minecraftName, minecraftUUID, avatarUrlHint, list, proxied });
     }
   }, [minecraftName, minecraftUUID, avatarUrlHint, size]);
 
@@ -97,9 +97,6 @@ function MCHead({
       alt={minecraftName ? `${minecraftName} face` : 'MC face'}
       className={['rounded-full object-cover ring-1 ring-neutral-200', className].join(' ')}
       style={{ background: 'transparent' }}
-      // ❌ 잠정 제거: 일부 CDN이 crossOrigin/no-referrer 조합을 싫어함
-      // referrerPolicy="no-referrer"
-      // crossOrigin="anonymous"
       loading="lazy"
       decoding="async"
       draggable={false}
@@ -125,13 +122,11 @@ type Props = {
 export default function ChatMessageItem({ m, isReplyToMe, onReply }: Props) {
   const { toggleReaction, setReplyingTo } = useChat();
 
-  // 서버 스키마 변화 대응 -> user 구조 안전 추출
   const userObj = (m as any).user ?? {};
   const userId =
     toInt(userObj.id) ??
     toInt((m as any).user_id);
 
-  // 닉네임: minecraft_name 우선 -> 없으면 일반 name
   const minecraftName: string | undefined =
     (userObj.minecraft_name as string | undefined) ??
     ((m as any).minecraft_name as string | undefined) ??
@@ -145,7 +140,6 @@ export default function ChatMessageItem({ m, isReplyToMe, onReply }: Props) {
     (userObj.avatar_url as string | undefined) ??
     ((m as any).avatar_url as string | undefined);
 
-  // 표기 이름
   const displayName = useMemo(() => {
     const mc = minecraftName?.trim();
     if (mc) return mc;
@@ -154,7 +148,6 @@ export default function ChatMessageItem({ m, isReplyToMe, onReply }: Props) {
     return `user#${userId ?? '?'}`;
   }, [minecraftName, userObj, userId]);
 
-  // 시간 라벨
   const timeLabel = useMemo(() => {
     try {
       return new Date(m.created_at).toLocaleString();
@@ -174,7 +167,6 @@ export default function ChatMessageItem({ m, isReplyToMe, onReply }: Props) {
   const iDisliked = Boolean((m as any).i_disliked);
 
   if (process.env.NODE_ENV !== 'production') {
-    // eslint-disable-next-line no-console
     console.debug('[ChatMessageItem] user/skin debug', {
       msgId: m.id,
       userId,
@@ -192,7 +184,6 @@ export default function ChatMessageItem({ m, isReplyToMe, onReply }: Props) {
         internalIsReplyToMe ? 'bg-blue-50 border-blue-300' : 'bg-white border-neutral-200',
       ].join(' ')}
     >
-      {/* 헤더: [아바타] [닉네임] .......... [시간] */}
       <div className="flex items-center gap-2">
         <MCHead
           minecraftName={minecraftName}
