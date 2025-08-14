@@ -3,7 +3,7 @@
 // =============================================
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // 외부 이미지 허용(Next/Image 사용 시 필요; 일반 <img>에도 무해)
+  // 프록시를 쓰므로 외부 도메인 허용은 필수는 아님(남겨도 무해)
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'crafatar.com', pathname: '/avatars/**' },
@@ -13,25 +13,30 @@ const nextConfig = {
     ],
   },
 
-  // 배포 환경에서 외부 이미지가 아예 요청되지 않는 문제(CSP 차단) 방지
+  // 문서 단위 CSP에 의해 새로고침에서만 이미지가 막히는 현상 방지
   async headers() {
     return [
       {
         source: '/(.*)',
         headers: [
           {
-            // 필요 최소만 지정: img-src 만 완화
             key: 'Content-Security-Policy',
-            value: [
-              "img-src 'self' https://crafatar.com https://crafthead.net https://minotar.net https://mc-heads.net data: blob:",
-            ].join('; '),
+            // 프록시(동일 출처)로만 이미지 로드 → 'self'면 충분. data: / blob:은 UI 아이콘 등 대비
+            value: "img-src 'self' data: blob:;",
           },
         ],
       },
     ];
   },
 
-  // 기존 ignoreWarnings 유지
+  // 브라우저에서 사용할 배포 식별자(캐시 버스터)
+  env: {
+    NEXT_PUBLIC_DEPLOY_COMMIT:
+      process.env.VERCEL_GIT_COMMIT_SHA ||
+      process.env.VERCEL_DEPLOYMENT_ID ||
+      'dev',
+  },
+
   webpack: (config) => {
     config.ignoreWarnings = [
       ...(config.ignoreWarnings || []),

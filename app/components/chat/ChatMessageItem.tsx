@@ -7,6 +7,8 @@ import React, { useMemo } from 'react';
 import type { ChatMessage } from '@/wiki/lib/chat-types';
 import { useChat } from './ChatProvider';
 
+const DEPLOY_V = process.env.NEXT_PUBLIC_DEPLOY_COMMIT || 'dev';
+
 /** 외부 아바타 URL을 헬멧 스타일 + 사이즈로 정규화 */
 function normalizeAvatarUrl(url: string | null | undefined, size: number) {
   if (!url) return '';
@@ -30,10 +32,13 @@ function normalizeAvatarUrl(url: string | null | undefined, size: number) {
   return u;
 }
 
-/** 동일 출처 프록시로 바꿔서 CSP/Referrer/CORS 문제를 제거 */
-function toProxy(raw: string) {
+/** 동일 출처 프록시로 바꾸되, 배포/유저 단위 캐시 버스터를 부여 */
+function toProxy(raw: string, keyHint: string) {
   if (!raw) return '';
-  return `/api/proxy/avatar?u=${encodeURIComponent(raw)}`;
+  const u = encodeURIComponent(raw);
+  const k = encodeURIComponent(keyHint || 'u');
+  // v=배포버전(배포 바뀌면 캐시 자동 갱신), k=유저키(소스 변경/폴백 이동시 혼동 최소화)
+  return `/api/proxy/avatar?u=${u}&v=${DEPLOY_V}&k=${k}`;
 }
 
 /** 작은 원형 MC 헤드 이미지(다중 소스 폴백) */
@@ -56,6 +61,7 @@ function MCHead({
   React.useEffect(() => {
     const list: string[] = [];
     const n = minecraftName ? encodeURIComponent(minecraftName) : null;
+    const keyHint = (minecraftUUID || minecraftName || avatarUrlHint || 'anon') as string;
 
     // 1) UUID 최우선: crafatar
     if (minecraftUUID) {
@@ -76,8 +82,8 @@ function MCHead({
     // 4) 최종 폴백(스티브 유사)
     list.push(`https://crafatar.com/avatars/94cf9511-c5d6-433a-b565-14010caac235?overlay&size=${size}`);
 
-    // ✅ 동일 출처 프록시로 변환
-    const proxied = list.map(toProxy);
+    // ✅ 동일 출처 프록시 + 캐시 버스터
+    const proxied = list.map((raw) => toProxy(raw, keyHint));
 
     setSrcs(proxied);
     setIdx(0);
