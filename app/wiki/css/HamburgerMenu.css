@@ -500,3 +500,56 @@
   opacity: 1;
   pointer-events: auto;
 }
+
+/* ===== IMAGE 글로우 버튼 ===== */
+.glow-btn {
+  --btn-color: #0b1220;                  /* 버튼 내부(텍스트) 기본색 배경 */
+  --glow-color: rgb(217, 176, 255);      /* 테두리/호버 글로우 컬러 */
+  --glow-spread-color: rgb(231, 206, 255);
+  display: inline-block;
+  padding: 1em 2em;
+  min-width: 170px;
+  text-align: center;
+  text-decoration: none;
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--glow-color);
+  background-color: var(--btn-color);
+  border: .25em solid var(--glow-color);
+  border-radius: .7em;
+  outline: none;
+  position: relative;
+  transition: all .3s;
+  box-shadow: none;
+}
+
+.glow-btn::after {
+  pointer-events: none;
+  content: "";
+  position: absolute;
+  top: 120%;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  background-color: var(--glow-spread-color);
+  filter: blur(2em);
+  opacity: .7;
+  transform: perspective(1.5em) rotateX(35deg) scale(1, .6);
+}
+
+.glow-btn:hover {
+  color: var(--btn-color);
+  background-color: var(--glow-color);
+  box-shadow:
+    0 0 1em .25em var(--glow-color),
+    0 0 4em 2em var(--glow-spread-color),
+    inset 0 0 .75em .25em var(--glow-color);
+}
+
+.glow-btn:active {
+  box-shadow:
+    0 0 .6em .25em var(--glow-color),
+    0 0 2.5em 2em var(--glow-spread-color),
+    inset 0 0 .5em .25em var(--glow-color);
+}
