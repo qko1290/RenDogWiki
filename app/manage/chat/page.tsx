@@ -1,5 +1,6 @@
 // =============================================
 // File: app/manage/chat/page.tsx
+// (동작에는 문제 없어서 최소 변경: 그대로 사용해도 됩니다)
 // =============================================
 'use client';
 
@@ -20,10 +21,23 @@ type UserInfo = {
 export default function ChatPage() {
   const [user, setUser] = useState<UserInfo | null>(null);
   const [uuid, setUuid] = useState<string | null>(null);
-
-  // 헤더 DOM 참조 (높이에 맞춰 메인 높이 자동 조절: CSS grid/flex 없이 변수로도 가능하지만
-  // 여기서는 레이아웃 클래스로 해결하므로 ref는 선택 사항)
   const headerRef = useRef<HTMLDivElement | null>(null);
+
+  // (선택) 화면 진입 시 사용자 정보를 가져와 Header로 넘겨줍니다.
+  useEffect(() => {
+    let aborted = false;
+    (async () => {
+      try {
+        const r = await fetch('/api/auth/me', { cache: 'no-store' });
+        if (!r.ok) { if (!aborted) setUser(null); return; }
+        const j = await r.json();
+        if (!aborted && j?.user) setUser(j.user as UserInfo);
+      } catch {
+        if (!aborted) setUser(null);
+      }
+    })();
+    return () => { aborted = true; };
+  }, []);
 
   useEffect(() => {
     if (!user?.minecraft_name) return;
@@ -52,12 +66,10 @@ export default function ChatPage() {
   return (
     <ChatProvider>
       <div className="chat-page">
-        {/* 헤더 영역 (고정 높이, 페이지 스크롤 숨김 상태로도 정상) */}
         <div ref={headerRef} className="chat-page__header">
+          {/* Header는 그대로 user를 받습니다(없어도 동작) */}
           <WikiHeader user={user} />
         </div>
-
-        {/* 메인 영역: 헤더 아래 남은 높이를 모두 사용 */}
         <main className="chat-page__main">
           <div className="chat-page__inner">
             <ChatPanel />

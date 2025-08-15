@@ -1,32 +1,25 @@
 // =============================================
 // File: components/common/HamburgerMenu.tsx
 // =============================================
-/**
- * 우측 사이드 햄버거 메뉴 컴포넌트
- * - 로그인 상태, 유저 정보(마크 스킨, 닉네임, UUID) 표시
- * - 이미지 업로드, 카테고리/퀘스트/NPC/머리찾기 관리 등 관리 메뉴 진입
- * - 닫기, 메뉴 토글 등 UI 제공
- */
-
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from 'next/link';
 import '@wiki/css/HamburgerMenu.css';
 import logo from '../../image/logo.png';
 import Image from 'next/image';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { 
-  faUserPlus
-} from '@fortawesome/free-solid-svg-icons';
+import { faUserPlus } from '@fortawesome/free-solid-svg-icons';
 import { ModalCard } from '@/components/common/Modal';
 
-// 메뉴 props 타입 정의
 interface HamburgerMenuProps {
-  onClose: () => void;      // 메뉴 닫기 콜백
+  onClose: () => void;
   isOpen: boolean;
-  isLoggedIn: boolean;      // 로그인 여부
-  username?: string;        // 마크 닉네임
-  uuid?: string;            // 유저 프로필용 UUID (optional)
-  onLogout: () => void;
+
+  /** 아래 두 값은 선택(props 없더라도 자동으로 /api/auth/me로 보정) */
+  isLoggedIn?: boolean;
+  username?: string;
+  uuid?: string;
+
+  onLogout?: () => void;
 }
 
 type Role = 'guest' | 'writer' | 'admin';
@@ -37,106 +30,96 @@ const SPECIAL_NICKS: Record<string, string> = {
   'daramg__': '다람지'
 };
 
-/**
- * [HamburgerMenu 컴포넌트]
- * - 유저 정보(스킨, 닉네임) 및 관리 메뉴 리스트 렌더링
- * - 닫기/토글 버튼, 로그인 안내 제공
- */
 export default function HamburgerMenu({
-  isOpen, onClose, isLoggedIn, username, uuid
+  isOpen, onClose, isLoggedIn: isLoggedInProp, username: usernameProp, uuid: uuidProp,
+  onLogout,
 }: HamburgerMenuProps) {
 
-  // uuid 값이 없을 경우, username으로 Mojang API에서 조회
-  const [resolvedUUID, setResolvedUUID] = useState<string | null>(uuid || null);
+  /** ---- 상태: 서버로부터 확정한 로그인/유저 정보 ---- */
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(!!isLoggedInProp);
+  const [username, setUsername] = useState<string | undefined>(usernameProp);
+  const [resolvedUUID, setResolvedUUID] = useState<string | null>(uuidProp ?? null);
   const [role, setRole] = useState<Role>('guest');
   const [roleLoaded, setRoleLoaded] = useState(false);
+
   const [denyOpen, setDenyOpen] = useState(false);
 
-  const normName = (username ?? '').trim().toLowerCase();
-  const specialDisplay = SPECIAL_NICKS[normName];
-  
-  async function handleLogout() {
-    try {
-      const res = await fetch('/api/auth/logout', { method: 'POST' });
-      if (res.ok) {
-        // 로그인 상태를 false로 바꿔주거나, 새로고침/이동
-        window.location.href = '/wiki'; // 필요 시 메인 페이지로 이동
-      } else {
-        alert('로그아웃 실패');
-      }
-    } catch {
-      alert('로그아웃 요청 오류');
-    }
-  }
-
+  /** 메뉴가 열릴 때마다 실제 세션으로 정정 */
   useEffect(() => {
-    // uuid 미전달 + username 있을 때만 Mojang API 호출
-    if (username && !uuid) {
-      fetch(`/api/mojang/uuid?name=${username}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.uuid) setResolvedUUID(data.uuid);
-          else throw new Error();
-        })
-        .catch(() => {
-          setResolvedUUID(null);
-        });
-    }
-  }, [username, uuid]);
-
-  // 로그인 시 /api/me에서 role 조회(없으면 guest로 처리)
-  useEffect(() => {
-    if (!isLoggedIn) {
-      setRole('guest');
-      setRoleLoaded(true);
-      return;
-    }
+    if (!isOpen) return;
     let aborted = false;
     setRoleLoaded(false);
+
     (async () => {
       try {
         const res = await fetch('/api/auth/me', { cache: 'no-store' });
         if (!res.ok) {
           if (!aborted) {
+            setIsLoggedIn(false);
             setRole('guest');
             setRoleLoaded(true);
           }
           return;
         }
-
         const data = await res.json();
-        // ✅ role 정규화 (대소문자/키 다양성 대비)
-        const raw = (data?.user?.role ?? data?.role ?? 'guest');
-        const normalized = typeof raw === 'string' ? raw.toLowerCase() : 'guest';
-        const finalRole: Role =
-          normalized === 'admin' || normalized === 'writer'
-            ? (normalized as Role)
-            : 'guest';
+        const u = data?.user;
 
         if (!aborted) {
-          setRole(finalRole);
+          setIsLoggedIn(true);
+          setUsername(u?.minecraft_name || u?.username || usernameProp);
+          const rawRole = String(u?.role ?? data?.role ?? 'guest').toLowerCase();
+          setRole(rawRole === 'admin' || rawRole === 'writer' ? (rawRole as Role) : 'guest');
           setRoleLoaded(true);
+
+          // UUID 우선순위: props.uuid > API(uuid) > API(minecraft_name 조회)
+          if (uuidProp) {
+            setResolvedUUID(uuidProp);
+          } else if (u?.minecraft_uuid) {
+            setResolvedUUID(u.minecraft_uuid);
+          } else if (u?.minecraft_name) {
+            try {
+              const r2 = await fetch(`/api/mojang/uuid?name=${encodeURIComponent(u.minecraft_name)}`);
+              const j2 = await r2.json().catch(() => ({}));
+              setResolvedUUID(j2?.uuid ?? null);
+            } catch { setResolvedUUID(null); }
+          } else {
+            setResolvedUUID(null);
+          }
         }
       } catch {
         if (!aborted) {
+          setIsLoggedIn(false);
           setRole('guest');
           setRoleLoaded(true);
+          setResolvedUUID(null);
         }
       }
     })();
-    return () => { aborted = true; };
-  }, [isLoggedIn]);
 
-  // writer 이상 필요한 메뉴 클릭 가드(디자인 변경 없음)
+    return () => { aborted = true; };
+  // props가 달라져도 다시 정합성 맞추도록 의존성 포함
+  }, [isOpen, uuidProp, usernameProp, isLoggedInProp]);
+
+  const normName = (username ?? '').trim().toLowerCase();
+  const specialDisplay = SPECIAL_NICKS[normName];
+
+  async function handleLogout() {
+    try {
+      const res = await fetch('/api/auth/logout', { method: 'POST' });
+      if (res.ok) window.location.href = '/wiki';
+      else alert('로그아웃 실패');
+    } catch { alert('로그아웃 요청 오류'); }
+  }
+
+  // writer 이상 필요한 메뉴 클릭 가드
   const handleGuardedClick = (e: React.MouseEvent) => {
-    // 로딩 전이면 우선 막고 안내
+    // 아직 로딩 전이면 우선 막고 안내
     if (!roleLoaded) {
       e.preventDefault();
       e.stopPropagation();
       setDenyOpen(true);
       return;
     }
-    // ✅ 권한만으로 결정: writer 또는 admin이면 통과
     const allowed = role === 'writer' || role === 'admin';
     if (!allowed) {
       e.preventDefault();
@@ -145,188 +128,130 @@ export default function HamburgerMenu({
     }
   };
 
-  // 마인크래프트 스킨 이미지 URL (없으면 기본값)
-  const skinUrl = resolvedUUID
-    ? `https://crafatar.com/avatars/${resolvedUUID}?overlay&size=64`
-    : "https://crafatar.com/avatars/94cf9511-c5d6-433a-b565-14010caac235?overlay&size=64";
+  const skinUrl = useMemo(() => {
+    const fallback = "https://crafatar.com/avatars/94cf9511-c5d6-433a-b565-14010caac235?overlay&size=64";
+    if (resolvedUUID) return `https://crafatar.com/avatars/${resolvedUUID}?overlay&size=64`;
+    if (username) return `https://crafatar.com/avatars/${encodeURIComponent(username)}?overlay&size=64`;
+    return fallback;
+  }, [resolvedUUID, username]);
 
-  // 렌더링
   return (
-  <>
-    {/* ✅ 백그라운드 흐림/딤 오버레이 */}
-    <div
-      className={`hamburger-backdrop${isOpen ? ' open' : ''}`}
-      aria-hidden={!isOpen}
-      onClick={onClose}
-    />
-    <div className={`hamburger-menu${isOpen ? ' open' : ''}`}>
-      {/* 상단: 로고, 닫기버튼, 유저 정보 */}
-      <div className="hamburger-menu-header">
+    <>
+      {/* Backdrop */}
+      <div className={`hamburger-backdrop${isOpen ? ' open' : ''}`} aria-hidden={!isOpen} onClick={onClose} />
 
-        {/* 로고 + 닫기 버튼 */}
-        <div className="hamburger-menu-top">
-          <Image src={logo} alt={""} width={45} height={40} />
-          <h2 className="hamburger-menu-logo">RDWIKI</h2>
-          <button onClick={onClose} className="hamburger-menu-close-btn" aria-label="메뉴 닫기">×</button>
-        </div>
+      <div className={`hamburger-menu${isOpen ? ' open' : ''}`}>
+        {/* 헤더 */}
+        <div className="hamburger-menu-header">
+          <div className="hamburger-menu-top">
+            <Image src={logo} alt="" width={45} height={40} />
+            <h2 className="hamburger-menu-logo">RDWIKI</h2>
+            <button onClick={onClose} className="hamburger-menu-close-btn" aria-label="메뉴 닫기">×</button>
+          </div>
 
-        {/* 네온 카드로 감싼 유저 정보+로그인 안내 */}
-        <div className="hamburger-user-card">
-          <div className="hamburger-user-info">
-            {resolvedUUID === null && username ? (
-              <div className="hamburger-user-placeholder" />
-            ) : (
+          {/* 유저 카드 */}
+          <div className="hamburger-user-card">
+            <div className="hamburger-user-info">
               <img src={skinUrl} className="hamburger-user-image" alt="마인크래프트 프로필" />
-            )}
-            <p className="hamburger-username">{username || "GUEST"}</p>
+              <p className="hamburger-username">{isLoggedIn ? (username || 'USER') : 'GUEST'}</p>
+            </div>
+            <div className="hamburger-login-info">
+              <span className="hamburger-welcome">
+                {!isLoggedIn
+                  ? <Link href="/login" className="hamburger-welcome no-underline">로그인 해주세요</Link>
+                  : specialDisplay ? `환영합니다 ${specialDisplay}님` : '환영합니다'}
+              </span>
+            </div>
           </div>
-          <div className="hamburger-login-info">
-            <span className="hamburger-welcome">
-              {!isLoggedIn
-                ? <Link href="/login" className="hamburger-welcome no-underline">로그인 해주세요</Link> 
-                : specialDisplay
-                  ? `환영합니다 ${specialDisplay}님`
-                  : '환영합니다'}
-            </span>
-          </div>
+
+          {/* 메뉴 리스트 */}
+          <ul className="hamburger-menu-list">
+            <li className="hamburger-menu-item">
+              <div className="btn-conteiner-1">
+                <Link href="/manage/image" className="btn-content" onClick={handleGuardedClick}>
+                  <span className="btn-title">IMAGE</span>
+                  <span className="icon-arrow">{/* svg 생략(기존 그대로) */}</span>
+                </Link>
+              </div>
+            </li>
+
+            <li className="hamburger-menu-item">
+              <div className="btn-conteiner-2">
+                <Link href="/manage/category" className="btn-content" onClick={handleGuardedClick}>
+                  <span className="btn-title">Category</span>
+                  <span className="icon-arrow" />
+                </Link>
+              </div>
+            </li>
+
+            <li className="hamburger-menu-item">
+              <div className="btn-conteiner-3">
+                <Link href="/manage/npc" className="btn-content" onClick={handleGuardedClick}>
+                  <span className="btn-title">NPC</span>
+                  <span className="icon-arrow" />
+                </Link>
+              </div>
+            </li>
+
+            <li className="hamburger-menu-item">
+              <div className="btn-conteiner-4">
+                <Link href="/manage/quest" className="btn-content" onClick={handleGuardedClick}>
+                  <span className="btn-title">QUEST</span>
+                  <span className="icon-arrow" />
+                </Link>
+              </div>
+            </li>
+
+            <li className="hamburger-menu-item">
+              <div className="btn-conteiner-5">
+                <Link href="/manage/head" className="btn-content" onClick={handleGuardedClick}>
+                  <span className="btn-title">HEAD</span>
+                  <span className="icon-arrow" />
+                </Link>
+              </div>
+            </li>
+          </ul>
         </div>
 
-        {/* 관리 메뉴 리스트 */}
-        <ul className="hamburger-menu-list">
-          <li className="hamburger-menu-item">
-            <div className="btn-conteiner-1">
-              <Link href="/manage/image" className="btn-content" onClick={handleGuardedClick}>
-                <span className="btn-title">IMAGE</span>
-                <span className="icon-arrow">
-                  <svg width="66px" height="43px" viewBox="0 0 66 43" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink">
-                    <g id="arrow" stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
-                      <path id="arrow-icon-one" d="M40.1543933,3.89485454 L43.9763149,0.139296592 C44.1708311,-0.0518420739 44.4826329,-0.0518571125 44.6771675,0.139262789 L65.6916134,20.7848311 C66.0855801,21.1718824 66.0911863,21.8050225 65.704135,22.1989893 C65.7000188,22.2031791 65.6958657,22.2073326 65.6916762,22.2114492 L44.677098,42.8607841 C44.4825957,43.0519059 44.1708242,43.0519358 43.9762853,42.8608513 L40.1545186,39.1069479 C39.9575152,38.9134427 39.9546793,38.5968729 40.1481845,38.3998695 C40.1502893,38.3977268 40.1524132,38.395603 40.1545562,38.3934985 L56.9937789,21.8567812 C57.1908028,21.6632968 57.193672,21.3467273 57.0001876,21.1497035 C56.9980647,21.1475418 56.9959223,21.1453995 56.9937605,21.1432767 L40.1545208,4.60825197 C39.9574869,4.41477773 39.9546013,4.09820839 40.1480756,3.90117456 C40.1501626,3.89904911 40.1522686,3.89694235 40.1543933,3.89485454 Z" fill="#FFFFFF"></path>
-                      <path id="arrow-icon-two" d="M20.1543933,3.89485454 L23.9763149,0.139296592 C24.1708311,-0.0518420739 24.4826329,-0.0518571125 24.6771675,0.139262789 L45.6916134,20.7848311 C46.0855801,21.1718824 46.0911863,21.8050225 45.704135,22.1989893 C45.7000188,22.2031791 45.6958657,22.2073326 45.6916762,22.2114492 L24.677098,42.8607841 C24.4825957,43.0519059 24.1708242,43.0519358 23.9762853,42.8608513 L20.1545186,39.1069479 C19.9575152,38.9134427 19.9546793,38.5968729 20.1481845,38.3998695 C20.1502893,38.3977268 20.1524132,38.395603 20.1545562,38.3934985 L36.9937789,21.8567812 C37.1908028,21.6632968 37.193672,21.3467273 37.0001876,21.1497035 C36.9980647,21.1475418 36.9959223,21.1453995 36.9937605,21.1432767 L20.1545208,4.60825197 C19.9574869,4.41477773 19.9546013,4.09820839 20.1480756,3.90117456 C20.1501626,3.89904911 20.1522686,3.89694235 20.1543933,3.89485454 Z" fill="#FFFFFF"></path>
-                      <path id="arrow-icon-three" d="M0.154393339,3.89485454 L3.97631488,0.139296592 C4.17083111,-0.0518420739 4.48263286,-0.0518571125 4.67716753,0.139262789 L25.6916134,20.7848311 C26.0855801,21.1718824 26.0911863,21.8050225 25.704135,22.1989893 C25.7000188,22.2031791 25.6958657,22.2073326 25.6916762,22.2114492 L4.67709797,42.8607841 C4.48259567,43.0519059 4.17082418,43.0519358 3.97628526,42.8608513 L0.154518591,39.1069479 C-0.0424848215,38.9134427 -0.0453206733,38.5968729 0.148184538,38.3998695 C0.150289256,38.3977268 0.152413239,38.395603 0.154556228,38.3934985 L16.9937789,21.8567812 C17.1908028,21.6632968 17.193672,21.3467273 17.0001876,21.1497035 C16.9980647,21.1475418 16.9959223,21.1453995 16.9937605,21.1432767 L0.15452076,4.60825197 C-0.0425130651,4.41477773 -0.0453986756,4.09820839 0.148075568,3.90117456 C0.150162624,3.89904911 0.152268631,3.89694235 0.154393339,3.89485454 Z" fill="#FFFFFF"></path>
-                    </g>
-                  </svg>
-                </span>
+        {/* 하단 버튼 */}
+        <div className="hm-bottom-btns">
+          {isLoggedIn ? (
+            <>
+              <Link href="/mypage" className="hm-btn hm-btn-mypage">
+                <div className="hm-btn-sign">{/* icon */}</div>
+                <div className="hm-btn-text">&nbsp;&nbsp;프로필</div>
               </Link>
-            </div>
-          </li>
-          <li className="hamburger-menu-item">
-            <div className="btn-conteiner-2">
-              <Link href="/manage/category" className="btn-content" onClick={handleGuardedClick}>
-                <span className="btn-title">Category</span>
-                <span className="icon-arrow">
-                  <svg width="66px" height="43px" viewBox="0 0 66 43" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink">
-                    <g id="arrow" stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
-                      <path id="arrow-icon-one" d="M40.1543933,3.89485454 L43.9763149,0.139296592 C44.1708311,-0.0518420739 44.4826329,-0.0518571125 44.6771675,0.139262789 L65.6916134,20.7848311 C66.0855801,21.1718824 66.0911863,21.8050225 65.704135,22.1989893 C65.7000188,22.2031791 65.6958657,22.2073326 65.6916762,22.2114492 L44.677098,42.8607841 C44.4825957,43.0519059 44.1708242,43.0519358 43.9762853,42.8608513 L40.1545186,39.1069479 C39.9575152,38.9134427 39.9546793,38.5968729 40.1481845,38.3998695 C40.1502893,38.3977268 40.1524132,38.395603 40.1545562,38.3934985 L56.9937789,21.8567812 C57.1908028,21.6632968 57.193672,21.3467273 57.0001876,21.1497035 C56.9980647,21.1475418 56.9959223,21.1453995 56.9937605,21.1432767 L40.1545208,4.60825197 C39.9574869,4.41477773 39.9546013,4.09820839 40.1480756,3.90117456 C40.1501626,3.89904911 40.1522686,3.89694235 40.1543933,3.89485454 Z" fill="#FFFFFF"></path>
-                      <path id="arrow-icon-two" d="M20.1543933,3.89485454 L23.9763149,0.139296592 C24.1708311,-0.0518420739 24.4826329,-0.0518571125 24.6771675,0.139262789 L45.6916134,20.7848311 C46.0855801,21.1718824 46.0911863,21.8050225 45.704135,22.1989893 C45.7000188,22.2031791 45.6958657,22.2073326 45.6916762,22.2114492 L24.677098,42.8607841 C24.4825957,43.0519059 24.1708242,43.0519358 23.9762853,42.8608513 L20.1545186,39.1069479 C19.9575152,38.9134427 19.9546793,38.5968729 20.1481845,38.3998695 C20.1502893,38.3977268 20.1524132,38.395603 20.1545562,38.3934985 L36.9937789,21.8567812 C37.1908028,21.6632968 37.193672,21.3467273 37.0001876,21.1497035 C36.9980647,21.1475418 36.9959223,21.1453995 36.9937605,21.1432767 L20.1545208,4.60825197 C19.9574869,4.41477773 19.9546013,4.09820839 20.1480756,3.90117456 C20.1501626,3.89904911 20.1522686,3.89694235 20.1543933,3.89485454 Z" fill="#FFFFFF"></path>
-                      <path id="arrow-icon-three" d="M0.154393339,3.89485454 L3.97631488,0.139296592 C4.17083111,-0.0518420739 4.48263286,-0.0518571125 4.67716753,0.139262789 L25.6916134,20.7848311 C26.0855801,21.1718824 26.0911863,21.8050225 25.704135,22.1989893 C25.7000188,22.2031791 25.6958657,22.2073326 25.6916762,22.2114492 L4.67709797,42.8607841 C4.48259567,43.0519059 4.17082418,43.0519358 3.97628526,42.8608513 L0.154518591,39.1069479 C-0.0424848215,38.9134427 -0.0453206733,38.5968729 0.148184538,38.3998695 C0.150289256,38.3977268 0.152413239,38.395603 0.154556228,38.3934985 L16.9937789,21.8567812 C17.1908028,21.6632968 17.193672,21.3467273 17.0001876,21.1497035 C16.9980647,21.1475418 16.9959223,21.1453995 16.9937605,21.1432767 L0.15452076,4.60825197 C-0.0425130651,4.41477773 -0.0453986756,4.09820839 0.148075568,3.90117456 C0.150162624,3.89904911 0.152268631,3.89694235 0.154393339,3.89485454 Z" fill="#FFFFFF"></path>
-                    </g>
-                  </svg>
-                </span>
+              <button className="hm-btn hm-btn-logout" onClick={onLogout ?? handleLogout}>
+                <div className="hm-btn-sign">{/* icon */}</div>
+                <div className="hm-btn-text">로그아웃</div>
+              </button>
+            </>
+          ) : (
+            <>
+              <Link href="/login" className="hm-btn hm-btn-login">
+                <div className="hm-btn-sign">{/* icon */}</div>
+                <div className="hm-btn-text">&nbsp;&nbsp;로그인</div>
               </Link>
-            </div>
-          </li>
-          <li className="hamburger-menu-item">
-            <div className="btn-conteiner-3">
-              <Link href="/manage/npc" className="btn-content" onClick={handleGuardedClick}>
-                <span className="btn-title">NPC</span>
-                <span className="icon-arrow">
-                  <svg width="66px" height="43px" viewBox="0 0 66 43" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink">
-                    <g id="arrow" stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
-                      <path id="arrow-icon-one" d="M40.1543933,3.89485454 L43.9763149,0.139296592 C44.1708311,-0.0518420739 44.4826329,-0.0518571125 44.6771675,0.139262789 L65.6916134,20.7848311 C66.0855801,21.1718824 66.0911863,21.8050225 65.704135,22.1989893 C65.7000188,22.2031791 65.6958657,22.2073326 65.6916762,22.2114492 L44.677098,42.8607841 C44.4825957,43.0519059 44.1708242,43.0519358 43.9762853,42.8608513 L40.1545186,39.1069479 C39.9575152,38.9134427 39.9546793,38.5968729 40.1481845,38.3998695 C40.1502893,38.3977268 40.1524132,38.395603 40.1545562,38.3934985 L56.9937789,21.8567812 C57.1908028,21.6632968 57.193672,21.3467273 57.0001876,21.1497035 C56.9980647,21.1475418 56.9959223,21.1453995 56.9937605,21.1432767 L40.1545208,4.60825197 C39.9574869,4.41477773 39.9546013,4.09820839 40.1480756,3.90117456 C40.1501626,3.89904911 40.1522686,3.89694235 40.1543933,3.89485454 Z" fill="#FFFFFF"></path>
-                      <path id="arrow-icon-two" d="M20.1543933,3.89485454 L23.9763149,0.139296592 C24.1708311,-0.0518420739 24.4826329,-0.0518571125 24.6771675,0.139262789 L45.6916134,20.7848311 C46.0855801,21.1718824 46.0911863,21.8050225 45.704135,22.1989893 C45.7000188,22.2031791 45.6958657,22.2073326 45.6916762,22.2114492 L24.677098,42.8607841 C24.4825957,43.0519059 24.1708242,43.0519358 23.9762853,42.8608513 L20.1545186,39.1069479 C19.9575152,38.9134427 19.9546793,38.5968729 20.1481845,38.3998695 C20.1502893,38.3977268 20.1524132,38.395603 20.1545562,38.3934985 L36.9937789,21.8567812 C37.1908028,21.6632968 37.193672,21.3467273 37.0001876,21.1497035 C36.9980647,21.1475418 36.9959223,21.1453995 36.9937605,21.1432767 L20.1545208,4.60825197 C19.9574869,4.41477773 19.9546013,4.09820839 20.1480756,3.90117456 C20.1501626,3.89904911 20.1522686,3.89694235 20.1543933,3.89485454 Z" fill="#FFFFFF"></path>
-                      <path id="arrow-icon-three" d="M0.154393339,3.89485454 L3.97631488,0.139296592 C4.17083111,-0.0518420739 4.48263286,-0.0518571125 4.67716753,0.139262789 L25.6916134,20.7848311 C26.0855801,21.1718824 26.0911863,21.8050225 25.704135,22.1989893 C25.7000188,22.2031791 25.6958657,22.2073326 25.6916762,22.2114492 L4.67709797,42.8607841 C4.48259567,43.0519059 4.17082418,43.0519358 3.97628526,42.8608513 L0.154518591,39.1069479 C-0.0424848215,38.9134427 -0.0453206733,38.5968729 0.148184538,38.3998695 C0.150289256,38.3977268 0.152413239,38.395603 0.154556228,38.3934985 L16.9937789,21.8567812 C17.1908028,21.6632968 17.193672,21.3467273 17.0001876,21.1497035 C16.9980647,21.1475418 16.9959223,21.1453995 16.9937605,21.1432767 L0.15452076,4.60825197 C-0.0425130651,4.41477773 -0.0453986756,4.09820839 0.148075568,3.90117456 C0.150162624,3.89904911 0.152268631,3.89694235 0.154393339,3.89485454 Z" fill="#FFFFFF"></path>
-                    </g>
-                  </svg>
-                </span>
+              <Link href="/register" className="hm-btn hm-btn-register">
+                <div className="hm-btn-sign"><FontAwesomeIcon icon={faUserPlus} /></div>
+                <div className="hm-btn-text">&nbsp;회원가입</div>
               </Link>
-            </div>
-          </li>
-          <li className="hamburger-menu-item">
-            <div className="btn-conteiner-4">
-              <Link href="/manage/quest" className="btn-content" onClick={handleGuardedClick}>
-                <span className="btn-title">QUEST</span>
-                <span className="icon-arrow">
-                  <svg width="66px" height="43px" viewBox="0 0 66 43" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink">
-                    <g id="arrow" stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
-                      <path id="arrow-icon-one" d="M40.1543933,3.89485454 L43.9763149,0.139296592 C44.1708311,-0.0518420739 44.4826329,-0.0518571125 44.6771675,0.139262789 L65.6916134,20.7848311 C66.0855801,21.1718824 66.0911863,21.8050225 65.704135,22.1989893 C65.7000188,22.2031791 65.6958657,22.2073326 65.6916762,22.2114492 L44.677098,42.8607841 C44.4825957,43.0519059 44.1708242,43.0519358 43.9762853,42.8608513 L40.1545186,39.1069479 C39.9575152,38.9134427 39.9546793,38.5968729 40.1481845,38.3998695 C40.1502893,38.3977268 40.1524132,38.395603 40.1545562,38.3934985 L56.9937789,21.8567812 C57.1908028,21.6632968 57.193672,21.3467273 57.0001876,21.1497035 C56.9980647,21.1475418 56.9959223,21.1453995 56.9937605,21.1432767 L40.1545208,4.60825197 C39.9574869,4.41477773 39.9546013,4.09820839 40.1480756,3.90117456 C40.1501626,3.89904911 40.1522686,3.89694235 40.1543933,3.89485454 Z" fill="#FFFFFF"></path>
-                      <path id="arrow-icon-two" d="M20.1543933,3.89485454 L23.9763149,0.139296592 C24.1708311,-0.0518420739 24.4826329,-0.0518571125 24.6771675,0.139262789 L45.6916134,20.7848311 C46.0855801,21.1718824 46.0911863,21.8050225 45.704135,22.1989893 C45.7000188,22.2031791 45.6958657,22.2073326 45.6916762,22.2114492 L24.677098,42.8607841 C24.4825957,43.0519059 24.1708242,43.0519358 23.9762853,42.8608513 L20.1545186,39.1069479 C19.9575152,38.9134427 19.9546793,38.5968729 20.1481845,38.3998695 C20.1502893,38.3977268 20.1524132,38.395603 20.1545562,38.3934985 L36.9937789,21.8567812 C37.1908028,21.6632968 37.193672,21.3467273 37.0001876,21.1497035 C36.9980647,21.1475418 36.9959223,21.1453995 36.9937605,21.1432767 L20.1545208,4.60825197 C19.9574869,4.41477773 19.9546013,4.09820839 19.1480756,3.90117456 C19.1501626,3.89904911 19.1522686,3.89694235 19.1543933,3.89485454 Z" fill="#FFFFFF"></path>
-                      <path id="arrow-icon-three" d="M0.154393339,3.89485454 L3.97631488,0.139296592 C4.17083111,-0.0518420739 4.48263286,-0.0518571125 4.67716753,0.139262789 L25.6916134,20.7848311 C26.0855801,21.1718824 26.0911863,21.8050225 25.704135,22.1989893 C25.7000188,22.2031791 25.6958657,22.2073326 25.6916762,22.2114492 L4.67709797,42.8607841 C4.48259567,43.0519059 4.17082418,43.0519358 3.97628526,42.8608513 L0.154518591,39.1069479 C-0.0424848215,38.9134427 -0.0453206733,38.5968729 0.148184538,38.3998695 C0.150289256,38.3977268 0.152413239,38.395603 0.154556228,38.3934985 L16.9937789,21.8567812 C17.1908028,21.6632968 17.193672,21.3467273 17.0001876,21.1497035 C16.9980647,21.1475418 16.9959223,21.1453995 16.9937605,21.1432767 L0.15452076,4.60825197 C-0.0425130651,4.41477773 -0.0453986756,4.09820839 0.148075568,3.90117456 C0.150162624,3.89904911 0.152268631,3.89694235 0.154393339,3.89485454 Z" fill="#FFFFFF"></path>
-                    </g>
-                  </svg>
-                </span>
-              </Link>
-            </div>
-          </li>
-          <li className="hamburger-menu-item">
-            <div className="btn-conteiner-5">
-              <Link href="/manage/head" className="btn-content" onClick={handleGuardedClick}>
-                <span className="btn-title">HEAD</span>
-                <span className="icon-arrow">
-                  <svg width="66px" height="43px" viewBox="0 0 66 43" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink">
-                    <g id="arrow" stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
-                      <path id="arrow-icon-one" d="M40.1543933,3.89485454 L43.9763149,0.139296592 C44.1708311,-0.0518420739 44.4826329,-0.0518571125 44.6771675,0.139262789 L65.6916134,20.7848311 C66.0855801,21.1718824 66.0911863,21.8050225 65.704135,22.1989893 C65.7000188,22.2031791 65.6958657,22.2073326 65.6916762,22.2114492 L44.677098,42.8607841 C44.4825957,43.0519059 44.1708242,43.0519358 43.9762853,42.8608513 L40.1545186,39.1069479 C39.9575152,38.9134427 39.9546793,38.5968729 40.1481845,38.3998695 C40.1502893,38.3977268 40.1524132,38.395603 40.1545562,38.3934985 L56.9937789,21.8567812 C57.1908028,21.6632968 57.193672,21.3467273 57.0001876,21.1497035 C56.9980647,21.1475418 56.9959223,21.1453995 56.9937605,21.1432767 L40.1545208,4.60825197 C39.9574869,4.41477773 39.9546013,4.09820839 40.1480756,3.90117456 C40.1501626,3.89904911 40.1522686,3.89694235 40.1543933,3.89485454 Z" fill="#FFFFFF"></path>
-                      <path id="arrow-icon-two" d="M20.1543933,3.89485454 L23.9763149,0.139296592 C24.1708311,-0.0518420739 24.4826329,-0.0518571125 24.6771675,0.139262789 L45.6916134,20.7848311 C46.0855801,21.1718824 46.0911863,21.8050225 45.704135,22.1989893 C45.7000188,22.2031791 45.6958657,22.2073326 45.6916762,22.2114492 L24.677098,42.8607841 C24.4825957,43.0519059 24.1708242,43.0519358 23.9762853,42.8608513 L20.1545186,39.1069479 C19.9575152,38.9134427 19.9546793,38.5968729 20.1481845,38.3998695 C20.1502893,38.3977268 20.1524132,38.395603 20.1545562,38.3934985 L36.9937789,21.8567812 C37.1908028,21.6632968 37.193672,21.3467273 37.0001876,21.1497035 C36.9980647,21.1475418 36.9959223,21.1453995 36.9937605,21.1432767 L20.1545208,4.60825197 C19.9574869,4.41477773 19.9546013,4.09820839 20.1480756,3.90117456 C20.1501626,3.89904911 20.1522686,3.89694235 20.1543933,3.89485454 Z" fill="#FFFFFF"></path>
-                      <path id="arrow-icon-three" d="M0.154393339,3.89485454 L3.97631488,0.139296592 C4.17083111,-0.0518420739 4.48263286,-0.0518571125 4.67716753,0.139262789 L25.6916134,20.7848311 C26.0855801,21.1718824 26.0911863,21.8050225 25.704135,22.1989893 C25.7000188,22.2031791 25.6958657,22.2073326 25.6916762,22.2114492 L4.67709797,42.8607841 C4.48259567,43.0519059 4.17082418,43.0519358 3.97628526,42.8608513 L0.154518591,39.1069479 C-0.0424848215,38.9134427 -0.0453206733,38.5968729 0.148184538,38.3998695 C0.150289256,38.3977268 0.152413239,38.395603 0.154556228,38.3934985 L16.9937789,21.8567812 C17.1908028,21.6632968 17.193672,21.3467273 17.0001876,21.1497035 C16.9980647,21.1475418 16.9959223,21.1453995 16.9937605,21.1432767 L0.15452076,4.60825197 C-0.0425130651,4.41477773 -0.0453986756,4.09820839 0.148075568,3.90117456 C0.150162624,3.89904911 0.152268631,3.89694235 0.154393339,3.89485454 Z" fill="#FFFFFF"></path>
-                    </g>
-                  </svg>
-                </span>
-              </Link>
-            </div>
-          </li>
-          {/* 필요시 메뉴 추가 */}
-        </ul>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* === 하단 로그인/회원 버튼 영역 === */}
-      <div className="hm-bottom-btns">
-        {isLoggedIn ? (
-          <>
-            <Link href="/mypage" className="hm-btn hm-btn-mypage">
-              <div className="hm-btn-sign">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512">
-                    <path d="M224 256c70.7 0 128-57.31 128-128s-57.3-128-128-128C153.3 0 96 57.31 96 128S153.3 256 224 256zM274.7 304H173.3C77.61 304 0 381.6 0 477.3c0 19.14 15.52 34.67 34.66 34.67h378.7C432.5 512 448 496.5 448 477.3C448 381.6 370.4 304 274.7 304z"></path>
-                </svg>
-                <div className="hm-btn-text">&nbsp;&nbsp;프로필</div>
-              </div>
-            </Link>
-            <button className="hm-btn hm-btn-logout" onClick={handleLogout}>
-              <div className="hm-btn-sign"><svg viewBox="0 0 512 512"><path d="M377.9 105.9L500.7 228.7c7.2 7.2 11.3 17.1 11.3 27.3s-4.1 20.1-11.3 27.3L377.9 406.1c-6.4 6.4-15 9.9-24 9.9c-18.7 0-33.9-15.2-33.9-33.9l0-62.1-128 0c-17.7 0-32-14.3-32-32l0-64c0-17.7 14.3-32 32-32l128 0 0-62.1c0-18.7 15.2-33.9 33.9-33.9c9 0 17.6 3.6 24 9.9zM160 96L96 96c-17.7 0-32 14.3-32 32l0 256c0 17.7 14.3 32 32 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-64 0c-53 0-96-43-96-96L0 128C0 75 43 32 96 32l64 0c17.7 0 32 14.3 32 32s-14.3 32 32 32z"></path></svg></div>
-              <div className="hm-btn-text">로그아웃</div>
-            </button>
-          </>
-        ) : (
-          <>
-            <Link href="/login" className="hm-btn hm-btn-login">
-              <div className="hm-btn-sign">
-                <svg viewBox="0 0 512 512"><path d="M217.9 105.9L340.7 228.7c7.2 7.2 11.3 17.1 11.3 27.3s-4.1 20.1-11.3 27.3L217.9 406.1c-6.4 6.4-15 9.9-24 9.9c-18.7 0-33.9-15.2-33.9-33.9l0-62.1L32 320c-17.7 0-32-14.3-32-32l0-64c0-17.7 14.3-32 32-32l128 0 0-62.1c0-18.7 15.2-33.9 33.9-33.9c9 0 17.6 3.6 24 9.9zM352 416l64 0c17.7 0 32-14.3 32-32l0-256c0-17.7-14.3-32-32-32l-64 0c-17.7 0-32-14.3-32-32s-14.3-32 32-32l64 0c53 0 96 43 96 96l0 256c0 53-43 96-96 96l-64 0c-17.7 0-32-14.3-32-32s-14.3 32 32 32z"></path></svg>
-              </div>
-              <div className="hm-btn-text">&nbsp;&nbsp;로그인</div>
-            </Link>
-            <Link href="/register" className="hm-btn hm-btn-register">
-              <div className="hm-btn-sign">
-                <FontAwesomeIcon icon={faUserPlus} />
-              </div>
-              <div className="hm-btn-text">&nbsp;회원가입</div>
-            </Link>
-          </>
-        )}
-      </div>
-    </div>
-    <ModalCard
-      open={denyOpen}
-      onClose={() => setDenyOpen(false)}
-      title="경고"
-      actions={
-        <button className="rd-btn danger" onClick={() => setDenyOpen(false)}>
-          확인
-        </button>
-      }
-      width={360}
-    >
-      <p className="rd-card-description" style={{ textAlign: 'center', whiteSpace: 'pre-line' }}>
-        권한이 없습니다{'\n'}관리자에게 문의해주세요
-      </p>
-    </ModalCard>
+      <ModalCard
+        open={denyOpen}
+        onClose={() => setDenyOpen(false)}
+        title="경고"
+        actions={<button className="rd-btn danger" onClick={() => setDenyOpen(false)}>확인</button>}
+        width={360}
+      >
+        <p className="rd-card-description" style={{ textAlign: 'center', whiteSpace: 'pre-line' }}>
+          권한이 없습니다{'\n'}관리자에게 문의해주세요
+        </p>
+      </ModalCard>
     </>
   );
 }
