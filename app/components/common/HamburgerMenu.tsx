@@ -54,8 +54,6 @@ export default function HamburgerMenu({
   const [effectiveLoggedIn, setEffectiveLoggedIn] = useState(isLoggedIn);
   const [effectiveUsername, setEffectiveUsername] = useState(username);
 
-  const [isHover, setIsHover] = useState(false);
-
   const [hoverImage, setHoverImage] = useState(false);
   const [hoverCategory, setHoverCategory] = useState(false);
   const [hoverNpc, setHoverNpc] = useState(false);
@@ -210,11 +208,17 @@ export default function HamburgerMenu({
         {/* 네온 카드로 감싼 유저 정보+로그인 안내 */}
         <div className="hamburger-user-card">
           <div className="hamburger-user-info">
-            {resolvedUUID === null && username ? (
-              <div className="hamburger-user-placeholder" />
-            ) : (
-              <img src={skinUrl} className="hamburger-user-image" alt="마인크래프트 프로필" />
-            )}
+            <Link href="/mypage">
+              {resolvedUUID === null && username ? (
+                <div className="hamburger-user-placeholder" />
+              ) : (
+                <img
+                  src={skinUrl}
+                  className="hamburger-user-image"
+                  alt="마인크래프트 프로필"
+                />
+              )}
+            </Link>
             <p className="hamburger-username">
               {effectiveLoggedIn ? (effectiveUsername || 'USER') : 'GUEST'}
             </p>
