@@ -36,6 +36,9 @@ type ChatContextValue = {
 
   atBottom: boolean;
   setAtBottom: (b: boolean) => void;
+
+  /** 답장 미리보기/스크롤을 위한 메시지 조회기 */
+  getMessageById?: (id: number) => ChatMessage | null;
 };
 
 const ChatContext = createContext<ChatContextValue>({
@@ -51,6 +54,7 @@ const ChatContext = createContext<ChatContextValue>({
   setReplyingTo: () => {},
   atBottom: true,
   setAtBottom: () => {},
+  getMessageById: () => null,
 });
 
 const PAGE_SIZE = 30;
@@ -67,6 +71,12 @@ export default function ChatProvider({ children }: { children: React.ReactNode }
 
   const oldestIdRef = useRef<number | null>(null);
   const newestIdRef = useRef<number | null>(null);
+
+  // 최신 messages를 동기적으로 참조하기 위한 ref
+  const messagesRef = useRef<ChatMessage[]>([]);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   // 실시간(Ably)
   const ablyRef = useRef<Ably.Realtime | null>(null);
@@ -259,6 +269,16 @@ export default function ChatProvider({ children }: { children: React.ReactNode }
     }
   }, [fetchList, merge]);
 
+  // --- 여기부터: 답장 미리보기/스크롤을 위한 메시지 조회기 --------------------
+  const getMessageById = useCallback((id: number) => {
+    // ref(항상 최신) 우선, 그 다음 state fallback
+    const inRef = messagesRef.current.find?.(x => x.id === id) ?? null;
+    if (inRef) return inRef;
+    const inState = messages.find?.(x => x.id === id) ?? null;
+    return inState ?? null;
+  }, [messages]);
+  // -------------------------------------------------------------------------
+
   return (
     <ChatContext.Provider value={{
       connected,
@@ -273,6 +293,7 @@ export default function ChatProvider({ children }: { children: React.ReactNode }
       setReplyingTo,
       atBottom,
       setAtBottom,
+      getMessageById,
     }}>
       {children}
     </ChatContext.Provider>
