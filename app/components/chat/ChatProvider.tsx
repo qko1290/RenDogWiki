@@ -6,16 +6,21 @@
 import React, {
   createContext, useCallback, useContext, useEffect, useRef, useState,
 } from 'react';
-import Ably from 'ably'; // ← named export 없이 기본만 사용
+
+// 런타임 클래스는 기본 import, 타입은 v2(named types)로 import
+import Ably from 'ably';
+import type { Realtime, Message, ConnectionStateChange } from 'ably';
+
 import type { ChatMessage } from '@/wiki/lib/chat-types';
 import { getAbly } from './ably-singleton';
 
 /**
- * 채팅 전역 상태
- * - 초기/이전 로딩, 전송, 리액션 토글, Ably 실시간 수신/병합
- * - id 커서 기반 페이징, 메모리 보호용 윈도우 사이즈 제한
- * - 이벤트 키 혼용 대비: 'new-message'와 'message.created' 모두 구독
+ * NOTE:
+ * - ably 타입 버전에 따라 `RealtimeChannelCallbacks` / `RealtimeChannelPromise`
+ *   이름이 없을 수 있습니다. 아래처럼 `ReturnType<Realtime['channels']['get']>`
+ *   을 써서 채널 타입 의존성을 제거했습니다.
  */
+type AnyRealtimeChannel = ReturnType<Realtime['channels']['get']>;
 
 type SendPayload = { text: string; reply_to_id: number | null };
 
@@ -27,6 +32,9 @@ type ChatContextValue = {
   loadingMore: boolean;
   loadInitial: (limit?: number) => Promise<void>;
   loadOlder: (limit?: number) => Promise<void>;
+
+  /** 최신 동기화(수동 호출용) */
+  syncLatest: () => Promise<void>;
 
   send: (p: SendPayload) => Promise<void>;
   toggleReaction: (id: number, type: 'like' | 'dislike') => Promise<void>;
@@ -48,6 +56,7 @@ const ChatContext = createContext<ChatContextValue>({
   loadingMore: false,
   loadInitial: async () => {},
   loadOlder: async () => {},
+  syncLatest: async () => {},
   send: async () => {},
   toggleReaction: async () => {},
   replyingTo: null,
@@ -74,15 +83,17 @@ export default function ChatProvider({ children }: { children: React.ReactNode }
 
   // 최신 messages를 동기적으로 참조하기 위한 ref
   const messagesRef = useRef<ChatMessage[]>([]);
-  useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
 
   // 실시간(Ably)
-  const ablyRef = useRef<Ably.Realtime | null>(null);
-  const channelRef = useRef<any>(null);
+  const ablyRef = useRef<Realtime | null>(null);
+  const channelRef = useRef<AnyRealtimeChannel | null>(null);
   const cleanupRef = useRef<() => void>(() => {});
   const didInitRef = useRef(false);
+
+  // 자동 최신 동기화(폴링)
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollBackoffRef = useRef(0); // 네트워크 이슈 시 백오프 단계(0,1,2,...)
 
   const toInt = (v: unknown): number | null => {
     if (typeof v === 'number' && Number.isFinite(v)) return Math.trunc(v);
@@ -118,7 +129,7 @@ export default function ChatProvider({ children }: { children: React.ReactNode }
     });
   }, [sortTrimAndSetCursors]);
 
-  // 리스트 API
+  /** 서버 리스트 API */
   const fetchList = useCallback(async (qs: string) => {
     const res = await fetch(`/api/chat/list${qs}`, { cache: 'no-store' });
     if (!res.ok) throw new Error('list-failed');
@@ -128,13 +139,32 @@ export default function ChatProvider({ children }: { children: React.ReactNode }
     return list;
   }, []);
 
+  /** 최신 동기화(증분) — 서버가 after_id를 몰라도 안전하게 동작 */
+  const syncLatest = useCallback(async () => {
+    const after = newestIdRef.current ?? 0;
+
+    try {
+      // 1) 서버가 after_id를 지원한다면 효율적
+      const list = await fetchList(`?limit=${PAGE_SIZE}&after_id=${after}`);
+
+      // 2) 혹시 서버가 after_id를 무시해도, 클라에서 한 번 더 필터
+      const filtered = list.filter(m => m.id > after);
+      if (filtered.length) merge(filtered);
+
+      // 성공했으니 백오프 리셋
+      pollBackoffRef.current = 0;
+    } catch {
+      // 실패: 백오프 단계 증가(최대 4단계: 0/1/2/3/4)
+      pollBackoffRef.current = Math.min(4, pollBackoffRef.current + 1);
+    }
+  }, [fetchList, merge]);
+
   const loadInitial = useCallback(async (limit = PAGE_SIZE) => {
     const list = await fetchList(`?limit=${limit}`);
     setMessages(sortTrimAndSetCursors(list.slice()));
     setHasMore(list.length === limit);
   }, [fetchList, sortTrimAndSetCursors]);
 
-  // 이전 페이지 로딩
   const loadOlder = useCallback(async (limit = PAGE_SIZE) => {
     if (loadingMore || !hasMore) return;
     const cursor = oldestIdRef.current;
@@ -161,23 +191,29 @@ export default function ChatProvider({ children }: { children: React.ReactNode }
     }
   }, [fetchList, hasMore, loadingMore, sortTrimAndSetCursors]);
 
-  // 실시간 구독
+  /** Ably 구독 + 연결상태에 따른 동기화 트리거 */
   const setupRealtime = useCallback(() => {
     if (ablyRef.current) return;
 
     const client = getAbly();
     ablyRef.current = client;
 
+    // 초기 연결 상태 반영
     setConnected(client.connection.state === 'connected');
-    const onConn = (s: any) => {
+
+    const onConn = (s: ConnectionStateChange) => {
       setConnected(s.current === 'connected');
+      // 방금 연결됨 -> 혹시 누락된 메시지 보강
+      if (s.current === 'connected') {
+        syncLatest();
+      }
     };
     client.connection.on(onConn);
 
     const ch = client.channels.get('rdwiki-chat');
     channelRef.current = ch;
 
-    const onMessage = (msg: any) => {
+    const onMessage = (msg: Message) => {
       const m = parseAblyData<ChatMessage>(msg.data);
       if (!m || toInt((m as any).id) == null) return;
       merge([m]);
@@ -185,7 +221,7 @@ export default function ChatProvider({ children }: { children: React.ReactNode }
     ch.subscribe('new-message', onMessage);
     ch.subscribe('message.created', onMessage);
 
-    const onReaction = (msg: any) => {
+    const onReaction = (msg: Message) => {
       const p = parseAblyData<{ id: number; like_count: number; dislike_count: number }>(msg.data);
       if (!p || toInt(p.id) == null) return;
       setMessages(prev => prev.map(m => m.id === p.id
@@ -203,7 +239,7 @@ export default function ChatProvider({ children }: { children: React.ReactNode }
       channelRef.current = null;
       ablyRef.current = null;
     };
-  }, [merge]);
+  }, [merge, syncLatest]);
 
   // 초기 1회
   useEffect(() => {
@@ -214,6 +250,50 @@ export default function ChatProvider({ children }: { children: React.ReactNode }
     try { setupRealtime(); } catch { setConnected(false); }
     return () => cleanupRef.current();
   }, [loadInitial, setupRealtime]);
+
+  /** === 폴링(자동 최신 동기화) ===
+   * 연결 상태에 따라 주기 가변:
+   * - 연결됨(connected): 45s(가벼운 신선도 유지)
+   * - 연결 안 됨: 5s × 백오프(최대 5*2^4=80s)
+   */
+  useEffect(() => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+
+    const base = connected ? 45000 : 5000;
+    const backoff = connected ? 0 : pollBackoffRef.current; // 연결 때는 백오프 사용 안함
+    const interval = connected ? base : base * Math.pow(2, backoff || 0);
+
+    pollTimerRef.current = setInterval(() => {
+      syncLatest();
+    }, interval);
+
+    return () => {
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+    };
+  }, [connected, syncLatest]);
+
+  /** 탭 가시성 복귀/포커스/네트워크 online 시 즉시 동기화 */
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') syncLatest(); };
+    const onFocus = () => syncLatest();
+    const onOnline = () => syncLatest();
+
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('online', onOnline);
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('online', onOnline);
+    };
+  }, [syncLatest]);
 
   // 전송
   const send = useCallback(async (p: SendPayload) => {
@@ -228,11 +308,12 @@ export default function ChatProvider({ children }: { children: React.ReactNode }
       const err = await res.json().catch(() => ({}));
       throw new Error(err?.error || 'send-failed');
     }
+
+    // 실시간이 끊겨 있었던 경우, 내가 보낸 후 최신으로 보강
     if (!connected) {
-      const latest = await fetchList(`?limit=${PAGE_SIZE}`);
-      merge(latest);
+      await syncLatest();
     }
-  }, [connected, fetchList, merge]);
+  }, [connected, syncLatest]);
 
   // 리액션 토글(낙관적 -> 실패 시 동기화)
   const toggleReaction = useCallback(async (id: number, type: 'like' | 'dislike') => {
@@ -257,8 +338,7 @@ export default function ChatProvider({ children }: { children: React.ReactNode }
     });
 
     if (!res.ok) {
-      const latest = await fetchList(`?limit=${PAGE_SIZE}`);
-      merge(latest);
+      await syncLatest(); // 실패 시 서버 상태로 재동기화
     } else {
       const d = await res.json().catch(() => null);
       if (d?.ok) {
@@ -267,17 +347,15 @@ export default function ChatProvider({ children }: { children: React.ReactNode }
           : m));
       }
     }
-  }, [fetchList, merge]);
+  }, [syncLatest]);
 
-  // --- 여기부터: 답장 미리보기/스크롤을 위한 메시지 조회기 --------------------
+  // 답장 미리보기/스크롤을 위한 메시지 조회기
   const getMessageById = useCallback((id: number) => {
-    // ref(항상 최신) 우선, 그 다음 state fallback
     const inRef = messagesRef.current.find?.(x => x.id === id) ?? null;
     if (inRef) return inRef;
     const inState = messages.find?.(x => x.id === id) ?? null;
     return inState ?? null;
   }, [messages]);
-  // -------------------------------------------------------------------------
 
   return (
     <ChatContext.Provider value={{
@@ -287,6 +365,7 @@ export default function ChatProvider({ children }: { children: React.ReactNode }
       loadingMore,
       loadInitial,
       loadOlder,
+      syncLatest,
       send,
       toggleReaction,
       replyingTo,
