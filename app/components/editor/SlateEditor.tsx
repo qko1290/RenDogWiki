@@ -492,7 +492,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
               <input
                 type="text"
                 className="meta-input"
-                placeholder="#태그1, #태그2"
+                placeholder="#태그1 #태그2"
                 value={tagInput}
                 onChange={e => setTagInput(e.target.value)}
                 onBlur={() => {

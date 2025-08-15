@@ -43,6 +43,7 @@ export type LinkBlockElement = {
   isWiki?: boolean;
   wikiTitle?: string;
   wikiPath?: string | number;
+  docIcon?: string;
 };
 
 // 구분선(divider)

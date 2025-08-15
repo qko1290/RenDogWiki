@@ -31,22 +31,26 @@ import type {
   ParagraphElement
 } from '@/types/slate';
 
-type PriceTableEditState = {
-  blockPath: Path | null;
-  idx: number | null;
-  item: any | null;
+// -------------------- 모듈 전역 캐시 (HMR 안전) --------------------
+const WIKI_ICON_CACHE_KEY = '__rdwiki_doc_icon_cache__';
+const WIKI_DOCS_ALL_KEY  = '__rdwiki_docs_all__';
+
+// 문서 아이콘 캐시 (wikiPath/제목 → icon)
+const wikiDocIconCache: Map<string, string> =
+  (globalThis as any)[WIKI_ICON_CACHE_KEY] ?? new Map<string, string>();
+(globalThis as any)[WIKI_ICON_CACHE_KEY] = wikiDocIconCache;
+
+// 문서 목록 캐시
+let wikiDocsAll: any[] | null =
+  (globalThis as any)[WIKI_DOCS_ALL_KEY] ?? null;
+const setWikiDocsAll = (rows: any[]) => {
+  wikiDocsAll = rows;
+  (globalThis as any)[WIKI_DOCS_ALL_KEY] = rows;
 };
 
-type ElementProps = RenderElementProps & {
-  editor: any;
-  onIconClick: (element: CustomElement) => void;
-  priceTableEdit: PriceTableEditState;
-  setPriceTableEdit: React.Dispatch<React.SetStateAction<PriceTableEditState>>;
-};
+// -------------------- 유틸 --------------------
 
-/**
- * 각 상태(각성, 초월, MAX 등)에 맞는 뱃지 배경색 반환
- */
+/** 각 상태(각성, 초월, MAX 등)에 맞는 뱃지 배경색 반환 */
 function getPriceBadgeColor(stage: string, type?: string) {
   switch (stage) {
     case '봉인':   return '#444';
@@ -61,9 +65,7 @@ function getPriceBadgeColor(stage: string, type?: string) {
   }
 }
 
-/**
- * 가격 테이블 아이템이 각성/초월/일반 중 어떤 타입인지 유추
- */
+/** 가격 테이블 아이템이 각성/초월/일반 중 어떤 타입인지 유추 */
 function guessPriceMode(item: any): 'normal' | 'awakening' | 'transcend' {
   if (!item.stages) return 'normal';
   const set = new Set(item.stages);
@@ -71,6 +73,21 @@ function guessPriceMode(item: any): 'normal' | 'awakening' | 'transcend' {
   if (item.stages.includes('거가') && item.stages.includes('거불')) return 'transcend';
   return 'normal';
 }
+
+// -------------------- 메인 렌더러 --------------------
+
+type PriceTableEditState = {
+  blockPath: Path | null;
+  idx: number | null;
+  item: any | null;
+};
+
+type ElementProps = RenderElementProps & {
+  editor: any;
+  onIconClick: (element: CustomElement) => void;
+  priceTableEdit: PriceTableEditState;
+  setPriceTableEdit: React.Dispatch<React.SetStateAction<PriceTableEditState>>;
+};
 
 const Element: React.FC<ElementProps> = ({
   attributes, children, element, editor, onIconClick, priceTableEdit, setPriceTableEdit,
@@ -83,7 +100,7 @@ const Element: React.FC<ElementProps> = ({
   const [hovered, setHovered] = useState<number | null>(null);
 
   switch (element.type) {
-    // 인라인 링크
+    // -------------------- 인라인 링크 --------------------
     case 'link': {
       return (
         <a {...attributes} href={(element as any).url} style={{ color: '#2676ff' }}>
@@ -92,10 +109,73 @@ const Element: React.FC<ElementProps> = ({
       );
     }
 
-    // 카드형 링크 블록
+    // -------------------- 카드형 링크 블록 --------------------
     case 'link-block': {
       const el = element as LinkBlockElement;
       const isReadOnly = ReactEditor.isReadOnly(editor);
+
+      // 외부 링크 표시값 보정 (hostname /favicon.ico)
+      let displaySitename = el.sitename;
+      let displayFavicon  = el.favicon;
+
+      if (!el.isWiki && (!displaySitename || !displayFavicon)) {
+        try {
+          const u = new URL(el.url);
+          const host = u.hostname.replace(/^www\./, '');
+          if (!displaySitename) displaySitename = host;
+          if (!displayFavicon)  displayFavicon  = `${u.protocol}//${u.hostname}/favicon.ico`;
+        } catch {}
+      }
+
+      // 내부 문서 아이콘 (이모지 또는 이미지 URL) 처리
+      const [wikiIcon, setWikiIcon] = React.useState<string | null>(
+        el.isWiki ? (el as any).docIcon ?? null : null
+      );
+
+      React.useEffect(() => {
+        if (!el.isWiki || wikiIcon) return;
+
+        const key = String(el.wikiPath ?? el.url ?? el.wikiTitle ?? '');
+        if (!key) return;
+
+        // 1) 아이콘 캐시에 있으면 즉시 사용
+        if (wikiDocIconCache.has(key)) {
+          setWikiIcon(wikiDocIconCache.get(key)!);
+          return;
+        }
+
+        let cancelled = false;
+
+        (async () => {
+          try {
+            // 2) 문서 전체 캐시가 없으면 1회만 로드
+            if (!wikiDocsAll) {
+              const res = await fetch('/api/documents?all=1');
+              const data = await res.json();
+              setWikiDocsAll(Array.isArray(data) ? data : []);
+            }
+            const docs = wikiDocsAll || [];
+            const match = docs.find((d: any) =>
+              (el.wikiPath && String(d.path) === String(el.wikiPath)) ||
+              (el.wikiTitle && d.title === el.wikiTitle)
+            );
+
+            const icon = (match?.icon ?? '').trim();
+            if (!cancelled) {
+              if (icon) {
+                setWikiIcon(icon);
+                wikiDocIconCache.set(key, icon);
+              } else {
+                setWikiIcon(null);
+              }
+            }
+          } catch {
+            if (!cancelled) setWikiIcon(null);
+          }
+        })();
+
+        return () => { cancelled = true; };
+      }, [el.isWiki, el.wikiPath, el.wikiTitle, el.url, wikiIcon]);
 
       return (
         <div
@@ -112,7 +192,6 @@ const Element: React.FC<ElementProps> = ({
             width: el.size === 'small' ? '48%' : '100%',
           }}
         >
-          {/* 삭제 버튼(읽기 전용이 아닐 때만) */}
           {!isReadOnly && (
             <button
               type="button"
@@ -135,28 +214,37 @@ const Element: React.FC<ElementProps> = ({
               onMouseLeave={e => (e.currentTarget.style.background = '#f8f8f8')}
             >×</button>
           )}
-          {/* 파비콘 */}
-          {el.favicon && (
-            <img src={el.favicon} alt="favicon" style={{ width: 24, height: 24, marginRight: 8 }} />
+
+          {/* 아이콘 영역: 내부문서는 문서 아이콘, 외부는 파비콘 */}
+          {el.isWiki ? (
+            wikiIcon
+              ? (wikiIcon.startsWith('http')
+                  ? <img src={wikiIcon} alt="doc icon" style={{ width: 24, height: 24, marginRight: 8, objectFit: 'contain' }} />
+                  : <span style={{ fontSize: 20, marginRight: 8, lineHeight: 1 }}>{wikiIcon}</span>
+                )
+              : null
+          ) : (
+            displayFavicon && (
+              <img src={displayFavicon} alt="favicon" style={{ width: 24, height: 24, marginRight: 8 }} />
+            )
           )}
-          {/* 사이트명/URL */}
+
+          {/* 타이틀/링크 */}
           <a
             href={el.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              color: '#0070f3',
-              textDecoration: 'none',
-              flexGrow: 1,
-            }}
+            target={el.isWiki ? undefined : '_blank'}
+            rel={el.isWiki ? undefined : 'noopener noreferrer'}
+            style={{ color: '#0070f3', textDecoration: 'none', flexGrow: 1 }}
           >
-            {el.sitename || el.url}
+            {el.isWiki
+              ? (el.wikiTitle || el.sitename || '문서')
+              : (displaySitename || el.url)}
           </a>
         </div>
       );
     }
 
-    // Heading(h1, h2, h3)
+    // -------------------- Heading(h1, h2, h3) --------------------
     case 'heading-one':
     case 'heading-two':
     case 'heading-three': {
@@ -187,7 +275,7 @@ const Element: React.FC<ElementProps> = ({
       );
     }
 
-    // Divider(구분선)
+    // -------------------- Divider(구분선) --------------------
     case 'divider': {
       const style = (element as any).style || "default";
       const borderColor = "#e0e0e0";
@@ -249,7 +337,7 @@ const Element: React.FC<ElementProps> = ({
       }
     }
 
-    // 기본 단락(문단)
+    // -------------------- 기본 단락 --------------------
     case 'paragraph': {
       const el = element as ParagraphElement;
       const indentLine = (el as any).indentLine;
@@ -289,7 +377,7 @@ const Element: React.FC<ElementProps> = ({
       );
     }
 
-    // 정보 박스(info/warning/danger)
+    // -------------------- 정보 박스 --------------------
     case 'info-box': {
       // 툴바/데이터에 저장된 키 이름들이 프로젝트마다 달라서 폭넓게 수용
       const raw =
@@ -314,7 +402,7 @@ const Element: React.FC<ElementProps> = ({
       );
     }
 
-    // 본문 내 삽입 이미지
+    // -------------------- 본문 내 삽입 이미지 --------------------
     case 'image': {
       const el = element as any;
       const selected = useSelected();
@@ -418,7 +506,7 @@ const Element: React.FC<ElementProps> = ({
       );
     }
 
-    // 인라인 이미지
+    // -------------------- 인라인 이미지 --------------------
     case 'inline-image' : {
       const el = element as InlineImageElement;
       return (
@@ -440,7 +528,7 @@ const Element: React.FC<ElementProps> = ({
       );
     }
 
-    // 인라인 마크(강조 텍스트)
+    // -------------------- 인라인 마크(강조 텍스트) --------------------
     case 'inline-mark': {
       const el = element as InlineMarkElement;
       return (
@@ -465,7 +553,7 @@ const Element: React.FC<ElementProps> = ({
       );
     }
 
-    // 가격표 카드 블럭 (아이템 가격·이미지·이름 인라인 편집, 단계별 가격 전환)
+    // -------------------- 가격표 카드 블럭 --------------------
     case 'price-table-card': {
       const el = element as PriceTableCardElement;
       const path = ReactEditor.findPath(editorStatic, el);
@@ -758,7 +846,7 @@ const Element: React.FC<ElementProps> = ({
       );
     }
 
-    // 여러 링크 블록을 한 줄에 렌더링
+    // -------------------- 한 줄에 여러 링크 블록 --------------------
     case 'link-block-row': {
       return (
         <div {...attributes} contentEditable={false} style={{
@@ -772,7 +860,7 @@ const Element: React.FC<ElementProps> = ({
       );
     }
 
-    // 알 수 없는 타입, 또는 커스텀 확장에 대한 기본 fallback
+    // -------------------- 기본 fallback --------------------
     default: {
       const el = element as any;
       const textAlign = 'textAlign' in el ? el.textAlign : 'left';
