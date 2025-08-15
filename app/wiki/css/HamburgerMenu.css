@@ -543,6 +543,6 @@
   background-color: var(--glow-color);
   box-shadow:
     0 0 0.5em .125em var(--glow-color),
-    0 0 1em 1em var(--glow-spread-color),
+    0 0 0.0em 0.0em var(--glow-spread-color),
     inset 0 0 .37em .125em var(--glow-color);
 }
