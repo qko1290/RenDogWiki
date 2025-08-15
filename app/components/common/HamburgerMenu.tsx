@@ -224,13 +224,16 @@ export default function HamburgerMenu({
             </p>
           </div>
           <div className="hamburger-login-info">
-            <span className="hamburger-welcome">
-              {!isLoggedIn
-                ? <Link href="/login" className="hamburger-welcome no-underline">로그인 해주세요</Link> 
-                : specialDisplay
-                  ? `환영합니다 ${specialDisplay}님`
-                  : '환영합니다'}
-            </span>
+            {!isLoggedIn ? (
+              <Link href="/login" className="hamburger-welcome no-underline">로그인 해주세요</Link>
+            ) : (
+              <button type="button" className="logout-toggle" onClick={handleLogout}>
+                <span className="logout-text logout-out">
+                  {specialDisplay ? `환영합니다 ${specialDisplay}님` : '환영합니다'}
+                </span>
+                <span className="logout-text logout-in">로그아웃 하시겠습니까?</span>
+              </button>
+            )}
           </div>
         </div>
 
