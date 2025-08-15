@@ -503,9 +503,8 @@
 
 /* ===== IMAGE 글로우 버튼 ===== */
 .glow-btn {
-  --btn-color: #0b1220;                  /* 버튼 내부(텍스트) 기본색 배경 */
-  --glow-color: rgb(217, 176, 255);      /* 테두리/호버 글로우 컬러 */
-  --glow-spread-color: rgb(231, 206, 255);
+  --btn-color: #ffffff;                  /* 버튼 내부(텍스트) 기본색 배경 */
+  --glow-color: #A594F9;
   display: inline-block;
   padding: 0.3em 0.7em;
   min-width: 170px;
@@ -522,20 +521,6 @@
   position: relative;
   transition: all .3s;
   box-shadow: none;
-}
-
-.glow-btn::after {
-  pointer-events: none;
-  content: "";
-  position: absolute;
-  top: 120%;
-  left: 0;
-  height: 100%;
-  width: 100%;
-  background-color: var(--glow-spread-color);
-  filter: blur(2em);
-  opacity: .7;
-  transform: perspective(1.5em) rotateX(35deg) scale(1, .6);
 }
 
 .glow-btn:hover {

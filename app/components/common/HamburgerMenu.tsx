@@ -15,7 +15,7 @@ import logo from '../../image/logo.png';
 import Image from 'next/image';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-  faUserPlus
+  faUserPlus, faImages
 } from '@fortawesome/free-solid-svg-icons';
 import { ModalCard } from '@/components/common/Modal';
 
@@ -54,6 +54,8 @@ export default function HamburgerMenu({
 
   const [effectiveLoggedIn, setEffectiveLoggedIn] = useState(isLoggedIn);
   const [effectiveUsername, setEffectiveUsername] = useState(username);
+
+  const [isHover, setIsHover] = useState(false);
 
   const normName = (effectiveUsername ?? '').trim().toLowerCase();
   const specialDisplay = SPECIAL_NICKS[normName];
@@ -231,8 +233,14 @@ export default function HamburgerMenu({
                 href="/manage/image"
                 className="glow-btn"
                 onClick={handleGuardedClick}
+                onMouseEnter={() => setIsHover(true)}
+                onMouseLeave={() => setIsHover(false)}
               >
-                IMAGE
+                {isHover ? (
+                  <FontAwesomeIcon icon={faImages} />
+                ) : (
+                  'IMAGE'
+                )}
               </Link>
             </div>
           </li>
