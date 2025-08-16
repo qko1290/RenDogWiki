@@ -1,6 +1,8 @@
 // =============================================
 // File: app/manage/image/page.tsx
-// (클라이언트: 캐시 무효화 & 재조회 패턴 + 폴더 DnD 이동 + 폴더 다중 선택/삭제)
+// (FIX) 폴더/모달 입력 시 포커스가 풀리던 문제 해결
+//   - FolderTree: 편집값 초기화 이펙트 의존성 축소
+//   - 모달 onClose를 useCallback으로 고정(불필요한 리렌더 방지)
 // =============================================
 'use client';
 
@@ -73,12 +75,14 @@ function FolderTree({
 }) {
   const [editName, setEditName] = useState('');
 
+  // ✅ 편집 시작 시점에만 초기화 (folders 변경으로 인한 value 리셋 방지)
   useEffect(() => {
     if (editingTarget?.type === 'folder') {
       const t = folders.find((f) => f.id === editingTarget.id);
-      if (t) setEditName(t.name);
+      setEditName(t?.name ?? '');
     }
-  }, [editingTarget, folders]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingTarget]);
 
   const list = folders.filter((f) =>
     parentId === null ? f.parent_id == null : Number(f.parent_id) === Number(parentId)
@@ -108,17 +112,15 @@ function FolderTree({
                   onChange={(e) => setEditName(e.target.value)}
                   onBlur={() => {
                     const v = editName.trim();
-                    if (v && v !== (folders.find((f) => f.id === folder.id)?.name ?? '')) {
-                      onRename(folder.id, v);
-                    }
+                    const before = folders.find((f) => f.id === folder.id)?.name ?? '';
+                    if (v && v !== before) onRename(folder.id, v);
                     setEditingTarget(null);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       const v = editName.trim();
-                      if (v && v !== (folders.find((f) => f.id === folder.id)?.name ?? '')) {
-                        onRename(folder.id, v);
-                      }
+                      const before = folders.find((f) => f.id === folder.id)?.name ?? '';
+                      if (v && v !== before) onRename(folder.id, v);
                       setEditingTarget(null);
                     } else if (e.key === 'Escape') {
                       setEditingTarget(null);
@@ -696,9 +698,7 @@ export default function ImageManagePage() {
   useEffect(() => {
     if (!contextMenu.visible) return;
     const close = () => setContextMenu((v) => ({ ...v, visible: false }));
-    const esc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
-    };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
     window.addEventListener('mousedown', close);
     window.addEventListener('scroll', close, true);
     window.addEventListener('contextmenu', close);
@@ -715,6 +715,14 @@ export default function ImageManagePage() {
   const isMultiFolder = selectedFolderIds.length > 1;
   const isMultiImage = selectedItems.length > 1;
   const isMultiSelecting = isMultiFolder || isMultiImage;
+
+  // ✅ onClose 핸들러들을 useCallback으로 고정
+  const closeNewFolder = useCallback(() => setNewFolderOpen(false), []);
+  const closeImageRename = useCallback(() => setEditingTarget(null), []);
+  const closeDeleteModal = useCallback(() => {
+    setShowDeleteModal(false);
+    setDeletingType(null);
+  }, []);
 
   return (
     <div className="wiki-container">
@@ -801,7 +809,6 @@ export default function ImageManagePage() {
             className="image-explorer-content"
             onMouseDown={(e) => {
               const el = e.target as HTMLElement;
-              // 썸네일 클릭은 외부 클릭으로 간주하지 않음 (다중 선택 유지)
               if (isClickOnInteractive(el) || el.closest('.image-explorer-thumbnail')) return;
               clearImageSelection();
             }}
@@ -862,18 +869,8 @@ export default function ImageManagePage() {
                     onClick={() => setNewFolderOpen(true)}
                     title="새 폴더"
                   >
-                    <svg
-                      className="ico"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                    >
-                      <path
-                        d="M3.75 7.5h6l1.5 1.5h9a1.5 1.5 0 011.5 1.5v7.5A1.5 1.5 0 0120.75 21h-15A2.25 2.25 0 013.5 18.75V9A1.5 1.5 0 013.75 7.5Z"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
+                    <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M3.75 7.5h6l1.5 1.5h9a1.5 1.5 0 011.5 1.5v7.5A1.5 1.5 0 0120.75 21h-15A2.25 2.25 0 013.5 18.75V9A1.5 1.5 0 013.75 7.5Z" strokeLinecap="round" strokeLinejoin="round" />
                       <path d="M12 12v4m-2-2h4" strokeLinecap="round" />
                     </svg>
                     <span className="seg-label">새 폴더</span>
@@ -886,23 +883,9 @@ export default function ImageManagePage() {
                     disabled={!selectedFolder || isMultiSelecting}
                     title={isMultiSelecting ? '다중 선택 중에는 업로드 불가' : '업로드'}
                   >
-                    <svg
-                      className="ico"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                    >
-                      <path
-                        d="M6.75 19.5A4.5 4.5 0 015.34 10.725 5.25 5.25 0 0115.573 8.395 3 3 0 0118 14.25h-.75"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      <path
-                        d="M12 15.75V9.75m0 0l3 3m-3-3l-3 3"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
+                    <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M6.75 19.5A4.5 4.5 0 015.34 10.725 A5.25 5.25 0 0115.573 8.395 A3 3 0 0118 14.25h-.75" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M12 15.75V9.75m0 0l3 3m-3-3l-3 3" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                     <span className="seg-label">업로드</span>
                   </button>
@@ -922,18 +905,8 @@ export default function ImageManagePage() {
                     disabled={!selectedItems.length && !selectedFolderIds.length && selectedFolder === null}
                     title="삭제"
                   >
-                    <svg
-                      className="ico"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                    >
-                      <path
-                        d="M9.75 9.75v6.75M14.25 9.75v6.75M4.5 7.5h15M9 4.5h6m-8.25 3L7.5 19.5a2.25 2.25 0 002.25 2.25h4.5A2.25 2.25 0 0016.5 19.5L18.75 7.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
+                    <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M9.75 9.75v6.75M14.25 9.75v6.75M4.5 7.5h15M9 4.5h6m-8.25 3L7.5 19.5a2.25 2.25 0 002.25 2.25h4.5A2.25 2.25 0 0016.5 19.5L18.75 7.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                     <span className="seg-label">삭제</span>
                   </button>
@@ -956,18 +929,8 @@ export default function ImageManagePage() {
                     }
                     title={isMultiSelecting ? '다중 선택 중에는 이름 변경 불가' : '이름변경'}
                   >
-                    <svg
-                      className="ico"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                    >
-                      <path
-                        d="M16.5 3.75l3.75 3.75M4.5 19.5l3.75-.938L19.5 7.875l-3.75-3.75L4.5 15.75V19.5Z"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
+                    <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M16.5 3.75l3.75 3.75M4.5 19.5l3.75-.938L19.5 7.875l-3.75-3.75L4.5 15.75V19.5Z" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                     <span className="seg-label">이름변경</span>
                   </button>
@@ -978,7 +941,6 @@ export default function ImageManagePage() {
             <div
               className="image-explorer-filelist-outer"
               onMouseDown={(e) => {
-                // 여기서 먼저 버블링 차단 → 섹션 onMouseDown이 실행되지 않음
                 e.stopPropagation();
                 const el = e.target as HTMLElement;
                 if (el.closest('.image-explorer-thumbnail')) return;
@@ -1012,7 +974,7 @@ export default function ImageManagePage() {
         </div>
       </div>
 
-      {/* 컨텍스트 메뉴 (폴더/이미지 공용) */}
+      {/* 컨텍스트 메뉴 */}
       {contextMenu.visible && (
         <div
           className="rd-context-menu"
@@ -1038,7 +1000,7 @@ export default function ImageManagePage() {
                 onClick={() => {
                   clearImageSelection();
                   setSelectedFolder(contextMenu.target!.id);
-                  setSelectedFolderIds([contextMenu.target!.id]); // 컨텍스트 메뉴는 단일로 전환
+                  setSelectedFolderIds([contextMenu.target!.id]);
                   setEditingTarget({ type: 'folder', id: contextMenu.target!.id });
                   setContextMenu((v) => ({ ...v, visible: false }));
                 }}
@@ -1115,11 +1077,11 @@ export default function ImageManagePage() {
       {/* 새 폴더 */}
       <ModalCard
         open={newFolderOpen}
-        onClose={() => setNewFolderOpen(false)}
+        onClose={closeNewFolder}
         title="새 폴더"
         actions={
           <>
-            <button className="rd-btn secondary" onClick={() => setNewFolderOpen(false)}>
+            <button className="rd-btn secondary" onClick={closeNewFolder}>
               취소
             </button>
             <button
@@ -1140,20 +1102,20 @@ export default function ImageManagePage() {
           autoFocus
           onKeyDown={(e) => {
             if (e.key === 'Enter') handleCreateFolder();
-            if (e.key === 'Escape') setNewFolderOpen(false);
+            if (e.key === 'Escape') closeNewFolder();
           }}
           placeholder="예) 스크린샷"
         />
       </ModalCard>
 
-      {/* 이미지 이름변경 (이미지에만 사용) */}
+      {/* 이미지 이름변경 */}
       <ModalCard
         open={!!editingTarget && editingTarget.type === 'image'}
-        onClose={() => setEditingTarget(null)}
+        onClose={closeImageRename}
         title="이름 변경"
         actions={
           <>
-            <button className="rd-btn secondary" onClick={() => setEditingTarget(null)}>
+            <button className="rd-btn secondary" onClick={closeImageRename}>
               취소
             </button>
             <button className="rd-btn primary" onClick={handleImageRename}>
@@ -1170,7 +1132,7 @@ export default function ImageManagePage() {
           autoFocus
           onKeyDown={(e) => {
             if (e.key === 'Enter') handleImageRename();
-            if (e.key === 'Escape') setEditingTarget(null);
+            if (e.key === 'Escape') closeImageRename();
           }}
         />
       </ModalCard>
@@ -1178,20 +1140,11 @@ export default function ImageManagePage() {
       {/* 삭제 (이미지/폴더 공용) */}
       <ModalCard
         open={showDeleteModal}
-        onClose={() => {
-          setShowDeleteModal(false);
-          setDeletingType(null);
-        }}
+        onClose={closeDeleteModal}
         title={deletingType === 'folder' ? '폴더 삭제' : '이미지 삭제'}
         actions={
           <>
-            <button
-              className="rd-btn secondary"
-              onClick={() => {
-                setShowDeleteModal(false);
-                setDeletingType(null);
-              }}
-            >
+            <button className="rd-btn secondary" onClick={closeDeleteModal}>
               취소
             </button>
             <button
@@ -1199,7 +1152,6 @@ export default function ImageManagePage() {
               onClick={async () => {
                 if (deletingType === 'folder') {
                   if (selectedFolderIds.length > 1) {
-                    // 다중 삭제(포함 관계 정리)
                     const exclude = new Set<number>();
                     for (const id of selectedFolderIds) {
                       const desc = getDescendantIds(id);
@@ -1223,8 +1175,7 @@ export default function ImageManagePage() {
                     setSelectedFolderIds([]);
                     setSelectedItems([]);
                     setImages([]);
-                    setShowDeleteModal(false);
-                    setDeletingType(null);
+                    closeDeleteModal();
                   } else {
                     await handleDeleteFolderSingle();
                   }
@@ -1241,9 +1192,7 @@ export default function ImageManagePage() {
         <p className="rd-card-description">
           {deletingType === 'folder' ? (
             selectedFolderIds.length > 1 ? (
-              <>
-                선택한 <b>{selectedFolderIds.length}</b>개 폴더와 모든 하위 항목이 삭제됩니다. 계속하시겠습니까?
-              </>
+              <>선택한 <b>{selectedFolderIds.length}</b>개 폴더와 모든 하위 항목이 삭제됩니다. 계속하시겠습니까?</>
             ) : (
               <>
                 <b>{folders.find((f) => f.id === (selectedFolderIds[0] ?? selectedFolder))?.name}</b> 폴더와 모든 하위 항목이
@@ -1251,13 +1200,9 @@ export default function ImageManagePage() {
               </>
             )
           ) : selectedItems.length > 1 ? (
-            <>
-              <b>{selectedItems.length}개</b> 이미지를 삭제하시겠습니까?
-            </>
+            <>정말 <b>{selectedItems.length}개</b> 이미지를 삭제하시겠습니까?</>
           ) : (
-            <>
-              정말 <b>{selectedItems[0]?.name ?? '선택 이미지'}</b> 이미지를 삭제하시겠습니까?
-            </>
+            <>정말 <b>{selectedItems[0]?.name ?? '선택 이미지'}</b> 이미지를 삭제하시겠습니까?</>
           )}
         </p>
       </ModalCard>
