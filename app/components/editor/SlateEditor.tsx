@@ -58,18 +58,34 @@ type PriceTableEditState = {
   item: any | null;
 };
 
+// ❗커서 진입을 막아야 하는 블럭 타입(arrow 이동 시 건너뜀)
+const VOID_BLOCK_TYPES = new Set([
+  'link-block',
+  'image',
+  'divider',
+  'price-table-card',
+]);
+
 export default function SlateEditor({ initialDoc, isMain = false }: Props) {
   if (!initialDoc) return <div>잘못된 접근입니다.</div>;
 
-  /** 커스텀 인라인 요소(link/inline-mark/inline-image)를 인라인으로 취급 */
+  /** 커스텀 인라인 요소를 인라인으로, 진입 불가 블럭을 void 로 취급 */
   const withCustomInline = (editor: Editor) => {
-    const { isInline } = editor;
+    const { isInline, isVoid } = editor;
+
     editor.isInline = element =>
       element.type === 'link' ||
       element.type === 'inline-mark' ||
       element.type === 'inline-image'
         ? true
         : isInline(element);
+
+    // 🔧 핵심: Slate에게도 "이 블럭들은 커서가 들어갈 수 없는 void"라고 알려준다.
+    editor.isVoid = element =>
+      VOID_BLOCK_TYPES.has((element as any).type)
+        ? true
+        : isVoid(element);
+
     return editor;
   };
 
@@ -420,10 +436,10 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       event.preventDefault();
       Transforms.splitNodes(editor, { always: true });
 
-      // ✅ 마크 제거: Editor.removeMark 사용 (기존 editor.removeMark 호출 버그 수정)
+      // ✅ 마크 제거
       const marks = Editor.marks(editor) || {};
       Object.keys(marks).forEach((mark) => {
-        Editor.removeMark(editor, mark);
+        Editor.removeMark(editor, mark as any);
       });
 
       // 새 블록의 일부 속성 초기화(indentLine, textAlign 등)
@@ -442,24 +458,36 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       return;
     }
 
-    // 방향키로 link-block-row에 진입하려 할 때 이동 차단(포커싱 혼란 방지)
+    // 🔧 방향키로 void / link-block-row 로 진입하려 할 때: 경계로 점프
     const { selection } = editor;
     if (
       selection &&
       Range.isCollapsed(selection) &&
       ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)
     ) {
-      let nextPoint: Point | undefined;
-      if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
-        nextPoint = Editor.before(editor, selection, { unit: 'block' }) as Point | undefined;
-      } else {
-        nextPoint = Editor.after(editor, selection, { unit: 'block' }) as Point | undefined;
-      }
-      if (typeof nextPoint !== 'undefined') {
-        const [node] = Editor.node(editor, nextPoint, { depth: 1 });
-        if (SlateElement.isElement(node) && node.type === 'link-block-row') {
-          event.preventDefault();
-          return;
+      const backward = event.key === 'ArrowLeft' || event.key === 'ArrowUp';
+      const neighborPoint = backward
+        ? Editor.before(editor, selection, { unit: 'block' })
+        : Editor.after(editor, selection, { unit: 'block' });
+
+      if (neighborPoint) {
+        const entry = Editor.above(editor, {
+          at: neighborPoint,
+          match: n => SlateElement.isElement(n) && Editor.isBlock(editor, n),
+        });
+        if (entry) {
+          const [node, path] = entry;
+          const type = (node as any).type;
+
+          if (type === 'link-block-row' || VOID_BLOCK_TYPES.has(type)) {
+            event.preventDefault();
+            const target = backward ? Editor.before(editor, path) : Editor.after(editor, path);
+            if (target) {
+              Transforms.select(editor, target);
+              ReactEditor.focus(editor);
+            }
+            return;
+          }
         }
       }
     }

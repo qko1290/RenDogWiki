@@ -3,18 +3,15 @@
 // =============================================
 'use client';
 
-/**
- * Slate 에디터에서 커스텀 블록(heading, 링크, info-box, divider, paragraph, 시세카드 등)을 렌더링하는 컴포넌트
- * - heading: 아이콘 클릭, id 생성, 정렬 지원
- * - link/link-block: 인라인/카드형 하이퍼링크
- * - info-box: 참고/주의/경고 박스 렌더링
- * - divider: 다양한 구분선
- * - paragraph: 기본 단락, 인덴트 라인 지원
- * - price-table-card: 아이템별 가격, 각성/초월 등 상태 뱃지·이름/이미지/가격 인라인 편집 지원
- */
-
 import React, { useState, useEffect } from 'react';
-import { RenderElementProps, ReactEditor, useSelected, useFocused, useSlate, useSlateStatic } from 'slate-react';
+import {
+  RenderElementProps,
+  ReactEditor,
+  useSelected,
+  useFocused,
+  useSlate,
+  useSlateStatic,
+} from 'slate-react';
 import { Node, Transforms, Path, Editor, Element as SlateElement } from 'slate';
 import { getHeadingId } from './helpers/getHeadingId';
 import ImageSizeModal from './ImageSizeModal';
@@ -28,44 +25,43 @@ import type {
   HeadingOneElement,
   HeadingTwoElement,
   HeadingThreeElement,
-  ParagraphElement
+  ParagraphElement,
 } from '@/types/slate';
 
 // -------------------- 모듈 전역 캐시 (HMR 안전) --------------------
 const WIKI_ICON_CACHE_KEY = '__rdwiki_doc_icon_cache__';
-const WIKI_DOCS_ALL_KEY  = '__rdwiki_docs_all__';
+const WIKI_DOCS_ALL_KEY = '__rdwiki_docs_all__';
 
-// 문서 아이콘 캐시 (wikiPath/제목 → icon)
 const wikiDocIconCache: Map<string, string> =
   (globalThis as any)[WIKI_ICON_CACHE_KEY] ?? new Map<string, string>();
 (globalThis as any)[WIKI_ICON_CACHE_KEY] = wikiDocIconCache;
 
-// 문서 목록 캐시
-let wikiDocsAll: any[] | null =
-  (globalThis as any)[WIKI_DOCS_ALL_KEY] ?? null;
+let wikiDocsAll: any[] | null = (globalThis as any)[WIKI_DOCS_ALL_KEY] ?? null;
 const setWikiDocsAll = (rows: any[]) => {
   wikiDocsAll = rows;
   (globalThis as any)[WIKI_DOCS_ALL_KEY] = rows;
 };
 
 // -------------------- 유틸 --------------------
-
-/** 각 상태(각성, 초월, MAX 등)에 맞는 뱃지 배경색 반환 */
-function getPriceBadgeColor(stage: string, type?: string) {
+function getPriceBadgeColor(stage: string, _type?: string) {
   switch (stage) {
-    case '봉인':   return '#444';
+    case '봉인':
+      return '#444';
     case '1각':
     case '2각':
     case '3각':
-    case '4각':    return '#48ea6d';
-    case 'MAX':    return '#ffe360';
-    case '거가':   return '#43b04b';
-    case '거불':   return '#e44c4c';
-    default:       return '#5cacee';
+    case '4각':
+      return '#48ea6d';
+    case 'MAX':
+      return '#ffe360';
+    case '거가':
+      return '#43b04b';
+    case '거불':
+      return '#e44c4c';
+    default:
+      return '#5cacee';
   }
 }
-
-/** 가격 테이블 아이템이 각성/초월/일반 중 어떤 타입인지 유추 */
 function guessPriceMode(item: any): 'normal' | 'awakening' | 'transcend' {
   if (!item.stages) return 'normal';
   const set = new Set(item.stages);
@@ -74,8 +70,7 @@ function guessPriceMode(item: any): 'normal' | 'awakening' | 'transcend' {
   return 'normal';
 }
 
-// -------------------- 메인 렌더러 --------------------
-
+// -------------------- 타입 --------------------
 type PriceTableEditState = {
   blockPath: Path | null;
   idx: number | null;
@@ -89,14 +84,18 @@ type ElementProps = RenderElementProps & {
   setPriceTableEdit: React.Dispatch<React.SetStateAction<PriceTableEditState>>;
 };
 
+// -------------------- 메인 렌더러 --------------------
 const Element: React.FC<ElementProps> = ({
-  attributes, children, element, editor, onIconClick, priceTableEdit, setPriceTableEdit,
+  attributes,
+  children,
+  element,
+  editor,
+  onIconClick,
+  priceTableEdit,
+  setPriceTableEdit,
 }) => {
-  // ✅ 훅은 항상 최상단에서 호출(조건부 호출 금지)
   const slateEditor = useSlate();
   const editorStatic = useSlateStatic();
-
-  // 카드형 가격테이블의 각 아이템에 hover 효과 주기 위해 인덱스 관리
   const [hovered, setHovered] = useState<number | null>(null);
 
   switch (element.type) {
@@ -109,57 +108,51 @@ const Element: React.FC<ElementProps> = ({
       );
     }
 
-    // -------------------- 카드형 링크 블록 --------------------
+    // -------------------- 카드형 링크 블록 (void) --------------------
     case 'link-block': {
       const el = element as LinkBlockElement;
       const isReadOnly = ReactEditor.isReadOnly(editor);
 
-      // 외부 링크 표시값 보정 (hostname /favicon.ico)
       let displaySitename = el.sitename;
-      let displayFavicon  = el.favicon;
+      let displayFavicon = el.favicon;
 
       if (!el.isWiki && (!displaySitename || !displayFavicon)) {
         try {
           const u = new URL(el.url);
           const host = u.hostname.replace(/^www\./, '');
           if (!displaySitename) displaySitename = host;
-          if (!displayFavicon)  displayFavicon  = `${u.protocol}//${u.hostname}/favicon.ico`;
+          if (!displayFavicon) displayFavicon = `${u.protocol}//${u.hostname}/favicon.ico`;
         } catch {}
       }
 
-      // 내부 문서 아이콘 (이모지 또는 이미지 URL) 처리
       const [wikiIcon, setWikiIcon] = React.useState<string | null>(
         el.isWiki ? (el as any).docIcon ?? null : null
       );
 
       React.useEffect(() => {
         if (!el.isWiki || wikiIcon) return;
-
         const key = String(el.wikiPath ?? el.url ?? el.wikiTitle ?? '');
         if (!key) return;
 
-        // 1) 아이콘 캐시에 있으면 즉시 사용
         if (wikiDocIconCache.has(key)) {
           setWikiIcon(wikiDocIconCache.get(key)!);
           return;
         }
 
         let cancelled = false;
-
         (async () => {
           try {
-            // 2) 문서 전체 캐시가 없으면 1회만 로드
             if (!wikiDocsAll) {
               const res = await fetch('/api/documents?all=1');
               const data = await res.json();
               setWikiDocsAll(Array.isArray(data) ? data : []);
             }
             const docs = wikiDocsAll || [];
-            const match = docs.find((d: any) =>
-              (el.wikiPath && String(d.path) === String(el.wikiPath)) ||
-              (el.wikiTitle && d.title === el.wikiTitle)
+            const match = docs.find(
+              (d: any) =>
+                (el.wikiPath && String(d.path) === String(el.wikiPath)) ||
+                (el.wikiTitle && d.title === el.wikiTitle)
             );
-
             const icon = (match?.icon ?? '').trim();
             if (!cancelled) {
               if (icon) {
@@ -174,84 +167,100 @@ const Element: React.FC<ElementProps> = ({
           }
         })();
 
-        return () => { cancelled = true; };
+        return () => {
+          cancelled = true;
+        };
       }, [el.isWiki, el.wikiPath, el.wikiTitle, el.url, wikiIcon]);
 
+      // ✅ 바깥 래퍼에 attributes + children, 실제 UI는 contentEditable={false}
       return (
-        <div
-          {...attributes}
-          contentEditable={false}
-          style={{
-            position: 'relative',
-            display: 'flex',
-            alignItems: 'center',
-            padding: 12,
-            border: '1px solid #ddd',
-            borderRadius: 6,
-            marginBottom: 8,
-            width: el.size === 'small' ? '48%' : '100%',
-          }}
-        >
-          {!isReadOnly && (
-            <button
-              type="button"
-              aria-label="링크 카드 삭제"
-              contentEditable={false}
-              onClick={() => {
-                const path = ReactEditor.findPath(editor, element);
-                Transforms.removeNodes(editor, { at: path });
-              }}
-              style={{
-                position: 'absolute', top: 4, right: 6,
-                border: '1px solid #ccc', background: '#f8f8f8',
-                color: '#555', borderRadius: '50%',
-                width: 20, height: 20, fontSize: 13, fontWeight: 'bold',
-                lineHeight: '20px', textAlign: 'center',
-                padding: 0, cursor: 'pointer',
-                transition: 'background 0.2s',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#e0e0e0')}
-              onMouseLeave={e => (e.currentTarget.style.background = '#f8f8f8')}
-            >×</button>
-          )}
-
-          {/* 아이콘 영역: 내부문서는 문서 아이콘, 외부는 파비콘 */}
-          {el.isWiki ? (
-            wikiIcon
-              ? (wikiIcon.startsWith('http')
-                  ? <img src={wikiIcon} alt="doc icon" style={{ width: 24, height: 24, marginRight: 8, objectFit: 'contain' }} />
-                  : <span style={{ fontSize: 20, marginRight: 8, lineHeight: 1 }}>{wikiIcon}</span>
-                )
-              : null
-          ) : (
-            displayFavicon && (
-              <img src={displayFavicon} alt="favicon" style={{ width: 24, height: 24, marginRight: 8 }} />
-            )
-          )}
-
-          {/* 타이틀/링크 */}
-          <a
-            href={el.url}
-            target={el.isWiki ? undefined : '_blank'}
-            rel={el.isWiki ? undefined : 'noopener noreferrer'}
-            style={{ color: '#0070f3', textDecoration: 'none', flexGrow: 1 }}
+        <div {...attributes} style={{ position: 'relative' }}>
+          <div
+            contentEditable={false}
+            style={{
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+              padding: 12,
+              border: '1px solid #ddd',
+              borderRadius: 6,
+              marginBottom: 8,
+              width: el.size === 'small' ? '48%' : '100%',
+            }}
           >
-            {el.isWiki
-              ? (el.wikiTitle || el.sitename || '문서')
-              : (displaySitename || el.url)}
-          </a>
+            {!isReadOnly && (
+              <button
+                type="button"
+                aria-label="링크 카드 삭제"
+                onClick={() => {
+                  const path = ReactEditor.findPath(editor, element);
+                  Transforms.removeNodes(editor, { at: path });
+                }}
+                style={{
+                  position: 'absolute',
+                  top: 4,
+                  right: 6,
+                  width: 20,
+                  height: 20,
+                  lineHeight: '20px',
+                  fontSize: 20,
+                  fontWeight: 'bold',
+                  textAlign: 'center',
+                  color: '#e11d48', // 빨간색
+                  background: 'transparent',
+                  border: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                }}
+              >
+                ×
+              </button>
+            )}
+
+            {/* 아이콘 영역 */}
+            {el.isWiki ? (
+              wikiIcon ? (
+                wikiIcon.startsWith('http') ? (
+                  <img
+                    src={wikiIcon}
+                    alt="doc icon"
+                    style={{ width: 24, height: 24, marginRight: 8, objectFit: 'contain' }}
+                  />
+                ) : (
+                  <span style={{ fontSize: 20, marginRight: 8, lineHeight: 1 }}>{wikiIcon}</span>
+                )
+              ) : null
+            ) : (
+              displayFavicon && (
+                <img src={displayFavicon} alt="favicon" style={{ width: 24, height: 24, marginRight: 8 }} />
+              )
+            )}
+
+            {/* 타이틀/링크 */}
+            <a
+              href={el.url}
+              target={el.isWiki ? undefined : '_blank'}
+              rel={el.isWiki ? undefined : 'noopener noreferrer'}
+              style={{ color: '#0070f3', textDecoration: 'none', flexGrow: 1 }}
+            >
+              {el.isWiki ? el.wikiTitle || el.sitename || '문서' : displaySitename || el.url}
+            </a>
+          </div>
+
+          {/* ⚠️ 반드시 렌더링: Slate의 보이지 않는 텍스트 노드 자리 */}
+          {children}
         </div>
       );
     }
 
-    // -------------------- Heading(h1, h2, h3) --------------------
+    // -------------------- Heading --------------------
     case 'heading-one':
     case 'heading-two':
     case 'heading-three': {
       const el = element as HeadingOneElement | HeadingTwoElement | HeadingThreeElement;
       const level = el.type === 'heading-one' ? 1 : el.type === 'heading-two' ? 2 : 3;
       const fontSize = level === 1 ? '28px' : level === 2 ? '22px' : '18px';
-      const Tag = (`h${level}` as 'h1' | 'h2' | 'h3');
+      const Tag = `h${level}` as 'h1' | 'h2' | 'h3';
 
       return (
         <Tag
@@ -259,82 +268,83 @@ const Element: React.FC<ElementProps> = ({
           id={getHeadingId(el)}
           style={{ fontSize, textAlign: el.textAlign || 'left', display: 'flex', alignItems: 'center', gap: 8 }}
         >
-          {/* 아이콘 클릭 시 아이콘 수정 모달 오픈 */}
           <span
             onClick={() => onIconClick(el)}
             contentEditable={false}
             style={{ cursor: 'pointer', marginRight: 8, display: 'inline-flex', alignItems: 'center' }}
           >
-            {el.icon?.startsWith('http')
-              ? <img src={el.icon} alt="icon" style={{ width: '1.7em', height: '1.7em', verticalAlign: 'middle', marginRight: 6, objectFit: 'contain' }} />
-              : <span style={{ fontSize: '1.5em', marginRight: 6 }}>{el.icon || (level === 1 ? '📌' : level === 2 ? '🔖' : '📝')}</span>
-            }
+            {el.icon?.startsWith('http') ? (
+              <img
+                src={el.icon}
+                alt="icon"
+                style={{ width: '1.7em', height: '1.7em', verticalAlign: 'middle', marginRight: 6, objectFit: 'contain' }}
+              />
+            ) : (
+              <span style={{ fontSize: '1.5em', marginRight: 6 }}>{el.icon || (level === 1 ? '📌' : level === 2 ? '🔖' : '📝')}</span>
+            )}
           </span>
           <span style={{ display: 'inline' }}>{children}</span>
         </Tag>
       );
     }
 
-    // -------------------- Divider(구분선) --------------------
+    // -------------------- Divider (void) --------------------
     case 'divider': {
-      const style = (element as any).style || "default";
-      const borderColor = "#e0e0e0";
-      switch (style) {
-        case "bold":
-          return (
-            <div {...attributes} style={{ width: '70%', margin: "32px auto", textAlign: 'center' }}>
-              <hr style={{ border: 0, borderTop: `4px solid ${borderColor}`, width: "100%", margin: "0 auto" }} />
-            </div>
-          );
-        case "shortbold":
-          return (
-            <div {...attributes} style={{ width: 82, margin: "34px auto", textAlign: 'center' }}>
-              <hr style={{ border: 0, borderTop: `5px solid ${borderColor}`, width: "100%", margin: "0 auto" }} />
-            </div>
-          );
-        case "dotted":
-          return (
-            <div {...attributes} style={{ width: '70%', margin: "28px auto", textAlign: 'center' }}>
-              <hr style={{ border: 0, borderTop: `2px dotted ${borderColor}`, width: "100%", margin: "0 auto" }} />
-            </div>
-          );
-        case "diamond":
-          return (
-            <div {...attributes} style={{ textAlign: 'center', margin: "14px 0" }}>
-              <span style={{ fontSize: 24, letterSpacing: 12, color: borderColor }}>◇───◇</span>
-            </div>
-          );
-        case "diamonddot":
-          return (
-            <div {...attributes} style={{ textAlign: 'center', margin: "14px 0" }}>
-              <span style={{ fontSize: 22, letterSpacing: 6, color: borderColor }}>◇ ⋅ ⋅ ⋅ ◇</span>
-            </div>
-          );
-        case "dotdot":
-          return (
-            <div {...attributes} style={{ width: '100%', margin: "30px 0", textAlign: 'center' }}>
-              <span style={{ fontSize: 28, letterSpacing: 8, color: borderColor }}>• • • • • • •</span>
-            </div>
-          );
-        case "slash":
-          return (
-            <div {...attributes} style={{ width: '100%', margin: "30px 0", textAlign: 'center' }}>
-              <span style={{ fontSize: 30, letterSpacing: 14, color: borderColor }}>/  /  /</span>
-            </div>
-          );
-        case "bar":
-          return (
-            <div {...attributes} style={{ width: '100%', margin: "28px 0", textAlign: 'center' }}>
-              <span style={{ fontSize: 22, color: borderColor }}>|</span>
-            </div>
-          );
-        default:
-          return (
-            <div {...attributes} style={{ width: '70%', margin: "24px auto", textAlign: 'center' }}>
-              <hr style={{ border: 0, borderTop: `1.5px solid ${borderColor}`, width: "100%", margin: "0 auto" }} />
-            </div>
-          );
-      }
+      const styleType = (element as any).style || 'default';
+      const borderColor = '#e0e0e0';
+
+      return (
+        <div {...attributes}>
+          <div contentEditable={false}>
+            {styleType === 'bold' && (
+              <div style={{ width: '70%', margin: '32px auto', textAlign: 'center' }}>
+                <hr style={{ border: 0, borderTop: `4px solid ${borderColor}`, width: '100%', margin: '0 auto' }} />
+              </div>
+            )}
+            {styleType === 'shortbold' && (
+              <div style={{ width: 82, margin: '34px auto', textAlign: 'center' }}>
+                <hr style={{ border: 0, borderTop: `5px solid ${borderColor}`, width: '100%', margin: '0 auto' }} />
+              </div>
+            )}
+            {styleType === 'dotted' && (
+              <div style={{ width: '70%', margin: '28px auto', textAlign: 'center' }}>
+                <hr style={{ border: 0, borderTop: `2px dotted ${borderColor}`, width: '100%', margin: '0 auto' }} />
+              </div>
+            )}
+            {styleType === 'diamond' && (
+              <div style={{ textAlign: 'center', margin: '14px 0' }}>
+                <span style={{ fontSize: 24, letterSpacing: 12, color: borderColor }}>◇───◇</span>
+              </div>
+            )}
+            {styleType === 'diamonddot' && (
+              <div style={{ textAlign: 'center', margin: '14px 0' }}>
+                <span style={{ fontSize: 22, letterSpacing: 6, color: borderColor }}>◇ ⋅ ⋅ ⋅ ◇</span>
+              </div>
+            )}
+            {styleType === 'dotdot' && (
+              <div style={{ width: '100%', margin: '30px 0', textAlign: 'center' }}>
+                <span style={{ fontSize: 28, letterSpacing: 8, color: borderColor }}>• • • • • • •</span>
+              </div>
+            )}
+            {styleType === 'slash' && (
+              <div style={{ width: '100%', margin: '30px 0', textAlign: 'center' }}>
+                <span style={{ fontSize: 30, letterSpacing: 14, color: borderColor }}>/  /  /</span>
+              </div>
+            )}
+            {styleType === 'bar' && (
+              <div style={{ width: '100%', margin: '28px 0', textAlign: 'center' }}>
+                <span style={{ fontSize: 22, color: borderColor }}>|</span>
+              </div>
+            )}
+            {styleType === 'default' && (
+              <div style={{ width: '70%', margin: '24px auto', textAlign: 'center' }}>
+                <hr style={{ border: 0, borderTop: `1.5px solid ${borderColor}`, width: '100%', margin: '0 auto' }} />
+              </div>
+            )}
+          </div>
+          {children}
+        </div>
+      );
     }
 
     // -------------------- 기본 단락 --------------------
@@ -342,11 +352,11 @@ const Element: React.FC<ElementProps> = ({
       const el = element as ParagraphElement;
       const indentLine = (el as any).indentLine;
 
-      // 연속된 indentLine 단락 구분을 위한 class 추가
-      let extraClass = "";
+      let extraClass = '';
       if (indentLine) {
         const path = ReactEditor.findPath(slateEditor, element);
-        let isFirst = true, isLast = true;
+        let isFirst = true,
+          isLast = true;
         try {
           const prevPath = Path.previous(path);
           const prevNode = Node.get(slateEditor, prevPath) as any;
@@ -357,8 +367,8 @@ const Element: React.FC<ElementProps> = ({
           const nextNode = Node.get(slateEditor, nextPath) as any;
           if (nextNode && nextNode.indentLine) isLast = false;
         } catch {}
-        if (isFirst) extraClass += " start";
-        if (isLast) extraClass += " end";
+        if (isFirst) extraClass += ' start';
+        if (isLast) extraClass += ' end';
       }
 
       return (
@@ -379,7 +389,6 @@ const Element: React.FC<ElementProps> = ({
 
     // -------------------- 정보 박스 --------------------
     case 'info-box': {
-      // 툴바/데이터에 저장된 키 이름들이 프로젝트마다 달라서 폭넓게 수용
       const raw =
         (element as any).boxType ||
         (element as any).variant ||
@@ -388,47 +397,39 @@ const Element: React.FC<ElementProps> = ({
         'note';
 
       const tone: 'note' | 'warn' | 'danger' | 'tip' =
-        raw === 'danger' || raw === 'error' ? 'danger' :
-        raw === 'warn'   || raw === 'warning' ? 'warn' :
-        raw === 'tip'    || raw === 'success' ? 'tip'  :
-                          'note';
+        raw === 'danger' || raw === 'error'
+          ? 'danger'
+          : raw === 'warn' || raw === 'warning'
+          ? 'warn'
+          : raw === 'tip' || raw === 'success'
+          ? 'tip'
+          : 'note';
 
       return (
         <div {...attributes} className={`infobox infobox--${tone}`}>
-          {/* 아이콘은 CSS ::before에서 mask-image로 채움 */}
           <span className="infobox__icon" aria-hidden="true" contentEditable={false} />
           <div className="infobox__body">{children}</div>
         </div>
       );
     }
 
-    // -------------------- 본문 내 삽입 이미지 --------------------
+    // -------------------- 본문 내 삽입 이미지 (void) --------------------
     case 'image': {
       const el = element as any;
       const selected = useSelected();
       const focused = useFocused();
       const [modalOpen, setModalOpen] = useState(false);
 
-      // 이미지 크기 편집 아이콘
-      const EditIcon = ({ size = 18, color = "#2a90ff" }) => (
+      const EditIcon = ({ size = 18, color = '#2a90ff' }) => (
         <svg width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden>
-          <path d="M3 17h3.8a1 1 0 0 0 .7-.3l8.4-8.4a2 2 0 0 0 0-2.8l-1.7-1.7a2 2 0 0 0-2.8 0L3.3 12.2a1 1 0 0 0-.3.7V17z" stroke={color} strokeWidth="1.7"/>
-          <path d="M11.7 6.3l2.5 2.5" stroke={color} strokeWidth="1.7"/>
+          <path d="M3 17h3.8a1 1 0 0 0 .7-.3l8.4-8.4a2 2 0 0 0 0-2.8l-1.7-1.7a2 2 0 0 0-2.8 0L3.3 12.2a1 1 0 0 0-.3.7V17z" stroke={color} strokeWidth="1.7" />
+          <path d="M11.7 6.3l2.5 2.5" stroke={color} strokeWidth="1.7" />
         </svg>
       );
 
       let justifyContent: 'flex-start' | 'center' | 'flex-end' = 'center';
       if (el.textAlign === 'left') justifyContent = 'flex-start';
       else if (el.textAlign === 'right') justifyContent = 'flex-end';
-
-      const handleClick = (e: React.MouseEvent) => {
-        if (!(selected && focused)) {
-          e.preventDefault();
-          const path = ReactEditor.findPath(editor, element);
-          Transforms.select(editor, path);
-          ReactEditor.focus(editor);
-        }
-      };
 
       const handleEditBadgeClick = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -441,60 +442,67 @@ const Element: React.FC<ElementProps> = ({
         setModalOpen(false);
       };
 
+      // ✅ 바깥 래퍼에 attributes + children, 실제 UI는 contentEditable={false}
       return (
-        <div
-          {...attributes}
-          contentEditable={false}
-          style={{
-            margin: "16px 0",
-            display: "flex",
-            flexDirection: "row",
-            justifyContent,
-            alignItems: "flex-start",
-            minHeight: 40,
-          }}
-          onClick={handleClick}
-        >
-          <div style={{ position: "relative", display: "inline-block" }}>
-            <img
-              src={el.url}
-              alt=""
-              style={{
-                maxWidth: el.width ? el.width + "px" : "90%",
-                height: el.height ? el.height + "px" : "auto",
-                borderRadius: 10,
-                boxShadow: "0 2px 12px 0 #0001",
-                background: "#fff",
-                display: "block",
-                border: (selected && focused) ? "2px solid #2a90ff" : "none",
-                transition: "border 0.1s",
-              }}
-            />
-            {(selected && focused) && (
-              <button
-                type="button"
-                aria-label="이미지 크기 편집"
+        <div {...attributes} style={{ margin: '16px 0' }}>
+          <div
+            contentEditable={false}
+            style={{
+              display: 'flex',
+              flexDirection: 'row',
+              justifyContent,
+              alignItems: 'flex-start',
+              minHeight: 40,
+            }}
+          >
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+              <img
+                src={el.url}
+                alt=""
                 style={{
-                  position: "absolute", top: 8, right: 8,
-                  background: "#fff",
-                  border: "1.5px solid #2a90ff",
-                  borderRadius: "50%",
-                  boxShadow: "0 1px 5px #0001",
-                  width: 32, height: 32,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  cursor: "pointer",
-                  zIndex: 1,
-                  padding: 0,
+                  maxWidth: el.width ? el.width + 'px' : '90%',
+                  height: el.height ? el.height + 'px' : 'auto',
+                  borderRadius: 10,
+                  boxShadow: '0 2px 12px 0 #0001',
+                  background: '#fff',
+                  display: 'block',
+                  border: selected && focused ? '2px solid #2a90ff' : 'none',
+                  transition: 'border 0.1s',
                 }}
-                tabIndex={-1}
-                onClick={handleEditBadgeClick}
-                title="이미지 크기 편집"
-              >
-                <EditIcon size={18} color="#2a90ff" />
-              </button>
-            )}
+              />
+              {selected && focused && (
+                <button
+                  type="button"
+                  aria-label="이미지 크기 편집"
+                  style={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    background: '#fff',
+                    border: '1.5px solid #2a90ff',
+                    borderRadius: '50%',
+                    boxShadow: '0 1px 5px #0001',
+                    width: 32,
+                    height: 32,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    zIndex: 1,
+                    padding: 0,
+                  }}
+                  tabIndex={-1}
+                  onClick={handleEditBadgeClick}
+                  title="이미지 크기 편집"
+                >
+                  <EditIcon size={18} color="#2a90ff" />
+                </button>
+              )}
+            </div>
           </div>
+
           {children}
+
           <ImageSizeModal
             open={modalOpen}
             width={el.width}
@@ -507,28 +515,21 @@ const Element: React.FC<ElementProps> = ({
     }
 
     // -------------------- 인라인 이미지 --------------------
-    case 'inline-image' : {
+    case 'inline-image': {
       const el = element as InlineImageElement;
       return (
         <span {...attributes} contentEditable={false} style={{ display: 'inline-block', verticalAlign: 'middle' }}>
           <img
             src={el.url}
             alt=""
-            style={{
-              height: '3em',
-              width: 'auto',
-              display: 'inline',
-              verticalAlign: 'middle',
-              margin: '0 2px',
-              borderRadius: 4,
-            }}
+            style={{ height: '3em', width: 'auto', display: 'inline', verticalAlign: 'middle', margin: '0 2px', borderRadius: 4 }}
           />
           {children}
         </span>
       );
     }
 
-    // -------------------- 인라인 마크(강조 텍스트) --------------------
+    // -------------------- 인라인 마크 --------------------
     case 'inline-mark': {
       const el = element as InlineMarkElement;
       return (
@@ -553,12 +554,11 @@ const Element: React.FC<ElementProps> = ({
       );
     }
 
-    // -------------------- 가격표 카드 블럭 --------------------
+    // -------------------- 가격표 카드 블럭 (void) --------------------
     case 'price-table-card': {
       const el = element as PriceTableCardElement;
       const path = ReactEditor.findPath(editorStatic, el);
 
-      // 가격표 블럭 내에서 Backspace 방지(전체 삭제 방지)
       useEffect(() => {
         const handler = (e: KeyboardEvent) => {
           const { selection } = editorStatic;
@@ -572,9 +572,10 @@ const Element: React.FC<ElementProps> = ({
         return () => window.removeEventListener('keydown', handler, true);
       }, [editorStatic]);
 
-      // 단계별 인덱스 관리
       const [stageIdxArr, setStageIdxArr] = useState(el.items.map(() => 0));
-      useEffect(() => { setStageIdxArr(el.items.map(() => 0)); }, [el.items]);
+      useEffect(() => {
+        setStageIdxArr(el.items.map(() => 0));
+      }, [el.items]);
 
       const handlePrev = (idx: number, len: number) => {
         setStageIdxArr(arr => arr.map((v, i) => (i === idx ? (v - 1 + len) % len : v)));
@@ -583,278 +584,348 @@ const Element: React.FC<ElementProps> = ({
         setStageIdxArr(arr => arr.map((v, i) => (i === idx ? (v + 1) % len : v)));
       };
 
+      // ✅ 바깥 래퍼에 attributes + children, 실제 UI는 contentEditable={false}
       return (
-        <div
-          {...attributes}
-          contentEditable={false}
-          style={{
-            width: '100%',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            minHeight: 0,
-            boxSizing: 'border-box',
-            padding: '10px 0',
-            margin: '10px 0',
-            marginLeft: 10,
-            position: 'relative',
-          }}
-        >
-          {/* 카드 전체 삭제 */}
-          <button
-            type="button"
-            aria-label="시세표 블럭 삭제"
-            style={{
-              position: 'absolute',
-              top: 10,
-              right: 10,
-              zIndex: 10,
-              background: '#fff',
-              color: '#d34b4b',
-              border: '1.2px solid #e6b7b7',
-              borderRadius: '50%',
-              width: 26, height: 26,
-              fontWeight: 900,
-              fontSize: 16,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 1px 8px #0001',
-              cursor: 'pointer',
-              transition: 'background 0.13s',
-            }}
-            title="시세표 블럭 삭제"
-            tabIndex={-1}
-            onClick={e => {
-              e.stopPropagation();
-              const pathToRemove = ReactEditor.findPath(editorStatic, element);
-              Transforms.removeNodes(editorStatic, { at: pathToRemove });
-            }}
-          >×</button>
-
-          {/* 가격카드(여러개 지원) */}
+        <div {...attributes}>
           <div
+            contentEditable={false}
             style={{
-              display: 'flex',
-              flexDirection: 'row',
-              gap: 25,
-              flexWrap: 'nowrap',
               width: '100%',
+              display: 'flex',
               justifyContent: 'center',
-              margin: '0 auto',
-              maxWidth: 1040,
+              alignItems: 'center',
+              minHeight: 0,
+              boxSizing: 'border-box',
+              padding: '10px 0',
+              margin: '10px 0',
+              marginLeft: 10,
+              position: 'relative',
             }}
           >
-            {el.items.map((item, idx) => {
-              const stages = item.stages || ['가격'];
-              const prices = item.prices || [0];
-              const curIdx = stageIdxArr[idx] ?? 0;
-              const stage = stages[curIdx] ?? '';
-              const price = prices[curIdx] ?? 0;
-              const badgeColor = getPriceBadgeColor(stage, item.colorType);
+            <button
+              type="button"
+              aria-label="시세표 블럭 삭제"
+              style={{
+                position: 'absolute',
+                top: 10,
+                right: 10,
+                zIndex: 10,
+                background: '#fff',
+                color: '#d34b4b',
+                border: '1.2px solid #e6b7b7',
+                borderRadius: '50%',
+                width: 26,
+                height: 26,
+                fontWeight: 900,
+                fontSize: 16,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 1px 8px #0001',
+                cursor: 'pointer',
+                transition: 'background 0.13s',
+              }}
+              title="시세표 블럭 삭제"
+              tabIndex={-1}
+              onClick={e => {
+                e.stopPropagation();
+                const pathToRemove = ReactEditor.findPath(editorStatic, element);
+                Transforms.removeNodes(editorStatic, { at: pathToRemove });
+              }}
+            >
+              ×
+            </button>
 
-              // 이름/이미지/가격 인라인 편집 상태
-              const [editingName, setEditingName] = useState(false);
-              const [editNameValue, setEditNameValue] = useState(item.name || '');
-              const [imageModalOpen, setImageModalOpen] = useState(false);
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'row',
+                gap: 25,
+                flexWrap: 'nowrap',
+                width: '100%',
+                justifyContent: 'center',
+                margin: '0 auto',
+                maxWidth: 1040,
+              }}
+            >
+              {el.items.map((item, idx) => {
+                const stages = item.stages || ['가격'];
+                const prices = item.prices || [0];
+                const curIdx = stageIdxArr[idx] ?? 0;
+                const stage = stages[curIdx] ?? '';
+                const price = prices[curIdx] ?? 0;
+                const badgeColor = getPriceBadgeColor(stage, item.colorType);
 
-              const handleImageSelect = (url: string) => {
-                const newItems = el.items.map((itm, i) =>
-                  i === idx ? { ...itm, image: url } : itm
-                );
-                Transforms.setNodes(editorStatic, { items: newItems }, { at: path });
-                setImageModalOpen(false);
-              };
+                const [editingName, setEditingName] = useState(false);
+                const [editNameValue, setEditNameValue] = useState(item.name || '');
+                const [imageModalOpen, setImageModalOpen] = useState(false);
 
-              const handleNameSave = () => {
-                const newItems = el.items.map((itm, i) =>
-                  i === idx ? { ...itm, name: editNameValue } : itm
-                );
-                Transforms.setNodes(editorStatic, { items: newItems }, { at: path });
-                setEditingName(false);
-              };
+                const handleImageSelect = (url: string) => {
+                  const newItems = el.items.map((itm, i) => (i === idx ? { ...itm, image: url } : itm));
+                  Transforms.setNodes(editorStatic, { items: newItems }, { at: path });
+                  setImageModalOpen(false);
+                };
 
-              return (
-                <div
-                  key={idx}
-                  style={{
-                    background: '#fff',
-                    borderRadius: 15,
-                    padding: 8,
-                    boxShadow: '0 4px 24px 0 rgba(60,60,80,0.12)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    position: 'relative',
-                    minWidth: 140,
-                    maxWidth: 140,
-                    minHeight: 160,
-                    transition: 'box-shadow .15s',
-                    zIndex: 0,
-                    margin: '0 8px'
-                  }}
-                  onMouseEnter={() => setHovered(idx)}
-                  onMouseLeave={() => setHovered(null)}
-                >
-                  {/* 단계 뱃지 */}
-                  {stages.length > 1 && (
-                    <div style={{
-                      position: 'absolute', top: 5, left: '50%',
-                      transform: 'translateX(-50%)', zIndex: 3, width: 66,
-                      display: 'flex', justifyContent: 'center'
-                    }}>
-                      <span style={{
-                        background: badgeColor,
-                        color: stage === '봉인' ? '#fff' : '#222',
-                        padding: '4px 0px',
-                        borderRadius: 12,
+                const handleNameSave = () => {
+                  const newItems = el.items.map((itm, i) => (i === idx ? { ...itm, name: editNameValue } : itm));
+                  Transforms.setNodes(editorStatic, { items: newItems }, { at: path });
+                  setEditingName(false);
+                };
+
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      background: '#fff',
+                      borderRadius: 15,
+                      padding: 8,
+                      boxShadow: '0 4px 24px 0 rgba(60,60,80,0.12)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      position: 'relative',
+                      minWidth: 140,
+                      maxWidth: 140,
+                      minHeight: 160,
+                      transition: 'box-shadow .15s',
+                      zIndex: 0,
+                      margin: '0 8px',
+                    }}
+                    onMouseEnter={() => setHovered(idx)}
+                    onMouseLeave={() => setHovered(null)}
+                  >
+                    {stages.length > 1 && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: 5,
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          zIndex: 3,
+                          width: 66,
+                          display: 'flex',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <span
+                          style={{
+                            background: badgeColor,
+                            color: stage === '봉인' ? '#fff' : '#222',
+                            padding: '4px 0px',
+                            borderRadius: 12,
+                            fontWeight: 700,
+                            fontSize: 15,
+                            width: 66,
+                            display: 'inline-block',
+                            boxShadow: '0 1px 8px #0001',
+                            border: '1.5px solid #fff',
+                            textAlign: 'center',
+                            letterSpacing: 1,
+                            transition: 'background .1s',
+                          }}
+                        >
+                          {stage}
+                        </span>
+                      </div>
+                    )}
+
+                    {hovered === idx && (
+                      <>
+                        <button
+                          type="button"
+                          aria-label="이전 단계"
+                          style={{
+                            position: 'absolute',
+                            left: -12,
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: '#fff',
+                            border: '1.2px solid #eee',
+                            borderRadius: '50%',
+                            width: 28,
+                            height: 28,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            fontWeight: 800,
+                            fontSize: 16,
+                            boxShadow: '0 2px 6px #0001',
+                            zIndex: 2,
+                          }}
+                          tabIndex={-1}
+                          onClick={e => {
+                            e.stopPropagation();
+                            handlePrev(idx, stages.length);
+                          }}
+                          title="이전"
+                        >
+                          ◀
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="다음 단계"
+                          style={{
+                            position: 'absolute',
+                            right: -12,
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: '#fff',
+                            border: '1.2px solid #eee',
+                            borderRadius: '50%',
+                            width: 28,
+                            height: 28,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            fontWeight: 800,
+                            fontSize: 16,
+                            boxShadow: '0 2px 6px #0001',
+                            zIndex: 2,
+                          }}
+                          tabIndex={-1}
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleNext(idx, stages.length);
+                          }}
+                          title="다음"
+                        >
+                          ▶
+                        </button>
+                      </>
+                    )}
+
+                    <div
+                      style={{
+                        marginBottom: 10,
+                        marginTop: 34,
+                        cursor: 'pointer',
+                        width: 65,
+                        height: 65,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                      onClick={e => {
+                        e.stopPropagation();
+                        setImageModalOpen(true);
+                      }}
+                      title="이미지 변경"
+                    >
+                      {item.image ? (
+                        <img
+                          src={item.image}
+                          alt=""
+                          style={{ width: 65, height: 65, objectFit: 'contain', borderRadius: 7, background: '#fff' }}
+                        />
+                      ) : (
+                        <span style={{ width: 54, height: 54, background: '#ececec', borderRadius: 7, display: 'inline-block' }} />
+                      )}
+                    </div>
+                    <ImageSelectModal
+                      open={imageModalOpen}
+                      onClose={() => setImageModalOpen(false)}
+                      onSelectImage={handleImageSelect}
+                    />
+
+                    <div
+                      style={{
                         fontWeight: 700,
-                        fontSize: 15,
-                        width: 66,
-                        display: 'inline-block',
-                        boxShadow: '0 1px 8px #0001',
-                        border: '1.5px solid #fff',
+                        fontSize: 20,
+                        marginBottom: 0,
+                        color: item.name ? '#333' : '#bbb',
+                        textAlign: 'center',
+                        minHeight: 24,
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {editingName ? (
+                        <input
+                          value={editNameValue}
+                          onChange={e => setEditNameValue(e.target.value)}
+                          onBlur={handleNameSave}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') handleNameSave();
+                            if (e.key === 'Escape') setEditingName(false);
+                          }}
+                          style={{
+                            fontSize: 20,
+                            fontWeight: 700,
+                            color: '#333',
+                            textAlign: 'center',
+                            border: '1.5px solid #b4cafe',
+                            borderRadius: 6,
+                            padding: '2px 6px',
+                            outline: 'none',
+                            width: '80%',
+                          }}
+                        />
+                      ) : (
+                        <span
+                          style={{ cursor: 'pointer', width: '100%' }}
+                          onClick={e => {
+                            e.stopPropagation();
+                            setEditNameValue(item.name || '');
+                            setEditingName(true);
+                          }}
+                          title="이름 수정"
+                        >
+                          {item.name || <span style={{ color: '#bbb' }}>이름 없음</span>}
+                        </span>
+                      )}
+                    </div>
+
+                    <div
+                      style={{
+                        fontWeight: 800,
+                        fontSize: 20,
+                        color: '#5b80f5',
                         textAlign: 'center',
                         letterSpacing: 1,
-                        transition: 'background .1s'
-                      }}>
-                        {stage}
-                      </span>
+                        marginTop: 3,
+                        cursor: 'pointer',
+                        borderRadius: 8,
+                        padding: '2px 10px',
+                        transition: 'background 0.1s',
+                        minHeight: 28,
+                      }}
+                      title="가격 수정"
+                      onClick={e => {
+                        e.stopPropagation();
+                        setPriceTableEdit({ blockPath: path, idx, item: { ...item, mode: guessPriceMode(item) } });
+                      }}
+                    >
+                      {price}
                     </div>
-                  )}
-
-                  {/* 단계 전환(좌/우 화살표) */}
-                  {hovered === idx && (
-                    <>
-                      <button
-                        type="button"
-                        aria-label="이전 단계"
-                        style={{
-                          position: 'absolute', left: -12, top: '50%',
-                          transform: 'translateY(-50%)',
-                          background: '#fff', border: '1.2px solid #eee',
-                          borderRadius: '50%', width: 28, height: 28,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          cursor: 'pointer', fontWeight: 800, fontSize: 16,
-                          boxShadow: '0 2px 6px #0001', zIndex: 2
-                        }}
-                        tabIndex={-1}
-                        onClick={e => { e.stopPropagation(); handlePrev(idx, stages.length); }}
-                        title="이전"
-                      >◀</button>
-                      <button
-                        type="button"
-                        aria-label="다음 단계"
-                        style={{
-                          position: 'absolute', right: -12, top: '50%',
-                          transform: 'translateY(-50%)',
-                          background: '#fff', border: '1.2px solid #eee',
-                          borderRadius: '50%', width: 28, height: 28,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          cursor: 'pointer', fontWeight: 800, fontSize: 16,
-                          boxShadow: '0 2px 6px #0001', zIndex: 2
-                        }}
-                        tabIndex={-1}
-                        onClick={e => { e.stopPropagation(); handleNext(idx, stages.length); }}
-                        title="다음"
-                      >▶</button>
-                    </>
-                  )}
-
-                  {/* 이미지, 클릭시 이미지 선택 모달 */}
-                  <div
-                    style={{
-                      marginBottom: 10, marginTop: 34, cursor: 'pointer',
-                      width: 65, height: 65, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                    }}
-                    onClick={e => {
-                      e.stopPropagation();
-                      setImageModalOpen(true);
-                    }}
-                    title="이미지 변경"
-                  >
-                    {item.image
-                      ? <img src={item.image} alt="" style={{ width: 65, height: 65, objectFit: 'contain', borderRadius: 7, background: '#fff' }} />
-                      : <span style={{ width: 54, height: 54, background: '#ececec', borderRadius: 7, display: 'inline-block' }} />}
                   </div>
-                  <ImageSelectModal
-                    open={imageModalOpen}
-                    onClose={() => setImageModalOpen(false)}
-                    onSelectImage={handleImageSelect}
-                  />
-
-                  {/* 이름 인라인 편집 */}
-                  <div style={{
-                    fontWeight: 700, fontSize: 20, marginBottom: 0, color: item.name ? '#333' : '#bbb', textAlign: 'center',
-                    minHeight: 24, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                  }}>
-                    {editingName ? (
-                      <input
-                        value={editNameValue}
-                        onChange={e => setEditNameValue(e.target.value)}
-                        onBlur={handleNameSave}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') handleNameSave();
-                          if (e.key === 'Escape') setEditingName(false);
-                        }}
-                        style={{
-                          fontSize: 20,
-                          fontWeight: 700,
-                          color: '#333',
-                          textAlign: 'center',
-                          border: '1.5px solid #b4cafe',
-                          borderRadius: 6,
-                          padding: '2px 6px',
-                          outline: 'none',
-                          width: '80%',
-                        }}
-                      />
-                    ) : (
-                      <span
-                        style={{ cursor: 'pointer', width: '100%' }}
-                        onClick={e => {
-                          e.stopPropagation();
-                          setEditNameValue(item.name || '');
-                          setEditingName(true);
-                        }}
-                        title="이름 수정"
-                      >
-                        {item.name || <span style={{ color: '#bbb' }}>이름 없음</span>}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* 가격 클릭 시 가격 수정 모달 */}
-                  <div
-                    style={{
-                      fontWeight: 800, fontSize: 20, color: '#5b80f5', textAlign: 'center', letterSpacing: 1, marginTop: 3,
-                      cursor: 'pointer', borderRadius: 8, padding: '2px 10px',
-                      transition: 'background 0.1s', minHeight: 28
-                    }}
-                    title="가격 수정"
-                    onClick={e => {
-                      e.stopPropagation();
-                      setPriceTableEdit({ blockPath: path, idx, item: { ...item, mode: guessPriceMode(item) } });
-                    }}
-                  >
-                    {price}
-                  </div>
-                </div>
-              );
-            })}
-            {children}
+                );
+              })}
+            </div>
           </div>
+
+          {children}
         </div>
       );
     }
 
-    // -------------------- 한 줄에 여러 링크 블록 --------------------
+    // -------------------- 한 줄에 여러 링크 블록 (컨테이너) --------------------
     case 'link-block-row': {
+      // ✅ 컨테이너는 contentEditable=false 제거 (자식 void들이 관리)
       return (
-        <div {...attributes} contentEditable={false} style={{
-          display: 'flex',
-          gap: 12,
-          margin: '8px 0',
-          width: '100%',
-        }}>
+        <div
+          {...attributes}
+          style={{
+            display: 'flex',
+            gap: 12,
+            margin: '8px 0',
+            width: '100%',
+            flexWrap: 'wrap',
+          }}
+        >
           {children}
         </div>
       );
@@ -864,14 +935,14 @@ const Element: React.FC<ElementProps> = ({
     default: {
       const el = element as any;
       const textAlign = 'textAlign' in el ? el.textAlign : 'left';
-      if (
-        Array.isArray(children) &&
-        children.length === 1 &&
-        typeof children[0] === "string"
-      ) {
+      if (Array.isArray(children) && children.length === 1 && typeof children[0] === 'string') {
         return <span {...attributes}>{children}</span>;
       }
-      return <p {...attributes} style={{ textAlign }}>{children}</p>;
+      return (
+        <p {...attributes} style={{ textAlign }}>
+          {children}
+        </p>
+      );
     }
   }
 };
