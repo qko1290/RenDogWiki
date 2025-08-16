@@ -1,5 +1,6 @@
 // =============================================
 // File: components/common/Modal.tsx
+// (FIX) 모달 포커스 트랩 안정화: onClose 의존성 제거 + ref 사용
 // =============================================
 'use client';
 
@@ -68,33 +69,41 @@ export function ModalCard({
   const panelRef = useRef<HTMLDivElement>(null);
   const lastActiveRef = useRef<HTMLElement | null>(null);
 
-  // -> 열릴 때: 스크롤 잠금, 포커스 이동, Esc/탭 처리
+  // 최신 onClose를 ref로 유지(의존성에서 제거)
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (!open) return;
 
+    // 열릴 때 포커스 진입 지점 기억 + 스크롤 잠금
     lastActiveRef.current = document.activeElement as HTMLElement | null;
-
-    // 스크롤 잠금
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
-    // 포커스 이동
     const panel = panelRef.current!;
-    const focusables = panel.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
-    );
-    (focusables[0] ?? panel).focus();
+    const getFocusables = () =>
+      panel.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
+      );
+
+    // 첫 포커스
+    const firstSet = getFocusables();
+    (firstSet[0] ?? panel).focus();
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key === 'Tab') {
-        if (focusables.length === 0) return;
-        const first = focusables[0];
-        const last = focusables[focusables.length - 1];
+        const f = getFocusables(); // 매번 최신 목록으로
+        if (!f.length) return;
+        const first = f[0];
+        const last = f[f.length - 1];
         const active = document.activeElement as HTMLElement | null;
 
         if (e.shiftKey) {
@@ -116,14 +125,15 @@ export function ModalCard({
     return () => {
       document.body.style.overflow = prevOverflow;
       document.removeEventListener('keydown', onKeyDown);
+      // 닫힐 때만 이전 포커스로 복귀
       lastActiveRef.current?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
   return createPortal(
-    <Overlay onClose={onClose}>
+    <Overlay onClose={() => onCloseRef.current()}>
       <div
         ref={panelRef}
         className="rd-card"
@@ -140,7 +150,7 @@ export function ModalCard({
       >
         <button
           className="rd-exit-btn"
-          onClick={onClose}
+          onClick={() => onCloseRef.current()}
           aria-label="닫기"
           type="button"
         >
