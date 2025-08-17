@@ -3,8 +3,12 @@
 // =============================================
 /**
  * 카테고리 전체 조회/생성 API
- * - GET  -> 모든 카테고리 목록을 parent_id, "order" 순으로 반환
- * - POST -> 신규 카테고리 생성(name 필수, parent/document/icon 선택)
+ * - GET
+ *   - 기본: 모든 카테고리 목록을 parent_id, "order" 순으로 반환
+ *   - ?modes=pvp,creative : 지정 모드 태그가 있는 상위 카테고리 + 그 하위 전체 트리만 반환
+ *     (상위가 태그를 가지면 하위는 태그 유무와 무관하게 포함)
+ * - POST
+ *   - 신규 카테고리 생성(name 필수, parent/document/icon/mode_tags 선택)
  * - 메모: "order"는 Postgres 예약어라 항상 쌍따옴표 필요
  */
 
@@ -20,16 +24,51 @@ function toNullableInt(v: unknown): number | null {
   return Number.isFinite(n) ? Math.trunc(n) : null;
 }
 
-export async function GET() {
+// 쉼표 구분 문자 배열 파싱(공백/중복/빈값 제거, 소문자 통일)
+function parseModes(param: string | null): string[] {
+  if (!param) return [];
+  const arr = param
+    .split(',')
+    .map(s => s.trim().toLowerCase())
+    .filter(Boolean);
+  return Array.from(new Set(arr));
+}
+
+export async function GET(req: NextRequest) {
   try {
-    // 전체 row를 parent_id, "order" 기준으로 정렬해서 반환
+    const modes = parseModes(req.nextUrl.searchParams.get('modes'));
+
+    // 모드 미지정: 전체 조회
+    if (modes.length === 0) {
+      const rows = await sql`
+        SELECT * FROM categories
+        ORDER BY parent_id, "order"
+      `;
+      return NextResponse.json(rows, { headers: { 'Cache-Control': 'no-store' } });
+    }
+
+    // ✅ 모드 지정: RECURSIVE + 배열 겹침( && )로 최상위만 고른 뒤 하위 전부 확장
+    // JS 배열을 text[]로 안전하게 넘긴 뒤 비교합니다.
     const rows = await sql`
-      SELECT * FROM categories
+      WITH RECURSIVE roots AS (
+        SELECT id
+        FROM categories
+        WHERE COALESCE(mode_tags, '{}'::text[]) && ${modes as unknown as string[]}::text[]
+      ),
+      tree AS (
+        SELECT c.*
+        FROM categories c
+        JOIN roots r ON r.id = c.id
+        UNION ALL
+        SELECT c2.*
+        FROM categories c2
+        JOIN tree t ON c2.parent_id = t.id
+      )
+      SELECT * FROM tree
       ORDER BY parent_id, "order"
     `;
-    return NextResponse.json(rows, {
-      headers: { 'Cache-Control': 'no-store' },
-    });
+
+    return NextResponse.json(rows, { headers: { 'Cache-Control': 'no-store' } });
   } catch (err) {
     console.error('[categories GET] unexpected error:', err);
     return NextResponse.json(
@@ -38,6 +77,7 @@ export async function GET() {
     );
   }
 }
+
 
 export async function POST(req: NextRequest) {
   try {
@@ -51,6 +91,17 @@ export async function POST(req: NextRequest) {
       typeof body?.icon === 'string' && body.icon.trim() !== ''
         ? body.icon.trim()
         : null;
+
+    // TEXT[] 모드 태그(선택)
+    const mode_tags: string[] = Array.isArray(body?.mode_tags)
+      ? Array.from(
+          new Set(
+            body.mode_tags
+              .map((s: unknown) => (typeof s === 'string' ? s.trim().toLowerCase() : ''))
+              .filter(Boolean)
+          )
+        )
+      : [];
 
     // 2) 필수값(name) 확인
     if (!name) {
@@ -76,13 +127,13 @@ export async function POST(req: NextRequest) {
 
     // 4) INSERT -> 새 id 반환
     const insertRows = (await sql`
-      INSERT INTO categories (name, parent_id, "order", document_id, icon)
-      VALUES (${name}, ${parent_id}, ${nextOrder}, ${document_id}, ${icon})
+      INSERT INTO categories (name, parent_id, "order", document_id, icon, mode_tags)
+      VALUES (${name}, ${parent_id}, ${nextOrder}, ${document_id}, ${icon}, ${mode_tags})
       RETURNING id
     `) as unknown as Array<{ id: number | string }>;
     const newId = Number(insertRows?.[0]?.id);
 
-    // 5) 활동 로그(부모 라벨은 사람이 읽을 수 있게)
+    // 5) 활동 로그
     const user = getAuthUser();
     const username =
       user?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
@@ -100,6 +151,7 @@ export async function POST(req: NextRequest) {
         order: nextOrder,
         document_id: document_id ?? null,
         icon: icon ?? null,
+        mode_tags: mode_tags,
       },
     });
 

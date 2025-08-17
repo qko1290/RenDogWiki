@@ -1,27 +1,38 @@
-// File: C:\next\rdwiki\app\manage\category\page.tsx
 // =============================================
-// 카테고리 관리 페이지 (모달 리팩터링)
-// - 트리형 카테고리(드래그 정렬, 중첩), 문서 목록, 상세/수정/생성/삭제/하위 추가
-// - 카테고리 추가/삭제: rd-card 모달 적용 (이미지 관리 페이지 스타일과 동일)
-// - 외부 API/타입/데이터 계약 보존
+// C:\next\rdwiki\app\manage\category\page.tsx
+// 카테고리 관리 페이지
+// - 기본 드래그: 같은 부모 내 순서 변경만
+// - Shift 드래그: 순서 변경 X, 부모(위치) 변경만
+// - 카테고리 생성/삭제/아이콘/모드태그 저장
 // =============================================
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent,
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
 } from '@dnd-kit/core';
 import {
-  SortableContext, arrayMove, verticalListSortingStrategy,
+  SortableContext,
+  arrayMove,
+  verticalListSortingStrategy,
+  useSortable,
 } from '@dnd-kit/sortable';
-import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import WikiHeader from "@/components/common/Header";
-import '@/wiki/css/manage-category.css'; // 🚑 경로 수정(@ → @/)
+import WikiHeader from '@/components/common/Header';
+import '@/wiki/css/manage-category.css';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faList, faBook } from '@fortawesome/free-solid-svg-icons';
-import ImageSelectModal from "@/components/image/ImageSelectModal";
+import { faBook, faList } from '@fortawesome/free-solid-svg-icons';
+import ImageSelectModal from '@/components/image/ImageSelectModal';
+
+// ✅ 루트 아이콘(logo) 적용
+import Image, { type StaticImageData } from 'next/image';
+import logo from '../../image/logo.png';
 
 // ===== 타입 =====
 type Category = {
@@ -30,8 +41,9 @@ type Category = {
   parent_id: number | null;
   order: number;
   document_path?: string;
-  icon?: string;
+  icon?: string | StaticImageData;  // ← 정적 이미지도 허용
   children: Category[];
+  mode_tags?: string[];
 };
 
 type Document = {
@@ -53,16 +65,28 @@ const noSpell = {
   autoCapitalize: 'off' as const,
 };
 
+const MODE_OPTIONS: Array<{ key: string; label: string }> = [
+  { key: 'newbie', label: '뉴비' },
+];
+
 // ===== 공용 얇은 모달 =====
 function BareModal({
-  open, onClose, children,
-}: { open: boolean; onClose: () => void; children: React.ReactNode }) {
+  open,
+  onClose,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
   if (!open) return null;
   return (
     <div
       className="rd-overlay"
       role="presentation"
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       {children}
     </div>
@@ -71,31 +95,83 @@ function BareModal({
 
 // ===== 트리 아이템 =====
 function SortableCategoryItem({
-  node, selected, open, onClick, onToggleOpen, children,
+  node,
+  selected,
+  open,
+  onClick,
+  onToggleOpen,
+  hoverId,
+  shiftMode,
+  children,
 }: {
   node: Category;
   selected: Category | null;
   open: Set<number>;
   onClick: () => void;
   onToggleOpen: (id: number) => void;
+  hoverId: number | null;
+  shiftMode: boolean;
   children?: React.ReactNode;
 }) {
-  const {
-    attributes, listeners, setNodeRef, transform, transition, isDragging,
-  } = useSortable({ id: node.id.toString() });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: node.id.toString() });
 
-  const style: React.CSSProperties = {
+  const liStyle: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.4 : 1,
   };
 
   const isOpen = open.has(node.id);
+  const highlight = shiftMode && hoverId === node.id;
+
+  const renderIcon = () => {
+    const ic = node.icon;
+    if (!ic) return null;
+    // 정적 이미지 (logo 등)
+    if (typeof ic === 'object' && ic && 'src' in ic) {
+      return (
+        <Image
+          src={ic as StaticImageData}
+          alt="icon"
+          width={20}
+          height={20}
+          style={{ borderRadius: 6, objectFit: 'cover' }}
+        />
+      );
+    }
+    // URL
+    if (typeof ic === 'string' && ic.startsWith('http')) {
+      return (
+        <img
+          src={ic}
+          alt="icon"
+          style={{ width: 20, height: 20, borderRadius: 6, objectFit: 'cover' }}
+        />
+      );
+    }
+    // 이모지/문자
+    return <span>{ic as string}</span>;
+  };
 
   return (
-    <li ref={setNodeRef} className="sortable-category-item" style={style} {...attributes}>
-      <div className={`category-row${selected?.id === node.id ? " active" : ""}`}>
-        <span className="grab-handle" {...listeners} aria-label="드래그로 순서 변경">⠿</span>
+    <li ref={setNodeRef} className="sortable-category-item" style={liStyle} {...attributes}>
+      <div
+        className={`category-row${selected?.id === node.id ? ' active' : ''}`}
+        // 시각 강조 (Shift 드래그 대상)
+        style={
+          highlight
+            ? {
+                outline: '2px dashed #7c3aed',
+                outlineOffset: 2,
+                background: 'rgba(124,58,237,0.06)',
+              }
+            : undefined
+        }
+      >
+        <span className="grab-handle" {...listeners} aria-label="드래그로 순서 변경">
+          ⠿
+        </span>
         <button
           type="button"
           className="category-label"
@@ -103,22 +179,16 @@ function SortableCategoryItem({
           style={{ display: 'flex', alignItems: 'center', gap: 6 }}
           aria-current={selected?.id === node.id ? 'true' : undefined}
         >
-          {node.icon
-            ? node.icon.startsWith('http')
-              ? (
-                <img
-                  src={node.icon}
-                  alt="icon"
-                  style={{ width: 20, height: 20, borderRadius: 6, objectFit: 'cover' }}
-                />
-              )
-              : <span>{node.icon}</span>
-            : null}
+          {renderIcon()}
           <span>{node.name}</span>
         </button>
+
         {node.children.length > 0 && (
           <button
-            onClick={(e) => { e.stopPropagation(); onToggleOpen(node.id); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleOpen(node.id);
+            }}
             className="category-toggle-btn"
             tabIndex={-1}
             aria-expanded={isOpen}
@@ -128,6 +198,7 @@ function SortableCategoryItem({
           </button>
         )}
       </div>
+
       {children && <div className="category-tree-children">{children}</div>}
     </li>
   );
@@ -155,30 +226,62 @@ export default function CategoryManager() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [loadingDelete, setLoadingDelete] = useState(false);
 
+  // DnD 부가 상태 (Shift 모드 UX)
+  const [hoverId, setHoverId] = useState<number | null>(null);
+  const hoverTimerRef = useRef<number | null>(null);
+  const shiftRef = useRef(false);
+  const [isShift, setIsShift] = useState(false); // 렌더 반영용
+
   // DnD 센서
-  const sensors = useSensors(useSensor(PointerSensor));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }) // 6px 움직여야 드래그 시작
+  );
 
   // 유저
   useEffect(() => {
     fetch('/api/auth/me')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => setUser(data?.user ?? null))
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setUser(data?.user ?? null))
       .catch(() => setUser(null));
+  }, []);
+
+  // Shift 감지(위치 변경 모드)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') {
+        shiftRef.current = true;
+        setIsShift(true);
+      }
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') {
+        shiftRef.current = false;
+        setIsShift(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+    };
   }, []);
 
   // 카테고리 & 토글 핸들러
   useEffect(() => {
     fetchCategories();
-    const handleToggleOpen = (e: any) => { if (e.detail) toggleOpen(e.detail); };
-    window.addEventListener("toggleOpen", handleToggleOpen);
-    return () => window.removeEventListener("toggleOpen", handleToggleOpen);
+    const handleToggleOpen = (e: any) => {
+      if (e.detail) toggleOpen(e.detail);
+    };
+    window.addEventListener('toggleOpen', handleToggleOpen);
+    return () => window.removeEventListener('toggleOpen', handleToggleOpen);
   }, []);
 
   // 문서
   useEffect(() => {
     fetch('/api/documents?all=1')
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         if (Object.keys(categoryIdToPathMap).length === 0) {
           setAllDocuments(data);
           return;
@@ -200,14 +303,15 @@ export default function CategoryManager() {
   };
 
   // 문서 필터
-  const filteredDocs = allDocuments.filter(doc => {
+  const filteredDocs = allDocuments.filter((doc) => {
     if (!selectedCategoryPath.length) return false;
-    const categoryPath = selectedCategoryPath[0] === 0 ? selectedCategoryPath.slice(1) : selectedCategoryPath;
+    const categoryPath =
+      selectedCategoryPath[0] === 0 ? selectedCategoryPath.slice(1) : selectedCategoryPath;
     if (doc.fullPath) return JSON.stringify(doc.fullPath) === JSON.stringify(categoryPath);
     return Number(doc.path) === categoryPath.at(-1);
   });
-  const featuredDoc = filteredDocs.find(doc => doc.is_featured);
-  const otherDocs = filteredDocs.filter(doc => !doc.is_featured);
+  const featuredDoc = filteredDocs.find((doc) => doc.is_featured);
+  const otherDocs = filteredDocs.filter((doc) => !doc.is_featured);
 
   // 카테고리 fetch + 맵 생성
   const fetchCategories = async () => {
@@ -227,15 +331,18 @@ export default function CategoryManager() {
       })(built);
       setCategoryIdToPathMap(idToPathMap);
 
-      setTree([{
-        id: 0,
-        name: 'RenDog Wiki',
-        parent_id: null,
-        order: 0,
-        icon: '📚',
-        document_path: '',
-        children: built,
-      }]);
+      // ✅ 루트에 logo 적용
+      setTree([
+        {
+          id: 0,
+          name: 'RenDog Wiki',
+          parent_id: null,
+          order: 0,
+          icon: logo, // ← 이모지 대신 정적 이미지
+          document_path: '',
+          children: built,
+        },
+      ]);
     } catch {
       setTree([]);
       setCategoryIdToPathMap({});
@@ -244,9 +351,9 @@ export default function CategoryManager() {
 
   const buildTree = (list: Category[]): Category[] => {
     const map = new Map<number, Category>();
-    list.forEach(item => map.set(item.id, { ...item, children: [] }));
+    list.forEach((item) => map.set(item.id, { ...item, children: [] }));
     const roots: Category[] = [];
-    list.forEach(item => {
+    list.forEach((item) => {
       const node = map.get(item.id)!;
       if (item.parent_id === null || item.parent_id === 0) roots.push(node);
       else {
@@ -259,45 +366,10 @@ export default function CategoryManager() {
   };
 
   const toggleOpen = (id: number) => {
-    setOpen(prev => {
+    setOpen((prev) => {
       const copy = new Set(prev);
       copy.has(id) ? copy.delete(id) : copy.add(id);
       return copy;
-    });
-  };
-
-  // DnD 정렬
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-
-    const activeId = parseInt(active.id as string);
-    const overId = parseInt(over.id as string);
-
-    const newTree: Category[] = structuredClone(tree);
-    const parentA = findParent(newTree, activeId);
-    const parentB = findParent(newTree, overId);
-    if (!parentA || !parentB || parentA !== parentB) return;
-
-    const oldIndex = parentA.children.findIndex(c => c.id === activeId);
-    const newIndex = parentA.children.findIndex(c => c.id === overId);
-    if (oldIndex === -1 || newIndex === -1) return;
-
-    parentA.children = arrayMove(parentA.children, oldIndex, newIndex);
-    setTree(newTree);
-
-    if (selected) {
-      const newSelected = findCategoryById(newTree, selected.id);
-      if (newSelected) setSelected(newSelected);
-    }
-
-    // 순서 저장(비차단)
-    parentA.children.forEach((item, idx) => {
-      fetch(`/api/categories/${item.id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order: idx }),
-      }).catch(() => {});
     });
   };
 
@@ -312,12 +384,82 @@ export default function CategoryManager() {
 
   const findParent = (nodes: Category[], childId: number): Category | null => {
     for (const node of nodes) {
-      if (node.children.some(c => c.id === childId)) return node;
+      if (node.children.some((c) => c.id === childId)) return node;
       const deeper = findParent(node.children, childId);
       if (deeper) return deeper;
     }
     return null;
   };
+
+  const isDescendant = (nodes: Category[], ancestorId: number, childId: number): boolean => {
+    const ancestor = findCategoryById(nodes, ancestorId);
+    if (!ancestor) return false;
+    const stack = [...ancestor.children];
+    while (stack.length) {
+      const n = stack.pop()!;
+      if (n.id === childId) return true;
+      stack.push(...n.children);
+    }
+    return false;
+  };
+
+  const removeFromOldParent = (nodes: Category[], id: number) => {
+    const parent = findParent(nodes, id);
+    if (!parent) return { parent: null, removed: null as Category | null, index: -1 };
+    const idx = parent.children.findIndex((c) => c.id === id);
+    const [removed] = parent.children.splice(idx, 1);
+    return { parent, removed, index: idx };
+  };
+
+  // 부모(위치) 변경 유틸 (Shift 드래그 전용)
+  function moveToParent(dragId: number, targetParentId: number) {
+    if (targetParentId === dragId || isDescendant(tree, dragId, targetParentId)) return;
+
+    const newTree: Category[] = structuredClone(tree);
+    const { parent: oldParent, removed } = removeFromOldParent(newTree, dragId);
+    const newParent = findCategoryById(newTree, targetParentId);
+    if (!removed || !newParent) return;
+
+    const insertIndex = newParent.children.length;
+    removed.parent_id = targetParentId === 0 ? null : targetParentId;
+    removed.order = insertIndex;
+    newParent.children.splice(insertIndex, 0, removed);
+
+    setTree(newTree);
+    if (selected) {
+      const u = findCategoryById(newTree, selected.id);
+      if (u) setSelected(u);
+    }
+
+    // 서버 반영(비차단)
+    fetch(`/api/categories/${dragId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: removed.name,
+        parent_id: removed.parent_id,
+        order: insertIndex,
+        icon: typeof removed.icon === 'string' ? removed.icon : '', // 문자열만 저장
+      }),
+    }).catch(() => {});
+
+    if (oldParent) {
+      oldParent.children.forEach((c, idx) => {
+        fetch(`/api/categories/${c.id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order: idx }),
+        }).catch(() => {});
+      });
+    }
+    newParent.children.forEach((c, idx) => {
+      fetch(`/api/categories/${c.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: idx }),
+      }).catch(() => {});
+    });
+  }
 
   // 카테고리 생성/삭제 요청
   const createCategory = async () => {
@@ -354,9 +496,9 @@ export default function CategoryManager() {
 
   // 트리 재귀 렌더
   const renderTree = (nodes: Category[], currentPath: number[] = [], depth = 0): JSX.Element => (
-    <SortableContext items={nodes.map(n => n.id.toString())} strategy={verticalListSortingStrategy}>
+    <SortableContext items={nodes.map((n) => n.id.toString())} strategy={verticalListSortingStrategy}>
       <ul className="category-tree-list" role={depth === 0 ? 'tree' : 'group'}>
-        {nodes.map(node => {
+        {nodes.map((node) => {
           const path = [...currentPath, node.id];
           return (
             <SortableCategoryItem
@@ -366,11 +508,11 @@ export default function CategoryManager() {
               open={open}
               onClick={() => handleCategorySelect(node, path)}
               onToggleOpen={toggleOpen}
+              hoverId={hoverId}
+              shiftMode={isShift}
             >
               {open.has(node.id) && node.children.length > 0 && (
-                <div className="category-tree-children">
-                  {renderTree(node.children, path, depth + 1)}
-                </div>
+                <div className="category-tree-children">{renderTree(node.children, path, depth + 1)}</div>
               )}
             </SortableCategoryItem>
           );
@@ -379,14 +521,92 @@ export default function CategoryManager() {
     </SortableContext>
   );
 
+  // === 드래그 종료 ===
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    // 자동 펼침 타이머/하이라이트 정리
+    if (hoverTimerRef.current) {
+      window.clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    setHoverId(null);
+
+    if (!over) return;
+
+    const activeId = parseInt(String(active.id), 10);
+    const overId = parseInt(String(over.id), 10);
+    if (!Number.isFinite(activeId) || !Number.isFinite(overId) || activeId === overId) return;
+
+    // === Shift 모드: 위치(부모) 변경만 수행 ===
+    if (shiftRef.current) {
+      moveToParent(activeId, overId);
+      return;
+    }
+
+    // === 기본 모드: 같은 부모 내 순서 변경만 수행 ===
+    const newTree: Category[] = structuredClone(tree);
+    const parentA = findParent(newTree, activeId);
+    const parentB = findParent(newTree, overId);
+    if (!parentA || !parentB || parentA !== parentB) return;
+
+    const oldIndex = parentA.children.findIndex((c) => c.id === activeId);
+    const newIndex = parentA.children.findIndex((c) => c.id === overId);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    parentA.children = arrayMove(parentA.children, oldIndex, newIndex);
+    setTree(newTree);
+
+    if (selected) {
+      const newSelected = findCategoryById(newTree, selected.id);
+      if (newSelected) setSelected(newSelected);
+    }
+
+    // 순서 저장
+    parentA.children.forEach((item, idx) => {
+      fetch(`/api/categories/${item.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: idx }),
+      }).catch(() => {});
+    });
+  };
+
+  // 저장 (mode_tags 포함)
   const handleSaveCategory = async () => {
     if (!selected || selected.id === 0) return;
-    await fetch(`/api/categories/${selected.id}`, {
+
+    const modeTags = Array.isArray(selected.mode_tags)
+      ? Array.from(
+          new Set(
+            selected.mode_tags
+              .map((s) => String(s).trim().toLowerCase())
+              .filter(Boolean)
+          )
+        )
+      : [];
+
+    const payload = {
+      name: selected.name,
+      parent_id: selected.parent_id,
+      order: selected.order,
+      document_id: (selected as any).document_id ?? null,
+      // 서버에는 문자열만 저장 (정적 이미지는 루트 전용 UI 표시용)
+      icon: typeof selected.icon === 'string' ? selected.icon : null,
+      mode_tags: modeTags,
+    };
+
+    const res = await fetch(`/api/categories/${selected.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(selected),
+      body: JSON.stringify(payload),
     });
-    fetchCategories();
+
+    if (!res.ok) {
+      alert('카테고리 저장에 실패했습니다.');
+      return;
+    }
+    await fetchCategories();
   };
 
   // ===== 렌더 =====
@@ -397,9 +617,41 @@ export default function CategoryManager() {
       {/* 좌: 트리 */}
       <div className="category-sidebar">
         <h2 className="category-tree-title">
-          <FontAwesomeIcon icon={faList} />&nbsp;카테고리
+          <FontAwesomeIcon icon={faList} />
+          &nbsp;카테고리
         </h2>
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragOver={(e) => {
+            // Shift 모드일 때만 타깃 하이라이트/자동 펼침 UX 제공
+            if (!shiftRef.current) {
+              setHoverId(null);
+              return;
+            }
+            const id = e.over ? parseInt(String(e.over.id), 10) : NaN;
+            if (!Number.isFinite(id)) {
+              setHoverId(null);
+              return;
+            }
+            setHoverId(id);
+
+            // 350ms 호버 시 자동 펼침
+            if (!open.has(id)) {
+              if (hoverTimerRef.current) window.clearTimeout(hoverTimerRef.current);
+              hoverTimerRef.current = window.setTimeout(() => toggleOpen(id), 350);
+            }
+          }}
+          onDragEnd={handleDragEnd}
+          onDragCancel={() => {
+            if (hoverTimerRef.current) {
+              window.clearTimeout(hoverTimerRef.current);
+              hoverTimerRef.current = null;
+            }
+            setHoverId(null);
+          }}
+        >
           {renderTree(tree)}
         </DndContext>
       </div>
@@ -407,39 +659,48 @@ export default function CategoryManager() {
       {/* 중: 문서 목록 */}
       <div className="category-doclist">
         <h2 className="category-doclist-title">
-          <FontAwesomeIcon icon={faBook} />&nbsp;문서 목록
+          <FontAwesomeIcon icon={faBook} />
+          &nbsp;문서 목록
         </h2>
         {filteredDocs.length > 0 ? (
           <ul>
             {featuredDoc && (
               <li
                 key={featuredDoc.id}
-                className={`category-doc-item${selectedDoc?.id === featuredDoc.id ? " selected" : ""} featured`}
+                className={`category-doc-item${selectedDoc?.id === featuredDoc.id ? ' selected' : ''} featured`}
                 onClick={() => setSelectedDoc(featuredDoc)}
               >
                 <span className="doc-icon">
-                  {featuredDoc.icon
-                    ? (featuredDoc.icon.startsWith('http')
-                      ? <img src={featuredDoc.icon} alt="icon" className="doc-img-icon" />
-                      : <span>{featuredDoc.icon}</span>)
-                    : <span className="doc-icon-placeholder">😀</span>}
+                  {featuredDoc.icon ? (
+                    featuredDoc.icon.startsWith('http') ? (
+                      <img src={featuredDoc.icon} alt="icon" className="doc-img-icon" />
+                    ) : (
+                      <span>{featuredDoc.icon}</span>
+                    )
+                  ) : (
+                    <span className="doc-icon-placeholder">😀</span>
+                  )}
                 </span>
                 &nbsp;{featuredDoc.title}
                 <span className="doc-featured-label">대표 문서</span>
               </li>
             )}
-            {otherDocs.map(doc => (
+            {otherDocs.map((doc) => (
               <li
                 key={doc.id}
-                className={`category-doc-item${selectedDoc?.id === doc.id ? " selected" : ""}`}
+                className={`category-doc-item${selectedDoc?.id === doc.id ? ' selected' : ''}`}
                 onClick={() => setSelectedDoc(doc)}
               >
                 <span className="doc-icon">
-                  {doc.icon
-                    ? (doc.icon.startsWith('http')
-                      ? <img src={doc.icon} alt="icon" className="doc-img-icon" />
-                      : <span>{doc.icon}</span>)
-                    : <span className="doc-icon-placeholder">😀</span>}
+                  {doc.icon ? (
+                    doc.icon.startsWith('http') ? (
+                      <img src={doc.icon} alt="icon" className="doc-img-icon" />
+                    ) : (
+                      <span>{doc.icon}</span>
+                    )
+                  ) : (
+                    <span className="doc-icon-placeholder">😀</span>
+                  )}
                 </span>
                 &nbsp;{doc.title}
               </li>
@@ -453,7 +714,7 @@ export default function CategoryManager() {
       {/* 우: 상세/설정 */}
       <div className="category-detail-panel">
         {selectedDoc ? (
-          // --- 문서 정보 영역: 기존 유지 ---
+          // --- 문서 정보 영역 ---
           <div>
             <div className="cat-detail-header">
               <h2 className="cat-detail-title">문서 정보</h2>
@@ -461,57 +722,82 @@ export default function CategoryManager() {
                 <button
                   className="seg-btn"
                   onClick={() => {
-                    location.href = `/wiki/write?path=${encodeURIComponent(selectedDoc.path)}&title=${encodeURIComponent(selectedDoc.title)}&id=${selectedDoc.id}`;
+                    location.href = `/wiki/write?path=${encodeURIComponent(
+                      selectedDoc.path
+                    )}&title=${encodeURIComponent(selectedDoc.title)}&id=${selectedDoc.id}`;
                   }}
                   title="수정"
                 >
-                  <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M16.5 3.75l3.75 3.75M4.5 19.5l3.75-.938L19.5 7.875l-3.75-3.75L4.5 15.75V19.5Z" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path
+                      d="M16.5 3.75l3.75 3.75M4.5 19.5l3.75-.938L19.5 7.875l-3.75-3.75L4.5 15.75V19.5Z"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
                   <span className="seg-label">수정</span>
                 </button>
-                 <button className="seg-btn danger" onClick={() => setDeleteOpen(true)} title="삭제">
-                    <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true" preserveAspectRatio="xMidYMid meet">
-                      <path d="M3 6h18" strokeLinecap="round"/>
-                      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" strokeLinecap="round"/>
-                      <rect x="5" y="6" width="14" height="14" rx="2"/>
-                      <path d="M10 11v6M14 11v6" strokeLinecap="round"/>
-                    </svg>
-                    <span className="seg-label">삭제</span>
-                  </button>
+                <button className="seg-btn danger" onClick={() => setDeleteOpen(true)} title="삭제">
+                  <svg
+                    className="ico"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    aria-hidden="true"
+                    preserveAspectRatio="xMidYMid meet"
+                  >
+                    <path d="M3 6h18" strokeLinecap="round" />
+                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" strokeLinecap="round" />
+                    <rect x="5" y="6" width="14" height="14" rx="2" />
+                    <path d="M10 11v6M14 11v6" strokeLinecap="round" />
+                  </svg>
+                  <span className="seg-label">삭제</span>
+                </button>
               </div>
             </div>
-            <p><strong>제목:</strong> {selectedDoc.title}</p>
             <p>
-              <strong>태그:</strong>{" "}
+              <strong>제목:</strong> {selectedDoc.title}
+            </p>
+            <p>
+              <strong>태그:</strong>{' '}
               {selectedDoc.tags && selectedDoc.tags.length > 0
-                ? (Array.isArray(selectedDoc.tags) ? selectedDoc.tags : selectedDoc.tags.split(',').map(t => t.trim()).filter(Boolean))
-                    .map((tag: string) => <span key={tag} className="doc-tag">#{tag}</span>)
-                : <span style={{ color: "#aaa" }}>태그 없음</span>}
+                ? (Array.isArray(selectedDoc.tags)
+                    ? selectedDoc.tags
+                    : selectedDoc.tags
+                        .split(',')
+                        .map((t) => t.trim())
+                        .filter(Boolean)
+                  ).map((tag: string) => (
+                    <span key={tag} className="doc-tag">
+                      #{tag}
+                    </span>
+                  ))
+                : <span style={{ color: '#aaa' }}>태그 없음</span>}
             </p>
           </div>
         ) : selected ? (
-          // --- 카테고리 설정 영역: 리디자인 ---
+          // --- 카테고리 설정 영역 ---
           <div>
-            {/* 상단 툴바 (제목 왼쪽에 아바타 추가 + 제목 크게) */}
             <div className="cat-detail-header">
               <div className="cat-title-wrap">
                 <div className="cat-avatar">
-                  {selected.icon?.startsWith('http') ? (
-                    <img src={selected.icon} alt="icon" />
-                  ) : (
-                    <span>{selected.icon || '📁'}</span>
-                  )}
+                  {(() => {
+                    const ic = selected.icon;
+                    if (typeof ic === 'object' && ic && 'src' in ic) {
+                      return <Image src={ic as StaticImageData} alt="icon" width={32} height={32} />;
+                    }
+                    if (typeof ic === 'string' && ic.startsWith('http')) {
+                      return <img src={ic} alt="icon" style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover' }} />;
+                    }
+                    return <span>{typeof ic === 'string' ? ic : '📁'}</span>;
+                  })()}
                 </div>
                 <h2 className="cat-detail-title">{selected.name}</h2>
               </div>
 
               <div className="toolbar-seg">
-                {/* (버튼들은 기존 그대로) */}
-                <button
-                  className="seg-btn"
-                  onClick={handleSaveCategory}
-                  disabled={selected.id === 0}
-                  title="저장"
-                >
+                <button className="seg-btn" onClick={handleSaveCategory} disabled={selected.id === 0} title="저장">
                   <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
                     <circle cx="12" cy="12" r="9" />
                     <path d="M8.5 12.5l2.5 2.5 4.5-4.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -520,42 +806,52 @@ export default function CategoryManager() {
                 </button>
                 {selected.id !== 0 && (
                   <button className="seg-btn danger" onClick={() => setDeleteOpen(true)} title="삭제">
-                    <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true" preserveAspectRatio="xMidYMid meet">
-                      <path d="M3 6h18" strokeLinecap="round"/>
-                      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" strokeLinecap="round"/>
-                      <rect x="5" y="6" width="14" height="14" rx="2"/>
-                      <path d="M10 11v6M14 11v6" strokeLinecap="round"/>
+                    <svg
+                      className="ico"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      aria-hidden="true"
+                      preserveAspectRatio="xMidYMid meet"
+                    >
+                      <path d="M3 6h18" strokeLinecap="round" />
+                      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" strokeLinecap="round" />
+                      <rect x="5" y="6" width="14" height="14" rx="2" />
+                      <path d="M10 11v6M14 11v6" strokeLinecap="round" />
                     </svg>
                     <span className="seg-label">삭제</span>
                   </button>
                 )}
                 <button className="seg-btn" onClick={() => { setNewCatName(''); setNewCatOpen(true); }} title="카테고리 추가">
-                  <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 6v12M6 12h12" strokeLinecap="round"/></svg>
-                  <span className="seg-label">카테고리 추가</span>
+                  <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M12 6v12M6 12h12" strokeLinecap="round" />
+                  </svg>
+                  <span className="seg-label">카테고리</span>
                 </button>
                 <button
                   className="seg-btn"
                   onClick={() => {
                     if (featuredDoc) {
-                      // 대표 문서가 있으면 → 해당 문서 수정 화면으로
                       location.href = `/wiki/write?path=${encodeURIComponent(
                         featuredDoc.path
                       )}&title=${encodeURIComponent(featuredDoc.title)}&id=${featuredDoc.id}`;
                     } else {
-                      // 없으면 → 대표 문서 새로 작성
                       location.href = `/wiki/write?path=${encodeURIComponent(selected.id)}&main=1`;
                     }
                   }}
-                  title={featuredDoc ? '대표 문서 수정' : '대표 문서 추가'}
+                  title={featuredDoc ? '대표 문서 수정' : '대표 문서'}
                 >
                   <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <path d="M4 6h16M6 10h8M6 14h12M6 18h6" strokeLinecap="round"/>
+                    <path d="M4 6h16M6 10h8M6 14h12M6 18h6" strokeLinecap="round" />
                   </svg>
-                  <span className="seg-label">{featuredDoc ? '대표 문서 수정' : '대표 문서 추가'}</span>
+                  <span className="seg-label">{featuredDoc ? '대표 문서 수정' : '대표 문서'}</span>
                 </button>
-                <button className="seg-btn" onClick={() => { location.href = `/wiki/write?path=${encodeURIComponent(selected.id)}`; }} title="문서 추가">
-                  <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 6v12M6 12h12" strokeLinecap="round"/></svg>
-                  <span className="seg-label">문서 추가</span>
+                <button className="seg-btn" onClick={() => { location.href = `/wiki/write?path=${encodeURIComponent(selected.id)}`; }} title="문서">
+                  <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M12 6v12M6 12h12" strokeLinecap="round" />
+                  </svg>
+                  <span className="seg-label">문서</span>
                 </button>
               </div>
             </div>
@@ -582,7 +878,7 @@ export default function CategoryManager() {
                 <div className="input-with-btn">
                   <input
                     className="rd-input"
-                    value={selected.icon ?? ''}
+                    value={typeof selected.icon === 'string' ? selected.icon : ''}
                     onChange={(e) => setSelected({ ...selected, icon: e.target.value })}
                     disabled={selected.id === 0}
                     placeholder="🙂 또는 https://... 이미지 URL"
@@ -590,7 +886,6 @@ export default function CategoryManager() {
                     autoCorrect="off"
                     autoCapitalize="off"
                   />
-                  {/* 이미지 선택(내부 라이브러리) */}
                   <button
                     className="chip-btn emoji"
                     type="button"
@@ -602,6 +897,57 @@ export default function CategoryManager() {
                   </button>
                 </div>
               </div>
+
+              {/* 모드 태그 */}
+              <div className="rd-field">
+                <label className="rd-label">모드 태그</label>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {MODE_OPTIONS.map((opt) => {
+                    const active = (selected?.mode_tags ?? []).includes(opt.key);
+                    const baseBtn: React.CSSProperties = {
+                      padding: '6px 10px',
+                      borderRadius: 999,
+                      border: '1.5px solid #d1d5db',
+                      background: '#fff',
+                      color: '#374151',
+                      fontWeight: 600,
+                      lineHeight: 1,
+                      cursor: selected?.id === 0 ? 'not-allowed' : 'pointer',
+                      opacity: selected?.id === 0 ? 0.6 : 1,
+                      transition: 'all .12s ease',
+                    };
+                    const activeBtn: React.CSSProperties = active
+                      ? {
+                          borderColor: '#2563eb',
+                          background: '#eff6ff',
+                          color: '#1d4ed8',
+                          boxShadow: '0 0 0 3px rgba(37,99,235,.15) inset',
+                        }
+                      : {};
+                    return (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        aria-pressed={active}
+                        title={active ? '태그 해제' : '태그 적용'}
+                        style={{ ...baseBtn, ...activeBtn }}
+                        disabled={selected?.id === 0}
+                        onClick={() => {
+                          if (!selected) return;
+                          const cur = new Set(selected.mode_tags ?? []);
+                          cur.has(opt.key) ? cur.delete(opt.key) : cur.add(opt.key);
+                          setSelected({ ...selected, mode_tags: Array.from(cur) });
+                        }}
+                      >
+                        {active ? '✓ ' : ''}#{opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <small className="help" style={{ color: '#777' }}>
+                  상위 카테고리에 태그를 지정하면 하위 카테고리는 태그 유무와 관계없이 포함됩니다.
+                </small>
+              </div>
             </div>
           </div>
         ) : (
@@ -609,7 +955,7 @@ export default function CategoryManager() {
         )}
       </div>
 
-      {/* 이미지 선택 모달(기존) */}
+      {/* 이미지 선택 모달 */}
       <ImageSelectModal
         open={showImageModal}
         onClose={() => setShowImageModal(false)}
@@ -625,23 +971,33 @@ export default function CategoryManager() {
       <BareModal open={newCatOpen} onClose={() => setNewCatOpen(false)}>
         <div className="rd-card" role="dialog" aria-labelledby="rd-newcat-title">
           <button className="rd-exit-btn" onClick={() => setNewCatOpen(false)} aria-label="닫기">
-            <svg height="20" viewBox="0 0 384 512"><path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"/></svg>
+            <svg height="20" viewBox="0 0 384 512">
+              <path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z" />
+            </svg>
           </button>
           <div className="rd-card-content">
-            <p className="rd-card-heading" id="rd-newcat-title">카테고리 추가</p>
-            <p className="rd-card-description"><b>{selected?.name}</b> 하위에 새 카테고리를 생성합니다.</p>
+            <p className="rd-card-heading" id="rd-newcat-title">
+              카테고리 추가
+            </p>
+            <p className="rd-card-description">
+              <b>{selected?.name}</b> 하위에 새 카테고리를 생성합니다.
+            </p>
             <input
               className="rd-input"
               placeholder="새 카테고리 이름"
               value={newCatName}
               onChange={(e) => setNewCatName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && newCatName.trim()) createCategory(); }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && newCatName.trim()) createCategory();
+              }}
               autoFocus
               {...noSpell}
             />
           </div>
           <div className="rd-card-button-wrapper">
-            <button className="rd-btn secondary" onClick={() => setNewCatOpen(false)}>취소</button>
+            <button className="rd-btn secondary" onClick={() => setNewCatOpen(false)}>
+              취소
+            </button>
             <button className="rd-btn primary" onClick={createCategory} disabled={!newCatName.trim() || loadingCreate}>
               {loadingCreate ? '생성 중…' : '생성'}
             </button>
@@ -653,14 +1009,22 @@ export default function CategoryManager() {
       <BareModal open={deleteOpen} onClose={() => setDeleteOpen(false)}>
         <div className="rd-card" role="dialog" aria-labelledby="rd-delcat-title">
           <button className="rd-exit-btn" onClick={() => setDeleteOpen(false)} aria-label="닫기">
-            <svg height="20" viewBox="0 0 384 512"><path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"/></svg>
+            <svg height="20" viewBox="0 0 384 512">
+              <path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z" />
+            </svg>
           </button>
           <div className="rd-card-content">
-            <p className="rd-card-heading" id="rd-delcat-title">카테고리 삭제</p>
-            <p className="rd-card-description"><b>{selected?.name}</b> 카테고리와 그 하위 항목이 삭제됩니다. 계속할까요?</p>
+            <p className="rd-card-heading" id="rd-delcat-title">
+              카테고리 삭제
+            </p>
+            <p className="rd-card-description">
+              <b>{selected?.name}</b> 카테고리와 그 하위 항목이 삭제됩니다. 계속할까요?
+            </p>
           </div>
           <div className="rd-card-button-wrapper">
-            <button className="rd-btn secondary" onClick={() => setDeleteOpen(false)}>취소</button>
+            <button className="rd-btn secondary" onClick={() => setDeleteOpen(false)}>
+              취소
+            </button>
             <button className="rd-btn danger" onClick={deleteCategory} disabled={loadingDelete}>
               {loadingDelete ? '삭제 중…' : '삭제'}
             </button>

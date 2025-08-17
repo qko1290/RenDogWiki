@@ -32,7 +32,6 @@ function toContentArray(raw: unknown): any[] {
 }
 
 export async function GET(req: NextRequest) {
-  // 쿼리 파라미터 추출
   const sp = req.nextUrl.searchParams;
   const all = sp.get('all');
   const pathRaw = sp.get('path');
@@ -48,11 +47,11 @@ export async function GET(req: NextRequest) {
           { error: 'Invalid id' },
           { status: 400, headers: { 'Cache-Control': 'no-store' } }
         );
-        }
+      }
 
-      // 필요한 컬럼만 조회
+      // ✅ special 포함
       const docs = (await sql`
-        SELECT id, title, path, icon, tags, created_at, updated_at
+        SELECT id, title, path, icon, tags, created_at, updated_at, is_featured, special
         FROM documents
         WHERE id = ${idNum}
         LIMIT 1
@@ -68,7 +67,9 @@ export async function GET(req: NextRequest) {
 
       // 본문 조회
       const contentRows = (await sql`
-        SELECT content FROM document_contents WHERE document_id = ${document.id} LIMIT 1
+        SELECT content FROM document_contents
+        WHERE document_id = ${document.id}
+        LIMIT 1
       `) as unknown as Array<{ content: unknown }>;
       const content = toContentArray(contentRows[0]?.content ?? []);
 
@@ -81,6 +82,8 @@ export async function GET(req: NextRequest) {
           tags: document.tags ? String(document.tags).split(',') : [],
           created_at: document.created_at,
           updated_at: document.updated_at,
+          is_featured: Boolean(document.is_featured),
+          special: document.special ?? null,        // ✅ 포함
           content,
         },
         { headers: { 'Cache-Control': 'no-store' } }
@@ -97,8 +100,9 @@ export async function GET(req: NextRequest) {
   // 2) 전체 문서 목록(all=1)
   if (all === '1') {
     try {
+      // ✅ special 포함
       const docs = (await sql`
-        SELECT id, title, path, icon, tags, created_at, updated_at, is_featured
+        SELECT id, title, path, icon, tags, created_at, updated_at, is_featured, special
         FROM documents
       `) as unknown as Array<any>;
 
@@ -106,6 +110,7 @@ export async function GET(req: NextRequest) {
         ...row,
         tags: row.tags ? String(row.tags).split(',') : [],
         is_featured: Boolean(row.is_featured),
+        special: row.special ?? null,              // ✅ 포함
       }));
 
       return NextResponse.json(result, {
@@ -131,15 +136,17 @@ export async function GET(req: NextRequest) {
 
   try {
     const title = (titleRaw ?? '').trim();
+
+    // ✅ special 포함
     const docs = title
       ? ((await sql`
-          SELECT id, title, path, icon, tags, created_at, updated_at
+          SELECT id, title, path, icon, tags, created_at, updated_at, is_featured, special
           FROM documents
           WHERE path = ${path} AND title = ${title}
           LIMIT 1
         `) as unknown as Array<any>)
       : ((await sql`
-          SELECT id, title, path, icon, tags, created_at, updated_at
+          SELECT id, title, path, icon, tags, created_at, updated_at, is_featured, special
           FROM documents
           WHERE path = ${path}
           LIMIT 1
@@ -153,8 +160,11 @@ export async function GET(req: NextRequest) {
     }
 
     const document = docs[0];
+
     const contentRows = (await sql`
-      SELECT content FROM document_contents WHERE document_id = ${document.id} LIMIT 1
+      SELECT content FROM document_contents
+      WHERE document_id = ${document.id}
+      LIMIT 1
     `) as unknown as Array<{ content: unknown }>;
     const content = toContentArray(contentRows[0]?.content ?? []);
 
@@ -167,6 +177,8 @@ export async function GET(req: NextRequest) {
         tags: document.tags ? String(document.tags).split(',') : [],
         created_at: document.created_at,
         updated_at: document.updated_at,
+        is_featured: Boolean(document.is_featured),
+        special: document.special ?? null,          // ✅ 포함
         content,
       },
       { headers: { 'Cache-Control': 'no-store' } }

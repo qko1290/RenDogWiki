@@ -308,3 +308,40 @@
   font-size:20px;
   line-height:1;
 }
+
+.category-row.dropping {
+  outline: 2px solid #8b5cf6; /* 보라 */
+  background: rgba(139,92,246,.08);
+}
+.chip-btn.active { /* 이미 있으시면 생략 */
+  background:#ede9fe; border-color:#8b5cf6; color:#5b21b6;
+}
+
+/* 드래그 의도 표시 */
+.category-row.intent-inside {
+  background: rgba(59,130,246,.08); /* 파랑 하이라이트 */
+  outline: 2px solid rgba(59,130,246,.35);
+  border-radius: 8px;
+}
+.category-row.intent-before::before,
+.category-row.intent-after::after {
+  content: "";
+  position: relative;
+  display: block;
+  height: 0;
+  border-top: 3px solid #3b82f6; /* 파란 인디케이터 라인 */
+  margin: 2px 0;
+}
+.category-row.intent-before::before { top: -2px; }
+.category-row.intent-after::after { bottom: -2px; }
+
+/* 드래그 핸들 더 알아보기 쉽게 */
+.grab-handle {
+  cursor: grab;
+  color: #6b7280;
+}
+.sortable-category-item:has(.grab-handle:active) .grab-handle { cursor: grabbing; }
+
+/* 선택된 행/호버 구분 강화 (선택은 진한 테두리) */
+.category-row.active { outline: 2px solid #8b5cf6; border-radius: 8px; }
+.category-row:hover { background: rgba(0,0,0,.03); }

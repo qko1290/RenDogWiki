@@ -1,18 +1,19 @@
+// =============================================
 // File: app/mypage/page.tsx
+// =============================================
 /**
  * 마이페이지
- * - /api/auth/me 로 로그인 사용자 정보를 로드하고 표시
- * - Mojang UUID 조회해 Crafatar 아바타 출력(없으면 닉네임 폴백)
- * - 비밀번호 변경, 계정 삭제 수행
- * - 로딩/비로그인 상태 표시, 컨텐츠 깜빡임 최소화
+ * - 내 정보 조회/비번변경/탈퇴
+ * - Crafatar 아바타 표시(닉→UUID 조회)
+ * - 공통 apiFetch/토스트/confirm 사용
  */
-
 'use client';
 
 import WikiHeader from '@/components/common/Header';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import '@wiki/css/mypage.css';
+import { apiFetch, confirmDialog, toast } from '@/wiki/lib/fetcher';
 
 type UserInfo = {
   id: number;
@@ -27,9 +28,11 @@ export default function MyPage() {
   const [loading, setLoading] = useState(true);
 
   // 폼 토글/상태
+  const [openNickForm, setOpenNickForm] = useState(false);
   const [openPwForm, setOpenPwForm] = useState(false);
   const [openDeleteForm, setOpenDeleteForm] = useState(false);
 
+  const [newNick, setNewNick] = useState('');
   const [curPw, setCurPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [delPw, setDelPw] = useState('');
@@ -41,86 +44,79 @@ export default function MyPage() {
     return `${base}/${uuid ?? user?.minecraft_name}?overlay`;
   }, [uuid, user?.minecraft_name]);
 
-  // 유저 로딩 (언마운트 시 fetch 취소)
-  const loadMe = async (signal?: AbortSignal) => {
+  // 유저 로딩
+  const loadMe = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/me', { cache: 'no-store', signal });
-      if (!res.ok) throw 0;
-      const data = await res.json();
-      if (signal?.aborted) return; // 취소되면 무시
+      const data = await apiFetch<{ user: UserInfo | null }>('/api/auth/me');
       setUser(data?.user ?? null);
-    } catch (e: any) {
-      if (e?.name === 'AbortError') return; // 언마운트 취소는 조용히 무시
+    } catch {
       setUser(null);
     } finally {
-      if (!signal?.aborted) setLoading(false);
+      setLoading(false);
     }
   };
 
-  useEffect(() => {
-    const ac = new AbortController();
-    loadMe(ac.signal);
-    return () => ac.abort();
-  }, []);
+  useEffect(() => { loadMe(); }, []);
 
-  // 닉네임 → UUID 조회 (언마운트 시 취소)
+  // 닉네임 → UUID 조회
   useEffect(() => {
-    if (!user?.minecraft_name) return;
-    const ac = new AbortController();
     (async () => {
+      if (!user?.minecraft_name) return;
       try {
-        const r = await fetch(
+        const j = await apiFetch<{ uuid: string | null }>(
           `/api/mojang/uuid?name=${encodeURIComponent(user.minecraft_name)}`,
-          { signal: ac.signal }
+          { suppressErrorToast: true } // 실패해도 폴백
         );
-        if (!r.ok) { setUuid(null); return; }
-        const j = await r.json();
-        if (!ac.signal.aborted) setUuid(j.uuid);
-      } catch (e: any) {
-        if (e?.name !== 'AbortError') setUuid(null);
+        setUuid(j?.uuid ?? null);
+      } catch {
+        setUuid(null);
       }
     })();
-    return () => ac.abort();
   }, [user?.minecraft_name]);
 
   // ========== handlers ==========
-  const handleChangePassword = async () => {
-    if (!curPw || !newPw) return alert('현재/새 비밀번호를 입력하세요.');
-    if (newPw.length < 8) return alert('새 비밀번호는 8자 이상 권장합니다.');
+  const handleChangeNick = async () => {
+    if (!newNick.trim()) return toast.error('새 닉네임을 입력하세요.');
     try {
-      const res = await fetch('/api/auth/password', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ currentPassword: curPw, newPassword: newPw }),
+      await apiFetch('/api/profile/minecraft-name', {
+        method: 'PATCH',
+        body: { newName: newNick.trim() },
       });
-      const j = await res.json();
-      if (!res.ok) return alert(j?.error || '비밀번호 변경 실패');
+      await loadMe(); // 서버가 새 JWT도 재발급
+      setNewNick('');
+      setOpenNickForm(false);
+      toast.success('닉네임이 변경되었습니다.');
+    } catch (e) {
+      // apiFetch가 에러 토스트 처리
+    }
+  };
 
+  const handleChangePassword = async () => {
+    if (!curPw || !newPw) return toast.error('현재/새 비밀번호를 입력하세요.');
+    if (newPw.length < 8) return toast.error('새 비밀번호는 8자 이상 권장합니다.');
+    try {
+      await apiFetch('/api/auth/password', {
+        method: 'PUT',
+        body: { currentPassword: curPw, newPassword: newPw },
+      });
       setCurPw(''); setNewPw(''); setOpenPwForm(false);
-      alert('비밀번호가 변경되었습니다.');
+      toast.success('비밀번호가 변경되었습니다.');
     } catch {
-      alert('서버 오류로 실패했습니다.');
+      /* handled */
     }
   };
 
   const handleDelete = async () => {
-    if (!delPw) return alert('비밀번호를 입력하세요.');
-    if (!window.confirm('정말 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
+    if (!delPw) return toast.error('비밀번호를 입력하세요.');
+    const ok = await confirmDialog('정말 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.');
+    if (!ok) return;
     try {
-      const res = await fetch('/api/auth/me', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: delPw }),
-      });
-      const j = await res.json();
-      if (!res.ok) return alert(j?.error || '회원 탈퇴 실패');
-
-      alert('탈퇴 처리되었습니다.');
-      // 메인으로
+      await apiFetch('/api/auth/me', { method: 'DELETE', body: { password: delPw } });
+      toast.success('탈퇴 처리되었습니다.');
       location.href = '/';
     } catch {
-      alert('서버 오류로 실패했습니다.');
+      /* handled */
     }
   };
 
@@ -170,36 +166,20 @@ export default function MyPage() {
               </div>
             </div>
           </div>
-
           <div className="mypage-btn-row">
-            <button
-              className="mypage-btn"
-              type="button"
-              onClick={() => { setOpenPwForm(v => !v); setOpenDeleteForm(false); }}
-            >
+            <button className="mypage-btn" type="button"
+              onClick={() => { setOpenPwForm(v => !v); setOpenNickForm(false); setOpenDeleteForm(false); }}>
               비밀번호 재설정
             </button>
             {openPwForm && (
               <div className="mypage-form">
                 <div className="row">
                   <label htmlFor="curPw">현재 비밀번호</label>
-                  <input
-                    id="curPw"
-                    type="password"
-                    value={curPw}
-                    onChange={e => setCurPw(e.target.value)}
-                    autoComplete="current-password"
-                  />
+                  <input id="curPw" type="password" value={curPw} onChange={e => setCurPw(e.target.value)} />
                 </div>
                 <div className="row">
                   <label htmlFor="newPw">새 비밀번호</label>
-                  <input
-                    id="newPw"
-                    type="password"
-                    value={newPw}
-                    onChange={e => setNewPw(e.target.value)}
-                    autoComplete="new-password"
-                  />
+                  <input id="newPw" type="password" value={newPw} onChange={e => setNewPw(e.target.value)} />
                 </div>
                 <div className="actions">
                   <button className="ghost" onClick={() => setOpenPwForm(false)}>취소</button>
@@ -208,24 +188,15 @@ export default function MyPage() {
               </div>
             )}
 
-            <button
-              className="mypage-btn"
-              type="button"
-              onClick={() => { setOpenDeleteForm(v => !v); setOpenPwForm(false); }}
-            >
+            <button className="mypage-btn" type="button"
+              onClick={() => { setOpenDeleteForm(v => !v); setOpenNickForm(false); setOpenPwForm(false); }}>
               회원 탈퇴
             </button>
             {openDeleteForm && (
               <div className="mypage-form">
                 <div className="row">
                   <label htmlFor="delPw">비밀번호 확인</label>
-                  <input
-                    id="delPw"
-                    type="password"
-                    value={delPw}
-                    onChange={e => setDelPw(e.target.value)}
-                    autoComplete="current-password"
-                  />
+                  <input id="delPw" type="password" value={delPw} onChange={e => setDelPw(e.target.value)} />
                 </div>
                 <div className="actions">
                   <button className="ghost" onClick={() => setOpenDeleteForm(false)}>취소</button>
@@ -243,6 +214,18 @@ export default function MyPage() {
           </div>
         </section>
       </main>
+
+      {/* 메시지 줄바꿈 보장 및 에러 스타일 */}
+      <style jsx global>{`
+        .login-message { white-space: pre-line; }
+        .input-error {
+          margin-top: 6px;
+          font-size: 12px;
+          color: #e11d48;
+          font-weight: 600;
+        }
+        [aria-invalid="true"] ~ .login-underline { background: #fecaca; }
+      `}</style>
     </div>
   );
 }

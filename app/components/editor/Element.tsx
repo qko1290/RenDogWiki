@@ -431,11 +431,6 @@ const Element: React.FC<ElementProps> = ({
       if (el.textAlign === 'left') justifyContent = 'flex-start';
       else if (el.textAlign === 'right') justifyContent = 'flex-end';
 
-      const handleEditBadgeClick = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        setModalOpen(true);
-      };
-
       const handleSaveSize = (width: number, height: number) => {
         const path = ReactEditor.findPath(editor, element);
         Transforms.setNodes(editor, { width, height }, { at: path });
@@ -470,7 +465,8 @@ const Element: React.FC<ElementProps> = ({
                   transition: 'border 0.1s',
                 }}
               />
-              {selected && focused && (
+              {/* 버튼 렌더 조건 완화: selected 만 확인 */}
+              {selected && (
                 <button
                   type="button"
                   aria-label="이미지 크기 편집"
@@ -492,7 +488,12 @@ const Element: React.FC<ElementProps> = ({
                     padding: 0,
                   }}
                   tabIndex={-1}
-                  onClick={handleEditBadgeClick}
+                  // ✅ onClick → onMouseDown 으로 변경 + 포커스 유지
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setModalOpen(true);
+                  }}
                   title="이미지 크기 편집"
                 >
                   <EditIcon size={18} color="#2a90ff" />
