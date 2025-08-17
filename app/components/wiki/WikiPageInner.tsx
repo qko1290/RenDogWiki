@@ -13,6 +13,7 @@ import HeadGrid from './HeadGrid';
 import TableOfContents from './TableOfContents';
 import NpcDetailModal from './NpcDetailModal';
 import HeadDetailModal from './HeadDetailModal';
+import FaqList from './FaqList';
 
 import { Descendant } from 'slate';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -32,7 +33,7 @@ type Document = {
   icon?: string;
   fullPath?: number[];
   is_featured?: boolean;
-  special?: string | null;            // ✅ 추가: 서버가 special을 반환해야 함
+  special?: string | null;
 };
 type NpcRow = {
   id: number;
@@ -75,27 +76,62 @@ function getInitialMode(): string | null {
   return v && MODE_WHITELIST.has(v) ? v : null;
 }
 
-// "퀘스트 / 슬라임 빌리지" 같은 포맷 파싱
-function parseSpecial(s?: string | null): null | { kind: 'quest' | 'npc' | 'head'; label: string; village: string } {
-  if (!s) return null;
-  // 구분자: '/', '／', '|' 등 허용 + 앞뒤 공백 제거
+// ---- 권한 체크(Writer+) --------------------------------------
+function useCanWrite(user: Props['user']) {
+  const [can, setCan] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        if (!user) { setCan(false); return; }
+        const r = await fetch('/api/auth/me', { cache: 'no-store' });
+        const me = r.ok ? await r.json() : null;
+        const role = (me?.role ?? me?.user?.role ?? '').toLowerCase?.() || '';
+        const roles: string[] = (me?.roles ?? me?.user?.roles ?? me?.permissions ?? me?.user?.permissions ?? [])
+          .map((v: any) => String(v).toLowerCase());
+        const ok = ['admin','manager','writer'].includes(role)
+          || roles.includes('admin') || roles.includes('manager') || roles.includes('writer');
+        if (!cancelled) setCan(!!ok);
+      } catch { if (!cancelled) setCan(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
+  return can;
+}
+
+// ---- Special 파서 ---------------------------------------------
+type SpecialMeta =
+  | { kind: 'quest' | 'npc' | 'head'; label: string; village: string }
+  | { kind: 'faq'; q?: string; tags?: string[] }
+  | null;
+
+function parseSpecial(raw?: string | null): SpecialMeta {
+  if (!raw) return null;
+  const s = raw.trim();
+
+  const lower = s.toLowerCase();
+  if (lower.startsWith('faq') || lower.startsWith('질문') || lower.startsWith('자주')) {
+    const after = s.split('/').slice(1).join('/') || '';
+    const meta: { q?: string; tags?: string[] } = {};
+    if (after.startsWith('tag:')) meta.tags = after.slice(4).split(',').map(t => t.trim()).filter(Boolean);
+    if (after.startsWith('q:')) meta.q = after.slice(2).trim();
+    return { kind: 'faq', ...meta };
+  }
+
   const [rawKind, ...rest] = s.split(/[\/|｜]/);
   if (!rawKind || rest.length === 0) return null;
-  const rawVillage = rest.join('/'); // 마을명이 안에 / 가 있으면 다시 합침
-  const kindKey = String(rawKind).trim().toLowerCase();
-
+  const village = rest.join('/').trim();
+  const kindKey = rawKind.trim().toLowerCase();
   let kind: 'quest' | 'npc' | 'head' | null = null;
   if (['퀘스트', 'quest', 'q'].includes(kindKey)) kind = 'quest';
   else if (['npc', '엔피씨'].includes(kindKey)) kind = 'npc';
   else if (['머리', '머리찾기', 'head', 'heads'].includes(kindKey)) kind = 'head';
-
-  if (!kind) return null;
-
-  const village = String(rawVillage).trim(); // 공백 정리
+  if (!kind || !village) return null;
   const label = kind === 'quest' ? '퀘스트' : kind === 'npc' ? 'NPC' : '머리';
-  if (!village) return null;
   return { kind, label, village };
 }
+
+// -------------------------------------------------------------------
 
 export default function WikiPageInner({ user }: Props) {
   // --------- 모드 상태 ---------
@@ -120,7 +156,7 @@ export default function WikiPageInner({ user }: Props) {
   const [closingMap, setClosingMap] = useState<Record<string, boolean>>({});
 
   // Special 로딩 전용 상태
-  const [specialMeta, setSpecialMeta] = useState<ReturnType<typeof parseSpecial>>(null);
+  const [specialMeta, setSpecialMeta] = useState<SpecialMeta>(null);
   const [npcList, setNpcList] = useState<NpcRow[]>([]);
   const [npcLoading, setNpcLoading] = useState(false);
   const [selectedNpc, setSelectedNpc] = useState<NpcRow | null>(null);
@@ -131,12 +167,19 @@ export default function WikiPageInner({ user }: Props) {
   const [selectedHead, setSelectedHead] = useState<HeadRow | null>(null);
   const [headPage, setHeadPage] = useState(0);
 
+  // FAQ 파라미터 & 새로고침 신호
+  const [faqQuery, setFaqQuery] = useState('');
+  const [faqTags, setFaqTags] = useState<string[]>([]);
+  const [faqRefreshSignal, setFaqRefreshSignal] = useState(0);
+
+  // 새 질문 모달
+  const [showNewFaq, setShowNewFaq] = useState(false);
+
+  const canWrite = useCanWrite(user);
+
   const router = useRouter();
   const searchParams = useSearchParams();
   const contentRef = useRef<HTMLDivElement>(null);
-
-  const DEV_LOG = false;
-  const P = (...args: any[]) => { if (DEV_LOG && typeof window !== 'undefined') console.log('[WikiPage]', ...args); };
 
   const mountedRef = useRef(true);
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
@@ -251,7 +294,6 @@ export default function WikiPageInner({ user }: Props) {
     }
   };
   const togglePath = async (path: number[]) => {
-    const key = pathToStr(path);
     const catId = path.at(-1)!;
     const category = categoryIdMap[catId];
     const isSamePath = selectedDocPath && JSON.stringify(selectedDocPath) === JSON.stringify(path);
@@ -263,29 +305,19 @@ export default function WikiPageInner({ user }: Props) {
         const res = await fetch(`/api/documents?id=${docId}`, { cache: 'no-store' });
         if (!res.ok) throw new Error('대표 문서를 찾을 수 없습니다');
         const doc = await res.json();
-
         if (!doc || !doc.title) {
-          setSelectedDocId(null);
-          setSelectedDocPath(null);
-          setSelectedDocTitle(null);
-          setDocContent([]);
-          setSelectedCategoryPath(path);
-          return;
+          setSelectedDocId(null); setSelectedDocPath(null); setSelectedDocTitle(null);
+          setDocContent([]); setSelectedCategoryPath(path); return;
         }
         setSelectedDocId(doc.id);
         setSelectedDocPath([...path]);
         setSelectedDocTitle(doc.title);
         setSelectedCategoryPath(path);
-
         fetchDoc(path, doc.title, doc.id);
-
         setOpenPaths(prev => (prev.some(p => JSON.stringify(p) === JSON.stringify(path)) ? prev : [...prev, path]));
       } catch {
-        setSelectedDocId(null);
-        setSelectedDocPath(null);
-        setSelectedDocTitle(null);
-        setDocContent([]);
-        setSelectedCategoryPath(path);
+        setSelectedDocId(null); setSelectedDocPath(null); setSelectedDocTitle(null);
+        setDocContent([]); setSelectedCategoryPath(path);
       }
     }
   };
@@ -300,47 +332,39 @@ export default function WikiPageInner({ user }: Props) {
     if (options?.clearCategoryPath) setSelectedCategoryPath(null);
     setSelectedDocTitle(docTitle);
 
-    // 초기 선택 세팅
-    if (docId) {
-      setSelectedDocId(docId);
-      setSelectedDocPath([...categoryPath]);
-    } else {
-      const doc = allDocuments.find(
-        d => d.title === docTitle && JSON.stringify(d.fullPath) === JSON.stringify(categoryPath)
-      );
-      if (doc) {
-        setSelectedDocId(doc.id);
-        setSelectedDocPath([...categoryPath]);
-      }
+    if (docId) { setSelectedDocId(docId); setSelectedDocPath([...categoryPath]); }
+    else {
+      const doc = allDocuments.find(d => d.title === docTitle && JSON.stringify(d.fullPath) === JSON.stringify(categoryPath));
+      if (doc) { setSelectedDocId(doc.id); setSelectedDocPath([...categoryPath]); }
     }
 
     const reqId = ++docReqIdRef.current;
 
     fetch(`/api/documents?path=${String(categoryPath.at(-1))}&title=${encodeURIComponent(docTitle)}`, { cache: 'no-store' })
-      .then(res => {
-        if (!res.ok) throw new Error('문서를 찾을 수 없습니다.');
-        return res.json();
-      })
+      .then(res => { if (!res.ok) throw new Error('문서를 찾을 수 없습니다.'); return res.json(); })
       .then(data => {
         if (!mountedRef.current || reqId !== docReqIdRef.current) return;
-
         const content: Descendant[] =
           typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
-
         setDocContent(content);
         setTableOfContents(extractHeadings(content));
 
-        // ✅ special 메타 파싱 저장
-        setSpecialMeta(parseSpecial(data.special ?? (allDocuments.find(d => d.id === data.id)?.special)));
+        const docInList = allDocuments.find(d => d.id === data.id);
+        const special = data.special ?? docInList?.special ?? null;
+        const meta = parseSpecial(special);
+        setSpecialMeta(meta);
 
-        if (data.fullPath && Array.isArray(data.fullPath)) {
-          setSelectedDocPath([...data.fullPath]);
-        }
+        if (meta?.kind === 'faq') {
+          setFaqQuery(meta.q ?? ''); setFaqTags(meta.tags ?? []);
+        } else { setFaqQuery(''); setFaqTags([]); }
+
+        if (data.fullPath && Array.isArray(data.fullPath)) setSelectedDocPath([...data.fullPath]);
       })
       .catch(() => {
         if (!mountedRef.current || reqId !== docReqIdRef.current) return;
         setDocContent(null);
         setSpecialMeta(null);
+        setFaqQuery(''); setFaqTags([]);
       });
   }
 
@@ -348,49 +372,39 @@ export default function WikiPageInner({ user }: Props) {
   useEffect(() => {
     const el = contentRef.current;
     if (!el) return;
-
     const handler = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
-      const aTag = target?.closest('a');
-      if (!aTag) return;
+      const aTag = target?.closest('a'); if (!aTag) return;
       const href = aTag.getAttribute('href');
       if (href && href.startsWith('/wiki?')) {
         e.preventDefault();
         const url = new URL(href, window.location.origin);
         const path = url.searchParams.get('path');
         const title = url.searchParams.get('title');
-        if (path && title) {
-          router.push(`/wiki?path=${encodeURIComponent(path)}&title=${encodeURIComponent(title)}&_t=${Date.now()}`);
-        }
+        if (path && title) router.push(`/wiki?path=${encodeURIComponent(path)}&title=${encodeURIComponent(title)}&_t=${Date.now()}`);
       }
     };
-
     el.addEventListener('click', handler);
     return () => el.removeEventListener('click', handler);
   }, [docContent, router]);
 
-  // --------- Special 기반 데이터 로딩(유일한 소스) ---------
+  // --------- Special 기반 데이터 로딩(FAQ 제외) ---------
   useEffect(() => {
-    // 선택/문서/스페셜 없으면 리셋
     if (!selectedDocId || !selectedDocTitle) {
       setNpcList([]); setNpcLoading(false); setNpcPage(0);
       setHeadList([]); setHeadLoading(false); setHeadPage(0);
       return;
     }
     const meta = specialMeta;
-    if (!meta) {
-      // special이 없으면 그냥 일반 문서만 보여줌
+    if (!meta || meta.kind === 'faq') {
       setNpcList([]); setNpcLoading(false); setNpcPage(0);
       setHeadList([]); setHeadLoading(false); setHeadPage(0);
       return;
     }
 
     let cancelled = false;
-
-    // village 찾기: special의 마을명 → 실패 시 문서 제목으로 한 번 더 시도(띄어쓰기/오타 대처)
-    const findVillage = async () => {
-      const tryNames = Array.from(new Set([meta.village, selectedDocTitle].filter(Boolean))) as string[];
-      for (const name of tryNames) {
+    const findVillage = async (names: string[]) => {
+      for (const name of names) {
         const r = await fetch(`/api/villages?name=${encodeURIComponent(name)}`);
         if (!r.ok) continue;
         const v = await r.json();
@@ -402,35 +416,29 @@ export default function WikiPageInner({ user }: Props) {
     (async () => {
       if (meta.kind === 'head') {
         setHeadLoading(true); setHeadList([]); setHeadPage(0);
-        const village = await findVillage();
-        if (cancelled) return;
-        if (!village) { setHeadLoading(false); return; }
-        const res = await fetch(`/api/head?village_id=${village.id}`);
+        const v = await findVillage([meta.village, selectedDocTitle].filter(Boolean) as string[]);
+        if (!v) { setHeadLoading(false); return; }
+        const res = await fetch(`/api/head?village_id=${v.id}`);
         const heads = res.ok ? await res.json() : [];
-        if (cancelled) return;
         setHeadList(Array.isArray(heads) ? (heads as HeadRow[]) : []); setHeadLoading(false);
         return;
       }
-
-      // NPC/퀘스트
       setNpcLoading(true); setNpcList([]); setNpcPage(0);
-      const village = await findVillage();
-      if (cancelled) return;
-      if (!village) { setNpcLoading(false); return; }
+      const v = await findVillage([meta.village, selectedDocTitle].filter(Boolean) as string[]);
+      if (!v) { setNpcLoading(false); return; }
       const npcType = meta.kind === 'quest' ? 'quest' : 'normal';
-      const res = await fetch(`/api/npcs?village_id=${village.id}&npc_type=${npcType}`);
+      const res = await fetch(`/api/npcs?village_id=${v.id}&npc_type=${npcType}`);
       const npcs = res.ok ? await res.json() : [];
-      if (cancelled) return;
       setNpcList(Array.isArray(npcs) ? (npcs as NpcRow[]) : []); setNpcLoading(false);
     })();
-
-    return () => { cancelled = true; };
   }, [selectedDocId, selectedDocTitle, specialMeta]);
 
   const currentDoc = useMemo(
     () => allDocuments.find(d => d.id === selectedDocId),
     [allDocuments, selectedDocId]
   );
+
+  const isFaq = specialMeta?.kind === 'faq';
 
   // --------- 렌더 ---------
   return (
@@ -473,43 +481,63 @@ export default function WikiPageInner({ user }: Props) {
               setDocContent={setDocContent}
             />
 
-            <h2 className="wiki-content-title-row wiki-content-title">
-              {currentDoc?.icon
-                ? (currentDoc.icon.startsWith('http')
-                    ? <img src={currentDoc.icon} alt="icon" className="wiki-doc-icon-img" />
-                    : <span className="wiki-doc-icon-emoji">{currentDoc.icon}</span>)
-                : null}
-              <span className="wiki-title-color">{selectedDocTitle || '렌독 위키'}</span>
-            </h2>
+            {/* 타이틀 + 질문추가 버튼(FAQ일 때만, writer+) */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <h2 className="wiki-content-title-row wiki-content-title" style={{ margin: 0 }}>
+                {isFaq ? (
+                  <>
+                    <span className="wiki-doc-icon-emoji" aria-hidden>🧭</span>
+                    <span className="wiki-title-color">자주 물으시는 질문</span>
+                  </>
+                ) : (
+                  <>
+                    {currentDoc?.icon
+                      ? (currentDoc.icon.startsWith('http')
+                          ? <img src={currentDoc.icon} alt="icon" className="wiki-doc-icon-img" />
+                          : <span className="wiki-doc-icon-emoji">{currentDoc.icon}</span>)
+                      : null}
+                    <span className="wiki-title-color">{selectedDocTitle || '렌독 위키'}</span>
+                  </>
+                )}
+              </h2>
+
+              {isFaq && canWrite && (
+                <button
+                  className="wiki-btn wiki-btn-primary"
+                  onClick={() => setShowNewFaq(true)}
+                  style={{ height: 36 }}
+                >
+                  질문 추가
+                </button>
+              )}
+            </div>
 
             <div className="wiki-content-body" ref={contentRef}>
-              {/* special이 head 인 경우 */}
-              {specialMeta?.kind === 'head'
-                ? (headLoading
-                    ? <div>머리 목록 로딩 중...</div>
-                    : headList.length > 0
-                      ? <HeadGrid
-                          heads={headList.slice(headPage * 21, (headPage + 1) * 21)}
-                          onClick={setSelectedHead}
-                          selectedHeadId={selectedHead?.id || null}
-                        />
-                      : <div>등록된 머리가 없습니다.</div>)
-                // special이 npc/quest 인 경우
-                : (specialMeta?.kind === 'npc' || specialMeta?.kind === 'quest')
-                  ? (npcLoading
-                      ? <div>NPC 목록 로딩 중...</div>
-                      : npcList.length > 0
-                        ? <NpcGrid
-                            npcs={npcList.slice(npcPage * 21, (npcPage + 1) * 21)}
-                            onClick={setSelectedNpc}
-                            selectedNpcId={selectedNpc?.id || null}
-                          />
-                        : <div>등록된 NPC가 없습니다.</div>)
-                  // special이 없으면 일반 문서
-                  : (Array.isArray(docContent) && docContent.length > 0
-                      ? <WikiReadRenderer content={docContent} />
-                      : <div>문서를 찾을 수 없습니다.</div>)
-              }
+              {isFaq ? (
+                <FaqList query={faqQuery} tags={faqTags} user={user} refreshSignal={faqRefreshSignal} />
+              ) : specialMeta?.kind === 'head' ? (
+                headLoading ? <div>머리 목록 로딩 중...</div> :
+                headList.length > 0 ? (
+                  <HeadGrid
+                    heads={headList.slice(headPage * 21, (headPage + 1) * 21)}
+                    onClick={setSelectedHead}
+                    selectedHeadId={selectedHead?.id || null}
+                  />
+                ) : <div>등록된 머리가 없습니다.</div>
+              ) : specialMeta?.kind === 'npc' || specialMeta?.kind === 'quest' ? (
+                npcLoading ? <div>NPC 목록 로딩 중...</div> :
+                npcList.length > 0 ? (
+                  <NpcGrid
+                    npcs={npcList.slice(npcPage * 21, (npcPage + 1) * 21)}
+                    onClick={setSelectedNpc}
+                    selectedNpcId={selectedNpc?.id || null}
+                  />
+                ) : <div>등록된 NPC가 없습니다.</div>
+              ) : Array.isArray(docContent) && docContent.length > 0 ? (
+                <WikiReadRenderer content={docContent} />
+              ) : (
+                <div>문서를 찾을 수 없습니다.</div>
+              )}
 
               {/* 페이징: 머리 */}
               {specialMeta?.kind === 'head' && headList.length > 21 && (
@@ -529,7 +557,7 @@ export default function WikiPageInner({ user }: Props) {
                 </div>
               )}
 
-              {/* 상세 모달 */}
+              {/* 상세 모달들 */}
               {selectedNpc && (
                 <NpcDetailModal
                   npc={selectedNpc}
@@ -552,6 +580,84 @@ export default function WikiPageInner({ user }: Props) {
           <TableOfContents headings={tableOfContents} />
         </aside>
       </div>
+
+      {/* 새 질문 모달(타이틀 옆 버튼) */}
+      {showNewFaq && (
+        <NewFaqModal
+          onClose={() => setShowNewFaq(false)}
+          onSaved={() => { setShowNewFaq(false); setFaqRefreshSignal(v => v + 1); }}
+        />
+      )}
     </div>
   );
 }
+
+// ---------------- 새 질문 모달(제목/내용(+태그 옵션)) ----------------
+function NewFaqModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void; }) {
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [tags, setTags] = useState(''); // 쉼표 분리, 옵션
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    if (!title.trim() || !content.trim()) {
+      alert('제목과 내용을 입력해주세요.'); return;
+    }
+    setSaving(true);
+    try {
+      const r = await fetch('/api/faq', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: title.trim(), content: content.trim(), tags }),
+      });
+      if (!r.ok) throw 0;
+      onSaved();
+    } catch {
+      alert('저장에 실패했습니다.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={backdropStyle} onClick={onClose}>
+      <div style={modalStyle} onClick={e => e.stopPropagation()}>
+        <div style={modalHeaderStyle}>
+          <h3 style={{ margin: 0 }}>질문 추가</h3>
+          <button onClick={onClose} style={closeBtnStyle} aria-label="close">✕</button>
+        </div>
+        <div style={{ display: 'grid', gap: 10 }}>
+          <div>
+            <label style={labelStyle}>제목</label>
+            <input style={inputStyle} value={title} onChange={e => setTitle(e.target.value)} />
+          </div>
+          <div>
+            <label style={labelStyle}>내용</label>
+            <textarea style={{ ...inputStyle, height: 140, resize: 'vertical' }} value={content} onChange={e => setContent(e.target.value)} />
+          </div>
+          <div>
+            <label style={labelStyle}>태그(쉼표로 구분, 선택)</label>
+            <input style={inputStyle} value={tags} onChange={e => setTags(e.target.value)} placeholder="예: 뉴비,설정" />
+          </div>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
+          <button className="wiki-btn" onClick={onClose}>취소</button>
+          <button className="wiki-btn wiki-btn-primary" onClick={save} disabled={saving}>{saving ? '저장 중…' : '저장'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- inline styles for modal ---
+const backdropStyle: React.CSSProperties = {
+  position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000,
+  display: 'grid', placeItems: 'center', padding: 16,
+};
+const modalStyle: React.CSSProperties = {
+  width: 'min(680px, 100%)', background: '#fff', borderRadius: 16, padding: 16, boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+};
+const modalHeaderStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 };
+const closeBtnStyle: React.CSSProperties = { border: '1px solid #e5e7eb', background: '#fff', borderRadius: 8, width: 32, height: 32, cursor: 'pointer' };
+const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, color: '#555', marginBottom: 6 };
+const inputStyle: React.CSSProperties = { width: '100%', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 10px' };
