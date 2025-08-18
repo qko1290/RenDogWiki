@@ -104,7 +104,7 @@ export default function WikiHeader({ user }: WikiHeaderProps) {
             fontSize: 15,
             fontWeight: mode === null ? 800 : 600,
             letterSpacing: 0.2,
-            color: mode === null ? '#111827' : '#6b7280', // active: 거의 검정, inactive: 회색
+            color: mode === null ? '#6f4cff' : '#6b7280', // active: 거의 검정, inactive: 회색
             cursor: 'pointer',
           }}
         >
@@ -122,7 +122,7 @@ export default function WikiHeader({ user }: WikiHeaderProps) {
             fontSize: 15,
             fontWeight: isNewbie ? 800 : 600,
             letterSpacing: 0.2,
-            color: isNewbie ? '#111827' : '#6b7280',
+            color: isNewbie ? '#6f4cff' : '#6b7280',
             cursor: 'pointer',
           }}
         >

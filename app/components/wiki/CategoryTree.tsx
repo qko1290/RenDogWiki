@@ -323,8 +323,39 @@ const CategoryTree: React.FC<Props> = ({
           <button
             className={`wiki-nav-item ${isCategoryActive ? "active" : ""}`}
             onClick={async () => {
+              const currentPath = [...parentPath, node.id];
               const isOpenNow = isPathOpen(currentPath);
 
+              // ✅ 1) 대표 문서 우선 오픈 로직
+              if (node.document_id != null) {
+                const repId = Number(node.document_id);
+                const repFromList = allDocuments.find(d => d.id === repId);
+                const repIsOpen =
+                  selectedDocId === repId && equalsPath(selectedDocPath, currentPath);
+
+                // 대표 문서가 아직 열려있지 않다면 → 대표 문서 먼저 열고 토글은 하지 않음
+                if (!repIsOpen) {
+                  // title 우선 확보 (목록에 없으면 API fallback)
+                  let title = repFromList?.title;
+                  if (!title) {
+                    try {
+                      const r = await fetch(`/api/documents?id=${repId}`, { cache: "no-store" });
+                      if (r.ok) {
+                        const data = await r.json();
+                        title = data?.title || "";
+                      }
+                    } catch {}
+                  }
+
+                  if (title) {
+                    fetchDoc(currentPath, title, repId, { clearCategoryPath: true });
+                    return; // 👈 토글 동작은 이 클릭에 적용하지 않음
+                  }
+                  // 혹시 title을 못 구했으면 아래 토글 로직으로 폴백
+                }
+              }
+
+              // ✅ 2) 일반 토글 로직 (대표 문서가 이미 열려있거나 없는 경우에만)
               if (node.document_id != null) {
                 if (isOpenNow) {
                   await closeTreeWithChildren(node, currentPath);

@@ -1,6 +1,6 @@
 // =============================================
 // File: app/wiki/WikiPageInner.tsx
-// (FAQ 제목/아이콘 하드코딩 제거: 모든 문서와 동일하게 currentDoc.icon + selectedDocTitle 사용)
+// (초기 로딩 + 로고 클릭 시 루트 대표 문서 id=73 강제 오픈, FAQ 제목/아이콘 공통 처리, isPathOpen 비교 버그 수정)
 // =============================================
 'use client';
 
@@ -68,6 +68,9 @@ const MODE_PARAM = 'mode';
 const MODE_STORAGE = 'wiki:mode';
 const MODE_EVENT = 'wiki-mode-change';
 const MODE_WHITELIST = new Set(['newbie']);
+
+// ✅ 루트 대표 문서 ID 하드코딩
+const ROOT_FEATURED_DOC_ID = 73;
 
 function pathToStr(path: number[]) { return path.join('/'); }
 function getInitialMode(): string | null {
@@ -210,13 +213,24 @@ export default function WikiPageInner({ user }: Props) {
     const rootDoc = findRootDoc();
     if (!rootDoc) return;
 
-    setHideDocChrome(true);             // 루트는 제목/브레드크럼 숨김
+    setHideDocChrome(true);
     setSelectedDocId(rootDoc.id);
     setSelectedDocTitle(rootDoc.title ?? null);
     setSelectedDocPath([]);             // 루트 경로는 []
     setSelectedCategoryPath(null);
 
     await fetchDocById(rootDoc.id, { hideChrome: true });
+  };
+
+  // ✅ 특정 ID로 루트 문서 열기(로고/초기 로딩용)
+  const openRootDocById = async (docId: number) => {
+    setHideDocChrome(true);
+    setSelectedCategoryPath(null);
+    setSelectedDocPath([]);             // 루트 경로 고정
+    setSelectedDocId(docId);
+    const inList = allDocuments.find(d => d.id === docId);
+    setSelectedDocTitle(inList?.title ?? null); // 목록에 있으면 즉시 반영
+    await fetchDocById(docId, { hideChrome: true });
   };
 
   // 카테고리 + 전체 문서 로드
@@ -315,7 +329,9 @@ export default function WikiPageInner({ user }: Props) {
     }
   }, [searchParams, allDocuments, categoryIdToPathMap]);
 
-  const isPathOpen = (path: number[]) => openPaths.some(p => pathToStr(p) === pathToStr(p));
+  const isPathOpen = (path: number[]) =>
+    openPaths.some(p => pathToStr(p) === pathToStr(path)); // 🔧 비교 버그 수정
+
   const isClosing = (path: number[]) => closingMap[pathToStr(path)] || false;
   const finalizeClose = (path: number[]) => {
     const key = pathToStr(path);
@@ -553,7 +569,7 @@ export default function WikiPageInner({ user }: Props) {
 
   const isFaq = specialMeta?.kind === 'faq';
 
-  // ✅ 초기 자동 오픈: 카테고리/문서 세팅 완료 후 루트 대표 문서를 지연 오픈
+  // ✅ 초기 자동 오픈: 카테고리/문서 세팅 완료 후 "ID=73"을 지연 오픈
   //    단, URL 파라미터(path,title)가 있으면 자동 오픈을 건너뜀
   useEffect(() => {
     if (!firstLoadRef.current) return;
@@ -573,7 +589,8 @@ export default function WikiPageInner({ user }: Props) {
 
     const id1 = requestAnimationFrame(() => {
       const id2 = requestAnimationFrame(() => {
-        openRootDoc();
+        // 🔴 여기서 확실하게 ID=73으로 연다
+        openRootDocById(ROOT_FEATURED_DOC_ID);
       });
       (window as any).__wiki_root_open_cleanup = () => cancelAnimationFrame(id2);
     });
@@ -585,7 +602,7 @@ export default function WikiPageInner({ user }: Props) {
     };
   }, [categories, allDocuments, selectedDocId, searchParams]);
 
-  // ✅ 로고 클릭: 루트 대표 문서 오픈
+  // ✅ 로고 클릭: 루트 대표 문서(ID=73) 강제 오픈
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
       const targ = e.target as HTMLElement | null;
@@ -600,11 +617,10 @@ export default function WikiPageInner({ user }: Props) {
         a.classList.contains('wiki-logo');
 
       if (!looksLikeLogo) return;
-      if (!allDocuments || allDocuments.length === 0) return;
 
       e.preventDefault();
       e.stopPropagation();
-      openRootDoc();
+      openRootDocById(ROOT_FEATURED_DOC_ID); // ← ID 73으로 연다
     };
 
     document.addEventListener('click', onClick, true);

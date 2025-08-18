@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   RenderElementProps,
   ReactEditor,
@@ -390,7 +390,7 @@ const Element: React.FC<ElementProps> = ({
           {...attributes}
           style={{
             textAlign: el.textAlign || 'left',
-            borderLeft: indentLine ? '4px solid #aaa' : undefined,
+            borderLeft: indentLine ? '2px solid #D5D9E0' : undefined,
             paddingLeft: indentLine ? 16 : undefined,
             margin: 0,
           }}
@@ -434,6 +434,9 @@ const Element: React.FC<ElementProps> = ({
       const focused = useFocused();
       const [modalOpen, setModalOpen] = useState(false);
 
+      const imgRef = useRef<HTMLImageElement | null>(null);
+      const [initSize, setInitSize] = useState<{ w?: number; h?: number }>({});
+
       const EditIcon = ({ size = 18, color = '#2a90ff' }) => (
         <svg width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden>
           <path d="M3 17h3.8a1 1 0 0 0 .7-.3l8.4-8.4a2 2 0 0 0 0-2.8l-1.7-1.7a2 2 0 0 0-2.8 0L3.3 12.2a1 1 0 0 0-.3.7V17z" stroke={color} strokeWidth="1.7" />
@@ -454,17 +457,19 @@ const Element: React.FC<ElementProps> = ({
       return (
         <div {...attributes} style={{ margin: '16px 0' }}>
           <div
+            key={el.textAlign || 'center'}
             contentEditable={false}
             style={{
               display: 'flex',
               flexDirection: 'row',
-              justifyContent,
+              justifyContent: el.textAlign === 'left' ? 'flex-start' : el.textAlign === 'right' ? 'flex-end' : 'center',
               alignItems: 'flex-start',
               minHeight: 40,
             }}
           >
             <div style={{ position: 'relative', display: 'inline-block' }}>
               <img
+                ref={imgRef}
                 src={el.url}
                 alt=""
                 style={{
@@ -482,6 +487,20 @@ const Element: React.FC<ElementProps> = ({
                 <button
                   type="button"
                   aria-label="이미지 크기 편집"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const img = imgRef.current;
+                    const rectW = Math.round(img?.getBoundingClientRect().width || 0);
+                    const rectH = Math.round(img?.getBoundingClientRect().height || 0);
+                    const natW = img?.naturalWidth || 0;
+                    const natH = img?.naturalHeight || 0;
+
+                    const w = el.width || rectW || natW || 256;
+                    const h = el.height || rectH || natH || 256;
+                    setInitSize({ w, h });
+                    setModalOpen(true);
+                  }}
                   style={{
                     position: 'absolute',
                     top: 8,
@@ -500,11 +519,6 @@ const Element: React.FC<ElementProps> = ({
                     padding: 0,
                   }}
                   tabIndex={-1}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setModalOpen(true);
-                  }}
                   title="이미지 크기 편집"
                 >
                   <EditIcon size={18} color="#2a90ff" />
@@ -517,8 +531,8 @@ const Element: React.FC<ElementProps> = ({
 
           <ImageSizeModal
             open={modalOpen}
-            width={el.width}
-            height={el.height}
+            width={initSize.w}
+            height={initSize.h}
             onSave={handleSaveSize}
             onClose={() => setModalOpen(false)}
           />

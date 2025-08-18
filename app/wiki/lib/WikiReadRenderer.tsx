@@ -545,9 +545,16 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
   switch (node.type) {
     case "paragraph": {
       const indentLine = node.indentLine;
+
+      // 🔧 에디터와 동일한 라인 높이 & 빈 단락 최소 높이 보장
+      const plainText = stripReact(children).replace(/\u200B/g, "").trim(); // zero-width 제거
+      const isEmpty = plainText.length === 0;
+
       const style: React.CSSProperties = {
-        textAlign: node.textAlign || 'left', // ✅ 정렬 적용
-        margin: 0
+        textAlign: node.textAlign || "left",
+        margin: 0,
+        lineHeight: 1.6,                 // ✅ 에디터와 유사한 라인 높이
+        minHeight: isEmpty ? "1.6em" : undefined, // ✅ 빈 단락도 눈에 보이도록
       };
       if (indentLine) {
         style.borderLeft = "4px solid #aaa";
@@ -619,7 +626,13 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
 
     case "link":
       return (
-        <a key={key} href={node.url} target="_blank" rel="noopener noreferrer">
+        <a
+          key={key}
+          href={node.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "#2676ff", textDecoration: "underline" }}
+        >
           {children}
         </a>
       );

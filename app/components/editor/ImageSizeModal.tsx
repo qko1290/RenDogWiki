@@ -43,8 +43,9 @@ export default function ImageSizeModal({ open, width, height, onSave, onClose }:
   /** 모달 열릴 때 props로 초기화 */
   useEffect(() => {
     if (!open) return;
-    const initW = width && width > 0 ? width : 256;
-    const initH = height && height > 0 ? height : 256;
+
+    const initW = typeof width === 'number' && width > 0 ? width : 256;
+    const initH = typeof height === 'number' && height > 0 ? height : 256;
 
     setWText(String(initW));
     setHText(String(initH));
@@ -52,7 +53,6 @@ export default function ImageSizeModal({ open, width, height, onSave, onClose }:
     setHNum(initH);
     setRatio(initH ? initW / initH : 1);
 
-    // 툴바 드롭다운 닫기
     window.dispatchEvent(new CustomEvent('editor:close-dropdowns'));
   }, [open, width, height]);
 
