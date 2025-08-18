@@ -471,6 +471,7 @@ const CategoryTree: React.FC<Props> = ({
 
   return (
     <ul className="wiki-nav-list">
+      {renderTree(categories)}
       {/* ✅ 루트 문서: 대표(73)만 제외하고 카테고리와 동일한 버튼 스타일로 표시 */}
       {rootDocs.map((doc) => {
         const isDocActive = selectedDocId === doc.id;
@@ -504,9 +505,6 @@ const CategoryTree: React.FC<Props> = ({
           </li>
         );
       })}
-
-      {/* 카테고리 트리 */}
-      {renderTree(categories)}
     </ul>
   );
 };

@@ -557,7 +557,7 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
         minHeight: isEmpty ? "1.6em" : undefined, // ✅ 빈 단락도 눈에 보이도록
       };
       if (indentLine) {
-        style.borderLeft = "4px solid #aaa";
+        style.borderLeft = "2px solid #aaa";
         style.paddingLeft = 16;
       }
       return (

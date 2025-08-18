@@ -28,6 +28,7 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   font-family: 'Segoe UI', sans-serif;
+  padding-right: 50px;
 }
 
 /* 중앙 검색창 */
