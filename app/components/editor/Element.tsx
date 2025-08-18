@@ -1,6 +1,3 @@
-// =============================================
-// File: app/components/editor/Element.tsx
-// =============================================
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -91,7 +88,7 @@ const Element: React.FC<ElementProps> = ({
   element,
   editor,
   onIconClick,
-  priceTableEdit,
+  priceTableEdit, // eslint-disable-line @typescript-eslint/no-unused-vars
   setPriceTableEdit,
 }) => {
   const slateEditor = useSlate();
@@ -167,14 +164,32 @@ const Element: React.FC<ElementProps> = ({
           }
         })();
 
-        return () => {
-          cancelled = true;
-        };
+        return () => { cancelled = true; };
       }, [el.isWiki, el.wikiPath, el.wikiTitle, el.url, wikiIcon]);
 
-      // ✅ 바깥 래퍼에 attributes + children, 실제 UI는 contentEditable={false}
+      const isSmall = el.size === 'small' || (el as any).size === 'half';
+
+      // 부모가 link-block-row인지 여부에 따라 마진만 다르게
+      let inRow = false;
+      try {
+        const path = ReactEditor.findPath(editor, element);
+        const parent = Node.parent(editor as any, path);
+        inRow = SlateElement.isElement(parent) && (parent as any).type === 'link-block-row';
+      } catch {}
+
+      const wrapperStyle: React.CSSProperties = isSmall
+        ? {
+            // ✅ row로 래핑이 안 되어 있어도 2개가 옆으로 붙도록
+            display: inRow ? 'block' : 'inline-block',
+            verticalAlign: 'top',
+            width: 'calc(50% - 6px)',
+            maxWidth: 'calc(50% - 6px)',
+            marginRight: inRow ? 0 : 12,
+          }
+        : { display: 'block', width: '100%', maxWidth: '100%' };
+
       return (
-        <div {...attributes} style={{ position: 'relative' }}>
+        <div {...attributes} style={{ position: 'relative', ...wrapperStyle }}>
           <div
             contentEditable={false}
             style={{
@@ -185,7 +200,8 @@ const Element: React.FC<ElementProps> = ({
               border: '1px solid #ddd',
               borderRadius: 6,
               marginBottom: 8,
-              width: el.size === 'small' ? '48%' : '100%',
+              width: '100%',
+              boxSizing: 'border-box',
             }}
           >
             {!isReadOnly && (
@@ -206,7 +222,7 @@ const Element: React.FC<ElementProps> = ({
                   fontSize: 20,
                   fontWeight: 'bold',
                   textAlign: 'center',
-                  color: '#e11d48', // 빨간색
+                  color: '#e11d48',
                   background: 'transparent',
                   border: 'none',
                   padding: 0,
@@ -217,7 +233,7 @@ const Element: React.FC<ElementProps> = ({
               </button>
             )}
 
-            {/* 아이콘 영역 */}
+            {/* 아이콘 */}
             {el.isWiki ? (
               wikiIcon ? (
                 wikiIcon.startsWith('http') ? (
@@ -247,7 +263,6 @@ const Element: React.FC<ElementProps> = ({
             </a>
           </div>
 
-          {/* ⚠️ 반드시 렌더링: Slate의 보이지 않는 텍스트 노드 자리 */}
           {children}
         </div>
       );
@@ -297,7 +312,7 @@ const Element: React.FC<ElementProps> = ({
         <div {...attributes}>
           <div contentEditable={false}>
             {styleType === 'bold' && (
-              <div style={{ width: '70%', margin: '32px auto', textAlign: 'center' }}>
+              <div style={{ width: '95%', margin: '32px auto', textAlign: 'center' }}>
                 <hr style={{ border: 0, borderTop: `4px solid ${borderColor}`, width: '100%', margin: '0 auto' }} />
               </div>
             )}
@@ -337,7 +352,7 @@ const Element: React.FC<ElementProps> = ({
               </div>
             )}
             {styleType === 'default' && (
-              <div style={{ width: '70%', margin: '24px auto', textAlign: 'center' }}>
+              <div style={{ width: '95%', margin: '24px auto', textAlign: 'center' }}>
                 <hr style={{ border: 0, borderTop: `1.5px solid ${borderColor}`, width: '100%', margin: '0 auto' }} />
               </div>
             )}
@@ -355,8 +370,7 @@ const Element: React.FC<ElementProps> = ({
       let extraClass = '';
       if (indentLine) {
         const path = ReactEditor.findPath(slateEditor, element);
-        let isFirst = true,
-          isLast = true;
+        let isFirst = true, isLast = true;
         try {
           const prevPath = Path.previous(path);
           const prevNode = Node.get(slateEditor, prevPath) as any;
@@ -437,7 +451,6 @@ const Element: React.FC<ElementProps> = ({
         setModalOpen(false);
       };
 
-      // ✅ 바깥 래퍼에 attributes + children, 실제 UI는 contentEditable={false}
       return (
         <div {...attributes} style={{ margin: '16px 0' }}>
           <div
@@ -465,7 +478,6 @@ const Element: React.FC<ElementProps> = ({
                   transition: 'border 0.1s',
                 }}
               />
-              {/* 버튼 렌더 조건 완화: selected 만 확인 */}
               {selected && (
                 <button
                   type="button"
@@ -475,7 +487,7 @@ const Element: React.FC<ElementProps> = ({
                     top: 8,
                     right: 8,
                     background: '#fff',
-                    border: '1.5px solid #2a90ff',
+                    border: '1.5px solid #2a90ff', // ✅ 따옴표 수정
                     borderRadius: '50%',
                     boxShadow: '0 1px 5px #0001',
                     width: 32,
@@ -488,7 +500,6 @@ const Element: React.FC<ElementProps> = ({
                     padding: 0,
                   }}
                   tabIndex={-1}
-                  // ✅ onClick → onMouseDown 으로 변경 + 포커스 유지
                   onMouseDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -585,7 +596,6 @@ const Element: React.FC<ElementProps> = ({
         setStageIdxArr(arr => arr.map((v, i) => (i === idx ? (v + 1) % len : v)));
       };
 
-      // ✅ 바깥 래퍼에 attributes + children, 실제 UI는 contentEditable={false}
       return (
         <div {...attributes}>
           <div
@@ -624,7 +634,7 @@ const Element: React.FC<ElementProps> = ({
                 justifyContent: 'center',
                 boxShadow: '0 1px 8px #0001',
                 cursor: 'pointer',
-                transition: 'background 0.13s',
+                transition: 'background .13s',
               }}
               title="시세표 블럭 삭제"
               tabIndex={-1}
@@ -897,6 +907,8 @@ const Element: React.FC<ElementProps> = ({
                       title="가격 수정"
                       onClick={e => {
                         e.stopPropagation();
+                        // ✅ 모달 열기 직전, 에디터/윈도우 스크롤 위치 캡처
+                        window.dispatchEvent(new CustomEvent('editor:capture-scroll'));
                         setPriceTableEdit({ blockPath: path, idx, item: { ...item, mode: guessPriceMode(item) } });
                       }}
                     >
@@ -915,7 +927,6 @@ const Element: React.FC<ElementProps> = ({
 
     // -------------------- 한 줄에 여러 링크 블록 (컨테이너) --------------------
     case 'link-block-row': {
-      // ✅ 컨테이너는 contentEditable=false 제거 (자식 void들이 관리)
       return (
         <div
           {...attributes}
@@ -925,6 +936,7 @@ const Element: React.FC<ElementProps> = ({
             margin: '8px 0',
             width: '100%',
             flexWrap: 'wrap',
+            alignItems: 'stretch',
           }}
         >
           {children}

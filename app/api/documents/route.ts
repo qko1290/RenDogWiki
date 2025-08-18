@@ -1,4 +1,4 @@
-// app/api/documents/route.ts
+// File: app/api/documents/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
 import { logActivity, resolveCategoryName } from '@wiki/lib/activity';
@@ -16,6 +16,56 @@ function toContentArray(raw: unknown): any[] {
 
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
+
+  // 새로 추가: 경로별 리스트 (관리자 페이지/중복 검사에서 사용)
+  // GET /api/documents?list=1&path=0
+  const list = sp.get('list');
+  if (list === '1') {
+    try {
+      const pathParam = (sp.get('path') ?? '0').trim(); // '' -> '0'
+      const pathNorm = pathParam === '' ? '0' : pathParam; // 문자열 유지 (문자·숫자 경로 모두 지원)
+
+      // 대표 문서 id 가져오기(있으면)
+      let mainDocId: number | null = null;
+      try {
+        if (/^\d+$/.test(pathNorm)) {
+          const r = await sql`SELECT document_id FROM categories WHERE id = ${Number(pathNorm)} LIMIT 1`;
+          mainDocId = r?.[0]?.document_id ?? null;
+        } else {
+          const r = await sql`SELECT document_id FROM categories WHERE name = ${pathNorm} LIMIT 1`;
+          mainDocId = r?.[0]?.document_id ?? null;
+        }
+      } catch {}
+
+      // 해당 경로의 문서 목록
+      const rows = (await sql`
+        SELECT id, title, path, icon, tags, created_at, updated_at, is_featured, special
+        FROM documents
+        WHERE path = ${pathNorm}
+        ORDER BY updated_at DESC, id DESC
+      `) as unknown as Array<any>;
+
+      const items = rows.map((r: any) => ({
+        id: r.id,
+        title: r.title,
+        path: r.path,
+        icon: r.icon,
+        tags: r.tags ? String(r.tags).split(',') : [],
+        created_at: r.created_at,
+        updated_at: r.updated_at,
+        is_featured: Boolean(r.is_featured),
+        special: r.special ?? null,
+        is_main: mainDocId != null && Number(mainDocId) === Number(r.id),
+      }));
+
+      return NextResponse.json({ items, main_document_id: mainDocId }, { headers: { 'Cache-Control': 'no-store' } });
+    } catch (e) {
+      console.error('문서 경로별 목록 실패:', e);
+      return NextResponse.json({ error: 'Server error' }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
+    }
+  }
+
+  // 이하 기존 단건/전체 조회 -------------------------
   const all = sp.get('all');
   const pathRaw = sp.get('path');
   const titleRaw = sp.get('title');
@@ -151,7 +201,8 @@ export async function DELETE(req: NextRequest) {
 
     let targetPathLabel: string | null = null;
     const p = doc?.path;
-    if (p == null) targetPathLabel = '루트 카테고리';
+    if (p === 0 || p === '0') targetPathLabel = '루트 카테고리';
+    else if (p == null) targetPathLabel = '루트 카테고리';
     else if (/^\d+$/.test(String(p))) targetPathLabel = await resolveCategoryName(Number(p));
     else targetPathLabel = String(p);
 

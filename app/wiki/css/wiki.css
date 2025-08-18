@@ -149,7 +149,7 @@
 .wiki-content {
   flex: 1;
   overflow-y: auto;
-  padding: 2rem;
+  padding: 1rem 2rem 2rem 1rem;
 }
 
 .wiki-breadcrumb {
@@ -515,4 +515,11 @@
   display: none;
   width: 0;
   height: 0;
+}
+
+.wiki-category-icon-img,
+.wiki-doc-icon-img {
+  image-rendering: pixelated;     /* 크롬/사파리/파폭 최신 */
+  image-rendering: crisp-edges;   /* 일부 브라우저 보완 */
+  display: block;                 /* 인라인 간격/기저선 이슈 방지 */
 }

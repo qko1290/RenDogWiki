@@ -3,13 +3,27 @@
 // =============================================
 /**
  * Slate JSON(Descendant[])을 React JSX로 렌더링하는 컴포넌트
- * - renderSlateToHtml.ts 기능 100% 커버
  * - heading, info-box, divider, 링크, 이미지, 인라인마크, price-table-card 등 지원
  * - 서버/클라이언트 헤딩 ID 불일치 경고 억제를 위해 heading에 suppressHydrationWarning 사용
  */
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Descendant, Text } from "slate";
+
+// ── Element.tsx와 동일한 전역 캐시 (HMR 안전) ─────────────────────
+const WIKI_ICON_CACHE_KEY = "__rdwiki_doc_icon_cache__";
+const WIKI_DOCS_ALL_KEY = "__rdwiki_docs_all__";
+
+const wikiDocIconCache: Map<string, string> =
+  (globalThis as any)[WIKI_ICON_CACHE_KEY] ?? new Map<string, string>();
+(globalThis as any)[WIKI_ICON_CACHE_KEY] = wikiDocIconCache;
+
+let wikiDocsAll: any[] | null = (globalThis as any)[WIKI_DOCS_ALL_KEY] ?? null;
+const setWikiDocsAll = (rows: any[]) => {
+  wikiDocsAll = rows;
+  (globalThis as any)[WIKI_DOCS_ALL_KEY] = rows;
+};
+// ───────────────────────────────────────────────────────────────
 
 function toHeadingIdFromText(text: string) {
   const cleaned = text.replace(/^[^\w\s]|[\u{1F300}-\u{1F6FF}]/gu, '').trim();
@@ -37,7 +51,6 @@ function getInfoboxPreset(
     boxShadow: '0 1px 0 rgba(0,0,0,.02)'
   };
 
-  // 타입별 컬러/아이콘
   const map: Record<
     string,
     { bg: string; bd: string; accent: string; mask: string; role: 'note' | 'alert' }
@@ -46,7 +59,6 @@ function getInfoboxPreset(
       bg: '#f2f6ff',
       bd: '#dbeafe',
       accent: '#2563eb',
-      // 파란 박스는 "i" 아이콘
       mask:
         'https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-info.svg?v=2&token=a463935e93',
       role: 'note'
@@ -85,7 +97,6 @@ function getInfoboxPreset(
     border: `1px solid ${sel.bd}`
   };
 
-  // mask-* 속성은 React 타입이 빡세서 any와 함께 Webkit 접두사도 같이 지정
   const icon: React.CSSProperties & Record<string, any> = {
     flex: '0 0 auto',
     width: 18,
@@ -104,19 +115,129 @@ function getInfoboxPreset(
   return { container, icon, role: sel.role };
 }
 
-// 메인 렌더 컴포넌트
-export default function WikiReadRenderer({ content }: { content: Descendant[] }) {
+// ── 링크 블록 (읽기 전용) : Element.tsx와 동일 동작 ──────────────
+function LinkBlockView({ node, keyProp }: { node: any; keyProp: React.Key }) {
+  // 외부 링크: sitename, favicon 추론
+  let displaySitename: string | undefined = node.sitename;
+  let displayFavicon: string | undefined = node.favicon;
+
+  if (!node.isWiki && (!displaySitename || !displayFavicon)) {
+    try {
+      const u = new URL(node.url);
+      const host = u.hostname.replace(/^www\./, '');
+      if (!displaySitename) displaySitename = host;
+      if (!displayFavicon) displayFavicon = `${u.protocol}//${u.hostname}/favicon.ico`;
+    } catch {}
+  }
+
+  // 내부 문서 링크: 아이콘 로딩
+  const [wikiIcon, setWikiIcon] = useState<string | null>(
+    node.isWiki ? (node.docIcon ?? null) : null
+  );
+
+  useEffect(() => {
+    if (!node.isWiki || wikiIcon) return;
+    const key = String(node.wikiPath ?? node.url ?? node.wikiTitle ?? '');
+    if (!key) return;
+
+    if (wikiDocIconCache.has(key)) {
+      setWikiIcon(wikiDocIconCache.get(key)!);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        if (!wikiDocsAll) {
+          const res = await fetch('/api/documents?all=1');
+          const data = await res.json();
+          setWikiDocsAll(Array.isArray(data) ? data : []);
+        }
+        const docs = wikiDocsAll || [];
+        const match = docs.find(
+          (d: any) =>
+            (node.wikiPath && String(d.path) === String(node.wikiPath)) ||
+            (node.wikiTitle && d.title === node.wikiTitle)
+        );
+        const icon = (match?.icon ?? '').trim();
+        if (!cancelled) {
+          if (icon) {
+            setWikiIcon(icon);
+            wikiDocIconCache.set(key, icon);
+          } else {
+            setWikiIcon(null);
+          }
+        }
+      } catch {
+        if (!cancelled) setWikiIcon(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [node.isWiki, node.wikiPath, node.wikiTitle, node.url, wikiIcon]);
+
+  const isSmall = node.size === 'small';
+  const flexStyle: React.CSSProperties = isSmall
+    ? { flex: '0 0 calc(50% - 6px)', maxWidth: 'calc(50% - 6px)' }
+    : { flex: '0 0 100%', maxWidth: '100%' };
+
+  let iconNode: React.ReactNode = null;
+  if (node.isWiki) {
+    if (wikiIcon) {
+      iconNode = wikiIcon.startsWith('http') ? (
+        <img
+          src={wikiIcon}
+          alt="doc icon"
+          style={{ width: 24, height: 24, marginRight: 8, objectFit: 'contain' }}
+        />
+      ) : (
+        <span style={{ fontSize: 20, marginRight: 8, lineHeight: 1 }}>{wikiIcon}</span>
+      );
+    }
+  } else if (displayFavicon) {
+    iconNode = (
+      <img src={displayFavicon} alt="favicon" style={{ width: 24, height: 24, marginRight: 8 }} />
+    );
+  }
+
   return (
-    <>
-      {content.map((node, idx) => renderNode(node, idx))}
-    </>
+    <div key={keyProp} style={{ position: 'relative', ...flexStyle }}>
+      <div
+        style={{
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          padding: 12,
+          border: '1px solid #ddd',
+          borderRadius: 6,
+          marginBottom: 8,
+          width: '100%',
+          boxSizing: 'border-box'
+        }}
+      >
+        {iconNode}
+        <a
+          href={node.url}
+          target={node.isWiki ? undefined : '_blank'}
+          rel={node.isWiki ? undefined : 'noopener noreferrer'}
+          style={{ color: '#0070f3', textDecoration: 'none', flexGrow: 1 }}
+        >
+          {node.isWiki ? node.wikiTitle || node.sitename || '문서' : displaySitename || node.url}
+        </a>
+      </div>
+    </div>
   );
 }
 
+// 메인 렌더 컴포넌트
+export default function WikiReadRenderer({ content }: { content: Descendant[] }) {
+  return <>{content.map((node, idx) => renderNode(node, idx))}</>;
+}
+
 function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key }) {
-  const [indexes, setIndexes] = useState<number[]>(() =>
-    node.items.map(() => 0)
-  );
+  const [indexes, setIndexes] = useState<number[]>(() => node.items.map(() => 0));
   const [hovered, setHovered] = useState<number | null>(null);
 
   const setCardIdx = (cardIdx: number, dir: -1 | 1) => {
@@ -173,127 +294,127 @@ function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key 
           const name = item.name?.trim() ? item.name : "이름 없음";
 
           const image =
-            item.image
-              ? (
-                <img
-                  src={item.image}
-                  alt=""
-                  style={{
-                    width: 65,
-                    height: 65,
-                    objectFit: "contain",
-                    borderRadius: 7,
-                    background: "#fff"
-                  }}
-                />
-              ) : (
-                <span
-                  style={{
-                    width: 54,
-                    height: 54,
-                    background: "#ececec",
-                    borderRadius: 7,
-                    display: "inline-block"
-                  }}
-                ></span>
-              );
-
-          // 뱃지(옵션 많으면 출력)
-          const badge = stages.length > 1 ? (
-            <div
-              style={{
-                position: "absolute",
-                top: 5,
-                left: "50%",
-                transform: "translateX(-50%)",
-                zIndex: 3,
-                width: 66,
-                display: "flex",
-                justifyContent: "center"
-              }}
-            >
+            item.image ? (
+              <img
+                src={item.image}
+                alt=""
+                style={{
+                  width: 65,
+                  height: 65,
+                  objectFit: "contain",
+                  borderRadius: 7,
+                  background: "#fff"
+                }}
+              />
+            ) : (
               <span
                 style={{
-                  background: badgeColor,
-                  color: stage === "봉인" ? "#fff" : "#222",
-                  padding: "4px 0px",
-                  borderRadius: 12,
-                  fontWeight: 700,
-                  fontSize: 15,
+                  width: 54,
+                  height: 54,
+                  background: "#ececec",
+                  borderRadius: 7,
+                  display: "inline-block"
+                }}
+              />
+            );
+
+          const badge =
+            stages.length > 1 ? (
+              <div
+                style={{
+                  position: "absolute",
+                  top: 5,
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  zIndex: 3,
                   width: 66,
-                  display: "inline-block",
-                  boxShadow: "0 1px 8px #0001",
-                  border: "1.5px solid #fff",
-                  textAlign: "center",
-                  letterSpacing: "1px",
-                  transition: "background .1s"
+                  display: "flex",
+                  justifyContent: "center"
                 }}
               >
-                {stage}
-              </span>
-            </div>
-          ) : null;
+                <span
+                  style={{
+                    background: badgeColor,
+                    color: stage === "봉인" ? "#fff" : "#222",
+                    padding: "4px 0px",
+                    borderRadius: 12,
+                    fontWeight: 700,
+                    fontSize: 15,
+                    width: 66,
+                    display: "inline-block",
+                    boxShadow: "0 1px 8px #0001",
+                    border: "1.5px solid #fff",
+                    textAlign: "center",
+                    letterSpacing: "1px",
+                    transition: "background .1s"
+                  }}
+                >
+                  {stage}
+                </span>
+              </div>
+            ) : null;
 
-          // 화살표: 호버 시만
           const showArrows = hovered === idx && stages.length > 1;
-          const leftArrowBtn = showArrows && (
-            <button
-              style={{
-                position: "absolute",
-                left: -12,
-                top: "50%",
-                transform: "translateY(-50%)",
-                background: "#fff",
-                border: "1.2px solid #eee",
-                borderRadius: "50%",
-                width: 28,
-                height: 28,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontWeight: 800,
-                fontSize: 16,
-                boxShadow: "0 2px 6px #0001",
-                zIndex: 2,
-                cursor: "pointer",
-                opacity: 0.9
-              }}
-              tabIndex={-1}
-              aria-hidden="true"
-              onClick={() => setCardIdx(idx, -1)}
-            >
-              ◀
-            </button>
-          );
-          const rightArrowBtn = showArrows && (
-            <button
-              style={{
-                position: "absolute",
-                right: -12,
-                top: "50%",
-                transform: "translateY(-50%)",
-                background: "#fff",
-                border: "1.2px solid #eee",
-                borderRadius: "50%",
-                width: 28,
-                height: 28,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontWeight: 800,
-                fontSize: 16,
-                boxShadow: "0 2px 6px #0001",
-                zIndex: 2,
-                cursor: "pointer",
-                opacity: 0.9
-              }}
-              tabIndex={-1}
-              aria-hidden="true"
-              onClick={() => setCardIdx(idx, 1)}
-            >
-              ▶
-            </button>
-          );
+          const leftArrowBtn =
+            showArrows && (
+              <button
+                style={{
+                  position: "absolute",
+                  left: -12,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "#fff",
+                  border: "1.2px solid #eee",
+                  borderRadius: "50%",
+                  width: 28,
+                  height: 28,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontWeight: 800,
+                  fontSize: 16,
+                  boxShadow: "0 2px 6px #0001",
+                  zIndex: 2,
+                  cursor: "pointer",
+                  opacity: 0.9
+                }}
+                tabIndex={-1}
+                aria-hidden="true"
+                onClick={() => setCardIdx(idx, -1)}
+              >
+                ◀
+              </button>
+            );
+          const rightArrowBtn =
+            showArrows && (
+              <button
+                style={{
+                  position: "absolute",
+                  right: -12,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "#fff",
+                  border: "1.2px solid #eee",
+                  borderRadius: "50%",
+                  width: 28,
+                  height: 28,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontWeight: 800,
+                  fontSize: 16,
+                  boxShadow: "0 2px 6px #0001",
+                  zIndex: 2,
+                  cursor: "pointer",
+                  opacity: 0.9
+                }}
+                tabIndex={-1}
+                aria-hidden="true"
+                onClick={() => setCardIdx(idx, 1)}
+              >
+                ▶
+              </button>
+            );
 
           return (
             <div
@@ -370,7 +491,7 @@ function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key 
   );
 }
 
-// 뱃지 컬러 함수 (renderSlateToHtml과 1:1 동일)
+// 뱃지 컬러 함수
 function getPriceBadgeColor(stage: string, _type?: string) {
   switch (stage) {
     case "봉인":
@@ -391,16 +512,14 @@ function getPriceBadgeColor(stage: string, _type?: string) {
   }
 }
 
-// 텍스트 노드 처리 (bold, italic, underline 등 마크/스타일 모두 적용)
+// 텍스트 노드 처리
 function renderLeaf(node: any, key?: React.Key): React.ReactNode {
   let children = node.text;
-  // 마크
   if (node.bold) children = <strong>{children}</strong>;
   if (node.italic) children = <em>{children}</em>;
   if (node.underline) children = <u>{children}</u>;
   if (node.strikethrough) children = <s>{children}</s>;
 
-  // 스타일
   const style: React.CSSProperties = {};
   if (node.color) style.color = node.color;
   if (node.backgroundColor) style.backgroundColor = node.backgroundColor;
@@ -415,27 +534,24 @@ function renderLeaf(node: any, key?: React.Key): React.ReactNode {
   else return <span key={key}>{children}</span>;
 }
 
-// 노드 타입별 렌더링 함수 (재귀)
+// 노드 타입별 렌더링 (재귀)
 function renderNode(node: any, key?: React.Key): React.ReactNode {
-  // 텍스트(leaf)
   if (Text.isText(node)) {
     return renderLeaf(node, key);
   }
 
-  // children 재귀
   const children = node.children?.map((n: any, i: number) => renderNode(n, key ? `${key}-${i}` : i));
 
-  // 블럭별 분기
   switch (node.type) {
     case "paragraph": {
-      // 들여쓰기 라인 지원
       const indentLine = node.indentLine;
-      const style: React.CSSProperties = {};
+      const style: React.CSSProperties = {
+        textAlign: node.textAlign || 'left', // ✅ 정렬 적용
+        margin: 0
+      };
       if (indentLine) {
         style.borderLeft = "4px solid #aaa";
-        style.borderRadius = 0;
         style.paddingLeft = 16;
-        style.minHeight = "1.6em";
       }
       return (
         <p key={key} style={style}>
@@ -444,7 +560,6 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
       );
     }
 
-    // heading(제목) - 아이콘/이미지/슬러그/스타일 동일
     case "heading-one":
     case "heading-two":
     case "heading-three": {
@@ -457,10 +572,10 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
               src={el.icon}
               alt="icon"
               style={{
-                width: "2.5em",
-                height: "2.5em",
+                width: "1.7em",
+                height: "1.7em",
                 verticalAlign: "middle",
-                marginRight: 10,
+                marginRight: 6,
                 objectFit: "contain",
                 display: "inline-block"
               }}
@@ -468,20 +583,18 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
           );
         } else {
           iconHtml = (
-            <span style={{ fontSize: "1.3em", marginRight: 10, display: "inline-block" }}>{el.icon}</span>
+            <span style={{ fontSize: "1.5em", marginRight: 6, display: "inline-block" }}>{el.icon}</span>
           );
         }
       }
-      // heading에 들어가는 순수 텍스트만 추출
       const textContent = stripReact(children).trim();
       const id = toHeadingIdFromText(textContent);
-      const level =
-        node.type === "heading-one"
-          ? 1
-          : node.type === "heading-two"
-          ? 2
-          : 3;
+      const level = node.type === "heading-one" ? 1 : node.type === "heading-two" ? 2 : 3;
+      const fontSize = level === 1 ? "28px" : level === 2 ? "22px" : "18px";
       const Tag = `h${level}` as keyof JSX.IntrinsicElements;
+
+      const justify =
+        el.textAlign === 'center' ? 'center' : el.textAlign === 'right' ? 'flex-end' : 'flex-start';
 
       return (
         <Tag
@@ -489,85 +602,47 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
           id={id}
           suppressHydrationWarning
           style={{
+            fontSize,
+            textAlign: el.textAlign || 'left', // ✅ 정렬 적용
             display: "flex",
             alignItems: "center",
-            gap: 7
+            gap: 8,
+            justifyContent: justify,          // ✅ Flex 정렬 일치
+            width: '100%'
           }}
         >
           {iconHtml}
-          <span style={{ fontSize: 30, fontWeight: "bold" }}>{children}</span>
+          <span style={{ display: "inline" }}>{children}</span>
         </Tag>
       );
     }
 
-    // 링크
     case "link":
       return (
-        <a
-          key={key}
-          href={node.url}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+        <a key={key} href={node.url} target="_blank" rel="noopener noreferrer">
           {children}
         </a>
       );
 
-    // 구분선(divider)
     case "divider": {
       const borderColor = "#e0e0e0";
       switch (node.style) {
         case "bold":
           return (
-            <div
-              key={key}
-              style={{
-                width: "70%",
-                margin: "32px auto",
-                textAlign: "center"
-              }}
-            >
-              <hr
-                style={{
-                  border: 0,
-                  borderTop: `4px solid ${borderColor}`,
-                  width: "100%",
-                  margin: "0 auto"
-                }}
-              />
+            <div key={key} style={{ width: "95%", margin: "32px auto", textAlign: "center" }}>
+              <hr style={{ border: 0, borderTop: `4px solid ${borderColor}`, width: "100%", margin: "0 auto" }} />
             </div>
           );
         case "shortbold":
           return (
-            <div
-              key={key}
-              style={{
-                width: 82,
-                margin: "34px auto",
-                textAlign: "center"
-              }}
-            >
-              <hr
-                style={{
-                  border: 0,
-                  borderTop: `5px solid ${borderColor}`,
-                  width: "100%",
-                  margin: "0 auto"
-                }}
-              />
+            <div key={key} style={{ width: 82, margin: "34px auto", textAlign: "center" }}>
+              <hr style={{ border: 0, borderTop: `5px solid ${borderColor}`, width: "100%", margin: "0 auto" }} />
             </div>
           );
         case "dotted":
           return (
-            <div key={key} style={{ width: "70%", margin: "28px auto", textAlign: "center" }}>
-              <hr
-                style={{
-                  border: 0,
-                  borderTop: `2px dotted ${borderColor}`,
-                  width: "100%",
-                  margin: "0 auto"
-                }}
-              />
+            <div key={key} style={{ width: "95%", margin: "28px auto", textAlign: "center" }}>
+              <hr style={{ border: 0, borderTop: `2px dotted ${borderColor}`, width: "100%", margin: "0 auto" }} />
             </div>
           );
         case "diamond":
@@ -602,63 +677,37 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
           );
         default:
           return (
-            <div
-              key={key}
-              style={{ width: "70%", margin: "24px auto", textAlign: "center" }}
-            >
-              <hr
-                style={{
-                  border: 0,
-                  borderTop: `1.5px solid ${borderColor}`,
-                  width: "100%",
-                  margin: "0 auto"
-                }}
-              />
+            <div key={key} style={{ width: "95%", margin: "24px auto", textAlign: "center" }}>
+              <hr style={{ border: 0, borderTop: `1.5px solid ${borderColor}`, width: "100%", margin: "0 auto" }} />
             </div>
           );
       }
     }
 
-    // 링크 블록(박스형)
+    // 링크 블록(박스형) – Element.tsx 동작과 동일
     case "link-block": {
-      const icon = node.favicon ? (
-        <img
-          src={node.favicon}
-          alt="favicon"
-          style={{ width: 24, height: 24, marginRight: 8 }}
-        />
-      ) : null;
+      return <LinkBlockView node={node} keyProp={key ?? ''} />;
+    }
+
+    // 내부적으로도 사용되는 컨테이너
+    case "link-block-row": {
       return (
         <div
           key={key}
-          contentEditable={false}
           style={{
-            display: "flex",
-            alignItems: "center",
-            padding: 12,
-            border: "1px solid #ddd",
-            borderRadius: 6,
-            marginBottom: 8
+            display: 'flex',
+            gap: 12,
+            margin: '8px 0',
+            width: '100%',
+            flexWrap: 'wrap',
+            alignItems: 'stretch'
           }}
         >
-          {icon}
-          <a
-            href={node.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              color: "#0070f3",
-              textDecoration: "none",
-              flexGrow: 1
-            }}
-          >
-            {node.sitename || node.url}
-          </a>
+          {children}
         </div>
       );
     }
 
-    // info-box(정보/주의/경고)
     case 'info-box': {
       const type = (node.boxType || 'info').toLowerCase();
       const { container, icon, role } = getInfoboxPreset(type);
@@ -680,30 +729,42 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
       );
     }
 
-    // 이미지 블록
+    // 이미지 블록 – Element.tsx와 같은 정렬 방식
     case "image": {
-      let alignStyle: React.CSSProperties = {};
-      if (node.textAlign === "left") alignStyle = { float: "left", marginRight: 18 };
-      if (node.textAlign === "right") alignStyle = { float: "right", marginLeft: 18 };
-      if (node.textAlign === "center")
-        alignStyle = { display: "block", marginLeft: "auto", marginRight: "auto" };
+      let justify: 'flex-start' | 'center' | 'flex-end' = 'center';
+      if (node.textAlign === 'left') justify = 'flex-start';
+      else if (node.textAlign === 'right') justify = 'flex-end';
 
       return (
-        <img
-          key={key}
-          src={node.url}
-          alt=""
-          style={{
-            maxWidth: "100%",
-            marginTop: 12,
-            marginBottom: 12,
-            ...alignStyle
-          }}
-        />
+        <div key={key} style={{ margin: '16px 0' }}>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'row',
+              justifyContent: justify,
+              alignItems: 'flex-start',
+              minHeight: 40
+            }}
+          >
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+              <img
+                src={node.url}
+                alt=""
+                style={{
+                  maxWidth: node.width ? node.width + 'px' : '90%',
+                  height: node.height ? node.height + 'px' : 'auto',
+                  borderRadius: 10,
+                  boxShadow: '0 2px 12px 0 #0001',
+                  background: '#fff',
+                  display: 'block'
+                }}
+              />
+            </div>
+          </div>
+        </div>
       );
     }
 
-    // 인라인 이미지
     case "inline-image":
       return (
         <img
@@ -721,7 +782,6 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
         />
       );
 
-    // 인라인 마크 (아이콘/색상/굵기)
     case "inline-mark":
       return (
         <span
@@ -741,23 +801,17 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
         </span>
       );
 
-    // 시세표 블럭(price-table-card)
     case "price-table-card": {
       if (!Array.isArray(node.items)) return <div key={key}></div>;
       return <PriceTableCardBlock node={node} keyProp={key ?? ''} />;
     }
 
-    // 지원하지 않는 타입
     default:
-      return (
-        <div key={key}>
-          {children}
-        </div>
-      );
+      return <div key={key}>{children}</div>;
   }
 }
 
-// React Node의 텍스트만 추출하는 유틸 (heading 슬러그용)
+// React Node의 텍스트만 추출
 function stripReact(node: React.ReactNode): string {
   if (typeof node === "string" || typeof node === "number") return String(node);
   if (Array.isArray(node)) return node.map(stripReact).join("");

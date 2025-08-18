@@ -488,3 +488,5 @@
 
 /* 전체 기본 텍스트/배경 톤 고정 */
 html, body { background:#fff; color:#0f172a; }
+
+.editor-content-scroll { overflow-anchor: none; }

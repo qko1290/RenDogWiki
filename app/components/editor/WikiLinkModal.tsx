@@ -5,7 +5,9 @@
  * 내부 위키 문서 링크 삽입 모달
  * - 좌측: 카테고리 트리
  * - 우측: 선택 카테고리(또는 검색) 문서 목록
- * - 문서 선택 시 onSelect(doc) 호출 (인라인/블록 삽입은 부모에서 분기)
+ * - 문서 선택: 단일/복수(최대 2개) 지원
+ *   - onSelect(doc)  : 단일 선택
+ *   - onSelectPair[] : 2개 선택(절반 카드 2개 삽입용) — 선택사항, 없으면 onSelect를 2번 호출
  * - ESC 또는 외부 클릭 시 닫힘
  */
 
@@ -150,10 +152,12 @@ export default function WikiLinkModal({
   open,
   onClose,
   onSelect,
+  onSelectPair, // ✅ 추가: 2개 선택시 호출 (선택 사항)
 }: {
   open: boolean;
   onClose: () => void;
   onSelect: (doc: WikiDoc) => void;
+  onSelectPair?: (docs: WikiDoc[]) => void;
 }) {
   // 상태
   const [tree, setTree] = useState<Category[]>([]);
@@ -163,7 +167,9 @@ export default function WikiLinkModal({
   const [allDocs, setAllDocs] = useState<WikiDoc[]>([]);
   const [filteredDocs, setFilteredDocs] = useState<WikiDoc[]>([]);
   const [search, setSearch] = useState('');
-  const [selectedDocId, setSelectedDocId] = useState<number | null>(null);
+
+  // ✅ 단일 → 복수(최대 2개) 선택으로 변경
+  const [selectedDocIds, setSelectedDocIds] = useState<number[]>([]);
 
   // 열릴 때: 데이터 로드 + 리스너/초기화
   useEffect(() => {
@@ -178,7 +184,7 @@ export default function WikiLinkModal({
     setOpenSet(new Set([0]));
     setSelectedCat(null);
     setSelectedCatPath([]);
-    setSelectedDocId(null);
+    setSelectedDocIds([]);
     setSearch('');
     setFilteredDocs([]);
 
@@ -243,7 +249,8 @@ export default function WikiLinkModal({
           : Number(doc.path) === catPath.at(-1)
       )
     );
-    setSelectedDocId(null);
+    // 카테고리 변경 시 선택 유지/정리(선택한 것이 사라지면 지워준다)
+    setSelectedDocIds((prev) => prev.filter((id) => allDocs.some((d) => d.id === id)));
   }, [selectedCat, selectedCatPath, allDocs]);
 
   if (!open) return null;
@@ -252,6 +259,42 @@ export default function WikiLinkModal({
   const docsToShow = search.trim()
     ? allDocs.filter((doc) => doc.title.toLowerCase().includes(search.toLowerCase()))
     : filteredDocs;
+
+  const isSelected = (id: number) => selectedDocIds.includes(id);
+
+  const toggleSelect = (id: number) =>
+    setSelectedDocIds((prev) => {
+      // 이미 선택 → 해제
+      if (prev.includes(id)) return prev.filter((v) => v !== id);
+      // 최대 2개만 보유: 2개 꽉 참 → 가장 오래된 것 버리고 새로 추가
+      if (prev.length >= 2) return [prev[1], id];
+      // 그 외 → 추가
+      return [...prev, id];
+    });
+
+  const getDocById = (id: number) => allDocs.find((d) => d.id === id) || null;
+
+  const handleConfirmOne = () => {
+    if (selectedDocIds.length !== 1) return;
+    const doc = getDocById(selectedDocIds[0]);
+    if (doc) onSelect(doc);
+  };
+
+  const handleConfirmPair = () => {
+    if (selectedDocIds.length !== 2) return;
+    const docs = selectedDocIds
+      .map((id) => getDocById(id))
+      .filter(Boolean) as WikiDoc[];
+
+    if (docs.length !== 2) return;
+
+    if (onSelectPair) {
+      onSelectPair(docs);
+    } else {
+      // 콜백이 없다면 하위 호환: onSelect를 2번 호출
+      docs.forEach((d) => onSelect(d));
+    }
+  };
 
   return (
     <div
@@ -271,7 +314,7 @@ export default function WikiLinkModal({
           background: '#fff',
           borderRadius: 16,
           boxShadow: '0 6px 30px #0012',
-          minWidth: 540, maxWidth: 680,
+          minWidth: 540, maxWidth: 720,
           minHeight: 360, maxHeight: '72vh',
           padding: 0,
           display: 'flex',
@@ -353,101 +396,133 @@ export default function WikiLinkModal({
                 </div>
               ) : (
                 <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-                  {docsToShow.map((doc) => (
-                    <li
-                      key={doc.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        background: doc.id === selectedDocId ? '#e7f6ff' : 'none',
-                        borderRadius: 8,
-                        padding: '8px 9px',
-                        marginBottom: 2,
-                        cursor: 'pointer',
-                        fontWeight: doc.id === selectedDocId ? 600 : 400,
-                      }}
-                      onClick={() => setSelectedDocId(doc.id)}
-                      onDoubleClick={() => {
-                        setSelectedDocId(doc.id);
-                        onSelect(doc);
-                      }}
-                    >
-                      {/* 아이콘 */}
-                      <span style={{ marginRight: 6 }}>
-                        {doc.icon?.startsWith('http') ? (
-                          <img
-                            src={doc.icon}
-                            alt="icon"
-                            style={{
-                              width: 18,
-                              height: 18,
-                              objectFit: 'cover',
-                              borderRadius: 4,
-                              verticalAlign: 'middle',
-                            }}
-                          />
-                        ) : (
-                          <span style={{ fontSize: 17 }}>{doc.icon ?? '📄'}</span>
-                        )}
-                      </span>
-
-                      {/* 문서 제목 */}
-                      <span
+                  {docsToShow.map((doc) => {
+                    const selected = isSelected(doc.id);
+                    return (
+                      <li
+                        key={doc.id}
                         style={{
-                          flex: 1,
-                          textOverflow: 'ellipsis',
-                          overflow: 'hidden',
-                          whiteSpace: 'nowrap',
-                          fontSize: 15,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          background: selected ? '#e7f6ff' : 'none',
+                          borderRadius: 8,
+                          padding: '8px 9px',
+                          marginBottom: 2,
+                          cursor: 'pointer',
+                          fontWeight: selected ? 600 : 400,
+                          border: selected ? '1px solid #bfe3ff' : '1px solid transparent',
                         }}
+                        onClick={() => toggleSelect(doc.id)}
+                        onDoubleClick={() => {
+                          setSelectedDocIds([doc.id]);
+                          onSelect(doc);
+                        }}
+                        title={selected ? '선택됨' : '클릭하여 선택(최대 2개)'}
                       >
-                        {doc.title}
-                      </span>
+                        {/* 아이콘 */}
+                        <span style={{ marginRight: 6 }}>
+                          {doc.icon?.startsWith('http') ? (
+                            <img
+                              src={doc.icon}
+                              alt="icon"
+                              style={{
+                                width: 18,
+                                height: 18,
+                                objectFit: 'cover',
+                                borderRadius: 4,
+                                verticalAlign: 'middle',
+                              }}
+                            />
+                          ) : (
+                            <span style={{ fontSize: 17 }}>{doc.icon ?? '📄'}</span>
+                          )}
+                        </span>
 
-                      {/* 태그(최대 1개) */}
-                      {Array.isArray(doc.tags) && doc.tags.length > 0 && (
+                        {/* 문서 제목 */}
                         <span
                           style={{
-                            fontSize: 12,
-                            color: '#7b97a4',
-                            background: '#f5f7fa',
-                            borderRadius: 8,
-                            padding: '1px 8px',
-                            marginLeft: 2,
+                            flex: 1,
+                            textOverflow: 'ellipsis',
+                            overflow: 'hidden',
+                            whiteSpace: 'nowrap',
+                            fontSize: 15,
                           }}
                         >
-                          #{doc.tags[0]}
+                          {doc.title}
                         </span>
-                      )}
-                    </li>
-                  ))}
+
+                        {/* 태그(최대 1개) */}
+                        {Array.isArray(doc.tags) && doc.tags.length > 0 && (
+                          <span
+                            style={{
+                              fontSize: 12,
+                              color: '#7b97a4',
+                              background: '#f5f7fa',
+                              borderRadius: 8,
+                              padding: '1px 8px',
+                              marginLeft: 2,
+                            }}
+                          >
+                            #{doc.tags[0]}
+                          </span>
+                        )}
+
+                        {/* 체크 표시 */}
+                        {selected && (
+                          <span aria-hidden style={{ marginLeft: 6, fontSize: 16 }}>✓</span>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>
 
-            {/* 하단: 선택 버튼 */}
-            <div style={{ marginTop: 10, textAlign: 'right' }}>
-              <button
-                onClick={() => {
-                  const doc = docsToShow.find((d) => d.id === selectedDocId);
-                  if (doc) onSelect(doc);
-                }}
-                disabled={!selectedDocId}
-                style={{
-                  background: '#2686f8',
-                  color: '#fff',
-                  padding: '7px 24px',
-                  fontSize: 15,
-                  border: 'none',
-                  borderRadius: 8,
-                  fontWeight: 600,
-                  cursor: selectedDocId ? 'pointer' : 'not-allowed',
-                  opacity: selectedDocId ? 1 : 0.65,
-                }}
-              >
-                선택
-              </button>
+            {/* 하단: 선택 버튼들 */}
+            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: 13, color: '#6b7a85' }}>
+                선택: <b>{selectedDocIds.length}</b> / 2
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={handleConfirmOne}
+                  disabled={selectedDocIds.length !== 1}
+                  style={{
+                    background: '#2686f8',
+                    color: '#fff',
+                    padding: '7px 14px',
+                    fontSize: 14,
+                    border: 'none',
+                    borderRadius: 8,
+                    fontWeight: 600,
+                    cursor: selectedDocIds.length === 1 ? 'pointer' : 'not-allowed',
+                    opacity: selectedDocIds.length === 1 ? 1 : 0.6,
+                  }}
+                  title="한 개 삽입"
+                >
+                  선택(1개)
+                </button>
+
+                <button
+                  onClick={handleConfirmPair}
+                  disabled={selectedDocIds.length !== 2}
+                  style={{
+                    background: '#10b981',
+                    color: '#fff',
+                    padding: '7px 14px',
+                    fontSize: 14,
+                    border: 'none',
+                    borderRadius: 8,
+                    fontWeight: 700,
+                    cursor: selectedDocIds.length === 2 ? 'pointer' : 'not-allowed',
+                    opacity: selectedDocIds.length === 2 ? 1 : 0.6,
+                  }}
+                  title="선택한 2개를 절반 카드로 삽입"
+                >
+                  절반 2개 삽입
+                </button>
+              </div>
             </div>
           </div>
         </div>

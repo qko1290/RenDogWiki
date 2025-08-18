@@ -1,4 +1,7 @@
-// File: app/components/wiki/WikiPageInner.tsx
+// =============================================
+// File: app/wiki/WikiPageInner.tsx
+// (FAQ 제목/아이콘 하드코딩 제거: 모든 문서와 동일하게 currentDoc.icon + selectedDocTitle 사용)
+// =============================================
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -29,7 +32,7 @@ type CategoryNode = {
 type Document = {
   id: number;
   title: string;
-  path: string | number;
+  path: string | number;          // ⭐ 루트는 0
   icon?: string;
   fullPath?: number[];
   is_featured?: boolean;
@@ -66,7 +69,6 @@ const MODE_STORAGE = 'wiki:mode';
 const MODE_EVENT = 'wiki-mode-change';
 const MODE_WHITELIST = new Set(['newbie']);
 
-// ---- helpers -------------------------------------------------
 function pathToStr(path: number[]) { return path.join('/'); }
 function getInitialMode(): string | null {
   if (typeof window === 'undefined') return null;
@@ -76,7 +78,7 @@ function getInitialMode(): string | null {
   return v && MODE_WHITELIST.has(v) ? v : null;
 }
 
-// ---- 권한 체크(Writer+) --------------------------------------
+// ---- 권한 체크(Writer+)
 function useCanWrite(user: Props['user']) {
   const [can, setCan] = useState(false);
   useEffect(() => {
@@ -99,7 +101,7 @@ function useCanWrite(user: Props['user']) {
   return can;
 }
 
-// ---- Special 파서 ---------------------------------------------
+// ---- Special 파서
 type SpecialMeta =
   | { kind: 'quest' | 'npc' | 'head'; label: string; village: string }
   | { kind: 'faq'; q?: string; tags?: string[] }
@@ -131,13 +133,9 @@ function parseSpecial(raw?: string | null): SpecialMeta {
   return { kind, label, village };
 }
 
-// -------------------------------------------------------------------
-
 export default function WikiPageInner({ user }: Props) {
-  // --------- 모드 상태 ---------
   const [mode, setMode] = useState<string | null>(getInitialMode());
 
-  // --------- 주요 상태 ---------
   const [categories, setCategories] = useState<CategoryNode[]>([]);
   const [categoryIdToPathMap, setCategoryIdToPathMap] = useState<Record<number, number[]>>({});
   const [categoryIdMap, setCategoryIdMap] = useState<Record<number, CategoryNode>>({});
@@ -151,11 +149,9 @@ export default function WikiPageInner({ user }: Props) {
   const [docContent, setDocContent] = useState<Descendant[] | null>(null);
   const [tableOfContents, setTableOfContents] = useState<{ id: string; text: string; icon?: string; level: 1 | 2 | 3 }[]>([]);
 
-  // 트리 애니메이션 상태
   const [openPaths, setOpenPaths] = useState<number[][]>([]);
   const [closingMap, setClosingMap] = useState<Record<string, boolean>>({});
 
-  // Special 로딩 전용 상태
   const [specialMeta, setSpecialMeta] = useState<SpecialMeta>(null);
   const [npcList, setNpcList] = useState<NpcRow[]>([]);
   const [npcLoading, setNpcLoading] = useState(false);
@@ -167,13 +163,18 @@ export default function WikiPageInner({ user }: Props) {
   const [selectedHead, setSelectedHead] = useState<HeadRow | null>(null);
   const [headPage, setHeadPage] = useState(0);
 
-  // FAQ 파라미터 & 새로고침 신호
   const [faqQuery, setFaqQuery] = useState('');
   const [faqTags, setFaqTags] = useState<string[]>([]);
   const [faqRefreshSignal, setFaqRefreshSignal] = useState(0);
 
-  // 새 질문 모달
   const [showNewFaq, setShowNewFaq] = useState(false);
+
+  // ⭐ 루트( path===0 ) 대표/일반 문서 모두 문서 크롬(제목/브레드크럼) 숨김
+  const [hideDocChrome, setHideDocChrome] = useState(false);
+
+  const firstLoadRef = useRef(true);
+  const mountedRef = useRef(true);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
   const canWrite = useCanWrite(user);
 
@@ -181,10 +182,6 @@ export default function WikiPageInner({ user }: Props) {
   const searchParams = useSearchParams();
   const contentRef = useRef<HTMLDivElement>(null);
 
-  const mountedRef = useRef(true);
-  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
-
-  // 헤더 모드 변경 브로드캐스트 수신
   useEffect(() => {
     const onMode = (e: Event) => {
       const next = (e as CustomEvent).detail?.mode ?? null;
@@ -196,13 +193,35 @@ export default function WikiPageInner({ user }: Props) {
     }
   }, []);
 
-  // 문서 fetch 최신성 보장용 시퀀스
   const docReqIdRef = useRef(0);
 
-  // (핵심) 카테고리 트리 + 전체 문서 로드
+  // ----------------------------------------
+  // 유틸: 루트 대표 문서 찾기 & 열기
+  // ----------------------------------------
+  const findRootDoc = () => {
+    const roots = allDocuments.filter(
+      (d) => (Array.isArray(d.fullPath) && d.fullPath.length === 0) || Number(d.path) === 0
+    );
+    // 대표 우선(is_featured) → 없으면 첫번째
+    return roots.find(d => d.is_featured) || roots[0];
+  };
+
+  const openRootDoc = async () => {
+    const rootDoc = findRootDoc();
+    if (!rootDoc) return;
+
+    setHideDocChrome(true);             // 루트는 제목/브레드크럼 숨김
+    setSelectedDocId(rootDoc.id);
+    setSelectedDocTitle(rootDoc.title ?? null);
+    setSelectedDocPath([]);             // 루트 경로는 []
+    setSelectedCategoryPath(null);
+
+    await fetchDocById(rootDoc.id, { hideChrome: true });
+  };
+
+  // 카테고리 + 전체 문서 로드
   useEffect(() => {
     let cancelled = false;
-
     (async () => {
       try {
         const catUrl = mode ? `/api/categories?modes=${encodeURIComponent(mode)}` : '/api/categories';
@@ -229,7 +248,7 @@ export default function WikiPageInner({ user }: Props) {
         setCategoryIdToPathMap(idToPath);
         setCategoryIdMap(catMap);
 
-        // 선택 초기화
+        // 초기 상태 리셋
         setSelectedDocId(null);
         setSelectedDocPath(null);
         setSelectedDocTitle(null);
@@ -241,32 +260,62 @@ export default function WikiPageInner({ user }: Props) {
         // 전체 문서
         const resDoc = await fetch('/api/documents?all=1', { cache: 'no-store' });
         const docsRaw = await resDoc.json();
-        const docs = Array.isArray(docsRaw) ? docsRaw : Array.isArray(docsRaw.documents) ? docsRaw.documents : [];
-        const mapped = (docs as (Document & { path: number })[]).map(doc => ({
-          ...doc,
-          fullPath: idToPath[doc.path] || [doc.path],
-        }));
+        const rawList: any[] = Array.isArray(docsRaw)
+          ? docsRaw
+          : Array.isArray(docsRaw.documents) ? docsRaw.documents : [];
+
+        // ⭐ fullPath 계산: path===0 → []
+        const mapped: Document[] = rawList.map((r: any) => {
+          const pNum = /^\d+$/.test(String(r.path)) ? Number(r.path) : NaN;
+          const fullPath =
+            Number(r.path) === 0 ? [] :
+            Number.isFinite(pNum) ? (idToPath[pNum] || [pNum]) : [];
+          return { ...r, fullPath, special: r.special ?? null };
+        });
+
         if (cancelled || !mountedRef.current) return;
         setAllDocuments(mapped);
+
+        // ❌ 여기서 루트 문서를 바로 열지 않음 (지연 오픈 로직은 아래 effect에서 처리)
       } catch {}
     })();
-
     return () => { cancelled = true; };
   }, [mode]);
 
-  // 쿼리 진입 시 문서 자동 fetch
+  // 쿼리 진입: /wiki?path=...&title=...
+  // ✅ allDocuments/카테고리 맵이 준비된 뒤 실행되며, 루트(path=0)는 id 우선 로딩
   useEffect(() => {
     const pathParam = searchParams.get('path');
     const titleParam = searchParams.get('title');
-    if (pathParam && titleParam) {
+    if (!pathParam || !titleParam) return;
+
+    const openByIdIfFound = (isRoot: boolean, id?: number) => {
+      if (id != null) {
+        fetchDoc(isRoot ? [] : [/*unused*/], titleParam, id, { clearCategoryPath: true, forceRoot: isRoot });
+        return true;
+      }
+      return false;
+    };
+
+    if (pathParam === '0') {
+      if (allDocuments.length === 0) return; // 문서 목록 먼저
+      const match = allDocuments.find(
+        d => ((Array.isArray(d.fullPath) && d.fullPath.length === 0) || Number(d.path) === 0)
+          && d.title === titleParam
+      );
+      if (openByIdIfFound(true, match?.id)) return;
+      // 🔁 목록에 없으면 Fallback: 서버 path=0+title 조회 시도
+      fetchDoc([], titleParam, undefined, { clearCategoryPath: true, forceRoot: true });
+    } else {
       const pathId = Number(pathParam);
       const fullPath = categoryIdToPathMap[pathId];
-      if (fullPath) fetchDoc(fullPath, titleParam, undefined, { clearCategoryPath: true });
+      if (fullPath) {
+        fetchDoc(fullPath, titleParam, undefined, { clearCategoryPath: true });
+      }
     }
-  }, [searchParams, categoryIdToPathMap]);
+  }, [searchParams, allDocuments, categoryIdToPathMap]);
 
-  // 닫힘 관련 유틸
-  const isPathOpen = (path: number[]) => openPaths.some(p => pathToStr(p) === pathToStr(path));
+  const isPathOpen = (path: number[]) => openPaths.some(p => pathToStr(p) === pathToStr(p));
   const isClosing = (path: number[]) => closingMap[pathToStr(path)] || false;
   const finalizeClose = (path: number[]) => {
     const key = pathToStr(path);
@@ -313,6 +362,7 @@ export default function WikiPageInner({ user }: Props) {
         setSelectedDocPath([...path]);
         setSelectedDocTitle(doc.title);
         setSelectedCategoryPath(path);
+        setHideDocChrome(false); // 루트가 아닌 문서 오픈 시 표시
         fetchDoc(path, doc.title, doc.id);
         setOpenPaths(prev => (prev.some(p => JSON.stringify(p) === JSON.stringify(path)) ? prev : [...prev, path]));
       } catch {
@@ -322,30 +372,58 @@ export default function WikiPageInner({ user }: Props) {
     }
   };
 
-  // --------- 문서 fetch ---------
+  // 문서 fetch (path/title)
   function fetchDoc(
     categoryPath: number[],
     docTitle: string,
     docId?: number,
-    options?: { clearCategoryPath?: boolean }
+    options?: { clearCategoryPath?: boolean; forceRoot?: boolean }
   ) {
+    const isRoot = options?.forceRoot || categoryPath.length === 0; // ✅ 루트 문서 여부
     if (options?.clearCategoryPath) setSelectedCategoryPath(null);
     setSelectedDocTitle(docTitle);
+    setHideDocChrome(isRoot); // ✅ 루트는 카테고리 스타일(크롬 숨김)
 
-    if (docId) { setSelectedDocId(docId); setSelectedDocPath([...categoryPath]); }
-    else {
-      const doc = allDocuments.find(d => d.title === docTitle && JSON.stringify(d.fullPath) === JSON.stringify(categoryPath));
-      if (doc) { setSelectedDocId(doc.id); setSelectedDocPath([...categoryPath]); }
+    // 🔑 루트 + id 미지정 → 목록에서 먼저 찾아서 id로 로딩(서버 path=0 의존 제거)
+    if (isRoot && docId == null) {
+      const match = allDocuments.find(
+        d => ((Array.isArray(d.fullPath) && d.fullPath.length === 0) || Number(d.path) === 0)
+          && d.title === docTitle
+      );
+      if (match?.id != null) {
+        setSelectedDocId(match.id);
+        setSelectedDocPath([]); // 루트
+        // id 로딩은 서버 구현과 무관하게 확실히 동작
+        void fetchDocById(match.id, { hideChrome: true });
+        return;
+      }
+    }
+
+    if (docId != null) {
+      setSelectedDocId(docId);
+      setSelectedDocPath(isRoot ? [] : [...categoryPath]);
+    } else {
+      const doc = allDocuments.find(d =>
+        d.title === docTitle &&
+        (
+          (isRoot && ((Array.isArray(d.fullPath) && d.fullPath.length === 0) || Number(d.path) === 0)) ||
+          JSON.stringify(d.fullPath) === JSON.stringify(categoryPath)
+        )
+      );
+      if (doc) {
+        setSelectedDocId(doc.id);
+        setSelectedDocPath(isRoot ? [] : [...categoryPath]);
+      }
     }
 
     const reqId = ++docReqIdRef.current;
 
-    fetch(`/api/documents?path=${String(categoryPath.at(-1))}&title=${encodeURIComponent(docTitle)}`, { cache: 'no-store' })
+    const pathParam = isRoot ? '0' : String(categoryPath.at(-1)); // ✅ 루트는 path=0로 강제(Fallback 경로)
+    fetch(`/api/documents?path=${pathParam}&title=${encodeURIComponent(docTitle)}`, { cache: 'no-store' })
       .then(res => { if (!res.ok) throw new Error('문서를 찾을 수 없습니다.'); return res.json(); })
       .then(data => {
         if (!mountedRef.current || reqId !== docReqIdRef.current) return;
-        const content: Descendant[] =
-          typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
+        const content: Descendant[] = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
         setDocContent(content);
         setTableOfContents(extractHeadings(content));
 
@@ -354,11 +432,11 @@ export default function WikiPageInner({ user }: Props) {
         const meta = parseSpecial(special);
         setSpecialMeta(meta);
 
-        if (meta?.kind === 'faq') {
-          setFaqQuery(meta.q ?? ''); setFaqTags(meta.tags ?? []);
-        } else { setFaqQuery(''); setFaqTags([]); }
+        if (meta?.kind === 'faq') { setFaqQuery(meta.q ?? ''); setFaqTags(meta.tags ?? []); }
+        else { setFaqQuery(''); setFaqTags([]); }
 
-        if (data.fullPath && Array.isArray(data.fullPath)) setSelectedDocPath([...data.fullPath]);
+        if (Array.isArray(data.fullPath)) setSelectedDocPath([...data.fullPath]);
+        else if (isRoot) setSelectedDocPath([]); // ✅ 서버가 fullPath 미동봉 시에도 루트 경로 고정
       })
       .catch(() => {
         if (!mountedRef.current || reqId !== docReqIdRef.current) return;
@@ -368,7 +446,39 @@ export default function WikiPageInner({ user }: Props) {
       });
   }
 
-  // --------- 본문 내부 링크 라우팅 ---------
+  // 문서 fetch (id) — 루트 등 path가 0일 때 사용 권장
+  async function fetchDocById(docId: number, opts?: { hideChrome?: boolean }) {
+    const reqId = ++docReqIdRef.current;
+    try {
+      const r = await fetch(`/api/documents?id=${docId}`, { cache: 'no-store' });
+      if (!r.ok) throw 0;
+      const data = await r.json();
+      if (!mountedRef.current || reqId !== docReqIdRef.current) return;
+
+      const content: Descendant[] = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
+      setDocContent(content);
+      setTableOfContents(extractHeadings(content));
+
+      const docInList = allDocuments.find(d => d.id === data.id);
+      const special = data.special ?? docInList?.special ?? null;
+      const meta = parseSpecial(special);
+      setSpecialMeta(meta);
+
+      if (meta?.kind === 'faq') { setFaqQuery(meta.q ?? ''); setFaqTags(meta.tags ?? []); }
+      else { setFaqQuery(''); setFaqTags([]); }
+
+      setSelectedDocTitle(data.title ?? null);
+      setSelectedDocPath(docInList?.fullPath ?? (Number(data.path) === 0 ? [] : []));
+      setHideDocChrome(!!opts?.hideChrome);
+    } catch {
+      if (!mountedRef.current || reqId !== docReqIdRef.current) return;
+      setDocContent(null);
+      setSpecialMeta(null);
+      setFaqQuery(''); setFaqTags([]);
+    }
+  }
+
+  // 본문 내부 링크 라우팅
   useEffect(() => {
     const el = contentRef.current;
     if (!el) return;
@@ -388,7 +498,7 @@ export default function WikiPageInner({ user }: Props) {
     return () => el.removeEventListener('click', handler);
   }, [docContent, router]);
 
-  // --------- Special 기반 데이터 로딩(FAQ 제외) ---------
+  // Special 데이터 로딩(FAQ 제외)
   useEffect(() => {
     if (!selectedDocId || !selectedDocTitle) {
       setNpcList([]); setNpcLoading(false); setNpcPage(0);
@@ -423,6 +533,7 @@ export default function WikiPageInner({ user }: Props) {
         setHeadList(Array.isArray(heads) ? (heads as HeadRow[]) : []); setHeadLoading(false);
         return;
       }
+
       setNpcLoading(true); setNpcList([]); setNpcPage(0);
       const v = await findVillage([meta.village, selectedDocTitle].filter(Boolean) as string[]);
       if (!v) { setNpcLoading(false); return; }
@@ -431,6 +542,8 @@ export default function WikiPageInner({ user }: Props) {
       const npcs = res.ok ? await res.json() : [];
       setNpcList(Array.isArray(npcs) ? (npcs as NpcRow[]) : []); setNpcLoading(false);
     })();
+
+    return () => { cancelled = true; };
   }, [selectedDocId, selectedDocTitle, specialMeta]);
 
   const currentDoc = useMemo(
@@ -440,7 +553,64 @@ export default function WikiPageInner({ user }: Props) {
 
   const isFaq = specialMeta?.kind === 'faq';
 
-  // --------- 렌더 ---------
+  // ✅ 초기 자동 오픈: 카테고리/문서 세팅 완료 후 루트 대표 문서를 지연 오픈
+  //    단, URL 파라미터(path,title)가 있으면 자동 오픈을 건너뜀
+  useEffect(() => {
+    if (!firstLoadRef.current) return;
+    if (!mountedRef.current) return;
+
+    const ready =
+      categories && categories.length > 0 &&
+      allDocuments && allDocuments.length > 0 &&
+      !selectedDocId;
+
+    if (!ready) return;
+
+    const hasUrl = !!(searchParams.get('path') && searchParams.get('title'));
+    if (hasUrl) return; // 딥링크 우선
+
+    firstLoadRef.current = false;
+
+    const id1 = requestAnimationFrame(() => {
+      const id2 = requestAnimationFrame(() => {
+        openRootDoc();
+      });
+      (window as any).__wiki_root_open_cleanup = () => cancelAnimationFrame(id2);
+    });
+
+    return () => {
+      cancelAnimationFrame(id1);
+      const c = (window as any).__wiki_root_open_cleanup;
+      if (typeof c === 'function') { c(); delete (window as any).__wiki_root_open_cleanup; }
+    };
+  }, [categories, allDocuments, selectedDocId, searchParams]);
+
+  // ✅ 로고 클릭: 루트 대표 문서 오픈
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      const targ = e.target as HTMLElement | null;
+      const a = targ?.closest('a') as HTMLAnchorElement | null;
+      if (!a) return;
+
+      const href = a.getAttribute('href') || '';
+      const looksLikeLogo =
+        href === '/' ||
+        href === '/wiki' ||
+        a.id === 'wiki-logo' ||
+        a.classList.contains('wiki-logo');
+
+      if (!looksLikeLogo) return;
+      if (!allDocuments || allDocuments.length === 0) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      openRootDoc();
+    };
+
+    document.addEventListener('click', onClick, true);
+    return () => document.removeEventListener('click', onClick, true);
+  }, [allDocuments]);
+
   return (
     <div className="wiki-container">
       <WikiHeader user={user} />
@@ -473,44 +643,37 @@ export default function WikiPageInner({ user }: Props) {
           </aside>
 
           <main className="wiki-content">
-            <Breadcrumb
-              selectedDocPath={selectedDocPath}
-              categories={categories}
-              setSelectedDocPath={setSelectedDocPath}
-              setSelectedDocTitle={setSelectedDocTitle}
-              setDocContent={setDocContent}
-            />
+            {!hideDocChrome && (
+              <>
+                <Breadcrumb
+                  selectedDocPath={selectedDocPath}
+                  categories={categories}
+                  setSelectedDocPath={setSelectedDocPath}
+                  setSelectedDocTitle={setSelectedDocTitle}
+                  setDocContent={setDocContent}
+                />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  {/* ✅ 모든 문서 공통: 문서 아이콘 + 제목 */}
+                  <h2 className="wiki-content-title-row wiki-content-title" style={{ margin: 0 }}>
+                    <>
+                      {currentDoc?.icon
+                        ? (currentDoc.icon.startsWith('http')
+                            ? <img src={currentDoc.icon} alt="icon" className="wiki-doc-icon-img" />
+                            : <span className="wiki-doc-icon-emoji">{currentDoc.icon}</span>)
+                        : null}
+                      <span className="wiki-title-color">{selectedDocTitle || '렌독 위키'}</span>
+                    </>
+                  </h2>
 
-            {/* 타이틀 + 질문추가 버튼(FAQ일 때만, writer+) */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-              <h2 className="wiki-content-title-row wiki-content-title" style={{ margin: 0 }}>
-                {isFaq ? (
-                  <>
-                    <span className="wiki-doc-icon-emoji" aria-hidden>🧭</span>
-                    <span className="wiki-title-color">자주 물으시는 질문</span>
-                  </>
-                ) : (
-                  <>
-                    {currentDoc?.icon
-                      ? (currentDoc.icon.startsWith('http')
-                          ? <img src={currentDoc.icon} alt="icon" className="wiki-doc-icon-img" />
-                          : <span className="wiki-doc-icon-emoji">{currentDoc.icon}</span>)
-                      : null}
-                    <span className="wiki-title-color">{selectedDocTitle || '렌독 위키'}</span>
-                  </>
-                )}
-              </h2>
-
-              {isFaq && canWrite && (
-                <button
-                  className="wiki-btn wiki-btn-primary"
-                  onClick={() => setShowNewFaq(true)}
-                  style={{ height: 36 }}
-                >
-                  질문 추가
-                </button>
-              )}
-            </div>
+                  {/* FAQ일 때만 '질문 추가' 버튼 노출 (권한 필요) */}
+                  {isFaq && canWrite && (
+                    <button className="wiki-btn wiki-btn-primary" onClick={() => setShowNewFaq(true)} style={{ height: 36 }}>
+                      질문 추가
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
 
             <div className="wiki-content-body" ref={contentRef}>
               {isFaq ? (
@@ -539,7 +702,6 @@ export default function WikiPageInner({ user }: Props) {
                 <div>문서를 찾을 수 없습니다.</div>
               )}
 
-              {/* 페이징: 머리 */}
               {specialMeta?.kind === 'head' && headList.length > 21 && (
                 <div className="wiki-paging-bar">
                   <button onClick={() => setHeadPage(p => Math.max(0, p - 1))} disabled={headPage === 0} className="wiki-paging-btn">◀</button>
@@ -547,8 +709,6 @@ export default function WikiPageInner({ user }: Props) {
                   <button onClick={() => setHeadPage(p => Math.min(Math.ceil(headList.length / 21) - 1, p + 1))} disabled={headPage === Math.ceil(headList.length / 21) - 1} className="wiki-paging-btn">▶</button>
                 </div>
               )}
-
-              {/* 페이징: NPC/퀘스트 */}
               {(specialMeta?.kind === 'npc' || specialMeta?.kind === 'quest') && npcList.length > 21 && (
                 <div className="wiki-paging-bar">
                   <button onClick={() => setNpcPage(p => Math.max(0, p - 1))} disabled={npcPage === 0} className="wiki-paging-btn">◀</button>
@@ -557,7 +717,6 @@ export default function WikiPageInner({ user }: Props) {
                 </div>
               )}
 
-              {/* 상세 모달들 */}
               {selectedNpc && (
                 <NpcDetailModal
                   npc={selectedNpc}
@@ -566,11 +725,7 @@ export default function WikiPageInner({ user }: Props) {
                 />
               )}
               {selectedHead && (
-                <HeadDetailModal
-                  head={selectedHead}
-                  docIcon={currentDoc?.icon}
-                  onClose={() => setSelectedHead(null)}
-                />
+                <HeadDetailModal head={selectedHead} docIcon={currentDoc?.icon} onClose={() => setSelectedHead(null)} />
               )}
             </div>
           </main>
@@ -581,7 +736,6 @@ export default function WikiPageInner({ user }: Props) {
         </aside>
       </div>
 
-      {/* 새 질문 모달(타이틀 옆 버튼) */}
       {showNewFaq && (
         <NewFaqModal
           onClose={() => setShowNewFaq(false)}
@@ -592,17 +746,15 @@ export default function WikiPageInner({ user }: Props) {
   );
 }
 
-// ---------------- 새 질문 모달(제목/내용(+태그 옵션)) ----------------
+// -------- 새 질문 모달 --------
 function NewFaqModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void; }) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [tags, setTags] = useState(''); // 쉼표 분리, 옵션
+  const [tags, setTags] = useState('');
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
-    if (!title.trim() || !content.trim()) {
-      alert('제목과 내용을 입력해주세요.'); return;
-    }
+    if (!title.trim() || !content.trim()) { alert('제목과 내용을 입력해주세요.'); return; }
     setSaving(true);
     try {
       const r = await fetch('/api/faq', {
@@ -612,11 +764,8 @@ function NewFaqModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
       });
       if (!r.ok) throw 0;
       onSaved();
-    } catch {
-      alert('저장에 실패했습니다.');
-    } finally {
-      setSaving(false);
-    }
+    } catch { alert('저장에 실패했습니다.'); }
+    finally { setSaving(false); }
   };
 
   return (
@@ -649,7 +798,7 @@ function NewFaqModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
   );
 }
 
-// --- inline styles for modal ---
+// --- modal styles
 const backdropStyle: React.CSSProperties = {
   position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000,
   display: 'grid', placeItems: 'center', padding: 16,

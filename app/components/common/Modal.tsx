@@ -1,7 +1,4 @@
-// =============================================
-// File: components/common/Modal.tsx
-// (FIX) 모달 포커스 트랩 안정화 + z-index 상향
-// =============================================
+// components/common/Modal.tsx
 'use client';
 
 import React, { useEffect, useId, useRef } from 'react';
@@ -27,12 +24,15 @@ function Overlay({
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
+      onWheel={(e) => { e.preventDefault(); }}      // ✅ 배경 스크롤 차단
+      onTouchMove={(e) => { e.preventDefault(); }}  // ✅ 모바일 배경 스크롤 차단
       style={{
         display: 'grid',
         placeItems: 'center',
         position: 'fixed',
         inset: 0,
-        zIndex: 100000, // ↑↑ 다른 고정 UI 위로 확실히 띄움
+        zIndex: 100000,
+        touchAction: 'none',                        // ✅ 터치 제스처 차단
       }}
     >
       {children}
@@ -69,19 +69,14 @@ export function ModalCard({
   const panelRef = useRef<HTMLDivElement>(null);
   const lastActiveRef = useRef<HTMLElement | null>(null);
 
-  // 최신 onClose를 ref로 유지(의존성에서 제거)
   const onCloseRef = useRef(onClose);
-  useEffect(() => {
-    onCloseRef.current = onClose;
-  }, [onClose]);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
 
   useEffect(() => {
     if (!open) return;
 
-    // 열릴 때 포커스 진입 지점 기억 + 스크롤 잠금
+    // ✅ body.style.overflow 만지지 않음
     lastActiveRef.current = document.activeElement as HTMLElement | null;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
 
     const panel = panelRef.current!;
     const getFocusables = () =>
@@ -89,7 +84,6 @@ export function ModalCard({
         'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
       );
 
-    // 첫 포커스
     const firstSet = getFocusables();
     (firstSet[0] ?? panel).focus();
 
@@ -100,7 +94,7 @@ export function ModalCard({
         return;
       }
       if (e.key === 'Tab') {
-        const f = getFocusables(); // 매번 최신 목록으로
+        const f = getFocusables();
         if (!f.length) return;
         const first = f[0];
         const last = f[f.length - 1];
@@ -121,11 +115,8 @@ export function ModalCard({
     };
 
     document.addEventListener('keydown', onKeyDown);
-
     return () => {
-      document.body.style.overflow = prevOverflow;
       document.removeEventListener('keydown', onKeyDown);
-      // 닫힐 때만 이전 포커스로 복귀
       lastActiveRef.current?.focus?.();
     };
   }, [open]);
@@ -142,11 +133,7 @@ export function ModalCard({
         aria-labelledby={titleId}
         tabIndex={-1}
         onMouseDown={(e) => e.stopPropagation()}
-        style={{
-          width,
-          maxWidth: 'calc(100vw - 40px)',
-          borderRadius: 20,
-        }}
+        style={{ width, maxWidth: 'calc(100vw - 40px)', borderRadius: 20 }}
       >
         <button
           className="rd-exit-btn"

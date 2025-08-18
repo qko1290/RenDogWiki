@@ -1,10 +1,10 @@
 // =============================================
 // File: components/wiki/CategoryTree.tsx
-// (전체 코드 - StrictMode 대응/닫힘 애니메이션 가드 포함, 로그 제거)
+// (루트 문서 중 id===73만 숨기고, 로고 클릭 시 id===73 열기)
 // =============================================
 "use client";
 
-import React, { useRef, useLayoutEffect, useMemo } from "react";
+import React, { useRef, useLayoutEffect, useMemo, useEffect } from "react";
 
 /**
  * 위키 카테고리 트리 + 문서 목록
@@ -97,7 +97,6 @@ function CollapsibleList({
     const el = ref.current;
     if (!el) return;
 
-    // 사용자 선호: 모션 줄이기면 즉시 상태만 반영
     const prefersReduced =
       typeof window !== "undefined" &&
       window.matchMedia &&
@@ -127,7 +126,7 @@ function CollapsibleList({
 
     if (prevOpen === isOpen) return;
 
-    // 열기: 0 → full → 픽셀 고정 → (다음 프레임) auto
+    // 열기
     if (isOpen && prevOpen === false) {
       const full = el.scrollHeight;
       el.style.overflow = "hidden";
@@ -165,7 +164,6 @@ function CollapsibleList({
       };
 
       if (D === 0) {
-        // 모션 줄이기: 즉시 완료 처리
         el.style.height = "auto";
       } else {
         el.addEventListener("transitionend", onEnd);
@@ -173,7 +171,7 @@ function CollapsibleList({
       return;
     }
 
-    // 닫기: full → 0 (closing일 때만)
+    // 닫기
     if (!isOpen && prevOpen === true) {
       if (!isClosing) {
         el.style.overflow = "hidden";
@@ -238,19 +236,69 @@ const CategoryTree: React.FC<Props> = ({
   isClosing,
   finalizeClose,
 }) => {
-  // 경로 문자열 키로 문서 배열 캐시 → O(1) 조회
+  // 숨길 루트 대표 문서 ID
+  const HIDE_ROOT_DOC_ID = 73;
+
+  // 경로 문자열 키로 문서 배열 캐시 → O(1) 조회 (루트 제외)
   const docsByPath = useMemo(() => {
     const map = new Map<string, Document[]>();
     for (const doc of allDocuments) {
       if (doc.is_featured) continue;
-      const key = Array.isArray(doc.fullPath) ? pathToStr(doc.fullPath) : "";
-      if (!key) continue;
+      const fp = Array.isArray(doc.fullPath) ? doc.fullPath : [];
+      if (fp.length === 0) continue; // 루트 문서는 별도(rootDocs)에서 처리
+      const key = pathToStr(fp);
       const arr = map.get(key);
       if (arr) arr.push(doc);
       else map.set(key, [doc]);
     }
     return map;
   }, [allDocuments]);
+
+  // ✅ 루트([]) 문서들 — 대표 문서(id===73)만 제외
+  const rootDocs = useMemo(
+    () =>
+      allDocuments.filter(
+        (d) =>
+          !d.is_featured &&
+          Array.isArray(d.fullPath) &&
+          d.fullPath.length === 0 &&
+          d.id !== HIDE_ROOT_DOC_ID
+      ),
+    [allDocuments]
+  );
+
+  // 로고(홈 링크) 클릭 시, 숨긴 루트 대표 문서(id===73) 열기
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      const a = target?.closest("a") as HTMLAnchorElement | null;
+      if (!a) return;
+
+      // 로고/홈으로 보이는 링크 패턴
+      const href = a.getAttribute("href") || "";
+      const looksLikeLogo =
+        href === "/" ||
+        href === "/wiki" ||
+        a.id === "wiki-logo" ||
+        a.classList.contains("wiki-logo");
+
+      if (!looksLikeLogo) return;
+
+      const rootRep = allDocuments.find(
+        (d) => Array.isArray(d.fullPath) && d.fullPath.length === 0 && d.id === HIDE_ROOT_DOC_ID
+      );
+      if (!rootRep) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      // 루트 문서는 관례적으로 path=0로 전달해 서버 쿼리를 맞춤
+      fetchDoc([0], rootRep.title, rootRep.id, { clearCategoryPath: true });
+    };
+
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, [allDocuments, fetchDoc]);
 
   const isReallyOpen = (path: number[]) => isPathOpen(path) && !isClosing(path);
 
@@ -390,7 +438,46 @@ const CategoryTree: React.FC<Props> = ({
       );
     });
 
-  return <ul className="wiki-nav-list">{renderTree(categories)}</ul>;
+  return (
+    <ul className="wiki-nav-list">
+      {/* ✅ 루트 문서: 대표(73)만 제외하고 카테고리와 동일한 버튼 스타일로 표시 */}
+      {rootDocs.map((doc) => {
+        const isDocActive = selectedDocId === doc.id;
+        return (
+          <li key={`rootdoc-${doc.id}`}>
+            <button
+              className={`wiki-nav-item ${isDocActive ? "active" : ""}`}
+              onClick={() => {
+                // 루트 문서는 관례적으로 path=0로 전달
+                fetchDoc([0], doc.title, doc.id, { clearCategoryPath: true });
+              }}
+            >
+              <span className="wiki-category-main">
+                <span className="wiki-cat-icon-token">
+                  {doc.icon?.startsWith("http") ? (
+                    <img
+                      src={doc.icon}
+                      alt=""
+                      aria-hidden="true"
+                      className="wiki-category-icon-img"
+                    />
+                  ) : (
+                    <span className="wiki-category-icon-emoji" aria-hidden="true">
+                      {doc.icon || "📄"}
+                    </span>
+                  )}
+                </span>
+                <span className="wiki-category-label-text">{doc.title}</span>
+              </span>
+            </button>
+          </li>
+        );
+      })}
+
+      {/* 카테고리 트리 */}
+      {renderTree(categories)}
+    </ul>
+  );
 };
 
 export default CategoryTree;

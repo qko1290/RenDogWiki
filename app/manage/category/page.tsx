@@ -41,7 +41,7 @@ type Category = {
   parent_id: number | null;
   order: number;
   document_path?: string;
-  icon?: string | StaticImageData;  // ← 정적 이미지도 허용
+  icon?: string | StaticImageData; // 정적 이미지도 허용
   children: Category[];
   mode_tags?: string[];
 };
@@ -158,7 +158,6 @@ function SortableCategoryItem({
     <li ref={setNodeRef} className="sortable-category-item" style={liStyle} {...attributes}>
       <div
         className={`category-row${selected?.id === node.id ? ' active' : ''}`}
-        // 시각 강조 (Shift 드래그 대상)
         style={
           highlight
             ? {
@@ -223,8 +222,11 @@ export default function CategoryManager() {
   const [newCatName, setNewCatName] = useState('');
   const [loadingCreate, setLoadingCreate] = useState(false);
 
-  const [deleteOpen, setDeleteOpen] = useState(false);
+  // 🔸 삭제 모달/로딩 상태: 카테고리 vs 문서 분리
+  const [catDeleteOpen, setCatDeleteOpen] = useState(false);
+  const [docDeleteOpen, setDocDeleteOpen] = useState(false);
   const [loadingDelete, setLoadingDelete] = useState(false);
+  const [loadingDocDelete, setLoadingDocDelete] = useState(false);
 
   // DnD 부가 상태 (Shift 모드 UX)
   const [hoverId, setHoverId] = useState<number | null>(null);
@@ -279,20 +281,8 @@ export default function CategoryManager() {
 
   // 문서
   useEffect(() => {
-    fetch('/api/documents?all=1')
-      .then((res) => res.json())
-      .then((data) => {
-        if (Object.keys(categoryIdToPathMap).length === 0) {
-          setAllDocuments(data);
-          return;
-        }
-        const mapped = data.map((doc: Document & { path: number | string }) => ({
-          ...doc,
-          fullPath: categoryIdToPathMap[Number(doc.path)] || [Number(doc.path)],
-        }));
-        setAllDocuments(mapped);
-      })
-      .catch(() => setAllDocuments([]));
+    refreshDocuments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryIdToPathMap]);
 
   // 카테고리 선택
@@ -302,16 +292,15 @@ export default function CategoryManager() {
     setSelectedCategoryPath(currentPath);
   };
 
-  // 문서 필터
-  const filteredDocs = allDocuments.filter((doc) => {
-    if (!selectedCategoryPath.length) return false;
-    const categoryPath =
-      selectedCategoryPath[0] === 0 ? selectedCategoryPath.slice(1) : selectedCategoryPath;
-    if (doc.fullPath) return JSON.stringify(doc.fullPath) === JSON.stringify(categoryPath);
-    return Number(doc.path) === categoryPath.at(-1);
-  });
-  const featuredDoc = filteredDocs.find((doc) => doc.is_featured);
-  const otherDocs = filteredDocs.filter((doc) => !doc.is_featured);
+  // 문서 필터 (선택된 카테고리 id 기준)
+  const filteredDocs = (() => {
+    if (!selectedCategoryPath.length) return [];
+    const last = selectedCategoryPath.at(-1)!; // 선택된 카테고리 id (루트면 0)
+    return allDocuments.filter((d) => String(d.path) === String(last));
+  })();
+
+  const featuredDoc = filteredDocs.find((d) => Boolean(d.is_featured));
+  const otherDocs = filteredDocs.filter((d) => !Boolean(d.is_featured));
 
   // 카테고리 fetch + 맵 생성
   const fetchCategories = async () => {
@@ -338,7 +327,7 @@ export default function CategoryManager() {
           name: 'RenDog Wiki',
           parent_id: null,
           order: 0,
-          icon: logo, // ← 이모지 대신 정적 이미지
+          icon: logo,
           document_path: '',
           children: built,
         },
@@ -411,6 +400,47 @@ export default function CategoryManager() {
     return { parent, removed, index: idx };
   };
 
+  // 문서 삭제
+  async function deleteDocument() {
+    if (!selectedDoc) return;
+    try {
+      setLoadingDocDelete(true);
+      const res = await fetch(`/api/documents?id=${selectedDoc.id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        alert('문서 삭제에 실패했습니다.');
+        return;
+      }
+      setDocDeleteOpen(false);
+      setSelectedDoc(null);
+      await refreshDocuments();
+    } finally {
+      setLoadingDocDelete(false);
+    }
+  }
+
+  // 문서 목록 리프레시
+  async function refreshDocuments() {
+    try {
+      const res = await fetch('/api/documents?all=1');
+      const data = await res.json();
+      if (!Array.isArray(data)) {
+        setAllDocuments([]);
+        return;
+      }
+      if (Object.keys(categoryIdToPathMap).length === 0) {
+        setAllDocuments(data);
+        return;
+      }
+      const mapped = data.map((doc: Document & { path: number | string }) => ({
+        ...doc,
+        fullPath: categoryIdToPathMap[Number(doc.path)] || [Number(doc.path)],
+      }));
+      setAllDocuments(mapped);
+    } catch {
+      setAllDocuments([]);
+    }
+  }
+
   // 부모(위치) 변경 유틸 (Shift 드래그 전용)
   function moveToParent(dragId: number, targetParentId: number) {
     if (targetParentId === dragId || isDescendant(tree, dragId, targetParentId)) return;
@@ -439,7 +469,7 @@ export default function CategoryManager() {
         name: removed.name,
         parent_id: removed.parent_id,
         order: insertIndex,
-        icon: typeof removed.icon === 'string' ? removed.icon : '', // 문자열만 저장
+        icon: typeof removed.icon === 'string' ? removed.icon : '',
       }),
     }).catch(() => {});
 
@@ -486,7 +516,7 @@ export default function CategoryManager() {
     try {
       setLoadingDelete(true);
       await fetch(`/api/categories/${selected.id}`, { method: 'DELETE' });
-      setDeleteOpen(false);
+      setCatDeleteOpen(false);
       setSelected(null);
       await fetchCategories();
     } finally {
@@ -737,7 +767,7 @@ export default function CategoryManager() {
                   </svg>
                   <span className="seg-label">수정</span>
                 </button>
-                <button className="seg-btn danger" onClick={() => setDeleteOpen(true)} title="삭제">
+                <button className="seg-btn danger" onClick={() => setDocDeleteOpen(true)} title="삭제">
                   <svg
                     className="ico"
                     viewBox="0 0 24 24"
@@ -788,7 +818,13 @@ export default function CategoryManager() {
                       return <Image src={ic as StaticImageData} alt="icon" width={32} height={32} />;
                     }
                     if (typeof ic === 'string' && ic.startsWith('http')) {
-                      return <img src={ic} alt="icon" style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover' }} />;
+                      return (
+                        <img
+                          src={ic}
+                          alt="icon"
+                          style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover' }}
+                        />
+                      );
                     }
                     return <span>{typeof ic === 'string' ? ic : '📁'}</span>;
                   })()}
@@ -805,7 +841,7 @@ export default function CategoryManager() {
                   <span className="seg-label">저장</span>
                 </button>
                 {selected.id !== 0 && (
-                  <button className="seg-btn danger" onClick={() => setDeleteOpen(true)} title="삭제">
+                  <button className="seg-btn danger" onClick={() => setCatDeleteOpen(true)} title="삭제">
                     <svg
                       className="ico"
                       viewBox="0 0 24 24"
@@ -967,48 +1003,37 @@ export default function CategoryManager() {
 
       {/* ===== 모달들 ===== */}
 
-      {/* 카테고리 추가 모달 */}
-      <BareModal open={newCatOpen} onClose={() => setNewCatOpen(false)}>
-        <div className="rd-card" role="dialog" aria-labelledby="rd-newcat-title">
-          <button className="rd-exit-btn" onClick={() => setNewCatOpen(false)} aria-label="닫기">
+      {/* 문서 삭제 모달 */}
+      <BareModal open={docDeleteOpen} onClose={() => setDocDeleteOpen(false)}>
+        <div className="rd-card" role="dialog" aria-labelledby="rd-deldoc-title">
+          <button className="rd-exit-btn" onClick={() => setDocDeleteOpen(false)} aria-label="닫기">
             <svg height="20" viewBox="0 0 384 512">
               <path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z" />
             </svg>
           </button>
           <div className="rd-card-content">
-            <p className="rd-card-heading" id="rd-newcat-title">
-              카테고리 추가
+            <p className="rd-card-heading" id="rd-deldoc-title">
+              문서 삭제
             </p>
             <p className="rd-card-description">
-              <b>{selected?.name}</b> 하위에 새 카테고리를 생성합니다.
+              <b>{selectedDoc?.title}</b> 문서를 삭제합니다. 계속할까요?
             </p>
-            <input
-              className="rd-input"
-              placeholder="새 카테고리 이름"
-              value={newCatName}
-              onChange={(e) => setNewCatName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && newCatName.trim()) createCategory();
-              }}
-              autoFocus
-              {...noSpell}
-            />
           </div>
           <div className="rd-card-button-wrapper">
-            <button className="rd-btn secondary" onClick={() => setNewCatOpen(false)}>
+            <button className="rd-btn secondary" onClick={() => setDocDeleteOpen(false)}>
               취소
             </button>
-            <button className="rd-btn primary" onClick={createCategory} disabled={!newCatName.trim() || loadingCreate}>
-              {loadingCreate ? '생성 중…' : '생성'}
+            <button className="rd-btn danger" onClick={deleteDocument} disabled={loadingDocDelete}>
+              {loadingDocDelete ? '삭제 중…' : '삭제'}
             </button>
           </div>
         </div>
       </BareModal>
 
       {/* 카테고리 삭제 모달 */}
-      <BareModal open={deleteOpen} onClose={() => setDeleteOpen(false)}>
+      <BareModal open={catDeleteOpen} onClose={() => setCatDeleteOpen(false)}>
         <div className="rd-card" role="dialog" aria-labelledby="rd-delcat-title">
-          <button className="rd-exit-btn" onClick={() => setDeleteOpen(false)} aria-label="닫기">
+          <button className="rd-exit-btn" onClick={() => setCatDeleteOpen(false)} aria-label="닫기">
             <svg height="20" viewBox="0 0 384 512">
               <path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z" />
             </svg>
@@ -1022,7 +1047,7 @@ export default function CategoryManager() {
             </p>
           </div>
           <div className="rd-card-button-wrapper">
-            <button className="rd-btn secondary" onClick={() => setDeleteOpen(false)}>
+            <button className="rd-btn secondary" onClick={() => setCatDeleteOpen(false)}>
               취소
             </button>
             <button className="rd-btn danger" onClick={deleteCategory} disabled={loadingDelete}>
