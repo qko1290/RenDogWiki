@@ -1,4 +1,11 @@
 /* ===== [1] 전체 컨테이너/레이아웃 ===== */
+
+img {
+  image-rendering: pixelated;     /* 크롬/사파리/파폭 최신 */
+  image-rendering: crisp-edges;   /* 일부 브라우저 보완 */
+  display: block; 
+}
+
 .wiki-container {
   display: flex;
   flex-direction: column;
