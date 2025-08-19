@@ -95,8 +95,9 @@ function useCanWrite(user: Props['user']) {
         const role = (me?.role ?? me?.user?.role ?? '').toLowerCase?.() || '';
         const roles: string[] = (me?.roles ?? me?.user?.roles ?? me?.permissions ?? me?.user?.permissions ?? [])
           .map((v: any) => String(v).toLowerCase());
-        const ok = ['admin','manager','writer'].includes(role)
-          || roles.includes('admin') || roles.includes('manager') || roles.includes('writer');
+        // ✅ manager 제거: admin 또는 writer만 true
+        const ok = role === 'admin' || role === 'writer'
+          || roles.includes('admin') || roles.includes('writer');
         if (!cancelled) setCan(!!ok);
       } catch { if (!cancelled) setCan(false); }
     })();
@@ -896,7 +897,7 @@ const closeBtnStyle: React.CSSProperties = { border: '1px solid #e5e7eb', backgr
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, color: '#555', marginBottom: 6 };
 const inputStyle: React.CSSProperties = { width: '100%', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 10px' };
 
-// ====== FAQ 상단 액션 버튼 (제공해준 디자인 틀 기반) ======
+// ====== FAQ 상단 액션 버튼 ======
 function FaqAddButton({ onClick }: { onClick: () => void }) {
   return (
     <div className="faq-add-group">

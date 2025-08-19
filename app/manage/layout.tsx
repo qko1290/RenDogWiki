@@ -1,4 +1,3 @@
-// File: app/manage/layout.tsx
 /**
  * 관리 영역 레이아웃 가드
  * - /api/auth/me로 역할 조회 후 writer/admin만 접근 허용
@@ -26,7 +25,7 @@ export default function ManageLayout({ children }: { children: React.ReactNode }
       try {
         const res = await fetch('/api/auth/me', { cache: 'no-store', signal: ac.signal });
         const data = res.ok ? await res.json() : null;
-        const role = (data?.user?.role ?? 'guest') as Role;
+        const role = (data?.user?.role ?? data?.role ?? 'guest') as Role;
         const ok = role === 'writer' || role === 'admin';
 
         if (!alive) return;

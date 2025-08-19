@@ -37,7 +37,9 @@ function useAuthFlags(user: User) {
         const roles: string[] = (me?.roles ?? me?.user?.roles ?? me?.permissions ?? me?.user?.permissions ?? [])
           .map((v: any) => String(v).toLowerCase());
 
-        const isAdmin = ['admin', 'manager'].includes(role) || roles.includes('admin') || roles.includes('manager');
+        // ✅ manager 제거: admin만 관리자
+        const isAdmin = role === 'admin' || roles.includes('admin');
+        // ✅ 작성 가능: admin 또는 writer
         const canWrite = isAdmin || role === 'writer' || roles.includes('writer');
 
         if (!cancelled) setFlags({ canWrite, isAdmin, loading: false });

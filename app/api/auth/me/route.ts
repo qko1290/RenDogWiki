@@ -10,15 +10,17 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
-import { getAuthUser } from '@/app/wiki/lib/auth'; // 경로 일관성은 프로젝트 설정에 맞춰 사용
+import { getAuthUser } from '@/wiki/lib/auth'; // 경로 통일
 import bcrypt from 'bcryptjs';
+
+type Role = 'guest' | 'writer' | 'admin';
 
 export async function GET() {
   try {
     const auth = getAuthUser();
     if (!auth) {
       return NextResponse.json(
-        { loggedIn: false },
+        { loggedIn: false, role: 'guest', roles: [], permissions: [] },
         { status: 401, headers: { 'Cache-Control': 'no-store' } }
       );
     }
@@ -33,13 +35,23 @@ export async function GET() {
 
     if (!Array.isArray(rows) || rows.length === 0) {
       return NextResponse.json(
-        { loggedIn: false },
+        { loggedIn: false, role: 'guest', roles: [], permissions: [] },
         { status: 401, headers: { 'Cache-Control': 'no-store' } }
       );
     }
 
+    // 응답 스키마 표준화
+    const dbUser = rows[0] as any;
+    const role: Role = String(dbUser.role || 'guest').toLowerCase() as Role;
+
     return NextResponse.json(
-      { loggedIn: true, user: rows[0] },
+      {
+        loggedIn: true,
+        user: dbUser,
+        role,                 // 'guest' | 'writer' | 'admin'
+        roles: [],            // 확장 여지
+        permissions: [],      // 확장 여지
+      },
       { headers: { 'Cache-Control': 'no-store' } }
     );
   } catch (err) {
@@ -96,7 +108,7 @@ export async function DELETE(req: NextRequest) {
     // 사용자 삭제 -> 연관 데이터 처리 전략은 별도 정책에 따름
     await sql`DELETE FROM users WHERE id = ${auth.id}`;
 
-    // JWT 쿠키 만료 -> 로그인과 동일한 옵션으로 지워야 확실함
+    // JWT 쿠키 만료
     const res = NextResponse.json(
       { message: '탈퇴 완료' },
       { headers: { 'Cache-Control': 'no-store' } }
