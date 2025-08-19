@@ -69,6 +69,10 @@ export default function FaqList({
   const [editTarget, setEditTarget] = useState<FaqItem | null>(null);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
 
+  const [menu, setMenu] = useState<{open: boolean; id: number|null; x: number; y: number}>({
+    open: false, id: null, x: 0, y: 0
+  });
+
   // --- 페이징 ---
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 12;
@@ -125,6 +129,32 @@ export default function FaqList({
     }
   }
 
+  useEffect(() => {
+  if (!menu.open) return;
+
+  const close = () => setMenu({ open:false, id:null, x:0, y:0 });
+    const onPointer = (e: Event) => {
+      const el = e.target as HTMLElement | null;
+      // 팝업이나 ⋯버튼을 누른 게 아니면 닫기
+      if (!el?.closest('.faq-popover') && !el?.closest('.faq-menu-btn')) close();
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+
+    document.addEventListener('mousedown', onPointer, true);
+    document.addEventListener('touchstart', onPointer, true);
+    document.addEventListener('scroll', onPointer, true);
+    window.addEventListener('resize', close, { passive: true });
+    window.addEventListener('keydown', onKey);
+
+    return () => {
+      document.removeEventListener('mousedown', onPointer, true);
+      document.removeEventListener('touchstart', onPointer, true);
+      document.removeEventListener('scroll', onPointer, true);
+      window.removeEventListener('resize', close);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [menu.open]);
+
   useEffect(() => { refresh(); }, [qs]);
   useEffect(() => { if (refreshSignal) refresh(); }, [refreshSignal]);
 
@@ -158,20 +188,55 @@ export default function FaqList({
                     className="faq-menu-btn"
                     aria-label="more"
                     onClick={(e) => {
-                      const pop = (e.currentTarget.nextElementSibling as HTMLDivElement | null);
-                      if (pop) pop.classList.toggle('open');
+                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                      // 버튼의 오른쪽 가장자리에 '붙여서', 아래로 6px 내린 위치
+                      const x = Math.min(
+                        window.innerWidth - 100 - 8,  // 우측 밖으로 나가지 않게
+                        Math.max(8, rect.right - 100) // 버튼 오른쪽에 flush
+                      );
+                      const y = rect.bottom + 6;
+
+                      setMenu((m) => ({
+                        open: !(m.open && m.id === it.id),
+                        id: it.id,
+                        x,
+                        y,
+                      }));
                     }}
+                    aria-expanded={menu.open && menu.id === it.id}
                   >⋯</button>
-                  <div className={`faq-menu-pop ${openMenuId === it.id ? 'open' : ''}`}>
-                    <button onClick={() => { setOpenMenuId(null); setEditTarget(it); }}>수정</button>
-                    <button className="danger" onClick={() => { setOpenMenuId(null); handleDelete(it.id); }}>삭제</button>
-                  </div>
                 </div>
               )}
             </div>
           ))
         )}
       </div>
+      
+      {menu.open && (
+        <div
+          className="faq-menu-pop faq-popover open"
+          style={{
+            position: 'fixed',
+            left: Math.max(10, menu.x),
+            top: menu.y,
+            zIndex: 2000,
+            minWidth: 100,
+            width: 100
+          }}
+          role="menu"
+        >
+          <button role="menuitem" onClick={() => { setMenu({open:false,id:null,x:0,y:0}); setEditTarget(items.find(i => i.id === menu.id) || null); }}>
+            수정
+          </button>
+          <button
+            role="menuitem"
+            className="danger"
+            onClick={() => { const id = menu.id!; setMenu({open:false,id:null,x:0,y:0}); handleDelete(id); }}
+          >
+            삭제
+          </button>
+        </div>
+      )}
 
       {/* 페이징 */}
       {pageCount > 1 && (
@@ -210,7 +275,11 @@ export default function FaqList({
                 <span className="faq-qa q">Q</span>
                 <h3>{sel.title}</h3>
               </div>
-              <button className="faq-modal-close" onClick={() => setSel(null)} aria-label="close">✕</button>
+              <button className="faq-modal-close" onClick={() => setSel(null)} aria-label="close">
+                <svg className="x-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8">
+                  <path d="M6 6L18 18M18 6L6 18" strokeLinecap="round" />
+                </svg>
+              </button>
             </div>
 
             <div className="faq-modal-body">
@@ -326,9 +395,17 @@ export default function FaqList({
         }
         .faq-modal-title { display: inline-flex; align-items: center; gap: 12px; }
         .faq-modal-title h3 { margin: 0; font-size: 20px; font-weight: 800; color: #0f172a; }
-        .faq-modal-close {
-          border: 1px solid #e5e7eb; background: #fff; border-radius: 10px; width: 36px; height: 36px; cursor: pointer;
+        .faq-modal-close{
+          width: 36px; height: 36px;
+          display: grid; place-items: center;
+          background: transparent; border: 0; border-radius: 0;
+          color: #ef4444;           /* 빨간색 */
+          cursor: pointer;
+          transition: transform .12s ease;
         }
+        .faq-modal-close:hover{ transform: scale(1.06); }
+        .faq-modal-close:focus{ outline: none; }
+        .faq-modal-close .x-ic{ width: 18px; height: 18px; }
         .faq-modal-body { display: grid; gap: 10px; margin-top: 6px; }
 
         /* Q/A 공통 토큰 */

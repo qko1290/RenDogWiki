@@ -95,7 +95,11 @@ export default function FaqUpsertModal({ open, mode, initial, onClose, onSaved }
             <span className="upsert-chip">{mode === 'create' ? '새 질문' : '질문 수정'}</span>
             <h3>{mode === 'create' ? '질문 추가' : '질문 수정'}</h3>
           </div>
-          <button className="upsert-close" onClick={onClose} aria-label="close">✕</button>
+          <button className="upsert-close" onClick={onClose} aria-label="close">
+            <svg className="x-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8">
+              <path d="M6 6L18 18M18 6L6 18" strokeLinecap="round" />
+            </svg>
+          </button>
         </header>
 
         <div className="upsert-body">
@@ -168,9 +172,16 @@ export default function FaqUpsertModal({ open, mode, initial, onClose, onSaved }
           font-size: 12px; font-weight: 700; color: #065f46; background: #ecfdf5; border: 1px solid #b7f0d0;
         }
         .upsert-close{
-          width: 34px; height: 34px; border-radius: 10px;
-          border: 1px solid #e5e7eb; background: #fff; cursor: pointer;
+          width: 34px; height: 34px;
+          display: grid; place-items: center;
+          background: transparent; border: 0; border-radius: 0;
+          color: #ef4444;           /* 빨간색 */
+          cursor: pointer;
+          transition: transform .12s ease;
         }
+        .upsert-close:hover{ transform: scale(1.06); }
+        .upsert-close:focus{ outline: none; }
+        .upsert-close .x-ic{ width: 18px; height: 18px; }
         .upsert-body{ padding: 16px; display: grid; gap: 12px; }
         .field label{
           display:block; font-size: 12px; color:#6b7280; margin-bottom: 6px; font-weight:600;

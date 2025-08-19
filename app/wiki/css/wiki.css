@@ -531,3 +531,9 @@ img {
   image-rendering: crisp-edges;   /* 일부 브라우저 보완 */
   display: block;                 /* 인라인 간격/기저선 이슈 방지 */
 }
+
+/* 팝업 전역 클래스(외부 클릭 판정용) */
+.faq-popover { pointer-events: auto; }
+
+/* 안전: 버튼 높이를 살짝 키움(클릭영역) */
+.faq-menu-btn { position: relative; z-index: 1; }
