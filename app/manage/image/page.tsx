@@ -1,8 +1,5 @@
 // =============================================
 // File: app/manage/image/page.tsx
-// (FIX) 폴더/모달 입력 시 포커스가 풀리던 문제 해결
-//   - FolderTree: 편집값 초기화 이펙트 의존성 축소
-//   - 모달 onClose를 useCallback으로 고정(불필요한 리렌더 방지)
 // =============================================
 'use client';
 
@@ -12,7 +9,8 @@ import ImageUploadModal from '@/components/image/ImageUploadModal';
 import { ModalCard } from '@/components/common/Modal';
 import '@/wiki/css/image.css';
 
-/* ─────────────── ArrowIcon ─────────────── */
+type Role = 'guest' | 'writer' | 'admin';
+
 const ArrowIcon = ({ open }: { open: boolean }) => (
   <span
     style={{
@@ -28,7 +26,6 @@ const ArrowIcon = ({ open }: { open: boolean }) => (
   </span>
 );
 
-/* ─────────────── FolderTree ─────────────── */
 function FolderTree({
   folders,
   parentId,
@@ -48,7 +45,7 @@ function FolderTree({
   setDragOverFolderId,
   onMoveFolder,
 }: {
-  folders: Array<{ id: number; name: string; parent_id: number | null }>;
+  folders: Array<{ id: number; name: string; parent_id: number | null; uploader?: string }>;
   parentId: number | null;
   activeId: number | null;
   selectedIds: number[];
@@ -75,31 +72,25 @@ function FolderTree({
 }) {
   const [editName, setEditName] = useState('');
 
-  // ✅ 편집 시작 시점에만 초기화 (folders 변경으로 인한 value 리셋 방지)
-    useEffect(() => {
-      if (editingTarget?.type === 'folder') {
-        const t = folders.find((f) => f.id === editingTarget.id);
-        setEditName(t?.name ?? '');
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [editingTarget]);
+  useEffect(() => {
+    if (editingTarget?.type === 'folder') {
+      const t = folders.find((f) => f.id === editingTarget.id);
+      setEditName(t?.name ?? '');
+    }
+  }, [editingTarget]); // folders 의존성 제거(포커스 유지)
 
-    const list = folders.filter((f) =>
-      parentId === null ? f.parent_id == null : Number(f.parent_id) === Number(parentId)
-    );
-    if (!list.length) return null;
+  const list = folders.filter((f) =>
+    parentId === null ? f.parent_id == null : Number(f.parent_id) === Number(parentId)
+  );
+  if (!list.length) return null;
 
-    function closeSubtree(rootId: number, prev: Record<number, boolean>): Record<number, boolean> {
+  function closeSubtree(rootId: number, prev: Record<number, boolean>): Record<number, boolean> {
     const next = { ...prev };
-
-    // 부모 → 자식 목록 맵 구성
     const childrenMap = new Map<number, number[]>();
     for (const f of folders) {
       const pid = f.parent_id == null ? -1 : Number(f.parent_id);
       (childrenMap.get(pid) ?? childrenMap.set(pid, []).get(pid)!).push(f.id);
     }
-
-    // 루트 포함 모든 후손 false
     next[rootId] = false;
     const stack = [...(childrenMap.get(rootId) || [])];
     while (stack.length) {
@@ -152,9 +143,7 @@ function FolderTree({
                 />
               ) : (
                 <button
-                  className={
-                    'folder-btn' + (isActive || isSelected ? ' active' : '')
-                  }
+                  className={'folder-btn' + (isActive || isSelected ? ' active' : '')}
                   style={{
                     zIndex: 2,
                     minHeight: 28,
@@ -216,13 +205,8 @@ function FolderTree({
                     setTreeState((prev) => {
                       const isOpen = !!prev[folder.id];
                       let next: Record<number, boolean>;
-
-                      if (isOpen) {
-                        next = closeSubtree(folder.id, prev);
-                      } else {
-                        next = { ...prev, [folder.id]: true };
-                      }
-
+                      if (isOpen) next = closeSubtree(folder.id, prev);
+                      else next = { ...prev, [folder.id]: true };
                       if (typeof window !== 'undefined') {
                         localStorage.setItem('imgmgr.treeState', JSON.stringify(next));
                       }
@@ -266,7 +250,6 @@ function FolderTree({
   );
 }
 
-/* ─────────────── FileList ─────────────── */
 function FileList({
   images,
   currentFolderId,
@@ -275,7 +258,7 @@ function FileList({
   selectedItems,
   searchQuery,
 }: {
-  images: Array<{ id: number; name: string; url: string; folder_id: number }>;
+  images: Array<{ id: number; name: string; url: string; folder_id: number; uploader?: string }>;
   currentFolderId: number | null;
   onSelect: (item: any, e: React.MouseEvent) => void;
   onContextMenuImage: (item: any, e: React.MouseEvent) => void;
@@ -334,24 +317,29 @@ function FileList({
   );
 }
 
-/* ─────────────── Page ─────────────── */
 export default function ImageManagePage() {
   const [user, setUser] = useState<any>(null);
   useEffect(() => {
-    fetch('/api/auth/me')
+    fetch('/api/auth/me', { cache: 'no-store' })
       .then((res) => (res.ok ? res.json() : null))
       .then((d) => setUser(d?.user ?? null));
   }, []);
 
+  const role: Role =
+    (user?.role === 'admin' || user?.role === 'writer') ? (user.role as Role) : 'guest';
+  const isAdmin = role === 'admin';
+  const isWriter = role === 'writer';
+
+  const myName = (user?.minecraft_name ?? '').toLowerCase(); // ⚠️ 업로더 비교는 minecraft_name 기준
+
   const [folders, setFolders] = useState<
-    Array<{ id: number; name: string; parent_id: number | null }>
+    Array<{ id: number; name: string; parent_id: number | null; uploader?: string }>
   >([]);
   const [images, setImages] = useState<
-    Array<{ id: number; name: string; url: string; folder_id: number }>
+    Array<{ id: number; name: string; url: string; folder_id: number; uploader?: string }>
   >([]);
   const [selectedFolder, setSelectedFolder] = useState<number | null>(null);
-  const [selectedFolderIds, setSelectedFolderIds] = useState<number[]>([]); // ▶ 폴더 다중 선택
-
+  const [selectedFolderIds, setSelectedFolderIds] = useState<number[]>([]);
   const [selectedItems, setSelectedItems] = useState<any[]>([]);
   const [editingTarget, setEditingTarget] = useState<{ type: 'image' | 'folder'; id: number } | null>(
     null
@@ -368,7 +356,6 @@ export default function ImageManagePage() {
   const [deletingType, setDeletingType] = useState<'folder' | 'image' | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-
   const [draggingFolderId, setDraggingFolderId] = useState<number | null>(null);
   const [dragOverFolderId, setDragOverFolderId] = useState<number | null>(null);
 
@@ -377,6 +364,7 @@ export default function ImageManagePage() {
       id: Number(f.id),
       name: String(f.name),
       parent_id: f.parent_id === null || f.parent_id === undefined ? null : Number(f.parent_id),
+      uploader: f.uploader ? String(f.uploader) : undefined, // <- 받으면 보관
     }));
 
   const normalizeImages = (data: any[]) =>
@@ -385,6 +373,7 @@ export default function ImageManagePage() {
       name: String(i.name),
       url: String(i.url),
       folder_id: Number(i.folder_id),
+      uploader: i.uploader ? String(i.uploader) : undefined, // <- 받으면 보관
     }));
 
   const reloadFolders = useCallback(
@@ -405,12 +394,16 @@ export default function ImageManagePage() {
             setTreeState((prev) => (Object.keys(prev).length ? prev : cast));
           } catch {
             const init: Record<number, boolean> = {};
-            data.forEach((f) => { if (f.parent_id == null) init[f.id] = true; });
+            data.forEach((f) => {
+              if (f.parent_id == null) init[f.id] = true;
+            });
             setTreeState(init);
           }
         } else {
           const init: Record<number, boolean> = {};
-          data.forEach((f) => { if (f.parent_id == null) init[f.id] = true; });
+          data.forEach((f) => {
+            if (f.parent_id == null) init[f.id] = true;
+          });
           setTreeState(init);
         }
 
@@ -515,6 +508,17 @@ export default function ImageManagePage() {
 
   const handleDeleteFolderSingle = async () => {
     if (!selectedFolder) return;
+
+    // writer면 내 폴더만
+    if (!isAdmin) {
+      const f = folders.find((x) => x.id === selectedFolder);
+      const ok = isWriter && f?.uploader?.toLowerCase?.() === myName;
+      if (!ok) {
+        alert('본인이 생성한 폴더만 삭제할 수 있습니다.');
+        return;
+      }
+    }
+
     const res = await fetch('/api/image/folder/delete', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -536,6 +540,18 @@ export default function ImageManagePage() {
   const handleDeleteImages = async (idsOverride?: number[]) => {
     const ids = idsOverride ?? selectedItems.map((i) => i.id);
     if (!ids.length) return;
+
+    // writer면 내 이미지들만 전부 선택되어 있어야 함
+    if (!isAdmin) {
+      const allMine = isWriter && selectedItems.every(
+        (i) => i.type === 'image' && i.uploader?.toLowerCase?.() === myName
+      );
+      if (!allMine) {
+        alert('본인이 업로드한 이미지만 삭제할 수 있습니다.');
+        return;
+      }
+    }
+
     const res = await fetch('/api/image/delete', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -728,7 +744,9 @@ export default function ImageManagePage() {
   useEffect(() => {
     if (!contextMenu.visible) return;
     const close = () => setContextMenu((v) => ({ ...v, visible: false }));
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+    };
     window.addEventListener('mousedown', close);
     window.addEventListener('scroll', close, true);
     window.addEventListener('contextmenu', close);
@@ -746,7 +764,33 @@ export default function ImageManagePage() {
   const isMultiImage = selectedItems.length > 1;
   const isMultiSelecting = isMultiFolder || isMultiImage;
 
-  // ✅ onClose 핸들러들을 useCallback으로 고정
+  // 삭제 버튼 활성화 판단(클라이언트가 1차 가드, 최종 검증은 서버)
+  const allSelectedImagesMine =
+    selectedItems.length > 0 &&
+    selectedItems.every((i) => i.type === 'image' && i.uploader?.toLowerCase?.() === myName);
+
+  const folderOwnedByMe = (id: number | null) => {
+    if (id == null) return false;
+    const f = folders.find((x) => x.id === id);
+    return !!f && f.uploader?.toLowerCase?.() === myName;
+  };
+
+  const allSelectedFoldersMine =
+    (selectedFolderIds.length > 0 &&
+      selectedFolderIds.every((id) => folderOwnedByMe(id))) ||
+    (selectedFolder !== null && selectedFolderIds.length === 0 && folderOwnedByMe(selectedFolder));
+
+  const canDeleteAllSelectedImages = isAdmin || (isWriter && allSelectedImagesMine);
+  const canDeleteAllSelectedFolders = isAdmin || (isWriter && allSelectedFoldersMine);
+
+  const somethingSelected =
+    selectedItems.length > 0 || selectedFolderIds.length > 0 || selectedFolder !== null;
+
+  const deleteBtnDisabled =
+    !somethingSelected ||
+    (selectedItems.length > 0 && !canDeleteAllSelectedImages) ||
+    ((selectedFolderIds.length > 0 || selectedFolder !== null) && !canDeleteAllSelectedFolders);
+
   const closeNewFolder = useCallback(() => setNewFolderOpen(false), []);
   const closeImageRename = useCallback(() => setEditingTarget(null), []);
   const closeDeleteModal = useCallback(() => {
@@ -760,7 +804,6 @@ export default function ImageManagePage() {
 
       <div className="image-explorer-viewport">
         <div className="image-explorer-layout">
-          {/* 좌측: 폴더 트리 */}
           <aside
             className="image-explorer-sidebar"
             onMouseDown={(e) => {
@@ -834,7 +877,6 @@ export default function ImageManagePage() {
             />
           </aside>
 
-          {/* 우측: 헤더 + 파일리스트 */}
           <section
             className="image-explorer-content"
             onMouseDown={(e) => {
@@ -846,7 +888,6 @@ export default function ImageManagePage() {
             <div className="image-explorer-header-bar">
               <h1 className="image-explorer-title">이미지 업로드/관리</h1>
 
-              {/* 검색 */}
               <div className="toolbar-search">
                 <div className="seg-input">
                   <svg
@@ -890,7 +931,6 @@ export default function ImageManagePage() {
                 </div>
               </div>
 
-              {/* 세그먼트 버튼 */}
               <div className="image-explorer-header-btns">
                 <div className="toolbar-seg">
                   <button
@@ -932,7 +972,7 @@ export default function ImageManagePage() {
                         setDeletingType('folder');
                       }
                     }}
-                    disabled={!selectedItems.length && !selectedFolderIds.length && selectedFolder === null}
+                    disabled={deleteBtnDisabled}
                     title="삭제"
                   >
                     <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -1004,7 +1044,6 @@ export default function ImageManagePage() {
         </div>
       </div>
 
-      {/* 컨텍스트 메뉴 */}
       {contextMenu.visible && (
         <div
           className="rd-context-menu"
@@ -1063,6 +1102,7 @@ export default function ImageManagePage() {
                       id: contextMenu.target!.id,
                       type: 'image',
                       name: images.find((i) => i.id === contextMenu.target!.id)?.name,
+                      uploader: images.find((i) => i.id === contextMenu.target!.id)?.uploader,
                     },
                   ]);
                   const target = images.find((i) => i.id === contextMenu.target!.id);
@@ -1093,7 +1133,8 @@ export default function ImageManagePage() {
                 onClick={() => {
                   setShowDeleteModal(true);
                   setDeletingType('image');
-                  setSelectedItems([{ id: contextMenu.target!.id, type: 'image' }]);
+                  const target = images.find((i) => i.id === contextMenu.target!.id);
+                  setSelectedItems([{ id: contextMenu.target!.id, type: 'image', uploader: target?.uploader }]);
                   setContextMenu((v) => ({ ...v, visible: false }));
                 }}
               >
@@ -1104,7 +1145,6 @@ export default function ImageManagePage() {
         </div>
       )}
 
-      {/* 새 폴더 */}
       <ModalCard
         open={newFolderOpen}
         onClose={closeNewFolder}
@@ -1138,7 +1178,6 @@ export default function ImageManagePage() {
         />
       </ModalCard>
 
-      {/* 이미지 이름변경 */}
       <ModalCard
         open={!!editingTarget && editingTarget.type === 'image'}
         onClose={closeImageRename}
@@ -1167,7 +1206,6 @@ export default function ImageManagePage() {
         />
       </ModalCard>
 
-      {/* 삭제 (이미지/폴더 공용) */}
       <ModalCard
         open={showDeleteModal}
         onClose={closeDeleteModal}
@@ -1182,6 +1220,14 @@ export default function ImageManagePage() {
               onClick={async () => {
                 if (deletingType === 'folder') {
                   if (selectedFolderIds.length > 1) {
+                    // 다중 폴더 삭제: writer는 전부 본인 폴더여야 함
+                    if (!isAdmin) {
+                      const mine = isWriter && selectedFolderIds.every((id) => folderOwnedByMe(id));
+                      if (!mine) {
+                        alert('본인이 생성한 폴더만 삭제할 수 있습니다.');
+                        return;
+                      }
+                    }
                     const exclude = new Set<number>();
                     for (const id of selectedFolderIds) {
                       const desc = getDescendantIds(id);
@@ -1237,7 +1283,6 @@ export default function ImageManagePage() {
         </p>
       </ModalCard>
 
-      {/* 업로드 모달 */}
       <ImageUploadModal
         open={uploadOpen}
         onClose={() => setUploadOpen(false)}

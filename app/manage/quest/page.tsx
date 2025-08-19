@@ -1,18 +1,10 @@
 // File: app/manage/quest/page.tsx
-/**
- * 퀘스트 NPC 관리 페이지
- * - 마을별 퀘스트 타입 NPC 목록 조회/정렬/추가/수정/삭제
- * - 퀘스트 내용, 보상, 선행퀘스트, 위치, 대사, 사진, 아이콘 편집
- * - 데이터 계약(라우트/스키마) 보존. 읽기 시 pictures/rewards 안전 파싱만 추가.
- */
-
 'use client';
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import WikiHeader from '@/components/common/Header';
 import { ModalCard } from '@/components/common/RdModal';
 import ImageSelectModal from '@/components/image/ImageSelectModal';
-
 import {
   SectionHeader,
   EmptyState,
@@ -20,13 +12,21 @@ import {
   SortableList,
   DetailTitle,
 } from '@/components/manager';
+import '@/wiki/css/image.css';
+import '@/wiki/css/manager-common.css';
+import '@/wiki/css/npc-manager.css';
+import '@/wiki/css/quest-manager.css';
 
-import '@/wiki/css/image.css';          // rd-* 모달/버튼/인풋
-import '@/wiki/css/manager-common.css'; // mgr-* 공통 레이아웃/리스트/필
-import '@/wiki/css/npc-manager.css';    // 마을 리스트 아이템
-import '@/wiki/css/quest-manager.css';  // 퀘스트 전용
+type Role = 'guest' | 'writer' | 'admin';
 
-type Village = { id: number; name: string; icon: string; order: number; head_icon?: string | null };
+type Village = {
+  id: number;
+  name: string;
+  icon: string;
+  order: number;
+  head_icon?: string | null;
+  uploader?: string | null;
+};
 type QuestReward = { icon: string; text: string };
 type Npc = {
   id: number;
@@ -34,19 +34,19 @@ type Npc = {
   village_id: number;
   icon: string;
   order: number;
-  rewards?: QuestReward[];  // 서버가 문자열(JSON)로 줄 수도 있어 읽기 시 정규화
+  rewards?: QuestReward[];
   requirement: string | null;
   line: string | null;
   location_x: number;
   location_y: number;
   location_z: number;
   quest: string;
-  npc_type: string; // "quest"
-  pictures?: string[];       // 서버가 문자열(JSON)로 줄 수도 있어 읽기 시 정규화
+  npc_type: string;
+  pictures?: string[];
+  uploader?: string | null;
 };
 
 export default function QuestNpcManager() {
-  /** 유저 */
   const [user, setUser] = useState<any>(null);
   useEffect(() => {
     fetch('/api/auth/me')
@@ -54,14 +54,21 @@ export default function QuestNpcManager() {
       .then((d) => setUser(d?.user ?? null));
   }, []);
 
-  /** 마을/NPC 상태 */
+  const role: Role =
+    user?.role === 'admin' ? 'admin' : user?.role === 'writer' ? 'writer' : 'guest';
+  const isAdmin = role === 'admin';
+  const isWriter = role === 'writer';
+  const myName = (user?.minecraft_name ?? '').toLowerCase();
+  const canDeleteVillage = (v: Village | null) =>
+    !!v && (isAdmin || (isWriter && v.uploader?.toLowerCase?.() === myName));
+  const canDeleteNpc = (n: Npc | null) =>
+    !!n && (isAdmin || (isWriter && n.uploader?.toLowerCase?.() === myName));
+
   const [villages, setVillages] = useState<Village[]>([]);
   const [selectedVillage, setSelectedVillage] = useState<Village | null>(null);
-
   const [npcList, setNpcList] = useState<Npc[]>([]);
   const [selectedNpc, setSelectedNpc] = useState<Npc | null>(null);
 
-  /** 모달/임시값 */
   const [villageModalOpen, setVillageModalOpen] = useState(false);
   const [villageName, setVillageName] = useState('');
   const [villageIcon, setVillageIcon] = useState<string>('');
@@ -85,12 +92,10 @@ export default function QuestNpcManager() {
   const [tmpRewards, setTmpRewards] = useState<QuestReward[]>([]);
   const [editRewardImgModalIdx, setEditRewardImgModalIdx] = useState<number | null>(null);
   const [tmpRequirement, setTmpRequirement] = useState('');
-
   const [npcPictures, setNpcPictures] = useState<string[]>([]);
   const [picturesModalOpen, setPicturesModalOpen] = useState(false);
   const [addPictureModalOpen, setAddPictureModalOpen] = useState(false);
 
-  /** ── 마을 수정 모달 state ───────────────────────── */
   const [editVillageOpen, setEditVillageOpen] = useState(false);
   const [editingVillage, setEditingVillage] = useState<Village | null>(null);
   const [editVillageName, setEditVillageName] = useState('');
@@ -99,7 +104,6 @@ export default function QuestNpcManager() {
   const [editImageModalOpen, setEditImageModalOpen] = useState(false);
   const [editHeadIconModalOpen, setEditHeadIconModalOpen] = useState(false);
 
-  /** 유틸: 배열 정규화 (읽기 전용) */
   const normalizePictures = (pics: any): string[] => {
     if (Array.isArray(pics)) return [...pics];
     if (pics == null) return [];
@@ -107,7 +111,9 @@ export default function QuestNpcManager() {
       try {
         const v = JSON.parse(pics);
         return Array.isArray(v) ? v : [];
-      } catch { return []; }
+      } catch {
+        return [];
+      }
     }
     return [];
   };
@@ -118,21 +124,23 @@ export default function QuestNpcManager() {
       try {
         const v = JSON.parse(rw);
         return Array.isArray(v) ? v : [];
-      } catch { return []; }
+      } catch {
+        return [];
+      }
     }
     return [];
   };
 
-  /** 데이터 로딩 */
   useEffect(() => {
     fetch('/api/villages')
       .then((r) => r.json())
       .then((rows) => setVillages(Array.isArray(rows) ? rows : []));
   }, []);
 
-  /** 공통: 선택 마을의 퀘스트 NPC 목록 재조회 */
   const reloadQuestList = useCallback(async (villageId: number) => {
-    const rows = await fetch(`/api/npcs?village_id=${villageId}&npc_type=quest`).then((r) => r.json());
+    const rows = await fetch(`/api/npcs?village_id=${villageId}&npc_type=quest`).then((r) =>
+      r.json()
+    );
     setNpcList(Array.isArray(rows) ? rows : []);
     return Array.isArray(rows) ? rows : [];
   }, []);
@@ -157,20 +165,24 @@ export default function QuestNpcManager() {
     setNpcPictures(normalizePictures(selectedNpc.pictures));
   }, [selectedNpc]);
 
-  /** 액션 */
   const handleAddVillage = useCallback(async () => {
     const maxOrder = villages.length ? Math.max(...villages.map((v) => v.order)) : 0;
     await fetch('/api/villages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: villageName, icon: villageIcon, order: maxOrder + 1 }),
+      body: JSON.stringify({
+        name: villageName,
+        icon: villageIcon,
+        order: maxOrder + 1,
+        uploader: user?.minecraft_name ?? undefined,
+      }),
     });
     const rows = await fetch('/api/villages').then((r) => r.json());
     setVillages(Array.isArray(rows) ? rows : []);
     setVillageModalOpen(false);
     setVillageName('');
     setVillageIcon('');
-  }, [villageIcon, villageName, villages]);
+  }, [villageIcon, villageName, villages, user?.minecraft_name]);
 
   const handleAddNpc = useCallback(async () => {
     if (!selectedVillage) return;
@@ -192,12 +204,13 @@ export default function QuestNpcManager() {
         location_z: 0,
         quest: '',
         npc_type: 'quest',
+        uploader: user?.minecraft_name ?? undefined,
       }),
     });
     await reloadQuestList(selectedVillage.id);
     setNpcModalOpen(false);
     setNpcName('');
-  }, [npcList, npcName, selectedVillage, reloadQuestList]);
+  }, [npcList, npcName, selectedVillage, reloadQuestList, user?.minecraft_name]);
 
   const patchNpc = useCallback(
     async (fields: Partial<Npc>) => {
@@ -211,10 +224,9 @@ export default function QuestNpcManager() {
       const rows = await reloadQuestList(selectedVillage.id);
       setSelectedNpc(rows.find((n: Npc) => n.id === selectedNpc.id) ?? null);
     },
-    [selectedNpc, selectedVillage, reloadQuestList],
+    [selectedNpc, selectedVillage, reloadQuestList]
   );
 
-  /** ── 마을 수정 모달 핸들러 ───────────────────────── */
   const openEditVillage = (v: Village) => {
     setEditingVillage(v);
     setEditVillageName(v.name);
@@ -234,7 +246,7 @@ export default function QuestNpcManager() {
         head_icon: editVillageHeadIcon || null,
       }),
     });
-    const rows = await fetch('/api/villages').then(r => r.json());
+    const rows = await fetch('/api/villages').then((r) => r.json());
     setVillages(Array.isArray(rows) ? rows : []);
     if (selectedVillage && selectedVillage.id === editingVillage.id) {
       setSelectedVillage({
@@ -253,9 +265,13 @@ export default function QuestNpcManager() {
 
   const handleDeleteVillage = useCallback(async () => {
     if (!editingVillage) return;
+    if (!canDeleteVillage(editingVillage)) {
+      alert('본인이 만든 마을만 삭제할 수 있습니다.');
+      return;
+    }
     if (!window.confirm('정말 이 마을을 삭제하시겠습니까?')) return;
     await fetch(`/api/villages/${editingVillage.id}`, { method: 'DELETE' });
-    const rows = await fetch('/api/villages').then(r => r.json());
+    const rows = await fetch('/api/villages').then((r) => r.json());
     setVillages(Array.isArray(rows) ? rows : []);
     if (selectedVillage && selectedVillage.id === editingVillage.id) setSelectedVillage(null);
     setEditVillageOpen(false);
@@ -265,32 +281,32 @@ export default function QuestNpcManager() {
     setEditVillageHeadIcon('');
   }, [editingVillage, selectedVillage]);
 
-  /** 퀘스트(NPC) 삭제 */
   const handleDeleteNpc = useCallback(async () => {
     if (!selectedNpc) return;
+    if (!canDeleteNpc(selectedNpc)) {
+      alert('본인이 만든 퀘스트만 삭제할 수 있습니다.');
+      return;
+    }
     if (!window.confirm(`'${selectedNpc.name}' 퀘스트를 삭제할까요?`)) return;
-
     const res = await fetch(`/api/npcs/${selectedNpc.id}`, { method: 'DELETE' });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
       alert(d?.error || '삭제 실패');
       return;
     }
-
-    if (selectedVillage) {
-      await reloadQuestList(selectedVillage.id);
-    }
+    if (selectedVillage) await reloadQuestList(selectedVillage.id);
     setSelectedNpc(null);
   }, [selectedNpc, selectedVillage, reloadQuestList]);
 
-  /** 정렬 메모 */
   const sortedVillages = useMemo(
     () => [...villages].sort((a, b) => a.order - b.order),
-    [villages],
+    [villages]
   );
-  const sortedNpcList = useMemo(() => [...npcList].sort((a, b) => a.order - b.order), [npcList]);
+  const sortedNpcList = useMemo(
+    () => [...npcList].sort((a, b) => a.order - b.order),
+    [npcList]
+  );
 
-  /** DnD 저장 */
   const handleReorder = useCallback(
     async (reordered: Npc[]) => {
       setNpcList(reordered);
@@ -299,7 +315,6 @@ export default function QuestNpcManager() {
         .filter((n) => prev.get(n.id) !== n.order)
         .map((n) => ({ id: n.id, order: n.order }));
       if (!selectedVillage || changed.length === 0) return;
-
       try {
         const res = await fetch('/api/npcs/order', {
           method: 'PATCH',
@@ -315,7 +330,7 @@ export default function QuestNpcManager() {
         await reloadQuestList(selectedVillage.id);
       }
     },
-    [npcList, selectedVillage, reloadQuestList],
+    [npcList, selectedVillage, reloadQuestList]
   );
 
   const onKeyActivate =
@@ -327,12 +342,10 @@ export default function QuestNpcManager() {
       }
     };
 
-  /** 렌더 */
   return (
     <>
       <WikiHeader user={user} />
 
-      {/* ───────── 마을 추가 ───────── */}
       <ModalCard
         open={villageModalOpen}
         onClose={() => setVillageModalOpen(false)}
@@ -408,7 +421,6 @@ export default function QuestNpcManager() {
         />
       </ModalCard>
 
-      {/* ───────── 퀘스트 추가 ───────── */}
       <ModalCard
         open={npcModalOpen}
         onClose={() => setNpcModalOpen(false)}
@@ -418,7 +430,12 @@ export default function QuestNpcManager() {
             <button className="rd-btn secondary" onClick={() => setNpcModalOpen(false)}>
               취소
             </button>
-            <button className="rd-btn primary" disabled={!npcName.trim()} onClick={handleAddNpc} aria-label="퀘스트 추가">
+            <button
+              className="rd-btn primary"
+              disabled={!npcName.trim()}
+              onClick={handleAddNpc}
+              aria-label="퀘스트 추가"
+            >
               추가
             </button>
           </>
@@ -437,14 +454,17 @@ export default function QuestNpcManager() {
         </div>
       </ModalCard>
 
-      {/* ===== 수동 3단 레이아웃 ===== */}
       <div className="mgr-container">
-        {/* 사이드바: 마을 */}
         <div className="mgr-sidebar">
           <SectionHeader
             title="마을 목록"
             right={
-              <button className="mgr-add-btn" onClick={() => setVillageModalOpen(true)} aria-label="마을 추가" title="마을 추가">
+              <button
+                className="mgr-add-btn"
+                onClick={() => setVillageModalOpen(true)}
+                aria-label="마을 추가"
+                title="마을 추가"
+              >
                 + 마을 추가
               </button>
             }
@@ -462,7 +482,10 @@ export default function QuestNpcManager() {
                 {v.name}
                 <button
                   className="mgr-village-menu-btn"
-                  onClick={(e) => { e.stopPropagation(); openEditVillage(v); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openEditVillage(v);
+                  }}
                   aria-label="마을 편집"
                   title="마을 정보 수정/삭제"
                 >
@@ -473,7 +496,6 @@ export default function QuestNpcManager() {
           </ul>
         </div>
 
-        {/* 리스트: 퀘스트 */}
         <div className="mgr-list-area">
           <SectionHeader
             title={
@@ -498,7 +520,6 @@ export default function QuestNpcManager() {
               </button>
             }
           />
-
           {!selectedVillage ? (
             <EmptyState>마을을 먼저 선택하세요.</EmptyState>
           ) : sortedNpcList.length === 0 ? (
@@ -523,31 +544,20 @@ export default function QuestNpcManager() {
           )}
         </div>
 
-        {/* 상세: 우측 */}
         <div className="mgr-detail-area">
           {selectedNpc ? (
             <div>
-              {/* 우상단 툴바(이미지 페이지와 동일한 세그먼트 버튼 스타일) */}
               <div className="toolbar-seg mgr-detail-actions">
                 <button
                   type="button"
                   className="seg-btn danger"
                   onClick={handleDeleteNpc}
-                  title="삭제"
+                  title={canDeleteNpc(selectedNpc) ? '삭제' : '본인이 만든 항목만 삭제 가능'}
                   aria-label="퀘스트 삭제"
+                  disabled={!canDeleteNpc(selectedNpc)}
                 >
-                  <svg
-                    className="ico"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                  >
-                    <path
-                      d="M9.75 9.75v6.75M14.25 9.75v6.75M4.5 7.5h15M9 4.5h6m-8.25 3L7.5 19.5a2.25 2.25 0 002.25 2.25h4.5A2.25 2.25 0 0016.5 19.5L18.75 7.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
+                  <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M9.75 9.75v6.75M14.25 9.75v6.75M4.5 7.5h15M9 4.5h6m-8.25 3L7.5 19.5a2.25 2.25 0 002.25 2.25h4.5A2.25 2.25 0 0016.5 19.5L18.75 7.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                   <span className="seg-label">삭제</span>
                 </button>
@@ -556,12 +566,7 @@ export default function QuestNpcManager() {
               <DetailTitle
                 icon={
                   selectedNpc.icon?.startsWith('http') ? (
-                    <IconCell
-                      icon={selectedNpc.icon}
-                      className="quest-detail-img"
-                      size={48}
-                      rounded={10}
-                    />
+                    <IconCell icon={selectedNpc.icon} className="quest-detail-img" size={48} rounded={10} />
                   ) : (
                     <span className="quest-detail-icon">{selectedNpc.icon || '📜'}</span>
                   )
@@ -572,7 +577,6 @@ export default function QuestNpcManager() {
                 onIconClick={() => setEditIconOpen(true)}
               />
 
-              {/* 위치 */}
               <div
                 className="mgr-pill-row"
                 role="button"
@@ -590,7 +594,6 @@ export default function QuestNpcManager() {
                 </span>
               </div>
 
-              {/* 퀘스트 */}
               <div
                 className="mgr-pill-row"
                 role="button"
@@ -602,15 +605,10 @@ export default function QuestNpcManager() {
               >
                 <span className="mgr-pill-label">퀘스트</span>
                 <span className="mgr-pill-value">
-                  {selectedNpc.quest?.trim() ? (
-                    selectedNpc.quest
-                  ) : (
-                    <span className="mgr-placeholder">-</span>
-                  )}
+                  {selectedNpc.quest?.trim() ? selectedNpc.quest : <span className="mgr-placeholder">-</span>}
                 </span>
               </div>
 
-              {/* 보상 */}
               <div
                 className="mgr-pill-row"
                 role="button"
@@ -641,7 +639,6 @@ export default function QuestNpcManager() {
                 </span>
               </div>
 
-              {/* 선행퀘스트 */}
               <div
                 className="mgr-pill-row"
                 role="button"
@@ -653,15 +650,10 @@ export default function QuestNpcManager() {
               >
                 <span className="mgr-pill-label">선행퀘스트</span>
                 <span className="mgr-pill-value">
-                  {selectedNpc.requirement?.trim() ? (
-                    selectedNpc.requirement
-                  ) : (
-                    <span className="mgr-placeholder">-</span>
-                  )}
+                  {selectedNpc.requirement?.trim() ? selectedNpc.requirement : <span className="mgr-placeholder">-</span>}
                 </span>
               </div>
 
-              {/* 사진 */}
               <div
                 className="mgr-pill-row"
                 role="button"
@@ -674,16 +666,13 @@ export default function QuestNpcManager() {
                 <span className="mgr-pill-label">사진</span>
                 <span className="mgr-pill-value">
                   {npcPictures && npcPictures.length > 0 ? (
-                    npcPictures.slice(0, 6).map((url, idx) => (
-                      <img key={url + idx} src={url} alt="" className="mgr-pill-pic" />
-                    ))
+                    npcPictures.slice(0, 6).map((url, idx) => <img key={url + idx} src={url} alt="" className="mgr-pill-pic" />)
                   ) : (
                     <span className="mgr-placeholder">사진 없음</span>
                   )}
                 </span>
               </div>
 
-              {/* 대사 */}
               <div
                 className="mgr-pill-row mgr-pill-row--multi"
                 role="button"
@@ -695,11 +684,7 @@ export default function QuestNpcManager() {
               >
                 <span className="mgr-pill-label">대사</span>
                 <span className="mgr-pill-value">
-                  {selectedNpc.line?.trim() ? (
-                    selectedNpc.line
-                  ) : (
-                    <span className="mgr-placeholder">- 대사 없음 -</span>
-                  )}
+                  {selectedNpc.line?.trim() ? selectedNpc.line : <span className="mgr-placeholder">- 대사 없음 -</span>}
                 </span>
               </div>
             </div>
@@ -709,7 +694,6 @@ export default function QuestNpcManager() {
         </div>
       </div>
 
-      {/* ───────── 이름 수정 ───────── */}
       <ModalCard
         open={editNameOpen}
         onClose={() => setEditNameOpen(false)}
@@ -742,7 +726,6 @@ export default function QuestNpcManager() {
         />
       </ModalCard>
 
-      {/* 아이콘 선택 */}
       <ImageSelectModal
         open={editIconOpen}
         onClose={() => setEditIconOpen(false)}
@@ -752,7 +735,6 @@ export default function QuestNpcManager() {
         }}
       />
 
-      {/* ───────── 위치 수정 ───────── */}
       <ModalCard
         open={editLocOpen}
         onClose={() => setEditLocOpen(false)}
@@ -791,13 +773,11 @@ export default function QuestNpcManager() {
                 className="rd-input rd-num"
                 value={Number.isNaN(tmpLoc[0]) ? '' : tmpLoc[0]}
                 onChange={(e) => {
-                  const n =
-                    e.currentTarget.value === '' ? Number.NaN : e.currentTarget.valueAsNumber;
+                  const n = e.currentTarget.value === '' ? Number.NaN : e.currentTarget.valueAsNumber;
                   setTmpLoc(([_, y, z]) => [n, y, z]);
                 }}
               />
             </div>
-
             <div className="rd-coord-item">
               <span className="rd-chip-label">Y</span>
               <input
@@ -807,13 +787,11 @@ export default function QuestNpcManager() {
                 className="rd-input rd-num"
                 value={Number.isNaN(tmpLoc[1]) ? '' : tmpLoc[1]}
                 onChange={(e) => {
-                  const n =
-                    e.currentTarget.value === '' ? Number.NaN : e.currentTarget.valueAsNumber;
+                  const n = e.currentTarget.value === '' ? Number.NaN : e.currentTarget.valueAsNumber;
                   setTmpLoc(([x, _, z]) => [x, n, z]);
                 }}
               />
             </div>
-
             <div className="rd-coord-item">
               <span className="rd-chip-label">Z</span>
               <input
@@ -823,8 +801,7 @@ export default function QuestNpcManager() {
                 className="rd-input rd-num"
                 value={Number.isNaN(tmpLoc[2]) ? '' : tmpLoc[2]}
                 onChange={(e) => {
-                  const n =
-                    e.currentTarget.value === '' ? Number.NaN : e.currentTarget.valueAsNumber;
+                  const n = e.currentTarget.value === '' ? Number.NaN : e.currentTarget.valueAsNumber;
                   setTmpLoc(([x, y, _]) => [x, y, n]);
                 }}
               />
@@ -833,7 +810,6 @@ export default function QuestNpcManager() {
         </div>
       </ModalCard>
 
-      {/* ───────── 대사 수정 ───────── */}
       <ModalCard
         open={editLineOpen}
         onClose={() => setEditLineOpen(false)}
@@ -865,7 +841,6 @@ export default function QuestNpcManager() {
         />
       </ModalCard>
 
-      {/* ───────── 퀘스트 내용 수정 ───────── */}
       <ModalCard
         open={editQuestOpen}
         onClose={() => setEditQuestOpen(false)}
@@ -890,7 +865,6 @@ export default function QuestNpcManager() {
       >
         <div className="rd-field">
           <label className="rd-label">퀘스트 내용</label>
-
           <div className="rd-textarea-wrap">
             <textarea
               className="rd-textarea"
@@ -914,15 +888,12 @@ export default function QuestNpcManager() {
         </div>
       </ModalCard>
 
-      {/* ───────── 보상 수정 ───────── */}
       <ModalCard open={editRewardOpen} onClose={() => setEditRewardOpen(false)} title="보상 수정">
         <div className="mgr-modal-body">
           <label className="mgr-modal-label">보상 목록</label>
-
           <div className="rw-list">
             {tmpRewards.map((reward, idx) => (
               <div key={idx} className="rw-row">
-                {/* 아이콘 선택 */}
                 <button
                   type="button"
                   className="rw-icon-btn"
@@ -937,21 +908,13 @@ export default function QuestNpcManager() {
                       <span className="rw-icon-emoji">{reward.icon}</span>
                     )
                   ) : (
-                    <svg
-                      className="rw-icon-placeholder"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
+                    <svg className="rw-icon-placeholder" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <rect x="3" y="5" width="18" height="14" rx="2" />
                       <path d="M3 15l4-4 3 3 5-5 6 6" />
                       <path d="M12 8v4M10 10h4" />
                     </svg>
                   )}
                 </button>
-
-                {/* 내용 입력 */}
                 <input
                   className="mgr-input rw-input"
                   placeholder="보상 내용"
@@ -963,8 +926,6 @@ export default function QuestNpcManager() {
                     setTmpRewards(copy);
                   }}
                 />
-
-                {/* 삭제 */}
                 <button
                   type="button"
                   className="rw-del-btn"
@@ -982,13 +943,7 @@ export default function QuestNpcManager() {
               </div>
             ))}
           </div>
-
-          {/* 추가 버튼 */}
-          <button
-            type="button"
-            className="rw-add-btn"
-            onClick={() => setTmpRewards([...tmpRewards, { icon: '', text: '' }])}
-          >
+          <button type="button" className="rw-add-btn" onClick={() => setTmpRewards([...tmpRewards, { icon: '', text: '' }])}>
             보상 추가
             <span className="rw-add-iconwrap" aria-hidden="true">
               <svg className="rw-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -997,8 +952,6 @@ export default function QuestNpcManager() {
               </svg>
             </span>
           </button>
-
-          {/* 하단 액션 */}
           <div className="mgr-btn-row">
             <button className="mgr-btn mgr-btn-secondary" onClick={() => setEditRewardOpen(false)}>
               취소
@@ -1013,8 +966,6 @@ export default function QuestNpcManager() {
               수정
             </button>
           </div>
-
-          {/* 아이콘 선택 모달 */}
           <ImageSelectModal
             open={editRewardImgModalIdx !== null}
             onClose={() => setEditRewardImgModalIdx(null)}
@@ -1030,7 +981,6 @@ export default function QuestNpcManager() {
         </div>
       </ModalCard>
 
-      {/* ───────── 선행퀘스트 수정 ───────── */}
       <ModalCard
         open={editRequirementOpen}
         onClose={() => setEditRequirementOpen(false)}
@@ -1062,7 +1012,6 @@ export default function QuestNpcManager() {
         />
       </ModalCard>
 
-      {/* ───────── 사진 관리 ───────── */}
       <ModalCard
         open={picturesModalOpen}
         onClose={() => setPicturesModalOpen(false)}
@@ -1102,7 +1051,6 @@ export default function QuestNpcManager() {
             </div>
           ))}
         </div>
-
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
           <button
             type="button"
@@ -1114,7 +1062,6 @@ export default function QuestNpcManager() {
             + 사진 추가
           </button>
         </div>
-
         <ImageSelectModal
           open={addPictureModalOpen}
           onClose={() => setAddPictureModalOpen(false)}
@@ -1125,44 +1072,78 @@ export default function QuestNpcManager() {
         />
       </ModalCard>
 
-      {/* ───────── 마을 정보 수정 (공통 레이아웃) ───────── */}
       <ModalCard
         open={editVillageOpen}
         onClose={() => {
           setEditVillageOpen(false);
           setEditingVillage(null);
-          setEditVillageName(''); setEditVillageIcon(''); setEditVillageHeadIcon('');
+          setEditVillageName('');
+          setEditVillageIcon('');
+          setEditVillageHeadIcon('');
         }}
         title="마을 정보 수정"
         actions={
           <>
-            <button className="rd-btn secondary" onClick={() => setEditVillageOpen(false)}>취소</button>
-            <button className="rd-btn primary" disabled={!editVillageName.trim() || !editVillageIcon.trim()} onClick={handleEditVillage} aria-label="마을 정보 저장">저장</button>
-            <button className="rd-btn danger" onClick={handleDeleteVillage} aria-label="마을 삭제" title="마을 삭제">삭제</button>
+            <button className="rd-btn secondary" onClick={() => setEditVillageOpen(false)}>
+              취소
+            </button>
+            <button
+              className="rd-btn primary"
+              disabled={!editVillageName.trim() || !editVillageIcon.trim()}
+              onClick={handleEditVillage}
+              aria-label="마을 정보 저장"
+            >
+              저장
+            </button>
+            <button
+              className="rd-btn danger"
+              onClick={handleDeleteVillage}
+              aria-label="마을 삭제"
+              title={canDeleteVillage(editingVillage) ? '마을 삭제' : '본인이 만든 항목만 삭제 가능'}
+              disabled={!canDeleteVillage(editingVillage)}
+            >
+              삭제
+            </button>
           </>
         }
       >
         <div className="rd-field">
           <label className="rd-label">마을 이름</label>
-          <input className="rd-input" maxLength={40}
-                 value={editVillageName} onChange={(e) => setEditVillageName(e.target.value)} aria-label="마을 이름 입력" />
+          <input
+            className="rd-input"
+            maxLength={40}
+            value={editVillageName}
+            onChange={(e) => setEditVillageName(e.target.value)}
+            aria-label="마을 이름 입력"
+          />
         </div>
         <div className="rd-field">
           <label className="rd-label">마을 아이콘</label>
           <div className="mgr-icon-field">
             <div className="mgr-icon-inputs">
               <input
-                className="rd-input rd-emoji-input" maxLength={2}
+                className="rd-input rd-emoji-input"
+                maxLength={2}
                 value={editVillageIcon && !editVillageIcon.startsWith('http') ? editVillageIcon : ''}
                 onChange={(e) => setEditVillageIcon(e.target.value)}
                 aria-label="마을 아이콘 입력(이모지)"
               />
-              <button type="button" className="rd-btn secondary" onClick={() => setEditImageModalOpen(true)} aria-label="아이콘 이미지 선택" title="아이콘 이미지 선택">이미지 선택</button>
+              <button
+                type="button"
+                className="rd-btn secondary"
+                onClick={() => setEditImageModalOpen(true)}
+                aria-label="아이콘 이미지 선택"
+                title="아이콘 이미지 선택"
+              >
+                이미지 선택
+              </button>
             </div>
             <div className="mgr-icon-preview">
-              {editVillageIcon?.startsWith('http')
-                ? <img src={editVillageIcon} alt="icon" />
-                : <span className="mgr-icon-placeholder">미리보기</span>}
+              {editVillageIcon?.startsWith('http') ? (
+                <img src={editVillageIcon} alt="icon" />
+              ) : (
+                <span className="mgr-icon-placeholder">미리보기</span>
+              )}
             </div>
           </div>
         </div>
@@ -1170,12 +1151,22 @@ export default function QuestNpcManager() {
           <label className="rd-label">머리 아이콘</label>
           <div className="mgr-icon-field">
             <div className="mgr-icon-inputs">
-              <button type="button" className="rd-btn secondary" onClick={() => setEditHeadIconModalOpen(true)} aria-label="머리 아이콘 이미지 선택" title="머리 아이콘 이미지 선택">이미지 선택</button>
+              <button
+                type="button"
+                className="rd-btn secondary"
+                onClick={() => setEditHeadIconModalOpen(true)}
+                aria-label="머리 아이콘 이미지 선택"
+                title="머리 아이콘 이미지 선택"
+              >
+                이미지 선택
+              </button>
             </div>
             <div className="mgr-icon-preview">
-              {editVillageHeadIcon?.startsWith('http')
-                ? <img src={editVillageHeadIcon} alt="head_icon" />
-                : <span className="mgr-icon-placeholder">미리보기</span>}
+              {editVillageHeadIcon?.startsWith('http') ? (
+                <img src={editVillageHeadIcon} alt="head_icon" />
+              ) : (
+                <span className="mgr-icon-placeholder">미리보기</span>
+              )}
             </div>
           </div>
         </div>
@@ -1183,12 +1174,18 @@ export default function QuestNpcManager() {
         <ImageSelectModal
           open={editImageModalOpen}
           onClose={() => setEditImageModalOpen(false)}
-          onSelectImage={(url) => { setEditVillageIcon(url); setEditImageModalOpen(false); }}
+          onSelectImage={(url) => {
+            setEditVillageIcon(url);
+            setEditImageModalOpen(false);
+          }}
         />
         <ImageSelectModal
           open={editHeadIconModalOpen}
           onClose={() => setEditHeadIconModalOpen(false)}
-          onSelectImage={(url) => { setEditVillageHeadIcon(url); setEditHeadIconModalOpen(false); }}
+          onSelectImage={(url) => {
+            setEditVillageHeadIcon(url);
+            setEditHeadIconModalOpen(false);
+          }}
         />
       </ModalCard>
     </>

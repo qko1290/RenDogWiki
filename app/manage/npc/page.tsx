@@ -1,11 +1,4 @@
 // File: app/manage/npc/page.tsx
-/**
- * NPC 관리 페이지
- * - 마을 선택 → 해당 마을의 NPC 목록 정렬/추가/수정/삭제
- * - 사진/좌표/이름/아이콘 편집, 순서 변경(드래그) 저장
- * - 외부 API/데이터 계약 유지. Head 페이지와 동일한 사진 정규화 로직 반영(읽기 전용).
- */
-
 'use client';
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
@@ -21,16 +14,26 @@ import {
   DetailTitle,
 } from '@/components/manager';
 
-import '@/wiki/css/image.css';          // rd-* 모달/버튼/인풋 / toolbar-seg, seg-btn 포함
-import '@/wiki/css/manager-common.css'; // mgr-* 공통 레이아웃/리스트/필
-import '@/wiki/css/npc-manager.css';    // NPC 전용(아래 CSS와 세트)
+import '@/wiki/css/image.css';
+import '@/wiki/css/manager-common.css';
+import '@/wiki/css/npc-manager.css';
 
-type Village = { id: number; name: string; icon: string; order: number; head_icon?: string | null };
+type Role = 'guest' | 'writer' | 'admin';
+
+type Village = {
+  id: number;
+  name: string;
+  icon: string;
+  order: number;
+  head_icon?: string | null;
+  uploader?: string | null;
+};
+
 type Npc = {
   id: number;
   name: string;
   village_id: number;
-  icon: string;        // 이모지 or 이미지 URL
+  icon: string;
   order: number;
   reward: string | null;
   reward_icon: string | null;
@@ -40,25 +43,36 @@ type Npc = {
   location_y: number;
   location_z: number;
   quest: string;
-  npc_type: string;    // "normal"
-  pictures?: string[]; // 서버가 JSON 문자열로 반환할 수도 있어 읽을 때만 정규화
+  npc_type: string;
+  pictures?: string[];
+  uploader?: string | null;
 };
 
 export default function NpcManager() {
-  /** 유저 */
   const [user, setUser] = useState<any>(null);
   useEffect(() => {
-    fetch('/api/auth/me').then(r => (r.ok ? r.json() : null)).then(d => setUser(d?.user ?? null));
+    fetch('/api/auth/me')
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => setUser(d?.user ?? null));
   }, []);
 
-  /** 마을/NPC 상태 */
+  const role: Role =
+    user?.role === 'admin' ? 'admin' : user?.role === 'writer' ? 'writer' : 'guest';
+  const isAdmin = role === 'admin';
+  const isWriter = role === 'writer';
+  const myName = (user?.minecraft_name ?? '').toLowerCase();
+
+  const canDeleteVillage = (v: Village | null) =>
+    !!v && (isAdmin || (isWriter && v.uploader?.toLowerCase?.() === myName));
+  const canDeleteNpc = (n: Npc | null) =>
+    !!n && (isAdmin || (isWriter && n.uploader?.toLowerCase?.() === myName));
+
   const [villages, setVillages] = useState<Village[]>([]);
   const [selectedVillage, setSelectedVillage] = useState<Village | null>(null);
 
   const [npcList, setNpcList] = useState<Npc[]>([]);
   const [selectedNpc, setSelectedNpc] = useState<Npc | null>(null);
 
-  /** 모달들 */
   const [villageModalOpen, setVillageModalOpen] = useState(false);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [npcModalOpen, setNpcModalOpen] = useState(false);
@@ -70,7 +84,6 @@ export default function NpcManager() {
   const [picturesModalOpen, setPicturesModalOpen] = useState(false);
   const [addPictureModalOpen, setAddPictureModalOpen] = useState(false);
 
-  /** 입력값 */
   const [villageName, setVillageName] = useState('');
   const [villageIcon, setVillageIcon] = useState('');
   const [npcName, setNpcName] = useState('');
@@ -80,7 +93,6 @@ export default function NpcManager() {
   const [tmpLine, setTmpLine] = useState('');
   const [npcPictures, setNpcPictures] = useState<string[]>([]);
 
-  /** ── 마을 수정 모달 state ───────────────────────── */
   const [editVillageOpen, setEditVillageOpen] = useState(false);
   const [editingVillage, setEditingVillage] = useState<Village | null>(null);
   const [editVillageName, setEditVillageName] = useState('');
@@ -89,7 +101,6 @@ export default function NpcManager() {
   const [editImageModalOpen, setEditImageModalOpen] = useState(false);
   const [editHeadIconModalOpen, setEditHeadIconModalOpen] = useState(false);
 
-  /** 유틸: 사진 배열 정규화(읽기 전용) */
   const normalizePictures = (pics: any): string[] => {
     if (Array.isArray(pics)) return [...pics];
     if (pics == null) return [];
@@ -97,28 +108,31 @@ export default function NpcManager() {
       try {
         const v = JSON.parse(pics);
         return Array.isArray(v) ? v : [];
-      } catch { return []; }
+      } catch {
+        return [];
+      }
     }
     return [];
   };
 
-  /** 데이터 로딩 */
   useEffect(() => {
     fetch('/api/villages')
       .then(r => r.json())
       .then(rows => setVillages(Array.isArray(rows) ? rows : []));
   }, []);
 
-  /** 공통: 선택 마을의 NPC 목록 재조회 */
   const reloadNpcList = useCallback(async (villageId: number) => {
-    const rows = await fetch(`/api/npcs?village_id=${villageId}&npc_type=normal`).then(r => r.json());
+    const rows = await fetch(`/api/npcs?village_id=${villageId}&npc_type=normal`).then(r =>
+      r.json()
+    );
     setNpcList(Array.isArray(rows) ? rows : []);
     return Array.isArray(rows) ? rows : [];
   }, []);
 
   useEffect(() => {
     if (!selectedVillage) {
-      setNpcList([]); setSelectedNpc(null);
+      setNpcList([]);
+      setSelectedNpc(null);
       return;
     }
     reloadNpcList(selectedVillage.id).then(() => setSelectedNpc(null));
@@ -132,19 +146,24 @@ export default function NpcManager() {
     setNpcPictures(normalizePictures(selectedNpc.pictures));
   }, [selectedNpc]);
 
-  /** 액션 */
   const handleAddVillage = useCallback(async () => {
     const maxOrder = villages.length ? Math.max(...villages.map(v => v.order)) : 0;
     await fetch('/api/villages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: villageName, icon: villageIcon, order: maxOrder + 1 }),
+      body: JSON.stringify({
+        name: villageName,
+        icon: villageIcon,
+        order: maxOrder + 1,
+        uploader: user?.minecraft_name ?? undefined,
+      }),
     });
     const rows = await fetch('/api/villages').then(r => r.json());
     setVillages(Array.isArray(rows) ? rows : []);
     setVillageModalOpen(false);
-    setVillageName(''); setVillageIcon('');
-  }, [villageIcon, villageName, villages]);
+    setVillageName('');
+    setVillageIcon('');
+  }, [villageIcon, villageName, villages, user?.minecraft_name]);
 
   const handleAddNpc = useCallback(async () => {
     if (!selectedVillage) return;
@@ -153,30 +172,42 @@ export default function NpcManager() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        name: npcName, village_id: selectedVillage.id, icon: '😀',
-        order: maxOrder + 1, reward: null, reward_icon: null,
-        requirement: null, line: null,
-        location_x: 0, location_y: 0, location_z: 0,
-        quest: '', npc_type: 'normal',
+        name: npcName,
+        village_id: selectedVillage.id,
+        icon: '😀',
+        order: maxOrder + 1,
+        reward: null,
+        reward_icon: null,
+        requirement: null,
+        line: null,
+        location_x: 0,
+        location_y: 0,
+        location_z: 0,
+        quest: '',
+        npc_type: 'normal',
+        uploader: user?.minecraft_name ?? undefined,
       }),
     });
     await reloadNpcList(selectedVillage.id);
-    setNpcModalOpen(false); setNpcName('');
-  }, [npcList, npcName, selectedVillage, reloadNpcList]);
+    setNpcModalOpen(false);
+    setNpcName('');
+  }, [npcList, npcName, selectedVillage, reloadNpcList, user?.minecraft_name]);
 
-  const patchNpc = useCallback(async (fields: Partial<Npc>) => {
-    if (!selectedNpc) return;
-    await fetch(`/api/npcs/${selectedNpc.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...selectedNpc, ...fields, npc_type: 'normal' }),
-    });
-    if (!selectedVillage) return;
-    const rows = await reloadNpcList(selectedVillage.id);
-    setSelectedNpc(rows.find((n: Npc) => n.id === selectedNpc.id) ?? null);
-  }, [selectedNpc, selectedVillage, reloadNpcList]);
+  const patchNpc = useCallback(
+    async (fields: Partial<Npc>) => {
+      if (!selectedNpc) return;
+      await fetch(`/api/npcs/${selectedNpc.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...selectedNpc, ...fields, npc_type: 'normal' }),
+      });
+      if (!selectedVillage) return;
+      const rows = await reloadNpcList(selectedVillage.id);
+      setSelectedNpc(rows.find((n: Npc) => n.id === selectedNpc.id) ?? null);
+    },
+    [selectedNpc, selectedVillage, reloadNpcList]
+  );
 
-  /** ── 마을 수정 모달 핸들러 ───────────────────────── */
   const openEditVillage = (v: Village) => {
     setEditingVillage(v);
     setEditVillageName(v.name);
@@ -211,10 +242,20 @@ export default function NpcManager() {
     setEditVillageName('');
     setEditVillageIcon('');
     setEditVillageHeadIcon('');
-  }, [editingVillage, editVillageIcon, editVillageName, editVillageHeadIcon, selectedVillage]);
+  }, [
+    editingVillage,
+    editVillageIcon,
+    editVillageName,
+    editVillageHeadIcon,
+    selectedVillage,
+  ]);
 
   const handleDeleteVillage = useCallback(async () => {
     if (!editingVillage) return;
+    if (!canDeleteVillage(editingVillage)) {
+      alert('본인이 만든 마을만 삭제할 수 있습니다.');
+      return;
+    }
     if (!window.confirm('정말 이 마을을 삭제하시겠습니까?')) return;
     await fetch(`/api/villages/${editingVillage.id}`, { method: 'DELETE' });
     const rows = await fetch('/api/villages').then(r => r.json());
@@ -227,48 +268,65 @@ export default function NpcManager() {
     setEditVillageHeadIcon('');
   }, [editingVillage, selectedVillage]);
 
-  /** 정렬 메모 */
-  const sortedVillages = useMemo(() => [...villages].sort((a, b) => a.order - b.order), [villages]);
-  const sortedNpcList = useMemo(() => [...npcList].sort((a, b) => a.order - b.order), [npcList]);
+  const sortedVillages = useMemo(
+    () => [...villages].sort((a, b) => a.order - b.order),
+    [villages]
+  );
+  const sortedNpcList = useMemo(
+    () => [...npcList].sort((a, b) => a.order - b.order),
+    [npcList]
+  );
 
-  /** DnD 저장 */
-  const handleReorder = useCallback(async (reordered: Npc[]) => {
-    setNpcList(reordered);
-    const prev = new Map(npcList.map(n => [n.id, n.order]));
-    const changed = reordered.filter(n => prev.get(n.id) !== n.order).map(n => ({ id: n.id, order: n.order }));
-    if (!selectedVillage || changed.length === 0) return;
+  const handleReorder = useCallback(
+    async (reordered: Npc[]) => {
+      setNpcList(reordered);
+      const prev = new Map(npcList.map(n => [n.id, n.order]));
+      const changed = reordered
+        .filter(n => prev.get(n.id) !== n.order)
+        .map(n => ({ id: n.id, order: n.order }));
+      if (!selectedVillage || changed.length === 0) return;
 
-    try {
-      const res = await fetch('/api/npcs/order', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ village_id: selectedVillage.id, npc_type: 'normal', orders: changed }),
-      });
-      if (!res.ok) throw new Error('bulk-order-failed');
-    } catch {
-      await reloadNpcList(selectedVillage.id);
-    }
-  }, [npcList, selectedVillage, reloadNpcList]);
+      try {
+        const res = await fetch('/api/npcs/order', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            village_id: selectedVillage.id,
+            npc_type: 'normal',
+            orders: changed,
+          }),
+        });
+        if (!res.ok) throw new Error('bulk-order-failed');
+      } catch {
+        await reloadNpcList(selectedVillage.id);
+      }
+    },
+    [npcList, selectedVillage, reloadNpcList]
+  );
 
   const onKeyActivate =
     (fn: () => void) =>
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); }
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        fn();
+      }
     };
 
-  /** 렌더 */
   return (
     <>
       <WikiHeader user={user} />
 
-      {/* ───────── 마을 추가 ───────── */}
+      {/* 마을 추가 */}
       <ModalCard
         open={villageModalOpen}
         onClose={() => setVillageModalOpen(false)}
         title="마을 추가"
         actions={
           <>
-            <button className="rd-btn secondary" onClick={() => setVillageModalOpen(false)}>취소</button>
+            <button className="rd-btn secondary" onClick={() => setVillageModalOpen(false)}>
+              취소
+            </button>
             <button
               className="rd-btn primary"
               disabled={!villageName.trim() || !villageIcon.trim()}
@@ -288,20 +346,19 @@ export default function NpcManager() {
             placeholder="마을 이름"
             maxLength={40}
             value={villageName}
-            onChange={(e) => setVillageName(e.target.value)}
+            onChange={e => setVillageName(e.target.value)}
             aria-label="마을 이름 입력"
           />
         </div>
         <div className="rd-field">
           <label className="rd-label">마을 아이콘</label>
-          {/* 작은 입력 + 오른쪽 미리보기(공통 레이아웃) */}
           <div className="mgr-icon-field">
             <div className="mgr-icon-inputs">
               <input
                 className="rd-input rd-emoji-input"
                 maxLength={2}
                 value={villageIcon && !villageIcon.startsWith('http') ? villageIcon : ''}
-                onChange={(e) => setVillageIcon(e.target.value)}
+                onChange={e => setVillageIcon(e.target.value)}
                 aria-label="마을 아이콘 입력(이모지)"
               />
               <button
@@ -315,9 +372,11 @@ export default function NpcManager() {
               </button>
             </div>
             <div className="mgr-icon-preview">
-              {villageIcon?.startsWith('http')
-                ? <img src={villageIcon} className="rd-preview" alt="icon" />
-                : <span className="mgr-icon-placeholder">미리보기</span>}
+              {villageIcon?.startsWith('http') ? (
+                <img src={villageIcon} className="rd-preview" alt="icon" />
+              ) : (
+                <span className="mgr-icon-placeholder">미리보기</span>
+              )}
             </div>
           </div>
         </div>
@@ -325,18 +384,23 @@ export default function NpcManager() {
         <ImageSelectModal
           open={imageModalOpen}
           onClose={() => setImageModalOpen(false)}
-          onSelectImage={(url) => { setVillageIcon(url); setImageModalOpen(false); }}
+          onSelectImage={url => {
+            setVillageIcon(url);
+            setImageModalOpen(false);
+          }}
         />
       </ModalCard>
 
-      {/* ───────── NPC 추가 ───────── */}
+      {/* NPC 추가 */}
       <ModalCard
         open={npcModalOpen}
         onClose={() => setNpcModalOpen(false)}
         title="NPC 추가"
         actions={
           <>
-            <button className="rd-btn secondary" onClick={() => setNpcModalOpen(false)}>취소</button>
+            <button className="rd-btn secondary" onClick={() => setNpcModalOpen(false)}>
+              취소
+            </button>
             <button
               className="rd-btn primary"
               disabled={!npcName.trim()}
@@ -356,13 +420,13 @@ export default function NpcManager() {
             placeholder="NPC 이름"
             maxLength={40}
             value={npcName}
-            onChange={(e) => setNpcName(e.target.value)}
+            onChange={e => setNpcName(e.target.value)}
             aria-label="NPC 이름 입력"
           />
         </div>
       </ModalCard>
 
-      {/* ===== 수동 3단 레이아웃 ===== */}
+      {/* 3단 레이아웃 */}
       <div className="mgr-container">
         {/* 사이드바: 마을 */}
         <div className="mgr-sidebar">
@@ -386,11 +450,16 @@ export default function NpcManager() {
                 className={`npc-village-item${selectedVillage?.id === v.id ? ' selected' : ''}`}
                 onClick={() => setSelectedVillage(v)}
               >
-                <span className="npc-village-icon"><IconCell icon={v.icon} /></span>
+                <span className="npc-village-icon">
+                  <IconCell icon={v.icon} />
+                </span>
                 {v.name}
                 <button
                   className="mgr-village-menu-btn"
-                  onClick={(e) => { e.stopPropagation(); openEditVillage(v); }}
+                  onClick={e => {
+                    e.stopPropagation();
+                    openEditVillage(v);
+                  }}
                   aria-label="마을 편집"
                   title="마을 정보 수정/삭제"
                 >
@@ -446,13 +515,16 @@ export default function NpcManager() {
         <div className="mgr-detail-area">
           {selectedNpc ? (
             <div>
-              {/* 우상단 툴바: 이미지 관리 페이지와 동일한 세그먼트 버튼 스타일 */}
               <div className="toolbar-seg mgr-detail-actions">
                 <button
                   type="button"
                   className="seg-btn danger"
                   onClick={async () => {
                     if (!selectedNpc) return;
+                    if (!canDeleteNpc(selectedNpc)) {
+                      alert('본인이 만든 NPC만 삭제할 수 있습니다.');
+                      return;
+                    }
                     if (!window.confirm('이 NPC를 삭제할까요?')) return;
                     const res = await fetch(`/api/npcs/${selectedNpc.id}`, { method: 'DELETE' });
                     if (!res.ok) {
@@ -465,6 +537,7 @@ export default function NpcManager() {
                     }
                     setSelectedNpc(null);
                   }}
+                  disabled={!canDeleteNpc(selectedNpc)}
                   title="삭제"
                   aria-label="NPC 삭제"
                 >
@@ -486,17 +559,19 @@ export default function NpcManager() {
               </div>
 
               <DetailTitle
-                icon={<IconCell icon={selectedNpc.icon} className="npc-detail-img" size={44} rounded={8} />}
+                icon={
+                  <IconCell icon={selectedNpc.icon} className="npc-detail-img" size={44} rounded={8} />
+                }
                 title={<span className="npc-detail-name">{selectedNpc.name}</span>}
                 showEditButtons={false}
                 onTitleClick={() => setEditNameOpen(true)}
                 onIconClick={() => setEditIconOpen(true)}
               />
 
-              {/* 위치 */}
               <div
                 className="mgr-pill-row"
-                role="button" tabIndex={0}
+                role="button"
+                tabIndex={0}
                 onClick={() => setEditLocOpen(true)}
                 onKeyDown={onKeyActivate(() => setEditLocOpen(true))}
                 aria-label="위치 편집"
@@ -504,29 +579,34 @@ export default function NpcManager() {
                 <span className="mgr-pill-label">위치</span>
                 <span className="mgr-pill-value">
                   <span className="npc-detail-loc">
-                    ( {selectedNpc.location_x}, {selectedNpc.location_y}, {selectedNpc.location_z} )
+                    ( {selectedNpc.location_x}, {selectedNpc.location_y},{' '}
+                    {selectedNpc.location_z} )
                   </span>
                 </span>
               </div>
 
-              {/* 대사 */}
               <div
                 className="mgr-pill-row mgr-pill-row--multi"
-                role="button" tabIndex={0}
+                role="button"
+                tabIndex={0}
                 onClick={() => setEditLineOpen(true)}
                 onKeyDown={onKeyActivate(() => setEditLineOpen(true))}
                 aria-label="대사 편집"
               >
                 <span className="mgr-pill-label">대사</span>
                 <span className="mgr-pill-value">
-                  {selectedNpc.line?.trim() ? selectedNpc.line : <span className="mgr-placeholder">- 대사 없음 -</span>}
+                  {selectedNpc.line?.trim() ? (
+                    selectedNpc.line
+                  ) : (
+                    <span className="mgr-placeholder">- 대사 없음 -</span>
+                  )}
                 </span>
               </div>
 
-              {/* 사진 */}
               <div
                 className="mgr-pill-row"
-                role="button" tabIndex={0}
+                role="button"
+                tabIndex={0}
                 onClick={() => setPicturesModalOpen(true)}
                 onKeyDown={onKeyActivate(() => setPicturesModalOpen(true))}
                 aria-label="사진 관리"
@@ -534,7 +614,9 @@ export default function NpcManager() {
                 <span className="mgr-pill-label">사진</span>
                 <span className="mgr-pill-value">
                   {npcPictures.length ? (
-                    npcPictures.slice(0, 6).map((url, i) => <img key={url + i} src={url} alt="" className="mgr-pill-pic" />)
+                    npcPictures
+                      .slice(0, 6)
+                      .map((url, i) => <img key={url + i} src={url} alt="" className="mgr-pill-pic" />)
                   ) : (
                     <span className="mgr-placeholder">사진 없음</span>
                   )}
@@ -547,18 +629,23 @@ export default function NpcManager() {
         </div>
       </div>
 
-      {/* ───────── 이름 수정 ───────── */}
+      {/* 이름 수정 */}
       <ModalCard
         open={editNameOpen}
         onClose={() => setEditNameOpen(false)}
         title="이름 수정"
         actions={
           <>
-            <button className="rd-btn secondary" onClick={() => setEditNameOpen(false)}>취소</button>
+            <button className="rd-btn secondary" onClick={() => setEditNameOpen(false)}>
+              취소
+            </button>
             <button
               className="rd-btn primary"
               disabled={!tmpName.trim()}
-              onClick={async () => { await patchNpc({ name: tmpName }); setEditNameOpen(false); }}
+              onClick={async () => {
+                await patchNpc({ name: tmpName });
+                setEditNameOpen(false);
+              }}
               aria-label="이름 수정 저장"
             >
               수정
@@ -570,7 +657,7 @@ export default function NpcManager() {
           className="rd-input"
           maxLength={40}
           value={tmpName}
-          onChange={(e) => setTmpName(e.target.value)}
+          onChange={e => setTmpName(e.target.value)}
           aria-label="NPC 이름 입력"
         />
       </ModalCard>
@@ -579,22 +666,31 @@ export default function NpcManager() {
       <ImageSelectModal
         open={editIconOpen}
         onClose={() => setEditIconOpen(false)}
-        onSelectImage={async (url) => { await patchNpc({ icon: url }); setEditIconOpen(false); }}
+        onSelectImage={async url => {
+          await patchNpc({ icon: url });
+          setEditIconOpen(false);
+        }}
       />
 
-      {/* ───────── 위치 수정 ───────── */}
+      {/* 위치 수정 */}
       <ModalCard
         open={editLocOpen}
         onClose={() => setEditLocOpen(false)}
         title="위치 수정"
         actions={
           <>
-            <button className="rd-btn secondary" onClick={() => setEditLocOpen(false)}>취소</button>
+            <button className="rd-btn secondary" onClick={() => setEditLocOpen(false)}>
+              취소
+            </button>
             <button
               className="rd-btn primary"
               disabled={tmpLoc.some(v => Number.isNaN(v))}
               onClick={async () => {
-                await patchNpc({ location_x: tmpLoc[0], location_y: tmpLoc[1], location_z: tmpLoc[2] });
+                await patchNpc({
+                  location_x: tmpLoc[0],
+                  location_y: tmpLoc[1],
+                  location_z: tmpLoc[2],
+                });
                 setEditLocOpen(false);
               }}
               aria-label="위치 수정 저장"
@@ -606,7 +702,7 @@ export default function NpcManager() {
       >
         <div className="rd-field">
           <div className="rd-coord-row" role="group" aria-label="좌표 입력">
-            {(['X','Y','Z'] as const).map((label, i) => (
+            {(['X', 'Y', 'Z'] as const).map((label, i) => (
               <div key={label} className="rd-coord-item">
                 <span className="rd-chip-label">{label}</span>
                 <input
@@ -615,11 +711,15 @@ export default function NpcManager() {
                   step={1}
                   className="rd-input rd-num"
                   value={Number.isNaN(tmpLoc[i]) ? '' : tmpLoc[i]}
-                  onChange={(e) => {
-                    const n = e.currentTarget.value === '' ? Number.NaN : e.currentTarget.valueAsNumber;
+                  onChange={e => {
+                    const n =
+                      e.currentTarget.value === ''
+                        ? Number.NaN
+                        : e.currentTarget.valueAsNumber;
                     setTmpLoc(v => {
                       const a = [...v] as [number, number, number];
-                      a[i] = n; return a;
+                      a[i] = n;
+                      return a;
                     });
                   }}
                 />
@@ -629,17 +729,22 @@ export default function NpcManager() {
         </div>
       </ModalCard>
 
-      {/* ───────── 대사 수정 ───────── */}
+      {/* 대사 수정 */}
       <ModalCard
         open={editLineOpen}
         onClose={() => setEditLineOpen(false)}
         title="대사 수정"
         actions={
           <>
-            <button className="rd-btn secondary" onClick={() => setEditLineOpen(false)}>취소</button>
+            <button className="rd-btn secondary" onClick={() => setEditLineOpen(false)}>
+              취소
+            </button>
             <button
               className="rd-btn primary"
-              onClick={async () => { await patchNpc({ line: tmpLine }); setEditLineOpen(false); }}
+              onClick={async () => {
+                await patchNpc({ line: tmpLine });
+                setEditLineOpen(false);
+              }}
               aria-label="대사 수정 저장"
             >
               수정
@@ -650,24 +755,29 @@ export default function NpcManager() {
         <textarea
           className="rd-textarea"
           value={tmpLine}
-          onChange={(e) => setTmpLine(e.target.value)}
+          onChange={e => setTmpLine(e.target.value)}
           maxLength={600}
           aria-label="대사 입력"
         />
       </ModalCard>
 
-      {/* ───────── 사진 관리 ───────── */}
+      {/* 사진 관리 */}
       <ModalCard
         open={picturesModalOpen}
         onClose={() => setPicturesModalOpen(false)}
         title="NPC 사진 관리"
         actions={
           <>
-            <button className="rd-btn secondary" onClick={() => setPicturesModalOpen(false)}>닫기</button>
+            <button className="rd-btn secondary" onClick={() => setPicturesModalOpen(false)}>
+              닫기
+            </button>
             <button
               className="rd-btn primary"
               disabled={!selectedNpc}
-              onClick={async () => { await patchNpc({ pictures: npcPictures }); setPicturesModalOpen(false); }}
+              onClick={async () => {
+                await patchNpc({ pictures: npcPictures });
+                setPicturesModalOpen(false);
+              }}
               aria-label="사진 저장"
             >
               저장
@@ -682,10 +792,14 @@ export default function NpcManager() {
               <img src={url} alt={`npc-pic-${idx}`} />
               <button
                 className="rd-thumb-x"
-                onClick={() => setNpcPictures(npcPictures.filter((_, i) => i !== idx))}
+                onClick={() =>
+                  setNpcPictures(npcPictures.filter((_, i) => i !== idx))
+                }
                 title="삭제"
                 aria-label={`사진 ${idx + 1} 삭제`}
-              >✕</button>
+              >
+                ✕
+              </button>
             </div>
           ))}
         </div>
@@ -705,25 +819,29 @@ export default function NpcManager() {
         <ImageSelectModal
           open={addPictureModalOpen}
           onClose={() => setAddPictureModalOpen(false)}
-          onSelectImage={(url) => {
+          onSelectImage={url => {
             if (!npcPictures.includes(url)) setNpcPictures([...npcPictures, url]);
             setAddPictureModalOpen(false);
           }}
         />
       </ModalCard>
 
-      {/* ───────── 마을 정보 수정 (공통 레이아웃) ───────── */}
+      {/* 마을 정보 수정 */}
       <ModalCard
         open={editVillageOpen}
         onClose={() => {
           setEditVillageOpen(false);
           setEditingVillage(null);
-          setEditVillageName(''); setEditVillageIcon(''); setEditVillageHeadIcon('');
+          setEditVillageName('');
+          setEditVillageIcon('');
+          setEditVillageHeadIcon('');
         }}
         title="마을 정보 수정"
         actions={
           <>
-            <button className="rd-btn secondary" onClick={() => setEditVillageOpen(false)}>취소</button>
+            <button className="rd-btn secondary" onClick={() => setEditVillageOpen(false)}>
+              취소
+            </button>
             <button
               className="rd-btn primary"
               disabled={!editVillageName.trim() || !editVillageIcon.trim()}
@@ -736,7 +854,8 @@ export default function NpcManager() {
               className="rd-btn danger"
               onClick={handleDeleteVillage}
               aria-label="마을 삭제"
-              title="마을 삭제"
+              title={canDeleteVillage(editingVillage) ? '마을 삭제' : '본인이 만든 항목만 삭제 가능'}
+              disabled={!canDeleteVillage(editingVillage)}
             >
               삭제
             </button>
@@ -749,19 +868,23 @@ export default function NpcManager() {
             className="rd-input"
             maxLength={40}
             value={editVillageName}
-            onChange={(e) => setEditVillageName(e.target.value)}
+            onChange={e => setEditVillageName(e.target.value)}
             aria-label="마을 이름 입력"
           />
         </div>
         <div className="rd-field">
           <label className="rd-label">마을 아이콘</label>
-          {/* 작은 입력 + 오른쪽 미리보기(공통 레이아웃) */}
           <div className="mgr-icon-field">
             <div className="mgr-icon-inputs">
               <input
-                className="rd-input rd-emoji-input" maxLength={2}
-                value={editVillageIcon && !editVillageIcon.startsWith('http') ? editVillageIcon : ''}
-                onChange={(e) => setEditVillageIcon(e.target.value)}
+                className="rd-input rd-emoji-input"
+                maxLength={2}
+                value={
+                  editVillageIcon && !editVillageIcon.startsWith('http')
+                    ? editVillageIcon
+                    : ''
+                }
+                onChange={e => setEditVillageIcon(e.target.value)}
                 aria-label="마을 아이콘 입력(이모지)"
               />
               <button
@@ -775,9 +898,11 @@ export default function NpcManager() {
               </button>
             </div>
             <div className="mgr-icon-preview">
-              {editVillageIcon?.startsWith('http')
-                ? <img src={editVillageIcon} alt="icon" />
-                : <span className="mgr-icon-placeholder">미리보기</span>}
+              {editVillageIcon?.startsWith('http') ? (
+                <img src={editVillageIcon} alt="icon" />
+              ) : (
+                <span className="mgr-icon-placeholder">미리보기</span>
+              )}
             </div>
           </div>
         </div>
@@ -796,9 +921,11 @@ export default function NpcManager() {
               </button>
             </div>
             <div className="mgr-icon-preview">
-              {editVillageHeadIcon?.startsWith('http')
-                ? <img src={editVillageHeadIcon} alt="head_icon" />
-                : <span className="mgr-icon-placeholder">미리보기</span>}
+              {editVillageHeadIcon?.startsWith('http') ? (
+                <img src={editVillageHeadIcon} alt="head_icon" />
+              ) : (
+                <span className="mgr-icon-placeholder">미리보기</span>
+              )}
             </div>
           </div>
         </div>
@@ -806,12 +933,18 @@ export default function NpcManager() {
         <ImageSelectModal
           open={editImageModalOpen}
           onClose={() => setEditImageModalOpen(false)}
-          onSelectImage={(url) => { setEditVillageIcon(url); setEditImageModalOpen(false); }}
+          onSelectImage={url => {
+            setEditVillageIcon(url);
+            setEditImageModalOpen(false);
+          }}
         />
         <ImageSelectModal
           open={editHeadIconModalOpen}
           onClose={() => setEditHeadIconModalOpen(false)}
-          onSelectImage={(url) => { setEditVillageHeadIcon(url); setEditHeadIconModalOpen(false); }}
+          onSelectImage={url => {
+            setEditVillageHeadIcon(url);
+            setEditHeadIconModalOpen(false);
+          }}
         />
       </ModalCard>
     </>

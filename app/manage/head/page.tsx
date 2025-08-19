@@ -1,5 +1,8 @@
 // =============================================
 // File: app/manage/head/page.tsx
+// (삭제 권한) 본인이 만든 항목만 삭제 가능: minecraft_name 기준
+// - Village/Head 생성 시 uploader 저장
+// - 삭제 버튼은 관리자이거나(항상 허용) uploader===user.minecraft_name 일 때만 활성화
 // =============================================
 
 'use client';
@@ -11,9 +14,11 @@ import ImageSelectModal from '@/components/image/ImageSelectModal';
 
 import { SectionHeader, EmptyState, IconCell, SortableList, DetailTitle } from '@/components/manager';
 
-import '@/wiki/css/image.css';          // rd-* 모달/버튼/인풋 (toolbar-seg/seg-btn 포함)
-import '@/wiki/css/manager-common.css'; // mgr-* 공통 레이아웃/리스트/필
-import '@/wiki/css/head-manager.css';   // Head 전용 오버라이드
+import '@/wiki/css/image.css';
+import '@/wiki/css/manager-common.css';
+import '@/wiki/css/head-manager.css';
+
+type Role = 'guest' | 'writer' | 'admin';
 
 type Village = {
   id: number;
@@ -21,6 +26,7 @@ type Village = {
   icon: string;
   order: number;
   head_icon?: string | null;
+  uploader?: string | null;     // ← 추가
 };
 
 type Head = {
@@ -30,7 +36,8 @@ type Head = {
   location_x: number;
   location_y: number;
   location_z: number;
-  pictures: any; // 서버가 문자열(JSON)로 줄 수 있어 any로
+  pictures: any;                // 서버가 문자열(JSON)로 줄 수 있어 any로
+  uploader?: string | null;     // ← 추가
 };
 
 export default function HeadManager() {
@@ -39,6 +46,22 @@ export default function HeadManager() {
   useEffect(() => {
     fetch('/api/auth/me').then(r => (r.ok ? r.json() : null)).then(d => setUser(d?.user ?? null));
   }, []);
+
+  // 권한/비교용
+  const role: Role = user?.role === 'admin' ? 'admin' : user?.role === 'writer' ? 'writer' : 'guest';
+  const isAdmin = role === 'admin';
+  const isWriter = role === 'writer';
+  const myName = (user?.minecraft_name ?? '').toLowerCase();
+
+  const canDeleteVillage = (v: Village | null) =>
+    !!v && (isAdmin || (isWriter && v.uploader?.toLowerCase?.() === myName));
+
+  const canDeleteHead = (h: Head | null, v: Village | null) => {
+    // head.uploader 우선, 없으면 같은 마을의 업로더와도 매칭 허용(구데이터 호환)
+    const headUploader = h?.uploader?.toLowerCase?.();
+    const villageUploader = v?.uploader?.toLowerCase?.();
+    return !!h && (isAdmin || (isWriter && (headUploader === myName || villageUploader === myName)));
+  };
 
   /** 상태 */
   const [villages, setVillages] = useState<Village[]>([]);
@@ -123,13 +146,14 @@ export default function HeadManager() {
         icon: villageIcon,
         order: maxOrder + 1,
         head_icon: villageHeadIcon || null,
+        uploader: user?.minecraft_name ?? undefined,   // ← 생성 시 업로더 저장
       }),
     });
     const rows = await fetch('/api/villages').then(r => r.json());
     setVillages(Array.isArray(rows) ? rows : []);
     setVillageModalOpen(false);
     setVillageName(''); setVillageIcon(''); setVillageHeadIcon('');
-  }, [villages, villageIcon, villageName, villageHeadIcon]);
+  }, [villages, villageIcon, villageName, villageHeadIcon, user?.minecraft_name]);
 
   const openEditVillage = (v: Village) => {
     setEditingVillage(v);
@@ -167,6 +191,10 @@ export default function HeadManager() {
 
   const handleDeleteVillage = useCallback(async () => {
     if (!editingVillage) return;
+    if (!canDeleteVillage(editingVillage)) {
+      alert('본인이 만든 마을만 삭제할 수 있습니다.');
+      return;
+    }
     if (!window.confirm('정말 이 마을을 삭제하시겠습니까?')) return;
     await fetch(`/api/villages/${editingVillage.id}`, { method: 'DELETE' });
     const rows = await fetch('/api/villages').then(r => r.json());
@@ -191,13 +219,14 @@ export default function HeadManager() {
         location_y: tmpLoc[1],
         location_z: tmpLoc[2],
         pictures: tmpPictures,
+        uploader: user?.minecraft_name ?? undefined,   // ← 생성 시 업로더 저장
       }),
     });
     const rows = await fetch(`/api/head?village_id=${selectedVillage.id}`).then(r => r.json());
     setHeadList(Array.isArray(rows) ? rows : []);
     setHeadModalOpen(false);
     setTmpLoc([0, 0, 0]); setTmpPictures([]);
-  }, [headList, selectedVillage, tmpLoc, tmpPictures]);
+  }, [headList, selectedVillage, tmpLoc, tmpPictures, user?.minecraft_name]);
 
   const handleEditLoc = useCallback(async () => {
     if (!selectedHead) return;
@@ -358,7 +387,14 @@ export default function HeadManager() {
           <>
             <button className="rd-btn secondary" onClick={() => setEditVillageOpen(false)}>취소</button>
             <button className="rd-btn primary" disabled={!editVillageName.trim() || !editVillageIcon.trim()} onClick={handleEditVillage}>저장</button>
-            <button className="rd-btn danger" onClick={handleDeleteVillage}>삭제</button>
+            <button
+              className="rd-btn danger"
+              onClick={handleDeleteVillage}
+              title={canDeleteVillage(editingVillage) ? '마을 삭제' : '본인이 만든 항목만 삭제 가능'}
+              disabled={!canDeleteVillage(editingVillage)}
+            >
+              삭제
+            </button>
           </>
         }
       >
@@ -558,13 +594,17 @@ export default function HeadManager() {
         <div className="mgr-detail-area">
           {selectedHead ? (
             <div>
-              {/* 우측 상단 툴바: 이미지 관리 페이지 스타일의 삭제 버튼 */}
+              {/* 우측 상단 툴바: 삭제 버튼(권한 반영) */}
               <div className="toolbar-seg mgr-detail-actions">
                 <button
                   type="button"
                   className="seg-btn danger"
                   onClick={async () => {
                     if (!selectedHead) return;
+                    if (!canDeleteHead(selectedHead, selectedVillage)) {
+                      alert('본인이 만든 항목만 삭제할 수 있습니다.');
+                      return;
+                    }
                     if (!window.confirm('이 항목을 삭제할까요?')) return;
                     const res = await fetch(`/api/head/${selectedHead.id}`, { method: 'DELETE' });
                     if (!res.ok) {
@@ -578,7 +618,9 @@ export default function HeadManager() {
                     }
                     setSelectedHead(null);
                   }}
-                  title="삭제"
+                  title={canDeleteHead(selectedHead, selectedVillage) ? '삭제' : '본인이 만든 항목만 삭제 가능'}
+                  aria-label="머리찾기 삭제"
+                  disabled={!canDeleteHead(selectedHead, selectedVillage)}
                 >
                   <svg
                     className="ico"
