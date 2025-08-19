@@ -67,6 +67,7 @@ export default function FaqList({
   const [loading, setLoading] = useState(false);
   const [sel, setSel] = useState<FaqItem | null>(null);
   const [editTarget, setEditTarget] = useState<FaqItem | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
 
   // --- 페이징 ---
   const [page, setPage] = useState(0);
@@ -80,6 +81,26 @@ export default function FaqList({
     const maxIdx = Math.max(0, Math.ceil(items.length / PAGE_SIZE) - 1);
     if (page > maxIdx) setPage(0);
   }, [items, page]);
+
+  useEffect(() => {
+    const closeIfOutside = (e: Event) => {
+      const el = e.target as HTMLElement | null;
+      if (!el || !el.closest('.faq-menu')) setOpenMenuId(null);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpenMenuId(null); };
+
+    document.addEventListener('mousedown', closeIfOutside);
+    document.addEventListener('scroll', closeIfOutside, true);
+    window.addEventListener('resize', closeIfOutside);
+    window.addEventListener('keydown', onKey);
+
+    return () => {
+      document.removeEventListener('mousedown', closeIfOutside);
+      document.removeEventListener('scroll', closeIfOutside, true);
+      window.removeEventListener('resize', closeIfOutside);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, []);
 
   // 서버 쿼리
   const qs = useMemo(() => {
@@ -141,9 +162,9 @@ export default function FaqList({
                       if (pop) pop.classList.toggle('open');
                     }}
                   >⋯</button>
-                  <div className="faq-menu-pop">
-                    <button onClick={() => setEditTarget(it)}>수정</button>
-                    <button className="danger" onClick={() => handleDelete(it.id)}>삭제</button>
+                  <div className={`faq-menu-pop ${openMenuId === it.id ? 'open' : ''}`}>
+                    <button onClick={() => { setOpenMenuId(null); setEditTarget(it); }}>수정</button>
+                    <button className="danger" onClick={() => { setOpenMenuId(null); handleDelete(it.id); }}>삭제</button>
                   </div>
                 </div>
               )}

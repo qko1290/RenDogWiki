@@ -1,7 +1,7 @@
 // File: app/components/wiki/FaqUpsertModal.tsx
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 
 type Props = {
   open: boolean;
@@ -18,6 +18,8 @@ export default function FaqUpsertModal({ open, mode, initial, onClose, onSaved }
     Array.isArray(initial?.tags) ? (initial?.tags as string[]).join(',') : (initial?.tags as string) ?? ''
   );
   const [saving, setSaving] = useState(false);
+
+  const downOnBackdrop = useRef(false);
 
   useEffect(() => {
     if (!open) return;
@@ -74,7 +76,19 @@ export default function FaqUpsertModal({ open, mode, initial, onClose, onSaved }
   if (!open) return null;
 
   return (
-    <div className="faq-upsert-backdrop" onClick={onClose}>
+    <div
+      className="faq-upsert-backdrop"
+      onMouseDown={(e) => { downOnBackdrop.current = e.target === e.currentTarget; }}
+      onMouseUp={(e) => {
+        if (downOnBackdrop.current && e.target === e.currentTarget) onClose();
+        downOnBackdrop.current = false;
+      }}
+      onTouchStart={(e) => { downOnBackdrop.current = e.target === e.currentTarget; }}
+      onTouchEnd={(e) => {
+        if (downOnBackdrop.current) onClose();
+        downOnBackdrop.current = false;
+      }}
+    >
       <div className="faq-upsert-modal" onClick={(e) => e.stopPropagation()}>
         <header className="upsert-header">
           <div className="upsert-title">
