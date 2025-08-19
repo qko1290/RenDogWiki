@@ -21,7 +21,7 @@ type WikiHeaderProps = {
 };
 
 // 단일 모드만 사용: newbie
-const ONLY_MODE = { label: '뉴비', tag: 'newbie' as const };
+const ONLY_MODE = { label: '뉴비', tag: '뉴비' as const };
 
 export default function WikiHeader({ user }: WikiHeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);

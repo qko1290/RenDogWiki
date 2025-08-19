@@ -8,7 +8,7 @@
 
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -66,8 +66,35 @@ const noSpell = {
 };
 
 const MODE_OPTIONS: Array<{ key: string; label: string }> = [
-  { key: 'newbie', label: '뉴비' },
+  { key: '뉴비', label: '뉴비' },
 ];
+
+const chipStyle: React.CSSProperties = {
+    padding: '2px 10px',
+    borderRadius: 999,
+    border: '1.5px solid #2563eb',
+    background: '#eff6ff',
+    color: '#1d4ed8',
+    fontWeight: 700,
+    fontSize: 12,
+    lineHeight: 1.2,
+    display: 'inline-flex',
+    alignItems: 'center',
+    whiteSpace: 'nowrap',
+  };
+  const moreStyle: React.CSSProperties = {
+    padding: '2px 8px',
+    borderRadius: 999,
+    border: '1px solid #d1d5db',
+    background: '#fff',
+    color: '#6b7280',
+    fontSize: 12,
+    lineHeight: 1.2,
+    display: 'inline-flex',
+    alignItems: 'center',
+    whiteSpace: 'nowrap',
+  };
+  const MAX_CHIPS = 2;
 
 // ===== 공용 얇은 모달 =====
 function BareModal({
@@ -103,6 +130,7 @@ function SortableCategoryItem({
   hoverId,
   shiftMode,
   children,
+  appliedTags,
 }: {
   node: Category;
   selected: Category | null;
@@ -112,6 +140,7 @@ function SortableCategoryItem({
   hoverId: number | null;
   shiftMode: boolean;
   children?: React.ReactNode;
+  appliedTags: string[];
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: node.id.toString() });
@@ -158,19 +187,10 @@ function SortableCategoryItem({
     <li ref={setNodeRef} className="sortable-category-item" style={liStyle} {...attributes}>
       <div
         className={`category-row${selected?.id === node.id ? ' active' : ''}`}
-        style={
-          highlight
-            ? {
-                outline: '2px dashed #7c3aed',
-                outlineOffset: 2,
-                background: 'rgba(124,58,237,0.06)',
-              }
-            : undefined
-        }
+        style={ highlight ? { outline:'2px dashed #7c3aed', outlineOffset:2, background:'rgba(124,58,237,0.06)'} : undefined }
       >
-        <span className="grab-handle" {...listeners} aria-label="드래그로 순서 변경">
-          ⠿
-        </span>
+        <span className="grab-handle" {...listeners} aria-label="드래그로 순서 변경">⠿</span>
+
         <button
           type="button"
           className="category-label"
@@ -182,12 +202,26 @@ function SortableCategoryItem({
           <span>{node.name}</span>
         </button>
 
+        {/* ✅ 적용 태그 칩 (상속 포함, 읽기 전용) */}
+        {appliedTags?.length > 0 && (
+          <div
+            className="category-tags"
+            style={{ display: 'flex', gap: 6, marginLeft: 8, overflow: 'hidden', alignItems: 'center' }}
+          >
+            {appliedTags.slice(0, MAX_CHIPS).map((tag) => (
+              <span key={`chip-${node.id}-${tag}`} style={chipStyle}>
+                ✓&nbsp;#{tag}
+              </span>
+            ))}
+            {appliedTags.length > MAX_CHIPS && (
+              <span style={moreStyle}>+{appliedTags.length - MAX_CHIPS}</span>
+            )}
+          </div>
+        )}
+
         {node.children.length > 0 && (
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleOpen(node.id);
-            }}
+            onClick={(e) => { e.stopPropagation(); onToggleOpen(node.id); }}
             className="category-toggle-btn"
             tabIndex={-1}
             aria-expanded={isOpen}
@@ -353,6 +387,32 @@ export default function CategoryManager() {
     for (const [, node] of map) node.children.sort((a, b) => a.order - b.order);
     return roots.sort((a, b) => a.order - b.order);
   };
+
+  const appliedTagsMap = useMemo(() => {
+    const map = new Map<number, string[]>();
+
+    // 선택 편집 중인 카테고리는 selected.mode_tags를 우선 반영(저장 전 실시간 표시)
+    const getOwnTags = (n: Category) =>
+      (selected && selected.id === n.id ? (selected.mode_tags ?? []) : (n.mode_tags ?? []))
+        .map((t) => String(t).trim().toLowerCase())
+        .filter(Boolean);
+
+    const dfs = (node: Category, parentSet: Set<string>) => {
+      const merged = new Set(parentSet);
+      getOwnTags(node).forEach((t) => merged.add(t));
+      map.set(node.id, Array.from(merged));
+
+      node.children.forEach((ch) => dfs(ch, merged));
+    };
+
+    // 트리 최상단은 우리가 감싼 가상 루트(id=0)일 수 있으니 그 아래부터 시작
+    const roots = tree.length && tree[0]?.id === 0 ? tree[0].children : tree;
+    roots.forEach((n) => dfs(n, new Set()));
+
+    // 가상 루트 표시용
+    map.set(0, []);
+    return map;
+  }, [tree, selected]);
 
   const toggleOpen = (id: number) => {
     setOpen((prev) => {
@@ -540,9 +600,12 @@ export default function CategoryManager() {
               onToggleOpen={toggleOpen}
               hoverId={hoverId}
               shiftMode={isShift}
+              appliedTags={appliedTagsMap.get(node.id) ?? []}   // ← 추가
             >
               {open.has(node.id) && node.children.length > 0 && (
-                <div className="category-tree-children">{renderTree(node.children, path, depth + 1)}</div>
+                <div className="category-tree-children">
+                  {renderTree(node.children, path, depth + 1)}
+                </div>
               )}
             </SortableCategoryItem>
           );
