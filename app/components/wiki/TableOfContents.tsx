@@ -145,12 +145,11 @@ export default function TableOfContents({
   // ----- UI (스티키 박스) -----
   const boxStyle: React.CSSProperties = {
     position: 'sticky',
-    top: headerOffset + 8,
-    background: '#fff',
-    border: '1px solid #eef1f5',
-    borderRadius: 12,
-    boxShadow: '0 2px 14px rgba(0,0,0,.05)',
-    padding: '12px 10px',
+    background: 'transparent',
+    border: '0',
+    borderRadius: 0,
+    boxShadow: 'none', 
+    padding: 0, 
     maxHeight: `calc(100vh - ${headerOffset + 24}px)`,
     overflow: 'auto',
     zIndex,
@@ -171,11 +170,12 @@ export default function TableOfContents({
     flex: '0 0 auto',
     marginRight: 8,
   };
+  
   const titleStyle: React.CSSProperties = {
     fontSize: 14,
     fontWeight: 800,
     color: '#0f172a',
-    margin: '0 0 10px 8px',
+    margin: '0 0 8px 2px', 
   };
   const textStyle: React.CSSProperties = {
     fontSize: 13.5,
@@ -195,54 +195,60 @@ export default function TableOfContents({
   }
 
   return (
-    <aside style={boxStyle} aria-label="Table of contents" role="navigation">
+     <aside style={boxStyle} aria-label="Table of contents" role="navigation">
       <p style={titleStyle}>
         <FontAwesomeIcon icon={faAlignLeft} />
         &nbsp;&nbsp; {title}
       </p>
-      <ul style={listStyle}>
-        {indexed.map((h, i) => {
-          const active = h.id === activeId;
-          const padLeft = h.level === 1 ? 8 : h.level === 2 ? 26 : 44;
-          return (
-            <li key={`${h.id}-${h.__occ}-${i}`}>
-              <a
-                href={`#${h.id}`}
-                onClick={(e) => scrollToId(h.id, h.__occ, e)}
-                title={h.text}
-                aria-current={active ? 'true' : undefined}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  textDecoration: 'none',
-                  minHeight: 28,
-                  color: active ? '#2563eb' : '#4b5563',
-                  background: active ? '#eff6ff' : 'transparent',
-                  borderLeft: `3px solid ${active ? '#2563eb' : 'transparent'}`,
-                  padding: '6px 8px',
-                  paddingLeft: padLeft,
-                  borderRadius: 8,
-                  transition: 'background .12s, color .12s, border-color .12s',
-                }}
-              >
-                <span style={iconBox} aria-hidden>
-                  {h.icon?.startsWith('http') ? (
-                    <img
-                      src={h.icon}
-                      alt=""
-                      style={{ width: 16, height: 16, objectFit: 'contain', display: 'block' }}
-                    />
-                  ) : h.icon ? (
-                    <span style={{ fontSize: 14, lineHeight: 1, display: 'block' }}>{h.icon}</span>
-                  ) : null}
-                </span>
-                <span style={textStyle}>{h.text}</span>
-              </a>
-            </li>
-          );
-        })}
-      </ul>
+
+      {indexed.length === 0 ? (
+        <div style={{ fontSize: 13, color: '#9aa1ad', padding: '4px 2px' }}>
+          목차 없음
+        </div>
+      ) : (
+        <ul style={listStyle}>
+          {indexed.map((h, i) => {
+            const active = h.id === activeId;
+            const padLeft = h.level === 1 ? 8 : h.level === 2 ? 26 : 44;
+            return (
+              <li key={`${h.id}-${h.__occ}-${i}`}>
+                <a
+                  href={`#${h.id}`}
+                  onClick={(e) => scrollToId(h.id, h.__occ, e)}
+                  title={h.text}
+                  aria-current={active ? 'true' : undefined}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    textDecoration: 'none',
+                    minHeight: 28,
+                    color: active ? '#2563eb' : '#4b5563',
+                    background: active ? '#eff6ff' : 'transparent',
+                    borderLeft: `3px solid ${active ? '#2563eb' : 'transparent'}`,
+                    padding: '6px 8px',
+                    paddingLeft: padLeft,
+                    borderRadius: 8,
+                    transition: 'background .12s, color .12s, border-color .12s',
+                  }}
+                >
+                  {/* (아이콘 렌더링 부분 그대로 유지) */}
+                  <span style={{ width: 18, height: 18, display: 'grid', placeItems: 'center', flex: '0 0 auto', marginRight: 8 }} aria-hidden>
+                    {h.icon?.startsWith('http') ? (
+                      <img src={h.icon} alt="" style={{ width: 16, height: 16, objectFit: 'contain', display: 'block' }} />
+                    ) : h.icon ? (
+                      <span style={{ fontSize: 14, lineHeight: 1, display: 'block' }}>{h.icon}</span>
+                    ) : null}
+                  </span>
+                  <span style={{ fontSize: 13.5, fontWeight: 600, letterSpacing: '-0.15px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {h.text}
+                  </span>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </aside>
   );
 }

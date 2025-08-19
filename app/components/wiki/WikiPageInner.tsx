@@ -175,6 +175,7 @@ export default function WikiPageInner({ user }: Props) {
 
   // ⭐ 루트( path===0 ) 대표/일반 문서 모두 문서 크롬(제목/브레드크럼) 숨김
   const [hideDocChrome, setHideDocChrome] = useState(false);
+  const [loadingDoc, setLoadingDoc] = useState(false);
 
   const firstLoadRef = useRef(true);
   const mountedRef = useRef(true);
@@ -389,6 +390,55 @@ export default function WikiPageInner({ user }: Props) {
     }
   };
 
+  function BookLoader() {
+    return (
+      <div className="wiki-loader-wrap">
+        <div className="loader">
+          <div className="book-wrapper">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="white" viewBox="0 0 126 75" className="book">
+              <rect strokeWidth={5} stroke="#9EC6F3" rx="7.5" height={70} width={121} y="2.5" x="2.5" />
+              <line strokeWidth={5} stroke="#9EC6F3" y2={75} x2="63.5" x1="63.5" />
+              <path strokeLinecap="round" strokeWidth={4} stroke="#c18949" d="M25 20H50" />
+              <path strokeLinecap="round" strokeWidth={4} stroke="#c18949" d="M101 20H76" />
+              <path strokeLinecap="round" strokeWidth={4} stroke="#c18949" d="M16 30L50 30" />
+              <path strokeLinecap="round" strokeWidth={4} stroke="#c18949" d="M110 30L76 30" />
+            </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="#ffffff74" viewBox="0 0 65 75" className="book-page">
+              <path strokeLinecap="round" strokeWidth={4} stroke="#c18949" d="M40 20H15" />
+              <path strokeLinecap="round" strokeWidth={4} stroke="#c18949" d="M49 30L15 30" />
+              <path strokeWidth={5} stroke="#9EC6F3" d="M2.5 2.5H55C59.1421 2.5 62.5 5.85786 62.5 10V65C62.5 69.1421 59.1421 72.5 55 72.5H2.5V2.5Z" />
+            </svg>
+          </div>
+        </div>
+
+        <style jsx>{`
+          .wiki-loader-wrap{
+            display:flex; align-items:center; justify-content:center;
+            padding: 40px 0;
+          }
+          .loader { display:flex; align-items:center; justify-content:center; }
+          .book-wrapper {
+            top: 100px;
+            width: 350px; height: fit-content;
+            display:flex; align-items:center; justify-content:flex-end;
+            position: relative;
+          }
+          .book { width:100%; height:auto; filter: drop-shadow(10px 10px 5px rgba(0,0,0,0.137)); }
+          .book-wrapper .book-page{
+            width:50%; height:auto; position:absolute;
+            transform-origin:left;
+            animation: paging .40s linear infinite;
+          }
+          @keyframes paging {
+            0% { transform: rotateY(0deg) skewY(0deg); }
+            50% { transform: rotateY(90deg) skewY(-20deg); }
+            100% { transform: rotateY(180deg) skewY(0deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
   // 문서 fetch (path/title)
   function fetchDoc(
     categoryPath: number[],
@@ -410,7 +460,7 @@ export default function WikiPageInner({ user }: Props) {
       if (match?.id != null) {
         setSelectedDocId(match.id);
         setSelectedDocPath([]); // 루트
-        // id 로딩은 서버 구현과 무관하게 확실히 동작
+        setLoadingDoc(true); 
         void fetchDocById(match.id, { hideChrome: true });
         return;
       }
@@ -434,8 +484,9 @@ export default function WikiPageInner({ user }: Props) {
     }
 
     const reqId = ++docReqIdRef.current;
+    setLoadingDoc(true);  
 
-    const pathParam = isRoot ? '0' : String(categoryPath.at(-1)); // ✅ 루트는 path=0로 강제(Fallback 경로)
+    const pathParam = isRoot ? '0' : String(categoryPath.at(-1));
     fetch(`/api/documents?path=${pathParam}&title=${encodeURIComponent(docTitle)}`, { cache: 'no-store' })
       .then(res => { if (!res.ok) throw new Error('문서를 찾을 수 없습니다.'); return res.json(); })
       .then(data => {
@@ -454,18 +505,22 @@ export default function WikiPageInner({ user }: Props) {
 
         if (Array.isArray(data.fullPath)) setSelectedDocPath([...data.fullPath]);
         else if (isRoot) setSelectedDocPath([]); // ✅ 서버가 fullPath 미동봉 시에도 루트 경로 고정
+
+        setLoadingDoc(false);                       // ✅ 성공 종료
       })
       .catch(() => {
         if (!mountedRef.current || reqId !== docReqIdRef.current) return;
         setDocContent(null);
         setSpecialMeta(null);
         setFaqQuery(''); setFaqTags([]);
+        setLoadingDoc(false);                       // ✅ 실패 종료
       });
   }
 
   // 문서 fetch (id) — 루트 등 path가 0일 때 사용 권장
   async function fetchDocById(docId: number, opts?: { hideChrome?: boolean }) {
     const reqId = ++docReqIdRef.current;
+    setLoadingDoc(true);                             // ✅ 시작
     try {
       const r = await fetch(`/api/documents?id=${docId}`, { cache: 'no-store' });
       if (!r.ok) throw 0;
@@ -487,11 +542,14 @@ export default function WikiPageInner({ user }: Props) {
       setSelectedDocTitle(data.title ?? null);
       setSelectedDocPath(docInList?.fullPath ?? (Number(data.path) === 0 ? [] : []));
       setHideDocChrome(!!opts?.hideChrome);
+
+      setLoadingDoc(false);                           // ✅ 성공 종료
     } catch {
       if (!mountedRef.current || reqId !== docReqIdRef.current) return;
       setDocContent(null);
       setSpecialMeta(null);
       setFaqQuery(''); setFaqTags([]);
+      setLoadingDoc(false);                           // ✅ 실패 종료
     }
   }
 
@@ -628,6 +686,8 @@ export default function WikiPageInner({ user }: Props) {
     return () => document.removeEventListener('click', onClick, true);
   }, [allDocuments]);
 
+  const isLoadingView = loadingDoc || docContent === null; // ✅ 로딩 중/초기엔 제목·브레드크럼 숨김
+
   return (
     <div className="wiki-container">
       <WikiHeader user={user} />
@@ -660,7 +720,7 @@ export default function WikiPageInner({ user }: Props) {
           </aside>
 
           <main className="wiki-content">
-            {!hideDocChrome && (
+            {!hideDocChrome && !isLoadingView && (
               <>
                 <Breadcrumb
                   selectedDocPath={selectedDocPath}
@@ -691,30 +751,39 @@ export default function WikiPageInner({ user }: Props) {
             )}
 
             <div className="wiki-content-body" ref={contentRef}>
-              {isFaq ? (
+              {isLoadingView ? (
+                <BookLoader />
+              ) : isFaq ? (
                 <FaqList query={faqQuery} tags={faqTags} user={user} refreshSignal={faqRefreshSignal} />
               ) : specialMeta?.kind === 'head' ? (
-                headLoading ? <div>머리 목록 로딩 중...</div> :
-                headList.length > 0 ? (
+                headLoading ? (
+                  <BookLoader />
+                ) : headList.length > 0 ? (
                   <HeadGrid
                     heads={headList.slice(headPage * 21, (headPage + 1) * 21)}
                     onClick={setSelectedHead}
                     selectedHeadId={selectedHead?.id || null}
                   />
-                ) : <div>등록된 머리가 없습니다.</div>
+                ) : (
+                  <div>등록된 머리가 없습니다.</div>
+                )
               ) : specialMeta?.kind === 'npc' || specialMeta?.kind === 'quest' ? (
-                npcLoading ? <div>NPC 목록 로딩 중...</div> :
-                npcList.length > 0 ? (
+                npcLoading ? (
+                  <BookLoader />
+                ) : npcList.length > 0 ? (
                   <NpcGrid
                     npcs={npcList.slice(npcPage * 21, (npcPage + 1) * 21)}
                     onClick={setSelectedNpc}
                     selectedNpcId={selectedNpc?.id || null}
                   />
-                ) : <div>등록된 NPC가 없습니다.</div>
+                ) : (
+                  <div>등록된 NPC가 없습니다.</div>
+                )
               ) : Array.isArray(docContent) && docContent.length > 0 ? (
                 <WikiReadRenderer content={docContent} />
               ) : (
-                <div>문서를 찾을 수 없습니다.</div>
+                // ✅ 모든 기타 상황도 로더로
+                <BookLoader />
               )}
 
               {specialMeta?.kind === 'head' && headList.length > 21 && (
