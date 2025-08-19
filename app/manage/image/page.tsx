@@ -76,18 +76,40 @@ function FolderTree({
   const [editName, setEditName] = useState('');
 
   // ✅ 편집 시작 시점에만 초기화 (folders 변경으로 인한 value 리셋 방지)
-  useEffect(() => {
-    if (editingTarget?.type === 'folder') {
-      const t = folders.find((f) => f.id === editingTarget.id);
-      setEditName(t?.name ?? '');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editingTarget]);
+    useEffect(() => {
+      if (editingTarget?.type === 'folder') {
+        const t = folders.find((f) => f.id === editingTarget.id);
+        setEditName(t?.name ?? '');
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [editingTarget]);
 
-  const list = folders.filter((f) =>
-    parentId === null ? f.parent_id == null : Number(f.parent_id) === Number(parentId)
-  );
-  if (!list.length) return null;
+    const list = folders.filter((f) =>
+      parentId === null ? f.parent_id == null : Number(f.parent_id) === Number(parentId)
+    );
+    if (!list.length) return null;
+
+    function closeSubtree(rootId: number, prev: Record<number, boolean>): Record<number, boolean> {
+    const next = { ...prev };
+
+    // 부모 → 자식 목록 맵 구성
+    const childrenMap = new Map<number, number[]>();
+    for (const f of folders) {
+      const pid = f.parent_id == null ? -1 : Number(f.parent_id);
+      (childrenMap.get(pid) ?? childrenMap.set(pid, []).get(pid)!).push(f.id);
+    }
+
+    // 루트 포함 모든 후손 false
+    next[rootId] = false;
+    const stack = [...(childrenMap.get(rootId) || [])];
+    while (stack.length) {
+      const id = stack.pop()!;
+      next[id] = false;
+      const kids = childrenMap.get(id);
+      if (kids && kids.length) stack.push(...kids);
+    }
+    return next;
+  }
 
   return (
     <ul className="folder-list" style={{ paddingLeft: depth === 0 ? 0 : 16 }}>
@@ -192,7 +214,15 @@ function FolderTree({
                   onClick={(e) => {
                     e.stopPropagation();
                     setTreeState((prev) => {
-                      const next = { ...prev, [folder.id]: !isOpen };
+                      const isOpen = !!prev[folder.id];
+                      let next: Record<number, boolean>;
+
+                      if (isOpen) {
+                        next = closeSubtree(folder.id, prev);
+                      } else {
+                        next = { ...prev, [folder.id]: true };
+                      }
+
                       if (typeof window !== 'undefined') {
                         localStorage.setItem('imgmgr.treeState', JSON.stringify(next));
                       }
