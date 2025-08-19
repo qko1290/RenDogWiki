@@ -1,5 +1,10 @@
 :root { --header-h: 64px; }
 
+img {
+  image-rendering: pixelated;     /* 크롬/사파리/파폭 최신 */
+  image-rendering: crisp-edges;   /* 일부 브라우저 보완 */
+}
+
 /* 페이지 전체는 스크롤 금지, 내부 영역만 스크롤 */
 .wiki-container { height: 100vh; overflow: hidden; background: #f9f9f9; }
 .image-explorer-viewport {

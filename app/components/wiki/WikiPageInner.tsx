@@ -17,6 +17,7 @@ import TableOfContents from './TableOfContents';
 import NpcDetailModal from './NpcDetailModal';
 import HeadDetailModal from './HeadDetailModal';
 import FaqList from './FaqList';
+import FaqUpsertModal from '@/components/wiki/FaqUpsertModal';
 
 import { Descendant } from 'slate';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -683,9 +684,7 @@ export default function WikiPageInner({ user }: Props) {
 
                   {/* FAQ일 때만 '질문 추가' 버튼 노출 (권한 필요) */}
                   {isFaq && canWrite && (
-                    <button className="wiki-btn wiki-btn-primary" onClick={() => setShowNewFaq(true)} style={{ height: 36 }}>
-                      질문 추가
-                    </button>
+                    <FaqAddButton onClick={() => setShowNewFaq(true)} />
                   )}
                 </div>
               </>
@@ -753,7 +752,9 @@ export default function WikiPageInner({ user }: Props) {
       </div>
 
       {showNewFaq && (
-        <NewFaqModal
+        <FaqUpsertModal
+          open
+          mode="create"
           onClose={() => setShowNewFaq(false)}
           onSaved={() => { setShowNewFaq(false); setFaqRefreshSignal(v => v + 1); }}
         />
@@ -814,7 +815,6 @@ function NewFaqModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
   );
 }
 
-// --- modal styles
 const backdropStyle: React.CSSProperties = {
   position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000,
   display: 'grid', placeItems: 'center', padding: 16,
@@ -826,3 +826,53 @@ const modalHeaderStyle: React.CSSProperties = { display: 'flex', alignItems: 'ce
 const closeBtnStyle: React.CSSProperties = { border: '1px solid #e5e7eb', background: '#fff', borderRadius: 8, width: 32, height: 32, cursor: 'pointer' };
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, color: '#555', marginBottom: 6 };
 const inputStyle: React.CSSProperties = { width: '100%', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 10px' };
+
+// ====== FAQ 상단 액션 버튼 (제공해준 디자인 틀 기반) ======
+function FaqAddButton({ onClick }: { onClick: () => void }) {
+  return (
+    <div className="faq-add-group">
+      <button className="faq-add-seg" onClick={onClick} title="질문 추가" aria-label="질문 추가">
+        <svg
+          className="faq-add-ic"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path d="M12 6v12M6 12h12" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <span className="faq-add-label">질문 추가</span>
+      </button>
+
+      <style jsx>{`
+        .faq-add-group {
+          display: inline-flex;
+          overflow: hidden;
+          background: #fff;
+          border: 1px solid #b7f0d0;   /* 약한 초록 테두리 */
+          border-radius: 12px;
+          box-shadow: 0 1px 0 rgba(16,185,129,0.06);
+        }
+        .faq-add-seg {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 12px;
+          font-weight: 600;
+          color: #4b5563;              /* 텍스트는 중립 */
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          transition: background .2s ease, color .2s ease, border-color .2s ease;
+          height: 36px;
+        }
+        .faq-add-seg:hover {
+          background: #ecfdf5;         /* 연초록 hover */
+        }
+        .faq-add-ic { width: 20px; height: 20px; }
+        .faq-add-label { line-height: 1; }
+      `}</style>
+    </div>
+  );
+}
