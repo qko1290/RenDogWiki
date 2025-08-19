@@ -228,8 +228,8 @@ export default function HamburgerMenu({
               {!isLoggedIn
                 ? <Link href="/login" className="hamburger-welcome no-underline">로그인 해주세요</Link> 
                 : specialDisplay
-                  ? <Link href="/login" className="hamburger-welcome no-underline">환영합니다 {specialDisplay}님</Link>
-                  : <Link href="/login" className="hamburger-welcome no-underline">환영합니다</Link>}
+                  ? <button onClick={handleLogout} className="hamburger-welcome no-underline">환영합니다 {specialDisplay}님</button>
+                  : <button onClick={handleLogout} className="hamburger-welcome no-underline">환영합니다</button>}
             </span>
           </div>
         </div>
