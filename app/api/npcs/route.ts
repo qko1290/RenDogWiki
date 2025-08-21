@@ -1,6 +1,3 @@
-// =============================================
-// File: app/api/npc/route.ts
-// =============================================
 /**
  * NPC 목록 조회/추가
  * - GET  -> village_id(필수), npc_type(선택) 기준 목록 반환 (order, name 순)
@@ -123,17 +120,21 @@ export async function POST(req: NextRequest) {
     const pictures = toArray(body?.pictures);
     const rewards = toArray(body?.rewards);
 
+    const me = getAuthUser();
+    const uploader = me?.minecraft_name ?? req.headers.get('x-wiki-username') ?? 'admin';
+
     const inserted = (await sql/*sql*/`
       INSERT INTO npc
         (name, icon, village_id, "order", requirement, line,
-         location_x, location_y, location_z, quest, npc_type, pictures, rewards)
+         location_x, location_y, location_z, quest, npc_type, pictures, rewards, uploader)
       VALUES (
         ${name}, ${icon}, ${village_id}, ${order},
         ${requirement}, ${line},
         ${location_x}, ${location_y}, ${location_z},
         ${quest}, ${npc_type},
         ${JSON.stringify(pictures)},
-        ${JSON.stringify(rewards)}
+        ${JSON.stringify(rewards)},
+        ${uploader}
       )
       RETURNING *
     `) as unknown as any[];
@@ -143,8 +144,7 @@ export async function POST(req: NextRequest) {
     row.rewards = toArray(row.rewards);
 
     // 활동 로그(경로에는 village 이름)
-    const me = getAuthUser();
-    const username = me?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
+    const username = uploader;
     const villageLabel = await resolveVillageName(row.village_id);
 
     await logActivity({
