@@ -257,6 +257,7 @@ img {
   display: flex;
   align-items: center;
   gap: 10px;
+  padding-bottom: 40px;
 }
 .wiki-doc-icon-img {
   width: 32px;

@@ -19,3 +19,10 @@ body {
   color: var(--foreground);
   font-family: "Inter", "Inter Fallback", system-ui, arial;
 }
+
+@layer base {
+  h1 { @apply text-3xl font-bold; }
+  h2 { @apply text-2xl font-semibold; }
+  h3 { @apply text-xl font-semibold; }
+  /* 필요에 따라 추가 */
+}

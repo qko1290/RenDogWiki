@@ -590,7 +590,7 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
           );
         } else {
           iconHtml = (
-            <span style={{ fontSize: "1.5em", marginRight: 6, display: "inline-block" }}>{el.icon}</span>
+            <span style={{ fontSize: "1.5em", fontWeight: "800" , marginRight: 6, display: "inline-block" }}>{el.icon}</span>
           );
         }
       }
