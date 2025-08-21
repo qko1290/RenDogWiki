@@ -69,28 +69,16 @@ export async function POST(req: NextRequest) {
     const order = intOr(body?.order, 0);
     const head_icon = body?.head_icon === undefined ? null : strOr(body?.head_icon, null);
 
-    if (!name || !icon) {
-      return NextResponse.json(
-        { error: 'name, icon 필수' },
-        { status: 400, headers: { 'Cache-Control': 'no-store' } },
-      );
-    }
+    if (!name || !icon) return NextResponse.json({ error: 'name, icon 필수' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
 
-    // 중복 이름 방지
-    const dup = await sql/*sql*/`
-      SELECT 1 FROM village WHERE name = ${name} LIMIT 1
-    `;
-    if (Array.isArray(dup) && dup.length > 0) {
-      return NextResponse.json(
-        { error: '이미 존재하는 이름입니다.' },
-        { status: 409, headers: { 'Cache-Control': 'no-store' } },
-      );
-    }
+    const dup = await sql/*sql*/`SELECT 1 FROM village WHERE name = ${name} LIMIT 1`;
+    if (Array.isArray(dup) && dup.length > 0) return NextResponse.json({ error: '이미 존재하는 이름입니다.' }, { status: 409, headers: { 'Cache-Control': 'no-store' } });
 
     // uploader 필수 컬럼 채우기
     const user = getAuthUser();
     const username = user?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
-    const uploader = (username ?? 'system').toString().slice(0, 100);
+    const me = getAuthUser();
+    const uploader = me?.minecraft_name ?? req.headers.get('x-wiki-username') ?? 'admin';
 
     const rows = await sql/*sql*/`
       INSERT INTO village (name, icon, "order", head_icon, uploader)
