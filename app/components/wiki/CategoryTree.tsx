@@ -1,6 +1,7 @@
 // =============================================
 // File: components/wiki/CategoryTree.tsx
 // (루트 문서 중 id===73만 숨기고, 로고 클릭 시 id===73 열기)
+// + 문서 정렬: order ASC -> title ASC
 // =============================================
 "use client";
 
@@ -29,6 +30,7 @@ type Document = {
   icon?: string;
   fullPath?: number[];
   is_featured?: boolean;
+  order?: number; // ← 정렬값(카테고리 내에서 사용)
 };
 
 type Props = {
@@ -69,6 +71,16 @@ function equalsPath(a?: number[] | null, b?: number[] | null) {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
   return true;
+}
+
+// 문서 정렬 유틸: order ASC, 없으면 뒤로 → 같은 값이면 제목 ASC
+function sortDocs(a: Document, b: Document) {
+  const ao =
+    Number.isFinite(Number(a.order)) ? Number(a.order) : Number.POSITIVE_INFINITY;
+  const bo =
+    Number.isFinite(Number(b.order)) ? Number(b.order) : Number.POSITIVE_INFINITY;
+  if (ao !== bo) return ao - bo;
+  return String(a.title || "").localeCompare(String(b.title || ""), "ko");
 }
 
 /**
@@ -240,6 +252,7 @@ const CategoryTree: React.FC<Props> = ({
   const HIDE_ROOT_DOC_ID = 73;
 
   // 경로 문자열 키로 문서 배열 캐시 → O(1) 조회 (루트 제외)
+  // 🔁 배열 값은 order ASC로 정렬됨
   const docsByPath = useMemo(() => {
     const map = new Map<string, Document[]>();
     for (const doc of allDocuments) {
@@ -251,19 +264,25 @@ const CategoryTree: React.FC<Props> = ({
       if (arr) arr.push(doc);
       else map.set(key, [doc]);
     }
+    // ✅ 정렬 적용
+    for (const [, arr] of map) {
+      arr.sort(sortDocs);
+    }
     return map;
   }, [allDocuments]);
 
-  // ✅ 루트([]) 문서들 — 대표 문서(id===73)만 제외
+  // ✅ 루트([]) 문서들 — 대표 문서(id===73)만 제외 + order 정렬
   const rootDocs = useMemo(
     () =>
-      allDocuments.filter(
-        (d) =>
-          !d.is_featured &&
-          Array.isArray(d.fullPath) &&
-          d.fullPath.length === 0 &&
-          d.id !== HIDE_ROOT_DOC_ID
-      ),
+      allDocuments
+        .filter(
+          (d) =>
+            !d.is_featured &&
+            Array.isArray(d.fullPath) &&
+            d.fullPath.length === 0 &&
+            d.id !== HIDE_ROOT_DOC_ID
+        )
+        .sort(sortDocs),
     [allDocuments]
   );
 
@@ -430,7 +449,7 @@ const CategoryTree: React.FC<Props> = ({
           >
             {shouldRender && (
               <>
-                {/* 문서 목록 */}
+                {/* 문서 목록 (order 정렬 적용됨) */}
                 {docs.map((doc) => {
                   const isDocActive = selectedDocId === doc.id;
                   return (
@@ -472,7 +491,7 @@ const CategoryTree: React.FC<Props> = ({
   return (
     <ul className="wiki-nav-list">
       {renderTree(categories)}
-      {/* ✅ 루트 문서: 대표(73)만 제외하고 카테고리와 동일한 버튼 스타일로 표시 */}
+      {/* ✅ 루트 문서: 대표(73)만 제외하고 카테고리와 동일한 버튼 스타일로 표시 (order 정렬 적용됨) */}
       {rootDocs.map((doc) => {
         const isDocActive = selectedDocId === doc.id;
         return (

@@ -1,4 +1,4 @@
-// File: app/api/documents/route.ts
+// app/api/documents/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
 import { logActivity, resolveCategoryName } from '@wiki/lib/activity';
@@ -17,15 +17,12 @@ function toContentArray(raw: unknown): any[] {
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
 
-  // 새로 추가: 경로별 리스트 (관리자 페이지/중복 검사에서 사용)
-  // GET /api/documents?list=1&path=0
-  const list = sp.get('list');
-  if (list === '1') {
+  // 경로별 리스트
+  if (sp.get('list') === '1') {
     try {
-      const pathParam = (sp.get('path') ?? '0').trim(); // '' -> '0'
-      const pathNorm = pathParam === '' ? '0' : pathParam; // 문자열 유지 (문자·숫자 경로 모두 지원)
+      const pathParam = (sp.get('path') ?? '0').trim();
+      const pathNorm = pathParam === '' ? '0' : pathParam;
 
-      // 대표 문서 id 가져오기(있으면)
       let mainDocId: number | null = null;
       try {
         if (/^\d+$/.test(pathNorm)) {
@@ -37,15 +34,14 @@ export async function GET(req: NextRequest) {
         }
       } catch {}
 
-      // 해당 경로의 문서 목록
-      const rows = (await sql`
-        SELECT id, title, path, icon, tags, created_at, updated_at, is_featured, special
+      const rows = (await sql/*sql*/`
+        SELECT id, title, path, icon, tags, created_at, updated_at, is_featured, special, "order"
         FROM documents
         WHERE path = ${pathNorm}
-        ORDER BY updated_at DESC, id DESC
-      `) as unknown as Array<any>;
+        ORDER BY "order" ASC, updated_at DESC, id DESC
+      `) as any[];
 
-      const items = rows.map((r: any) => ({
+      const items = rows.map((r) => ({
         id: r.id,
         title: r.title,
         path: r.path,
@@ -53,8 +49,9 @@ export async function GET(req: NextRequest) {
         tags: r.tags ? String(r.tags).split(',') : [],
         created_at: r.created_at,
         updated_at: r.updated_at,
-        is_featured: Boolean(r.is_featured),
         special: r.special ?? null,
+        is_featured: Boolean(r.is_featured),
+        order: Number(r.order ?? 0),
         is_main: mainDocId != null && Number(mainDocId) === Number(r.id),
       }));
 
@@ -65,21 +62,20 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // 이하 기존 단건/전체 조회 -------------------------
   const all = sp.get('all');
   const pathRaw = sp.get('path');
   const titleRaw = sp.get('title');
   const idRaw = sp.get('id');
 
-  // id로 단건
+  // id 단건
   if (idRaw) {
     try {
       const id = Number(idRaw);
       if (!Number.isFinite(id) || id <= 0) {
         return NextResponse.json({ error: 'Invalid id' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
       }
-      const rows = await sql`
-        SELECT id, title, path, icon, tags, created_at, updated_at, special
+      const rows = await sql/*sql*/`
+        SELECT id, title, path, icon, tags, created_at, updated_at, special, "order"
         FROM documents
         WHERE id = ${id}
         LIMIT 1
@@ -87,7 +83,7 @@ export async function GET(req: NextRequest) {
       const doc = rows[0];
       if (!doc) return new NextResponse(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
 
-      const bodyRows = await sql`SELECT content FROM document_contents WHERE document_id = ${doc.id} LIMIT 1`;
+      const bodyRows = await sql/*sql*/`SELECT content FROM document_contents WHERE document_id = ${doc.id} LIMIT 1`;
       const content = toContentArray(bodyRows[0]?.content ?? []);
 
       return NextResponse.json(
@@ -100,6 +96,7 @@ export async function GET(req: NextRequest) {
           created_at: doc.created_at,
           updated_at: doc.updated_at,
           special: doc.special ?? null,
+          order: Number(doc.order ?? 0),
           content,
         },
         { headers: { 'Cache-Control': 'no-store' } }
@@ -110,11 +107,11 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // 전체 목록
+  // 전체
   if (all === '1') {
     try {
-      const rows = await sql`
-        SELECT id, title, path, icon, tags, created_at, updated_at, is_featured, special
+      const rows = await sql/*sql*/`
+        SELECT id, title, path, icon, tags, created_at, updated_at, is_featured, special, "order"
         FROM documents
       `;
       const result = rows.map((r: any) => ({
@@ -122,6 +119,7 @@ export async function GET(req: NextRequest) {
         tags: r.tags ? String(r.tags).split(',') : [],
         is_featured: Boolean(r.is_featured),
         special: r.special ?? null,
+        order: Number(r.order ?? 0),
       }));
       return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } });
     } catch (e) {
@@ -137,14 +135,14 @@ export async function GET(req: NextRequest) {
   try {
     const title = (titleRaw ?? '').trim();
     const rows = title
-      ? await sql`
-          SELECT id, title, path, icon, tags, created_at, updated_at, special
+      ? await sql/*sql*/`
+          SELECT id, title, path, icon, tags, created_at, updated_at, special, "order"
           FROM documents
           WHERE path = ${path} AND title = ${title}
           LIMIT 1
         `
-      : await sql`
-          SELECT id, title, path, icon, tags, created_at, updated_at, special
+      : await sql/*sql*/`
+          SELECT id, title, path, icon, tags, created_at, updated_at, special, "order"
           FROM documents
           WHERE path = ${path}
           LIMIT 1
@@ -152,7 +150,7 @@ export async function GET(req: NextRequest) {
     const doc = rows[0];
     if (!doc) return new NextResponse(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
 
-    const bodyRows = await sql`SELECT content FROM document_contents WHERE document_id = ${doc.id} LIMIT 1`;
+    const bodyRows = await sql/*sql*/`SELECT content FROM document_contents WHERE document_id = ${doc.id} LIMIT 1`;
     const content = toContentArray(bodyRows[0]?.content ?? []);
 
     return NextResponse.json(
@@ -165,6 +163,7 @@ export async function GET(req: NextRequest) {
         created_at: doc.created_at,
         updated_at: doc.updated_at,
         special: doc.special ?? null,
+        order: Number(doc.order ?? 0),
         content,
       },
       { headers: { 'Cache-Control': 'no-store' } }
@@ -184,7 +183,7 @@ export async function DELETE(req: NextRequest) {
     const id = Number(idRaw);
     if (!Number.isFinite(id) || id <= 0) return NextResponse.json({ error: 'Invalid id' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
 
-    const before = await sql`
+    const before = await sql/*sql*/`
       SELECT id, title, path, tags
       FROM documents
       WHERE id = ${id}
@@ -193,8 +192,8 @@ export async function DELETE(req: NextRequest) {
     const doc = before[0];
     if (!doc) return NextResponse.json({ error: 'not found' }, { status: 404, headers: { 'Cache-Control': 'no-store' } });
 
-    await sql`DELETE FROM document_contents WHERE document_id = ${id}`;
-    await sql`DELETE FROM documents WHERE id = ${id}`;
+    await sql/*sql*/`DELETE FROM document_contents WHERE document_id = ${id}`;
+    await sql/*sql*/`DELETE FROM documents WHERE id = ${id}`;
 
     const user = getAuthUser();
     const username = user?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;

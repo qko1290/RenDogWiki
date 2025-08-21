@@ -1,10 +1,5 @@
 /* ===== [1] 전체 컨테이너/레이아웃 ===== */
 
-img {
-  image-rendering: pixelated;     /* 크롬/사파리/파폭 최신 */
-  image-rendering: crisp-edges;   /* 일부 브라우저 보완 */
-  display: block; 
-}
 
 .wiki-container {
   display: flex;
@@ -524,13 +519,6 @@ img {
   display: none;
   width: 0;
   height: 0;
-}
-
-.wiki-category-icon-img,
-.wiki-doc-icon-img {
-  image-rendering: pixelated;     /* 크롬/사파리/파폭 최신 */
-  image-rendering: crisp-edges;   /* 일부 브라우저 보완 */
-  display: block;                 /* 인라인 간격/기저선 이슈 방지 */
 }
 
 /* 팝업 전역 클래스(외부 클릭 판정용) */
