@@ -33,6 +33,20 @@ function normalizeContent(v: unknown): any {
   return v; // 배열/객체는 그대로 저장(클라 포맷 신뢰)
 }
 
+function normalizeTags(v: unknown): string[] {
+  if (Array.isArray(v)) {
+    return Array.from(new Set(v
+      .map(s => typeof s === 'string' ? s.trim() : '')
+      .filter(Boolean)));
+  }
+  if (typeof v === 'string') {
+    return Array.from(new Set(v.split(',')
+      .map(s => s.trim())
+      .filter(Boolean)));
+  }
+  return [];
+}
+
 // tags는 문자열 배열 기준으로 직렬화(트림 + 중복 제거)
 function serializeTags(v: unknown): string {
   if (!Array.isArray(v)) return typeof v === 'string' ? v : '';
@@ -47,6 +61,36 @@ function serializeTags(v: unknown): string {
 }
 
 export async function POST(req: NextRequest) {
+  // --- 유틸: 태그 정규화 / 컬럼 타입 감지 ---
+  const normalizeTags = (v: unknown): string[] => {
+    if (Array.isArray(v)) {
+      return Array.from(new Set(
+        v.map(s => (typeof s === 'string' ? s.trim() : '')).filter(Boolean)
+      ));
+    }
+    if (typeof v === 'string') {
+      return Array.from(new Set(
+        v.split(',').map(s => s.trim()).filter(Boolean)
+      ));
+    }
+    return [];
+  };
+
+  const getColInfo = async (table: string, column: string) => {
+    const rows = (await sql`
+      SELECT data_type, udt_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = ${table} AND column_name = ${column}
+      LIMIT 1
+    `) as unknown as Array<{ data_type?: string; udt_name?: string }>;
+    const r = rows?.[0] || {};
+    return {
+      isArray: r.data_type === 'ARRAY' || (r.udt_name || '').startsWith('_'),
+      isJsonOrJsonb: r.data_type === 'json' || r.data_type === 'jsonb' || r.udt_name === 'json' || r.udt_name === 'jsonb',
+      isJsonb: r.data_type === 'jsonb' || r.udt_name === 'jsonb'
+    };
+  };
+
   try {
     const body = await req.json().catch(() => ({} as any));
 
@@ -57,7 +101,6 @@ export async function POST(req: NextRequest) {
     const titleRaw = typeof body?.title === 'string' ? body.title : '';
     const title = titleRaw.trim();
 
-    // path는 숫자/문자열 모두 허용(스키마에 맞게 그대로 저장)
     const hasPath = Object.prototype.hasOwnProperty.call(body, 'path');
     const pathVal = body?.path;
 
@@ -68,18 +111,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 본문/아이콘/태그
     const icon = typeof body?.icon === 'string' ? body.icon : '';
     const contentNorm = normalizeContent(body?.content);
     const contentJson = JSON.stringify(contentNorm);
-    const tagsStr = serializeTags(body?.tags);
+    const tagsArr = normalizeTags(body?.tags);          // 표준: 배열
+    const tagsCsv = tagsArr.join(',');                  // 필요 시 TEXT 컬럼에 사용
 
     const user = getAuthUser();
     const username = user?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
 
+    // 스키마 감지
+    const tagsCol = await getColInfo('documents', 'tags');
+    const contentCol = await getColInfo('document_contents', 'content');
+
     let documentId: number;
     let created = false;
 
-    // 신규 생성
+    // ---------- 신규 생성 ----------
     if (!Number.isFinite(idNum as number)) {
       // 같은 path + title 존재하면 409
       const dup = await sql/*sql*/`
@@ -92,25 +141,40 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const inserted = await sql/*sql*/`
-        INSERT INTO documents (title, path, icon, tags)
-        VALUES (${title}, ${pathVal}, ${icon}, ${tagsStr})
-        RETURNING id
-      `;
+      // documents.tags 컬럼 타입에 따라 분기
+      const inserted = tagsCol.isArray
+        ? await sql/*sql*/`
+            INSERT INTO documents (title, path, icon, tags)
+            VALUES (${title}, ${pathVal}, ${icon}, ${tagsArr as unknown as string[]}::text[])
+            RETURNING id
+          `
+        : await sql/*sql*/`
+            INSERT INTO documents (title, path, icon, tags)
+            VALUES (${title}, ${pathVal}, ${icon}, ${tagsCsv})
+            RETURNING id
+          `;
       documentId = Number(inserted[0].id);
 
-      await sql/*sql*/`
-        INSERT INTO document_contents (document_id, content)
-        VALUES (${documentId}, ${contentJson})
-      `;
+      // document_contents.content 컬럼 타입에 따라 분기
+      if (contentCol.isJsonOrJsonb) {
+        await sql/*sql*/`
+          INSERT INTO document_contents (document_id, content)
+          VALUES (${documentId}, ${contentJson}${contentCol.isJsonb ? sql`::jsonb` : sql`::json`})
+        `;
+      } else {
+        await sql/*sql*/`
+          INSERT INTO document_contents (document_id, content)
+          VALUES (${documentId}, ${contentJson})
+        `;
+      }
 
       created = true;
     }
-    // 기존 문서 수정
+    // ---------- 기존 문서 수정 ----------
     else {
       documentId = Number(idNum);
 
-      // path/title이 바뀌는 경우를 대비해 충돌 검사(id 제외)
+      // path/title 충돌 검사(id 제외)
       const conflict = await sql/*sql*/`
         SELECT 1 FROM documents
         WHERE path = ${pathVal} AND title = ${title} AND id <> ${documentId}
@@ -123,30 +187,59 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      await sql/*sql*/`
-        UPDATE documents SET
-          title = ${title},
-          path = ${pathVal},
-          icon = ${icon},
-          tags = ${tagsStr},
-          updated_at = NOW()
-        WHERE id = ${documentId}
-      `;
+      // documents.tags 업데이트
+      if (tagsCol.isArray) {
+        await sql/*sql*/`
+          UPDATE documents SET
+            title = ${title},
+            path = ${pathVal},
+            icon = ${icon},
+            tags = ${tagsArr as unknown as string[]}::text[],
+            updated_at = NOW()
+          WHERE id = ${documentId}
+        `;
+      } else {
+        await sql/*sql*/`
+          UPDATE documents SET
+            title = ${title},
+            path = ${pathVal},
+            icon = ${icon},
+            tags = ${tagsCsv},
+            updated_at = NOW()
+          WHERE id = ${documentId}
+        `;
+      }
 
       // 본문 존재 여부에 따라 갱신/삽입
       const exists = await sql/*sql*/`
         SELECT 1 FROM document_contents WHERE document_id = ${documentId} LIMIT 1
       `;
       if (Array.isArray(exists) && exists.length > 0) {
-        await sql/*sql*/`
-          UPDATE document_contents SET content = ${contentJson}
-          WHERE document_id = ${documentId}
-        `;
+        if (contentCol.isJsonOrJsonb) {
+          await sql/*sql*/`
+            UPDATE document_contents
+            SET content = ${contentJson}${contentCol.isJsonb ? sql`::jsonb` : sql`::json`}
+            WHERE document_id = ${documentId}
+          `;
+        } else {
+          await sql/*sql*/`
+            UPDATE document_contents
+            SET content = ${contentJson}
+            WHERE document_id = ${documentId}
+          `;
+        }
       } else {
-        await sql/*sql*/`
-          INSERT INTO document_contents (document_id, content)
-          VALUES (${documentId}, ${contentJson})
-        `;
+        if (contentCol.isJsonOrJsonb) {
+          await sql/*sql*/`
+            INSERT INTO document_contents (document_id, content)
+            VALUES (${documentId}, ${contentJson}${contentCol.isJsonb ? sql`::jsonb` : sql`::json`})
+          `;
+        } else {
+          await sql/*sql*/`
+            INSERT INTO document_contents (document_id, content)
+            VALUES (${documentId}, ${contentJson})
+          `;
+        }
       }
     }
 
@@ -162,7 +255,7 @@ export async function POST(req: NextRequest) {
       targetId: documentId,
       targetName: title,
       targetPath: categoryLabel,
-      meta: { tags: tagsStr ? tagsStr.split(',') : [], icon, created },
+      meta: { tags: tagsArr, icon, created },
     });
 
     return NextResponse.json(
