@@ -872,7 +872,7 @@ export default function QuestNpcManager() {
               onChange={(e) => setTmpQuest(e.target.value)}
               maxLength={400}
               rows={6}
-              placeholder="예) 라임에게서 받은 편지를 퀘스트 마스터에게 전달하세요."
+              placeholder="예) 슬라임볼 50개 획득"
               onKeyDown={(e) => {
                 if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
                   e.preventDefault();

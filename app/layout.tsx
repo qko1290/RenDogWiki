@@ -8,7 +8,7 @@ const inter = Inter({ subsets: ['latin'], display: 'swap' });
 
 export const metadata: Metadata = {
   title: "RenDog Wiki",
-  description: "Microsoft OAuth 기반 인증 적용 중",
+  description: "렌독 RPG 비공식 위키",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
