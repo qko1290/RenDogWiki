@@ -115,11 +115,13 @@ export async function POST(req: NextRequest) {
     const icon = typeof body?.icon === 'string' ? body.icon : '';
     const contentNorm = normalizeContent(body?.content);
     const contentJson = JSON.stringify(contentNorm);
-    const tagsArr = normalizeTags(body?.tags);          // 표준: 배열
-    const tagsCsv = tagsArr.join(',');                  // 필요 시 TEXT 컬럼에 사용
+    const tagsArr = normalizeTags(body?.tags);   // 배열 기준
+    const tagsCsv = tagsArr.join(',');           // TEXT 컬럼 대비
 
+    // 업로더(필수 컬럼 대응)
     const user = getAuthUser();
     const username = user?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
+    const uploader = (username ?? 'system').toString().slice(0, 100);
 
     // 스키마 감지
     const tagsCol = await getColInfo('documents', 'tags');
@@ -141,21 +143,21 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // documents.tags 컬럼 타입에 따라 분기
+      // documents.tags 타입 분기 + uploader 포함 INSERT
       const inserted = tagsCol.isArray
         ? await sql/*sql*/`
-            INSERT INTO documents (title, path, icon, tags)
-            VALUES (${title}, ${pathVal}, ${icon}, ${tagsArr as unknown as string[]}::text[])
+            INSERT INTO documents (title, path, icon, tags, uploader)
+            VALUES (${title}, ${pathVal}, ${icon}, ${tagsArr as unknown as string[]}::text[], ${uploader})
             RETURNING id
           `
         : await sql/*sql*/`
-            INSERT INTO documents (title, path, icon, tags)
-            VALUES (${title}, ${pathVal}, ${icon}, ${tagsCsv})
+            INSERT INTO documents (title, path, icon, tags, uploader)
+            VALUES (${title}, ${pathVal}, ${icon}, ${tagsCsv}, ${uploader})
             RETURNING id
           `;
       documentId = Number(inserted[0].id);
 
-      // document_contents.content 컬럼 타입에 따라 분기
+      // document_contents.content 타입 분기
       if (contentCol.isJsonOrJsonb) {
         await sql/*sql*/`
           INSERT INTO document_contents (document_id, content)
@@ -187,7 +189,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // documents.tags 업데이트
+      // documents.tags 업데이트 (필요 시 uploader도 여기서 갱신 가능)
       if (tagsCol.isArray) {
         await sql/*sql*/`
           UPDATE documents SET
@@ -243,7 +245,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 경로 라벨(숫자면 카테고리명으로 치환, 아니면 null 처리)
+    // 경로 라벨(숫자면 카테고리명으로 치환, 아니면 null)
     const categoryLabel = await resolveCategoryName(
       Number.isFinite(Number(pathVal)) ? Number(pathVal) : null
     );
