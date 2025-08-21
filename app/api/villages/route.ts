@@ -26,10 +26,7 @@ function intOr<T extends number>(v: unknown, fallback: T): T {
   return (Number.isFinite(n) ? Math.trunc(n) : fallback) as T;
 }
 
-/**
- * [마을 목록/단일 조회] GET
- * - name 쿼리가 없으면 전체, 있으면 단일(없으면 204)
- */
+/** [마을 목록/단일 조회] GET */
 export async function GET(req: NextRequest) {
   try {
     const nameParam = req.nextUrl.searchParams.get('name');
@@ -50,11 +47,9 @@ export async function GET(req: NextRequest) {
       WHERE name = ${name}
       LIMIT 1
     `;
-
     if (!Array.isArray(rows) || rows.length === 0) {
       return new NextResponse(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
     }
-
     return NextResponse.json(rows[0], { headers: { 'Cache-Control': 'no-store' } });
   } catch (err) {
     console.error('[villages GET] unexpected error:', err);
@@ -65,11 +60,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/**
- * [마을 추가] POST
- * - body -> { name, icon, order?, head_icon? }
- * - 중복 이름은 409로 막아둠(단순 정책)
- */
+/** [마을 추가] POST */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({} as any));
@@ -85,7 +76,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 중복 이름 방지(필요 없으면 제거 가능)
+    // 중복 이름 방지
     const dup = await sql/*sql*/`
       SELECT 1 FROM village WHERE name = ${name} LIMIT 1
     `;
@@ -96,15 +87,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const rows = await sql/*sql*/`
-      INSERT INTO village (name, icon, "order", head_icon)
-      VALUES (${name}, ${icon}, ${order}, ${head_icon})
-      RETURNING id, name, icon, "order", head_icon
-    `;
-
-    // 활동 로그
+    // uploader 필수 컬럼 채우기
     const user = getAuthUser();
     const username = user?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
+    const uploader = (username ?? 'system').toString().slice(0, 100);
+
+    const rows = await sql/*sql*/`
+      INSERT INTO village (name, icon, "order", head_icon, uploader)
+      VALUES (${name}, ${icon}, ${order}, ${head_icon}, ${uploader})
+      RETURNING id, name, icon, "order", head_icon
+    `;
 
     await logActivity({
       action: 'village.create',
