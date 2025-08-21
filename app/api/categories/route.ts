@@ -38,133 +38,97 @@ export async function GET(req: NextRequest) {
   try {
     const modes = parseModes(req.nextUrl.searchParams.get('modes'));
 
-    // 모드 미지정: 전체 조회
     if (modes.length === 0) {
-      const rows = await sql`
-        SELECT * FROM categories
-        ORDER BY parent_id, "order"
-      `;
+      const rows = await sql`SELECT * FROM categories ORDER BY parent_id, "order"`;
       return NextResponse.json(rows, { headers: { 'Cache-Control': 'no-store' } });
     }
 
-    // ✅ 모드 지정: RECURSIVE + 배열 겹침( && )로 최상위만 고른 뒤 하위 전부 확장
-    // JS 배열을 text[]로 안전하게 넘긴 뒤 비교합니다.
+    // ✅ 배열 겹침 비교에 sql.array 사용
     const rows = await sql`
       WITH RECURSIVE roots AS (
         SELECT id
         FROM categories
-        WHERE COALESCE(mode_tags, '{}'::text[]) && ${modes as unknown as string[]}::text[]
+        WHERE COALESCE(mode_tags, '{}'::text[]) && ${modes}::text[]
       ),
       tree AS (
-        SELECT c.*
-        FROM categories c
-        JOIN roots r ON r.id = c.id
+        SELECT c.* FROM categories c JOIN roots r ON r.id = c.id
         UNION ALL
-        SELECT c2.*
-        FROM categories c2
-        JOIN tree t ON c2.parent_id = t.id
+        SELECT c2.* FROM categories c2 JOIN tree t ON c2.parent_id = t.id
       )
       SELECT * FROM tree
       ORDER BY parent_id, "order"
     `;
-
     return NextResponse.json(rows, { headers: { 'Cache-Control': 'no-store' } });
-  } catch (err) {
-    console.error('[categories GET] unexpected error:', err);
-    return NextResponse.json(
-      { error: '카테고리 목록을 가져오는 중 오류가 발생했습니다.' },
-      { status: 500 }
-    );
+  } catch (err: any) {
+    console.error('[categories GET] unexpected error:', {
+      message: err?.message, detail: err?.detail, code: err?.code, stack: err?.stack,
+    });
+    return NextResponse.json({ error: '카테고리 목록을 가져오는 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }
 
-
 export async function POST(req: NextRequest) {
   try {
-    // 1) 입력 파싱
     const body = await req.json().catch(() => null);
     const rawName = typeof body?.name === 'string' ? body.name : '';
     const name = rawName.trim();
     const parent_id = toNullableInt(body?.parent_id);
     const document_id = toNullableInt(body?.document_id);
-    const icon =
-      typeof body?.icon === 'string' && body.icon.trim() !== ''
-        ? body.icon.trim()
-        : null;
+    const icon = typeof body?.icon === 'string' && body.icon.trim() !== '' ? body.icon.trim() : null;
 
-    // TEXT[] 모드 태그(선택)
     const mode_tags: string[] = Array.isArray(body?.mode_tags)
-      ? Array.from(
-          new Set(
-            body.mode_tags
-              .map((s: unknown) => (typeof s === 'string' ? s.trim().toLowerCase() : ''))
-              .filter(Boolean)
-          )
-        )
+      ? Array.from(new Set(body.mode_tags
+          .map((s: unknown) => (typeof s === 'string' ? s.trim().toLowerCase() : ''))
+          .filter(Boolean)))
       : [];
 
-    // 2) 필수값(name) 확인
     if (!name) {
-      return NextResponse.json(
-        { error: 'name is required' },
-        { status: 400, headers: { 'Cache-Control': 'no-store' } }
-      );
+      return NextResponse.json({ error: 'name is required' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
     }
 
-    // 3) 같은 parent 내 다음 order 계산 -> MAX("order") + 1
+    // ✅ uploader 값 준비 (미입력 방지)
+    const authUser = getAuthUser();
+    const uploader =
+      authUser?.minecraft_name ?? req.headers.get('x-wiki-username') ?? 'system';
+
+    // 다음 order 계산
     let nextOrder = 0;
-    const orderResult = (await sql`
+    const orderResult = await sql`
       SELECT MAX("order") AS max_order
       FROM categories
       WHERE parent_id ${parent_id === null ? sql`IS NULL` : sql`= ${parent_id}`}
-    `) as unknown as Array<{ max_order: number | string | null }>;
-
-    const maxOrder = orderResult?.[0]?.max_order;
+    `;
+    const maxOrder = (orderResult as any)[0]?.max_order;
     if (maxOrder !== null && maxOrder !== undefined) {
       const parsed = Number(maxOrder);
       nextOrder = Number.isFinite(parsed) ? parsed + 1 : 0;
     }
 
-    // 4) INSERT -> 새 id 반환
-    const insertRows = (await sql`
-      INSERT INTO categories (name, parent_id, "order", document_id, icon, mode_tags)
-      VALUES (${name}, ${parent_id}, ${nextOrder}, ${document_id}, ${icon}, ${mode_tags})
+    // ✅ INSERT: mode_tags는 sql.array, uploader 필드 추가
+    const insertRows = await sql`
+      INSERT INTO categories (name, parent_id, "order", document_id, icon, mode_tags, uploader)
+      VALUES (${name}, ${parent_id}, ${nextOrder}, ${document_id}, ${icon}, ${mode_tags}::text[], ${uploader})
       RETURNING id
-    `) as unknown as Array<{ id: number | string }>;
-    const newId = Number(insertRows?.[0]?.id);
+    `;
+    const newId = Number((insertRows as any)[0]?.id);
 
-    // 5) 활동 로그
-    const user = getAuthUser();
-    const username =
-      user?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
+    // 활동 로그
     const parentLabel = await resolveCategoryName(parent_id);
-
     await logActivity({
       action: 'category.create',
-      username,
+      username: uploader,
       targetType: 'category',
       targetId: newId,
       targetName: name,
       targetPath: parentLabel,
-      meta: {
-        parent_id,
-        order: nextOrder,
-        document_id: document_id ?? null,
-        icon: icon ?? null,
-        mode_tags: mode_tags,
-      },
+      meta: { parent_id, order: nextOrder, document_id: document_id ?? null, icon: icon ?? null, mode_tags },
     });
 
-    // 6) 생성된 id 반환
-    return NextResponse.json(
-      { id: newId },
-      { headers: { 'Cache-Control': 'no-store' } }
-    );
-  } catch (err) {
-    console.error('[categories POST] unexpected error:', err);
-    return NextResponse.json(
-      { error: '카테고리 생성 중 오류가 발생했습니다.' },
-      { status: 500 }
-    );
+    return NextResponse.json({ id: newId }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (err: any) {
+    console.error('[categories POST] unexpected error:', {
+      message: err?.message, detail: err?.detail, code: err?.code, stack: err?.stack,
+    });
+    return NextResponse.json({ error: '카테고리 생성 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }

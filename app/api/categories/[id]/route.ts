@@ -74,7 +74,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         "order" = ${orderFixed},
         document_id = ${documentIdFixed},
         icon = ${icon},
-        mode_tags = ${mode_tags}
+        mode_tags = ${mode_tags}::text[]
       WHERE id = ${idNum}
     `;
 
