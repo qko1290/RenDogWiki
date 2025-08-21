@@ -33,7 +33,9 @@ type Role = 'guest' | 'writer' | 'admin';
 const SPECIAL_NICKS: Record<string, string> = {
   'q_ko': '큐코',
   'rounding_': '라운딩',
-  'daramg__': '다람지'
+  'daramg__': '다람지',
+  '_Kei_Yuki': '케이유키',
+  'MINnSEO': '민서'
 };
 
 /**
