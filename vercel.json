@@ -1,0 +1,14 @@
+{
+  "images": {
+    "remotePatterns": [
+      {
+        "protocol": "https",
+        "hostname": "d1y7k8qotewoph.cloudfront.net"
+      },
+      {
+        "protocol": "https",
+        "hostname": "rendog-wiki-images.s3.amazonaws.com"
+      }
+    ]
+  }
+}
