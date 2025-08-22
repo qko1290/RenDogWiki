@@ -296,11 +296,11 @@ function FileList({
         >
           <div className="image-explorer-thumbbox">
             <img
-              src={toProxyUrl(img.url)}                 {/* ✅ CDN 우회 */}
+              src={toProxyUrl(img.url)}       // ✅ CloudFront 경유
               alt={img.name}
               className="image-explorer-thumbimg"
-              loading="lazy"                             {/* ✅ lazy */}
-              decoding="async"                           {/* ✅ async */}
+              loading="lazy"                  // ✅ lazy
+              decoding="async"                // ✅ async
               onError={(e) => {
                 (e.currentTarget as HTMLImageElement).src = '/default-thumbnail.png';
               }}
