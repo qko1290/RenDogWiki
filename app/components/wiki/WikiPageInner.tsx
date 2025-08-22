@@ -18,6 +18,7 @@ import NpcDetailModal from './NpcDetailModal';
 import HeadDetailModal from './HeadDetailModal';
 import FaqList from './FaqList';
 import FaqUpsertModal from '@/components/wiki/FaqUpsertModal';
+import { toProxyUrl } from '@lib/cdn';
 
 import { Descendant } from 'slate';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -735,12 +736,11 @@ export default function WikiPageInner({ user }: Props) {
                       {currentDoc?.icon
                         ? (currentDoc.icon.startsWith('http')
                             ? <img
-                                src={currentDoc.icon}
+                                src={toProxyUrl(currentDoc.icon)}   // ✅ CloudFront 리라이트
                                 alt="icon"
                                 className="wiki-doc-icon-img"
                                 loading="lazy"
                                 decoding="async"
-                                fetchPriority="low"
                               />
                             : <span className="wiki-doc-icon-emoji">{currentDoc.icon}</span>)
                         : null}

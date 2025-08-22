@@ -1,5 +1,4 @@
 // File: C:\next\rdwiki\app\components\wiki\TableOfContents.tsx
-'use client';
 
 /**
  * 문서 내 목차(Table of Contents)
@@ -9,9 +8,12 @@
  * - 접근성: role="navigation", aria-current, reduced motion 대응
  */
 
+'use client';
+
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faAlignLeft } from '@fortawesome/free-solid-svg-icons';
+import { toProxyUrl } from '@lib/cdn'; // ✅ 추가
 
 type Heading = { id: string; text: string; icon?: string; level: 1 | 2 | 3 };
 
@@ -33,7 +35,6 @@ export default function TableOfContents({
   const rootRef = useRef<HTMLElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
-  // 동일 id에 발생 순번 부여(키/타겟 식별용)
   const indexed = useMemo(() => {
     const seen: Record<string, number> = {};
     return headings.map(h => {
@@ -43,7 +44,6 @@ export default function TableOfContents({
     });
   }, [headings]);
 
-  // 유틸: 스크롤 가능한 조상 찾기
   const findScrollableAncestor = (el: HTMLElement | null) => {
     let cur: HTMLElement | null = el?.parentElement ?? null;
     while (cur) {
@@ -55,10 +55,8 @@ export default function TableOfContents({
     return null;
   };
 
-  // 유틸: id 쿼리용 escape
   const escId = (id: string) => id.replace(/"/g, '\\"');
 
-  // 스크롤 루트 결정(명시 selector > 자동 탐색 > null(window))
   useEffect(() => {
     if (scrollRootSelector) {
       rootRef.current = document.querySelector<HTMLElement>(scrollRootSelector);
@@ -69,19 +67,16 @@ export default function TableOfContents({
     rootRef.current = findScrollableAncestor(first) || null;
   }, [scrollRootSelector, headings]);
 
-  // 타겟 찾기(동일 id의 n번째 요소)
   const getTarget = (id: string, occ: number) => {
     const list = document.querySelectorAll<HTMLElement>(`[id="${escId(id)}"]`);
     return list[occ] ?? list[0] ?? null;
   };
 
-  // 사용자 모션 선호도(감속 설정 시 smooth 비활성화)
   const prefersReducedMotion =
     typeof window !== 'undefined' &&
     window.matchMedia &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // 컨테이너 기준 스무스 스크롤
   const scrollToId = (id: string, occ: number, e?: React.MouseEvent) => {
     e?.preventDefault();
     const target = getTarget(id, occ);
@@ -101,18 +96,11 @@ export default function TableOfContents({
         headerOffset;
       root.scrollTo({ top: y, behavior });
     }
-    try {
-      history.replaceState(null, '', `#${id}`);
-    } catch {
-      /* no-op */
-    }
+    try { history.replaceState(null, '', `#${id}`); } catch {}
   };
 
-  // 스크롤 스파이(IntersectionObserver)
   useEffect(() => {
     if (!indexed.length) return;
-
-    // 이전 옵저버 정리
     observerRef.current?.disconnect();
 
     const root = rootRef.current ?? null;
@@ -123,15 +111,10 @@ export default function TableOfContents({
           .sort((a, b) => (a.boundingClientRect.top > b.boundingClientRect.top ? 1 : -1));
         if (visible[0]) setActiveId((visible[0].target as HTMLElement).id);
       },
-      {
-        root,
-        rootMargin: `-${headerOffset + 8}px 0px -70% 0px`,
-        threshold: [0, 1],
-      }
+      { root, rootMargin: `-${headerOffset + 8}px 0px -70% 0px`, threshold: [0, 1] }
     );
     observerRef.current = obs;
 
-    // 동일 id의 모든 요소 observe
     indexed.forEach(({ id }) => {
       document
         .querySelectorAll<HTMLElement>(`[id="${escId(id)}"]`)
@@ -139,21 +122,20 @@ export default function TableOfContents({
     });
 
     return () => obs.disconnect();
-    // headings, scrollRootSelector, headerOffset이 변할 때 재설정
   }, [indexed, headerOffset, scrollRootSelector]);
 
-  // ----- UI (스티키 박스) -----
   const boxStyle: React.CSSProperties = {
     position: 'sticky',
     background: 'transparent',
     border: '0',
     borderRadius: 0,
-    boxShadow: 'none', 
-    padding: 0, 
+    boxShadow: 'none',
+    padding: 0,
     maxHeight: `calc(100vh - ${headerOffset + 24}px)`,
     overflow: 'auto',
     zIndex,
   };
+
   const listStyle: React.CSSProperties = {
     listStyle: 'none',
     padding: 0,
@@ -161,29 +143,6 @@ export default function TableOfContents({
     display: 'flex',
     flexDirection: 'column',
     gap: 2,
-  };
-  const iconBox: React.CSSProperties = {
-    width: 18,
-    height: 18,
-    display: 'grid',
-    placeItems: 'center',
-    flex: '0 0 auto',
-    marginRight: 8,
-  };
-  
-  const titleStyle: React.CSSProperties = {
-    fontSize: 14,
-    fontWeight: 800,
-    color: '#0f172a',
-    margin: '0 0 8px 2px', 
-  };
-  const textStyle: React.CSSProperties = {
-    fontSize: 13.5,
-    fontWeight: 600,
-    letterSpacing: '-0.15px',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
   };
 
   if (!indexed.length) {
@@ -195,60 +154,71 @@ export default function TableOfContents({
   }
 
   return (
-     <aside style={boxStyle} aria-label="Table of contents" role="navigation">
-      <p style={titleStyle}>
+    <aside style={boxStyle} aria-label="Table of contents" role="navigation">
+      <p style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', margin: '0 0 8px 2px' }}>
         <FontAwesomeIcon icon={faAlignLeft} />
         &nbsp;&nbsp; {title}
       </p>
 
-      {indexed.length === 0 ? (
-        <div style={{ fontSize: 13, color: '#9aa1ad', padding: '4px 2px' }}>
-          목차 없음
-        </div>
-      ) : (
-        <ul style={listStyle}>
-          {indexed.map((h, i) => {
-            const active = h.id === activeId;
-            const padLeft = h.level === 1 ? 8 : h.level === 2 ? 26 : 44;
-            return (
-              <li key={`${h.id}-${h.__occ}-${i}`}>
-                <a
-                  href={`#${h.id}`}
-                  onClick={(e) => scrollToId(h.id, h.__occ, e)}
-                  title={h.text}
-                  aria-current={active ? 'true' : undefined}
+      <ul style={listStyle}>
+        {indexed.map((h, i) => {
+          const active = h.id === activeId;
+          const padLeft = h.level === 1 ? 8 : h.level === 2 ? 26 : 44;
+          return (
+            <li key={`${h.id}-${h.__occ}-${i}`}>
+              <a
+                href={`#${h.id}`}
+                onClick={(e) => scrollToId(h.id, h.__occ, e)}
+                title={h.text}
+                aria-current={active ? 'true' : undefined}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  textDecoration: 'none',
+                  minHeight: 28,
+                  color: active ? '#2563eb' : '#4b5563',
+                  background: active ? '#eff6ff' : 'transparent',
+                  borderLeft: `3px solid ${active ? '#2563eb' : 'transparent'}`,
+                  padding: '6px 8px',
+                  paddingLeft: padLeft,
+                  borderRadius: 8,
+                  transition: 'background .12s, color .12s, border-color .12s',
+                }}
+              >
+                <span
+                  style={{ width: 18, height: 18, display: 'grid', placeItems: 'center', flex: '0 0 auto', marginRight: 8 }}
+                  aria-hidden
+                >
+                  {h.icon?.startsWith('http') ? (
+                    <img
+                      src={toProxyUrl(h.icon)}       // ✅ CloudFront 리라이트
+                      alt=""
+                      style={{ width: 16, height: 16, objectFit: 'contain', display: 'block' }}
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  ) : h.icon ? (
+                    <span style={{ fontSize: 14, lineHeight: 1, display: 'block' }}>{h.icon}</span>
+                  ) : null}
+                </span>
+                <span
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    textDecoration: 'none',
-                    minHeight: 28,
-                    color: active ? '#2563eb' : '#4b5563',
-                    background: active ? '#eff6ff' : 'transparent',
-                    borderLeft: `3px solid ${active ? '#2563eb' : 'transparent'}`,
-                    padding: '6px 8px',
-                    paddingLeft: padLeft,
-                    borderRadius: 8,
-                    transition: 'background .12s, color .12s, border-color .12s',
+                    fontSize: 13.5,
+                    fontWeight: 600,
+                    letterSpacing: '-0.15px',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
                   }}
                 >
-                  {/* (아이콘 렌더링 부분 그대로 유지) */}
-                  <span style={{ width: 18, height: 18, display: 'grid', placeItems: 'center', flex: '0 0 auto', marginRight: 8 }} aria-hidden>
-                    {h.icon?.startsWith('http') ? (
-                      <img src={h.icon} alt="" style={{ width: 16, height: 16, objectFit: 'contain', display: 'block' }} />
-                    ) : h.icon ? (
-                      <span style={{ fontSize: 14, lineHeight: 1, display: 'block' }}>{h.icon}</span>
-                    ) : null}
-                  </span>
-                  <span style={{ fontSize: 13.5, fontWeight: 600, letterSpacing: '-0.15px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {h.text}
-                  </span>
-                </a>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+                  {h.text}
+                </span>
+              </a>
+            </li>
+          );
+        })}
+      </ul>
     </aside>
   );
 }

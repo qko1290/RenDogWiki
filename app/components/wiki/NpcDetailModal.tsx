@@ -6,13 +6,7 @@
 import React, { useEffect } from 'react';
 import NpcPictureSlider from './NpcPictureSlider';
 import '@/wiki/css/wiki-detail-modal.css';
-
-/**
- * NPC/퀘스트 상세 모달
- * - 좌측: 아이콘 + 사진 슬라이더
- * - 우측: Pill UI(위치/퀘스트/보상/선행조건/대사)
- * - backdrop 클릭으로 닫힘, 모달 열리는 동안 body 스크롤 잠금
- */
+import { toProxyUrl } from '@lib/cdn'; // ✅ 추가
 
 type Reward = { icon?: string; text: string };
 export type Npc = {
@@ -37,7 +31,6 @@ type Props = {
 };
 
 export default function NpcDetailModal({ npc, onClose, mode = 'quest' }: Props) {
-  // 바디 스크롤 잠금 (마운트/언마운트 시점만)
   useEffect(() => {
     document.body.classList.add('rd-modal-open');
     return () => document.body.classList.remove('rd-modal-open');
@@ -52,13 +45,21 @@ export default function NpcDetailModal({ npc, onClose, mode = 'quest' }: Props) 
         <div className="npc-modal-left">
           <div className="npc-modal-profile">
             {npc.icon?.startsWith('http') ? (
-              <img src={npc.icon} alt="icon" className="npc-modal-icon" />
+              <img
+                src={toProxyUrl(npc.icon)}          // ✅ CloudFront 리라이트
+                alt="icon"
+                className="npc-modal-icon"
+                loading="lazy"
+                decoding="async"
+              />
             ) : (
               <span style={{ fontSize: 56 }}>{npc.icon || '🧑'}</span>
             )}
             <div className="npc-modal-name">{npc.name}</div>
           </div>
-          <NpcPictureSlider pictures={npc.pictures || []} />
+
+          {/* 사진들도 모두 CDN 경유 */}
+          <NpcPictureSlider pictures={(npc.pictures || []).map(toProxyUrl)} />
         </div>
 
         {/* 우측: Pill UI */}
@@ -91,7 +92,7 @@ export default function NpcDetailModal({ npc, onClose, mode = 'quest' }: Props) 
                       <span key={i} className="mgr-chip">
                         {rw.icon ? (
                           rw.icon.startsWith('http') ? (
-                            <img src={rw.icon} alt="" />
+                            <img src={toProxyUrl(rw.icon)} alt="" loading="lazy" decoding="async" />
                           ) : (
                             <span className="mgr-chip-emoji">{rw.icon}</span>
                           )
@@ -114,7 +115,7 @@ export default function NpcDetailModal({ npc, onClose, mode = 'quest' }: Props) 
             </>
           )}
 
-          {/* 대사: 공통 (멀티라인/상단 정렬) */}
+          {/* 대사: 공통 */}
           <div className="mgr-pill-row mgr-pill-row--multi">
             <span className="mgr-pill-label">대사</span>
             <span className="mgr-pill-value">
