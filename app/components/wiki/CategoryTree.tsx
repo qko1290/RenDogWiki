@@ -6,6 +6,7 @@
 
 import React, { useRef, useLayoutEffect, useMemo, useEffect } from "react";
 import SmartImage from "../common/SmartImage"; // ✅ 이미지 우회/최적화 공통 컴포넌트
+import { toProxyUrl } from "@lib/cdn";
 
 type CategoryNode = {
   id: number;
@@ -369,17 +370,14 @@ const CategoryTree: React.FC<Props> = ({
             <span className="wiki-category-main">
               <span className="wiki-cat-icon-token">
                 {node.icon?.startsWith("http") ? (
-                  // ✅ 외부 아이콘은 SmartImage 사용 (CloudFront 경유 + lazy/async)
-                  <SmartImage
-                    src={node.icon}
+                  <img
+                    src={toProxyUrl(node.icon)}    // ✅ CloudFront로 리라이트
                     alt=""
                     aria-hidden="true"
                     className="wiki-category-icon-img"
-                    width={20}
-                    height={20}
+                    loading="lazy"
+                    decoding="async"
                     fetchPriority="low"
-                    sizes="20px"
-                    style={{ width: 20, height: 20, objectFit: "contain" }}
                   />
                 ) : (
                   <span className="wiki-category-icon-emoji" aria-hidden="true">
@@ -444,15 +442,16 @@ const CategoryTree: React.FC<Props> = ({
                     >
                       <span style={{ marginRight: "0.3em" }}>
                         {doc.icon?.startsWith("http") ? (
-                          <SmartImage
-                            src={doc.icon}
+                          <img
+                            src={toProxyUrl(doc.icon)}     // ✅ CloudFront로 리라이트
                             alt=""
                             aria-hidden="true"
-                            width={16}
-                            height={16}
+                            loading="lazy"
+                            decoding="async"
                             fetchPriority="low"
-                            sizes="16px"
-                            style={{ width: "1em", height: "1em", verticalAlign: "middle" }}
+                            width={20}
+                            height={20}
+                            style={{ width: 20, height: 20, objectFit: "contain" }}
                           />
                         ) : (
                           <span aria-hidden="true">{doc.icon || "📄"}</span>
@@ -489,16 +488,14 @@ const CategoryTree: React.FC<Props> = ({
               <span className="wiki-category-main">
                 <span className="wiki-cat-icon-token">
                   {doc.icon?.startsWith("http") ? (
-                    <SmartImage
-                      src={doc.icon}
+                    <img
+                      src={toProxyUrl(doc.icon)}     // ✅ CloudFront로 리라이트
                       alt=""
                       aria-hidden="true"
                       className="wiki-category-icon-img"
-                      width={20}
-                      height={20}
+                      loading="lazy"
+                      decoding="async"
                       fetchPriority="low"
-                      sizes="20px"
-                      style={{ width: 20, height: 20, objectFit: "contain" }}
                     />
                   ) : (
                     <span className="wiki-category-icon-emoji" aria-hidden="true">
