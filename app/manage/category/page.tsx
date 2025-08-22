@@ -248,11 +248,11 @@ function SortableDocItem({
         {doc.icon ? (
           doc.icon.startsWith('http') ? (
             <img
-              src={toProxyUrl(doc.icon)}                 {/* ✅ CDN 우회 */}
+              src={toProxyUrl(doc.icon)}   // ✅ CloudFront 경유
               alt="icon"
               className="doc-img-icon"
-              loading="lazy"                              {/* ✅ lazy */}
-              decoding="async"                            {/* ✅ async */}
+              loading="lazy"
+              decoding="async"
             />
           ) : (
             <span>{doc.icon}</span>
