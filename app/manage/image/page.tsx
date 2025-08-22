@@ -8,6 +8,7 @@ import WikiHeader from '@/components/common/Header';
 import ImageUploadModal from '@/components/image/ImageUploadModal';
 import { ModalCard } from '@/components/common/Modal';
 import '@/wiki/css/image.css';
+import { toProxyUrl } from '@lib/cdn';
 
 type Role = 'guest' | 'writer' | 'admin';
 
@@ -295,9 +296,11 @@ function FileList({
         >
           <div className="image-explorer-thumbbox">
             <img
-              src={img.url}
+              src={toProxyUrl(img.url)}                 {/* ✅ CDN 우회 */}
               alt={img.name}
               className="image-explorer-thumbimg"
+              loading="lazy"                             {/* ✅ lazy */}
+              decoding="async"                           {/* ✅ async */}
               onError={(e) => {
                 (e.currentTarget as HTMLImageElement).src = '/default-thumbnail.png';
               }}
@@ -1119,7 +1122,7 @@ export default function ImageManagePage() {
                   const target = images.find((i) => i.id === contextMenu.target!.id);
                   if (!target) return;
                   try {
-                    await navigator.clipboard.writeText(target.url);
+                    await navigator.clipboard.writeText(toProxyUrl(target.url));
                     setContextMenu((v) => ({ ...v, visible: false }));
                   } catch {
                     alert('클립보드 복사 실패');

@@ -24,6 +24,7 @@ import { faBook, faList } from '@fortawesome/free-solid-svg-icons';
 import ImageSelectModal from '@/components/image/ImageSelectModal';
 import Image, { type StaticImageData } from 'next/image';
 import logo from '../../image/logo.png';
+import { toProxyUrl } from '@lib/cdn';
 
 type Role = 'guest' | 'writer' | 'admin';
 
@@ -154,7 +155,13 @@ function SortableCategoryItem({
     }
     if (typeof ic === 'string' && ic.startsWith('http')) {
       return (
-        <img src={ic} alt="icon" style={{ width: 20, height: 20, borderRadius: 6, objectFit: 'cover' }} />
+        <img
+          src={toProxyUrl(ic)}
+          alt="icon"
+          style={{ width: 20, height: 20, borderRadius: 6, objectFit: 'cover' }}
+          loading="lazy"
+          decoding="async"
+        />
       );
     }
     return <span>{ic as string}</span>;
@@ -240,7 +247,13 @@ function SortableDocItem({
       <span className="doc-icon">
         {doc.icon ? (
           doc.icon.startsWith('http') ? (
-            <img src={doc.icon} alt="icon" className="doc-img-icon" />
+            <img
+              src={toProxyUrl(doc.icon)}                 {/* ✅ CDN 우회 */}
+              alt="icon"
+              className="doc-img-icon"
+              loading="lazy"                              {/* ✅ lazy */}
+              decoding="async"                            {/* ✅ async */}
+            />
           ) : (
             <span>{doc.icon}</span>
           )
@@ -839,7 +852,13 @@ export default function CategoryManager() {
                       }
                       if (typeof ic === 'string' && ic.startsWith('http')) {
                         return (
-                          <img src={ic} alt="icon" style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover' }} />
+                          <img
+                            src={toProxyUrl(ic)}                           {/* ✅ CDN 우회 */}
+                            alt="icon"
+                            style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover' }}
+                            loading="lazy"                                  {/* ✅ lazy */}
+                            decoding="async"                                {/* ✅ async */}
+                          />
                         );
                       }
                       return <span>{typeof ic === 'string' ? ic : '📁'}</span>;
