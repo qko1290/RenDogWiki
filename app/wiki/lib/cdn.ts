@@ -8,7 +8,7 @@
  */
 
 const CDN_DEFAULT = 'https://d1y7k8qotewoph.cloudfront.net';
-const CDN = process.env.NEXT_PUBLIC_CDN_BASE || CDN_DEFAULT;
+const CDN = process.env.NEXT_PUBLIC_CDN_BASE || 'https://d1y7k8qotewoph.cloudfront.net';
 
 const S3_REGIONAL = 'https://rdwiki.s3.ap-northeast-2.amazonaws.com';
 const S3_GLOBAL   = 'https://rdwiki.s3.amazonaws.com';
@@ -16,14 +16,8 @@ const S3_GLOBAL   = 'https://rdwiki.s3.amazonaws.com';
 /** S3 퍼블릭 URL을 CloudFront CDN 도메인으로 치환 */
 export function cdn(url?: string | null): string {
   if (!url) return '';
-  try {
-    if (url.startsWith(CDN)) return url;                   // 이미 CDN
-    if (url.startsWith(S3_REGIONAL)) return url.replace(S3_REGIONAL, CDN);
-    if (url.startsWith(S3_GLOBAL))   return url.replace(S3_GLOBAL, CDN);
-    return url; // 그 외(절대경로/타 도메인)는 그대로
-  } catch {
-    return url || '';
-  }
+  // CloudFront가 아닌 s3.amazonaws.com 이 들어오면 CDN으로 교체
+  return url.replace(/https:\/\/[^/]*s3[^/]*\.amazonaws\.com/, CDN);
 }
 
 /** v 파라미터로 캐시 버스팅 (updatedAt, contentHash 등 전달) */
