@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     const hasPath = Object.prototype.hasOwnProperty.call(body, 'path');
     const pathVal = body?.path;
 
-    // ⚠️ path=0(숫자)도 허용하도록 체크 수정
+    // path=0 허용
     const pathMissing = !hasPath || pathVal === null || pathVal === undefined || String(pathVal) === '';
     if (pathMissing || !title) {
       return NextResponse.json({ error: 'path와 title은 필수입니다.' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
@@ -61,7 +61,8 @@ export async function POST(req: NextRequest) {
     const tagsCsv = tagsArr.join(',');
 
     const user = getAuthUser();
-    const username = user?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
+    const uploader =
+      (user?.minecraft_name ?? req.headers.get('x-wiki-username') ?? 'system').toString();
 
     const tagsCol = await getColInfo('documents', 'tags');
     const contentCol = await getColInfo('document_contents', 'content');
@@ -81,7 +82,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // 같은 path에서 다음 order
+      // path별 다음 order 계산
       const maxRow = await sql/*sql*/`
         SELECT COALESCE(MAX("order"), -1) + 1 AS next
         FROM documents
@@ -91,13 +92,13 @@ export async function POST(req: NextRequest) {
 
       const inserted = tagsCol.isArray
         ? await sql/*sql*/`
-            INSERT INTO documents (title, path, icon, tags, "order")
-            VALUES (${title}, ${pathVal}, ${icon}, ${tagsArr as unknown as string[]}::text[], ${nextOrder})
+            INSERT INTO documents (title, path, icon, tags, "order", uploader)
+            VALUES (${title}, ${pathVal}, ${icon}, ${tagsArr as unknown as string[]}::text[], ${nextOrder}, ${uploader})
             RETURNING id
           `
         : await sql/*sql*/`
-            INSERT INTO documents (title, path, icon, tags, "order")
-            VALUES (${title}, ${pathVal}, ${icon}, ${tagsCsv}, ${nextOrder})
+            INSERT INTO documents (title, path, icon, tags, "order", uploader)
+            VALUES (${title}, ${pathVal}, ${icon}, ${tagsCsv}, ${nextOrder}, ${uploader})
             RETURNING id
           `;
       documentId = Number(inserted[0].id);
@@ -192,7 +193,7 @@ export async function POST(req: NextRequest) {
 
     await logActivity({
       action: created ? 'document.create' : 'document.update',
-      username,
+      username: uploader,
       targetType: 'document',
       targetId: documentId,
       targetName: title,
