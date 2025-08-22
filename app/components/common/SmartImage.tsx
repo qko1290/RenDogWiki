@@ -1,65 +1,37 @@
-/** 전체 파일: components/common/SmartImage.tsx
- * - Next/Image 래퍼
- * - width/height 있으면 고정, 없으면 fill로 반응형
- * - 기본 라운드/그림자 스타일 지원
- */
+// File: app/components/common/SmartImage.tsx
 "use client";
 
-import Image from "next/image";
-import React from "react";
+import Image, { ImageProps } from "next/image";
+// CDN 유틸 이름/경로는 기존 것 그대로 사용하세요.
+import { toProxyUrl } from "@lib/cdn"; // or the function you exported (e.g., rewriteToCDN)
 
-type Props = {
+type Props = Omit<ImageProps, "src" | "loader"> & {
+  /** 원본(외부) 이미지 URL */
   src: string;
-  alt?: string;
-  width?: number;
-  height?: number;
-  className?: string;
-  priority?: boolean;  // LCP 이미지면 true
-  sizes?: string;      // 반응형 sizes
-  style?: React.CSSProperties;
-  rounded?: number;    // px 단위 라운드
+  /** 강제로 최적화 우회(필요시) */
+  unoptimized?: boolean;
 };
 
 export default function SmartImage({
   src,
-  alt = "",
-  width,
-  height,
-  className,
-  priority = false,
-  sizes = "100vw",
-  style,
-  rounded = 10,
+  unoptimized,
+  alt,
+  loading,
+  ...rest // ✅ fetchPriority, sizes, className, width/height 등 전부 허용
 }: Props) {
-  const commonStyle = { borderRadius: rounded, ...style };
+  // 필요 시 CDN/프록시로 변환
+  const finalSrc = toProxyUrl ? toProxyUrl(src) : src;
 
-  if (width && height) {
-    return (
-      <Image
-        src={src}
-        alt={alt}
-        width={width}
-        height={height}
-        sizes={sizes}
-        className={className}
-        priority={priority}
-        style={commonStyle}
-      />
-    );
-  }
-
-  // width/height 미지정 → fill 모드
   return (
-    <div style={{ position: "relative", width: "100%", minHeight: 40 }}>
-      <Image
-        src={src}
-        alt={alt}
-        fill
-        sizes={sizes}
-        priority={priority}
-        className={className}
-        style={{ objectFit: "contain", ...commonStyle }}
-      />
-    </div>
+    <Image
+      src={finalSrc}
+      alt={alt}
+      // 기본값: lazy + async 느낌 유지
+      loading={loading ?? "lazy"}
+      // next/image는 decoding prop이 없으므로 rest에 두지 않고 img 태그로 내려가지 않음
+      // (성능상 문제 없고 경고도 없음)
+      unoptimized={unoptimized}
+      {...rest}
+    />
   );
 }
