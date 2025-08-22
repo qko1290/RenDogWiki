@@ -1,6 +1,6 @@
 // =============================================
 // File: app/wiki/WikiPageInner.tsx
-// (초기 로딩 + 로고 클릭 시 루트 대표 문서 id=73 강제 오픈, FAQ 제목/아이콘 공통 처리, isPathOpen 비교 버그 수정)
+// (이미지 lazy/async 적용 유지, 로더 포함)
 // =============================================
 'use client';
 
@@ -95,7 +95,7 @@ function useCanWrite(user: Props['user']) {
         const role = (me?.role ?? me?.user?.role ?? '').toLowerCase?.() || '';
         const roles: string[] = (me?.roles ?? me?.user?.roles ?? me?.permissions ?? me?.user?.permissions ?? [])
           .map((v: any) => String(v).toLowerCase());
-        // ✅ manager 제거: admin 또는 writer만 true
+        // ✅ manager 제외
         const ok = role === 'admin' || role === 'writer'
           || roles.includes('admin') || roles.includes('writer');
         if (!cancelled) setCan(!!ok);
@@ -174,7 +174,7 @@ export default function WikiPageInner({ user }: Props) {
 
   const [showNewFaq, setShowNewFaq] = useState(false);
 
-  // ⭐ 루트( path===0 ) 대표/일반 문서 모두 문서 크롬(제목/브레드크럼) 숨김
+  // ⭐ 루트 문서는 문서 크롬(제목/브레드크럼) 숨김
   const [hideDocChrome, setHideDocChrome] = useState(false);
   const [loadingDoc, setLoadingDoc] = useState(false);
 
@@ -333,7 +333,7 @@ export default function WikiPageInner({ user }: Props) {
   }, [searchParams, allDocuments, categoryIdToPathMap]);
 
   const isPathOpen = (path: number[]) =>
-    openPaths.some(p => pathToStr(p) === pathToStr(path)); // 🔧 비교 버그 수정
+    openPaths.some(p => pathToStr(p) === pathToStr(path)); // 비교 버그 수정
 
   const isClosing = (path: number[]) => closingMap[pathToStr(path)] || false;
   const finalizeClose = (path: number[]) => {
@@ -452,7 +452,7 @@ export default function WikiPageInner({ user }: Props) {
     setSelectedDocTitle(docTitle);
     setHideDocChrome(isRoot); // ✅ 루트는 카테고리 스타일(크롬 숨김)
 
-    // 🔑 루트 + id 미지정 → 목록에서 먼저 찾아서 id로 로딩(서버 path=0 의존 제거)
+    // 루트 + id 미지정 → 목록에서 id로 로딩
     if (isRoot && docId == null) {
       const match = allDocuments.find(
         d => ((Array.isArray(d.fullPath) && d.fullPath.length === 0) || Number(d.path) === 0)
@@ -505,23 +505,23 @@ export default function WikiPageInner({ user }: Props) {
         else { setFaqQuery(''); setFaqTags([]); }
 
         if (Array.isArray(data.fullPath)) setSelectedDocPath([...data.fullPath]);
-        else if (isRoot) setSelectedDocPath([]); // ✅ 서버가 fullPath 미동봉 시에도 루트 경로 고정
+        else if (isRoot) setSelectedDocPath([]); // 서버가 fullPath 미동봉 시에도 루트 경로 고정
 
-        setLoadingDoc(false);                       // ✅ 성공 종료
+        setLoadingDoc(false);                       // 성공 종료
       })
       .catch(() => {
         if (!mountedRef.current || reqId !== docReqIdRef.current) return;
         setDocContent(null);
         setSpecialMeta(null);
         setFaqQuery(''); setFaqTags([]);
-        setLoadingDoc(false);                       // ✅ 실패 종료
+        setLoadingDoc(false);                       // 실패 종료
       });
   }
 
-  // 문서 fetch (id) — 루트 등 path가 0일 때 사용 권장
+  // 문서 fetch (id)
   async function fetchDocById(docId: number, opts?: { hideChrome?: boolean }) {
     const reqId = ++docReqIdRef.current;
-    setLoadingDoc(true);                             // ✅ 시작
+    setLoadingDoc(true);
     try {
       const r = await fetch(`/api/documents?id=${docId}`, { cache: 'no-store' });
       if (!r.ok) throw 0;
@@ -544,13 +544,13 @@ export default function WikiPageInner({ user }: Props) {
       setSelectedDocPath(docInList?.fullPath ?? (Number(data.path) === 0 ? [] : []));
       setHideDocChrome(!!opts?.hideChrome);
 
-      setLoadingDoc(false);                           // ✅ 성공 종료
+      setLoadingDoc(false);
     } catch {
       if (!mountedRef.current || reqId !== docReqIdRef.current) return;
       setDocContent(null);
       setSpecialMeta(null);
       setFaqQuery(''); setFaqTags([]);
-      setLoadingDoc(false);                           // ✅ 실패 종료
+      setLoadingDoc(false);
     }
   }
 
@@ -629,8 +629,7 @@ export default function WikiPageInner({ user }: Props) {
 
   const isFaq = specialMeta?.kind === 'faq';
 
-  // ✅ 초기 자동 오픈: 카테고리/문서 세팅 완료 후 "ID=73"을 지연 오픈
-  //    단, URL 파라미터(path,title)가 있으면 자동 오픈을 건너뜀
+  // ✅ 초기 자동 오픈: 카테고리/문서 세팅 완료 후 "ID=73"
   useEffect(() => {
     if (!firstLoadRef.current) return;
     if (!mountedRef.current) return;
@@ -649,7 +648,6 @@ export default function WikiPageInner({ user }: Props) {
 
     const id1 = requestAnimationFrame(() => {
       const id2 = requestAnimationFrame(() => {
-        // 🔴 여기서 확실하게 ID=73으로 연다
         openRootDocById(ROOT_FEATURED_DOC_ID);
       });
       (window as any).__wiki_root_open_cleanup = () => cancelAnimationFrame(id2);
@@ -680,14 +678,14 @@ export default function WikiPageInner({ user }: Props) {
 
       e.preventDefault();
       e.stopPropagation();
-      openRootDocById(ROOT_FEATURED_DOC_ID); // ← ID 73으로 연다
+      openRootDocById(ROOT_FEATURED_DOC_ID);
     };
 
     document.addEventListener('click', onClick, true);
     return () => document.removeEventListener('click', onClick, true);
   }, [allDocuments]);
 
-  const isLoadingView = loadingDoc || docContent === null; // ✅ 로딩 중/초기엔 제목·브레드크럼 숨김
+  const isLoadingView = loadingDoc || docContent === null;
 
   return (
     <div className="wiki-container">
@@ -731,12 +729,19 @@ export default function WikiPageInner({ user }: Props) {
                   setDocContent={setDocContent}
                 />
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                  {/* ✅ 모든 문서 공통: 문서 아이콘 + 제목 */}
+                  {/* 문서 아이콘 + 제목 */}
                   <h2 className="wiki-content-title-row wiki-content-title" style={{ margin: 0 }}>
                     <>
                       {currentDoc?.icon
                         ? (currentDoc.icon.startsWith('http')
-                            ? <img src={currentDoc.icon} alt="icon" className="wiki-doc-icon-img" />
+                            ? <img
+                                src={currentDoc.icon}
+                                alt="icon"
+                                className="wiki-doc-icon-img"
+                                loading="lazy"
+                                decoding="async"
+                                fetchPriority="low"
+                              />
                             : <span className="wiki-doc-icon-emoji">{currentDoc.icon}</span>)
                         : null}
                       <span className="wiki-title-color">{selectedDocTitle || '렌독 위키'}</span>
@@ -783,7 +788,6 @@ export default function WikiPageInner({ user }: Props) {
               ) : Array.isArray(docContent) && docContent.length > 0 ? (
                 <WikiReadRenderer content={docContent} />
               ) : (
-                // ✅ 모든 기타 상황도 로더로
                 <BookLoader />
               )}
 
@@ -833,7 +837,7 @@ export default function WikiPageInner({ user }: Props) {
   );
 }
 
-// -------- 새 질문 모달 --------
+// -------- 새 질문 모달 (미사용 시 제거 가능) --------
 function NewFaqModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void; }) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -920,7 +924,7 @@ function FaqAddButton({ onClick }: { onClick: () => void }) {
           display: inline-flex;
           overflow: hidden;
           background: #fff;
-          border: 1px solid #b7f0d0;   /* 약한 초록 테두리 */
+          border: 1px solid #b7f0d0;
           border-radius: 12px;
           box-shadow: 0 1px 0 rgba(16,185,129,0.06);
         }
@@ -930,7 +934,7 @@ function FaqAddButton({ onClick }: { onClick: () => void }) {
           gap: 8px;
           padding: 8px 12px;
           font-weight: 600;
-          color: #4b5563;              /* 텍스트는 중립 */
+          color: #4b5563;
           background: transparent;
           border: none;
           cursor: pointer;
@@ -938,7 +942,7 @@ function FaqAddButton({ onClick }: { onClick: () => void }) {
           height: 36px;
         }
         .faq-add-seg:hover {
-          background: #ecfdf5;         /* 연초록 hover */
+          background: #ecfdf5;
         }
         .faq-add-ic { width: 20px; height: 20px; }
         .faq-add-label { line-height: 1; }

@@ -1,3 +1,7 @@
+// =============================================
+// File: app/components/editor/Element.tsx
+// (에디터에서도 이미지 lazy/async, 외부 파비콘 호출 제거→인라인 아이콘)
+// =============================================
 'use client';
 
 import React, { useRef, useState, useEffect } from 'react';
@@ -38,6 +42,13 @@ const setWikiDocsAll = (rows: any[]) => {
   wikiDocsAll = rows;
   (globalThis as any)[WIKI_DOCS_ALL_KEY] = rows;
 };
+
+// 외부 링크용 인라인 아이콘
+const ExternalLinkIcon: React.FC<{ size?: number }> = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
+    <path d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42 9.3-9.29H14V3zM19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7z" fill="currentColor"/>
+  </svg>
+);
 
 // -------------------- 유틸 --------------------
 function getPriceBadgeColor(stage: string, _type?: string) {
@@ -99,7 +110,7 @@ const Element: React.FC<ElementProps> = ({
     // -------------------- 인라인 링크 --------------------
     case 'link': {
       return (
-        <a {...attributes} href={(element as any).url} style={{ color: '#2676ff' }}>
+        <a {...attributes} href={(element as any).url} style={{ color: '#2676ff' }} target="_blank" rel="noopener noreferrer nofollow">
           {children}
         </a>
       );
@@ -111,14 +122,12 @@ const Element: React.FC<ElementProps> = ({
       const isReadOnly = ReactEditor.isReadOnly(editor);
 
       let displaySitename = el.sitename;
-      let displayFavicon = el.favicon;
 
-      if (!el.isWiki && (!displaySitename || !displayFavicon)) {
+      if (!el.isWiki && !displaySitename) {
         try {
           const u = new URL(el.url);
           const host = u.hostname.replace(/^www\./, '');
           if (!displaySitename) displaySitename = host;
-          if (!displayFavicon) displayFavicon = `${u.protocol}//${u.hostname}/favicon.ico`;
         } catch {}
       }
 
@@ -140,7 +149,7 @@ const Element: React.FC<ElementProps> = ({
         (async () => {
           try {
             if (!wikiDocsAll) {
-              const res = await fetch('/api/documents?all=1');
+              const res = await fetch('/api/documents?all=1', { cache: 'force-cache' });
               const data = await res.json();
               setWikiDocsAll(Array.isArray(data) ? data : []);
             }
@@ -169,7 +178,7 @@ const Element: React.FC<ElementProps> = ({
 
       const isSmall = el.size === 'small' || (el as any).size === 'half';
 
-      // 부모가 link-block-row인지 여부에 따라 마진만 다르게
+      // 부모가 link-block-row인지 여부
       let inRow = false;
       try {
         const path = ReactEditor.findPath(editor, element);
@@ -179,7 +188,6 @@ const Element: React.FC<ElementProps> = ({
 
       const wrapperStyle: React.CSSProperties = isSmall
         ? {
-            // ✅ row로 래핑이 안 되어 있어도 2개가 옆으로 붙도록
             display: inRow ? 'block' : 'inline-block',
             verticalAlign: 'top',
             width: 'calc(50% - 6px)',
@@ -240,6 +248,9 @@ const Element: React.FC<ElementProps> = ({
                   <img
                     src={wikiIcon}
                     alt="doc icon"
+                    loading="lazy"
+                    decoding="async"
+                    fetchPriority="low"
                     style={{ width: 24, height: 24, marginRight: 8, objectFit: 'contain' }}
                   />
                 ) : (
@@ -247,16 +258,28 @@ const Element: React.FC<ElementProps> = ({
                 )
               ) : null
             ) : (
-              displayFavicon && (
-                <img src={displayFavicon} alt="favicon" style={{ width: 24, height: 24, marginRight: 8 }} />
-              )
+              // 외부 파비콘 네트워크 호출 제거 → 인라인 아이콘
+              <span
+                style={{
+                  width: 24,
+                  height: 24,
+                  marginRight: 8,
+                  display: 'inline-flex',
+                  alignItems:'center',
+                  justifyContent:'center',
+                  color:'#64748b'
+                }}
+                aria-hidden
+              >
+                <ExternalLinkIcon size={18} />
+              </span>
             )}
 
             {/* 타이틀/링크 */}
             <a
               href={el.url}
               target={el.isWiki ? undefined : '_blank'}
-              rel={el.isWiki ? undefined : 'noopener noreferrer'}
+              rel={el.isWiki ? undefined : 'noopener noreferrer nofollow'}
               style={{ color: '#0070f3', textDecoration: 'none', flexGrow: 1 }}
             >
               {el.isWiki ? el.wikiTitle || el.sitename || '문서' : displaySitename || el.url}
@@ -292,6 +315,9 @@ const Element: React.FC<ElementProps> = ({
               <img
                 src={el.icon}
                 alt="icon"
+                loading="lazy"
+                decoding="async"
+                fetchPriority="low"
                 style={{ width: '1.7em', height: '1.7em', verticalAlign: 'middle', marginRight: 6, objectFit: 'contain' }}
               />
             ) : (
@@ -472,6 +498,9 @@ const Element: React.FC<ElementProps> = ({
                 ref={imgRef}
                 src={el.url}
                 alt=""
+                loading="lazy"
+                decoding="async"
+                fetchPriority="low"
                 style={{
                   maxWidth: el.width ? el.width + 'px' : '90%',
                   height: el.height ? el.height + 'px' : 'auto',
@@ -506,7 +535,7 @@ const Element: React.FC<ElementProps> = ({
                     top: 8,
                     right: 8,
                     background: '#fff',
-                    border: '1.5px solid #2a90ff', // ✅ 따옴표 수정
+                    border: '1.5px solid #2a90ff',
                     borderRadius: '50%',
                     boxShadow: '0 1px 5px #0001',
                     width: 32,
@@ -548,6 +577,9 @@ const Element: React.FC<ElementProps> = ({
           <img
             src={el.url}
             alt=""
+            loading="lazy"
+            decoding="async"
+            fetchPriority="low"
             style={{ height: '3em', width: 'auto', display: 'inline', verticalAlign: 'middle', margin: '0 2px', borderRadius: 4 }}
           />
           {children}
@@ -842,6 +874,9 @@ const Element: React.FC<ElementProps> = ({
                         <img
                           src={item.image}
                           alt=""
+                          loading="lazy"
+                          decoding="async"
+                          fetchPriority="low"
                           style={{ width: 65, height: 65, objectFit: 'contain', borderRadius: 7, background: '#fff' }}
                         />
                       ) : (
@@ -921,7 +956,6 @@ const Element: React.FC<ElementProps> = ({
                       title="가격 수정"
                       onClick={e => {
                         e.stopPropagation();
-                        // ✅ 모달 열기 직전, 에디터/윈도우 스크롤 위치 캡처
                         window.dispatchEvent(new CustomEvent('editor:capture-scroll'));
                         setPriceTableEdit({ blockPath: path, idx, item: { ...item, mode: guessPriceMode(item) } });
                       }}
@@ -939,7 +973,7 @@ const Element: React.FC<ElementProps> = ({
       );
     }
 
-    // -------------------- 한 줄에 여러 링크 블록 (컨테이너) --------------------
+    // -------------------- 한 줄에 여러 링크 블록 --------------------
     case 'link-block-row': {
       return (
         <div

@@ -1,5 +1,6 @@
 // =============================================
 // File: app/wiki/lib/WikiReadRenderer.tsx
+// (이미지 lazy/async/fetchPriority 적용 + 외부 파비콘 네트워크 호출 제거)
 // =============================================
 /**
  * Slate JSON(Descendant[])을 React JSX로 렌더링하는 컴포넌트
@@ -32,6 +33,13 @@ function toHeadingIdFromText(text: string) {
     `untitled-${Math.random().toString(36).slice(2, 6)}`;
   return `heading-${slug}`;
 }
+
+/** 외부 링크용 인라인 아이콘 (파비콘 네트워크 호출 제거) */
+const ExternalLinkIcon: React.FC<{ size?: number }> = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable="false">
+    <path d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42 9.3-9.29H14V3zM19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7z" fill="currentColor"/>
+  </svg>
+);
 
 /** infobox 인라인 스타일 preset */
 function getInfoboxPreset(
@@ -117,16 +125,13 @@ function getInfoboxPreset(
 
 // ── 링크 블록 (읽기 전용) : Element.tsx와 동일 동작 ──────────────
 function LinkBlockView({ node, keyProp }: { node: any; keyProp: React.Key }) {
-  // 외부 링크: sitename, favicon 추론
+  // 외부 링크: sitename 추론 (파비콘은 네트워크 호출 제거)
   let displaySitename: string | undefined = node.sitename;
-  let displayFavicon: string | undefined = node.favicon;
 
-  if (!node.isWiki && (!displaySitename || !displayFavicon)) {
+  if (!node.isWiki && !displaySitename) {
     try {
       const u = new URL(node.url);
-      const host = u.hostname.replace(/^www\./, '');
-      if (!displaySitename) displaySitename = host;
-      if (!displayFavicon) displayFavicon = `${u.protocol}//${u.hostname}/favicon.ico`;
+      displaySitename = u.hostname.replace(/^www\./, '');
     } catch {}
   }
 
@@ -149,7 +154,7 @@ function LinkBlockView({ node, keyProp }: { node: any; keyProp: React.Key }) {
     (async () => {
       try {
         if (!wikiDocsAll) {
-          const res = await fetch('/api/documents?all=1');
+          const res = await fetch('/api/documents?all=1', { cache: 'force-cache' });
           const data = await res.json();
           setWikiDocsAll(Array.isArray(data) ? data : []);
         }
@@ -190,15 +195,26 @@ function LinkBlockView({ node, keyProp }: { node: any; keyProp: React.Key }) {
         <img
           src={wikiIcon}
           alt="doc icon"
+          loading="lazy"
+          decoding="async"
+          fetchPriority="low"
           style={{ width: 24, height: 24, marginRight: 8, objectFit: 'contain' }}
         />
       ) : (
         <span style={{ fontSize: 20, marginRight: 8, lineHeight: 1 }}>{wikiIcon}</span>
       );
     }
-  } else if (displayFavicon) {
+  } else {
+    // 외부 파비콘 네트워크 호출 제거 → 인라인 아이콘
     iconNode = (
-      <img src={displayFavicon} alt="favicon" style={{ width: 24, height: 24, marginRight: 8 }} />
+      <span
+        style={{
+          width: 24, height: 24, marginRight: 8,
+          display: 'inline-flex', alignItems:'center', justifyContent:'center', color:'#64748b'
+        }}
+      >
+        <ExternalLinkIcon size={18} />
+      </span>
     );
   }
 
@@ -221,7 +237,7 @@ function LinkBlockView({ node, keyProp }: { node: any; keyProp: React.Key }) {
         <a
           href={node.url}
           target={node.isWiki ? undefined : '_blank'}
-          rel={node.isWiki ? undefined : 'noopener noreferrer'}
+          rel={node.isWiki ? undefined : 'noopener noreferrer nofollow'}
           style={{ color: '#0070f3', textDecoration: 'none', flexGrow: 1 }}
         >
           {node.isWiki ? node.wikiTitle || node.sitename || '문서' : displaySitename || node.url}
@@ -298,6 +314,9 @@ function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key 
               <img
                 src={item.image}
                 alt=""
+                loading="lazy"
+                decoding="async"
+                fetchPriority="low"
                 style={{
                   width: 65,
                   height: 65,
@@ -546,15 +565,15 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
     case "paragraph": {
       const indentLine = node.indentLine;
 
-      // 🔧 에디터와 동일한 라인 높이 & 빈 단락 최소 높이 보장
-      const plainText = stripReact(children).replace(/\u200B/g, "").trim(); // zero-width 제거
+      // 에디터와 동일한 라인 높이 & 빈 단락 최소 높이 보장
+      const plainText = stripReact(children).replace(/\u200B/g, "").trim();
       const isEmpty = plainText.length === 0;
 
       const style: React.CSSProperties = {
         textAlign: node.textAlign || "left",
         margin: 0,
-        lineHeight: 1.6,                 // ✅ 에디터와 유사한 라인 높이
-        minHeight: isEmpty ? "1.6em" : undefined, // ✅ 빈 단락도 눈에 보이도록
+        lineHeight: 1.6,
+        minHeight: isEmpty ? "1.6em" : undefined,
       };
       if (indentLine) {
         style.borderLeft = "2px solid #aaa";
@@ -578,6 +597,9 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
             <img
               src={el.icon}
               alt="icon"
+              loading="lazy"
+              decoding="async"
+              fetchPriority="low"
               style={{
                 width: "1.7em",
                 height: "1.7em",
@@ -610,11 +632,11 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
           suppressHydrationWarning
           style={{
             fontSize,
-            textAlign: el.textAlign || 'left', // ✅ 정렬 적용
+            textAlign: el.textAlign || 'left',
             display: "flex",
             alignItems: "center",
             gap: 8,
-            justifyContent: justify,          // ✅ Flex 정렬 일치
+            justifyContent: justify,
             width: '100%'
           }}
         >
@@ -630,7 +652,7 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
           key={key}
           href={node.url}
           target="_blank"
-          rel="noopener noreferrer"
+          rel="noopener noreferrer nofollow"
           style={{ color: "#2676ff", textDecoration: "underline" }}
         >
           {children}
@@ -697,7 +719,7 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
       }
     }
 
-    // 링크 블록(박스형) – Element.tsx 동작과 동일
+    // 링크 블록(박스형)
     case "link-block": {
       return <LinkBlockView node={node} keyProp={key ?? ''} />;
     }
@@ -742,7 +764,7 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
       );
     }
 
-    // 이미지 블록 – Element.tsx와 같은 정렬 방식
+    // 이미지 블록
     case "image": {
       let justify: 'flex-start' | 'center' | 'flex-end' = 'center';
       if (node.textAlign === 'left') justify = 'flex-start';
@@ -763,6 +785,9 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
               <img
                 src={node.url}
                 alt=""
+                loading="lazy"
+                decoding="async"
+                fetchPriority="low"
                 style={{
                   maxWidth: node.width ? node.width + 'px' : '90%',
                   height: node.height ? node.height + 'px' : 'auto',
@@ -784,6 +809,9 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
           key={key}
           src={node.url}
           alt=""
+          loading="lazy"
+          decoding="async"
+          fetchPriority="low"
           style={{
             height: "1.6em",
             width: "auto",

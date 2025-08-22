@@ -1,18 +1,10 @@
 // =============================================
 // File: components/wiki/CategoryTree.tsx
-// (루트 문서 중 id===73만 숨기고, 로고 클릭 시 id===73 열기)
-// + 문서 정렬: order ASC -> title ASC
+// (대표 문서 우선 오픈, 이미지 lazy/async, 루트 문서 정렬 유지)
 // =============================================
 "use client";
 
 import React, { useRef, useLayoutEffect, useMemo, useEffect } from "react";
-
-/**
- * 위키 카테고리 트리 + 문서 목록
- * - 카테고리/문서 트리를 토글하며 표시
- * - StrictMode에서의 재마운트/가짜 닫힘에 대비해 닫힘 애니메이션을 안전하게 처리
- * - 접근성: 토글 버튼에 aria 속성 부여, 장식 아이콘은 스크린리더에서 숨김
- */
 
 type CategoryNode = {
   id: number;
@@ -30,7 +22,7 @@ type Document = {
   icon?: string;
   fullPath?: number[];
   is_featured?: boolean;
-  order?: number; // ← 정렬값(카테고리 내에서 사용)
+  order?: number;
 };
 
 type Props = {
@@ -73,21 +65,15 @@ function equalsPath(a?: number[] | null, b?: number[] | null) {
   return true;
 }
 
-// 문서 정렬 유틸: order ASC, 없으면 뒤로 → 같은 값이면 제목 ASC
+// 문서 정렬: order ASC → title ASC
 function sortDocs(a: Document, b: Document) {
-  const ao =
-    Number.isFinite(Number(a.order)) ? Number(a.order) : Number.POSITIVE_INFINITY;
-  const bo =
-    Number.isFinite(Number(b.order)) ? Number(b.order) : Number.POSITIVE_INFINITY;
+  const ao = Number.isFinite(Number(a.order)) ? Number(a.order) : Number.POSITIVE_INFINITY;
+  const bo = Number.isFinite(Number(b.order)) ? Number(b.order) : Number.POSITIVE_INFINITY;
   if (ao !== bo) return ao - bo;
   return String(a.title || "").localeCompare(String(b.title || ""), "ko");
 }
 
-/**
- * CollapsibleList
- * - prevOpen을 기억해서 "실제 전환"시에만 애니메이션 수행
- * - 닫힘 애니메이션은 isClosing=true인 경우에만 수행 (StrictMode 재마운트/가짜 닫힘 방지)
- */
+/** Collapsible wrapper */
 function CollapsibleList({
   isOpen,
   isClosing,
@@ -123,7 +109,7 @@ function CollapsibleList({
       if (isOpen) {
         el.style.height = "auto";
         el.style.opacity = "1";
-        el.style.overflow = "hidden"; // margin-collapsing 방지
+        el.style.overflow = "hidden";
       } else {
         el.style.height = "0px";
         el.style.opacity = "0";
@@ -146,8 +132,7 @@ function CollapsibleList({
       el.style.opacity = "0";
 
       requestAnimationFrame(() => {
-        el.style.transition =
-          D === 0 ? "" : `height ${D}ms ${E}, opacity 200ms ease`;
+        el.style.transition = D === 0 ? "" : `height ${D}ms ${E}, opacity 200ms ease`;
         el.style.height = full + "px";
         el.style.opacity = "1";
       });
@@ -161,9 +146,9 @@ function CollapsibleList({
         el.style.height = `${Math.ceil(frozen)}px`;
 
         const releaseToAuto = () => {
-          if (!prevOpenRef.current) return; // 이미 닫히는 중이면 스킵
+          if (!prevOpenRef.current) return;
           requestAnimationFrame(() => {
-            el.style.height = "auto"; // overflow는 계속 hidden
+            el.style.height = "auto";
           });
         };
 
@@ -197,8 +182,7 @@ function CollapsibleList({
       el.style.opacity = "1";
 
       requestAnimationFrame(() => {
-        el.style.transition =
-          D === 0 ? "" : `height ${D}ms ${E}, opacity 180ms ease`;
+        el.style.transition = D === 0 ? "" : `height ${D}ms ${E}, opacity 180ms ease`;
         el.style.height = "0px";
         el.style.opacity = "0";
       });
@@ -251,27 +235,23 @@ const CategoryTree: React.FC<Props> = ({
   // 숨길 루트 대표 문서 ID
   const HIDE_ROOT_DOC_ID = 73;
 
-  // 경로 문자열 키로 문서 배열 캐시 → O(1) 조회 (루트 제외)
-  // 🔁 배열 값은 order ASC로 정렬됨
+  // 카테고리별 문서 캐시 (루트 제외) + 정렬
   const docsByPath = useMemo(() => {
     const map = new Map<string, Document[]>();
     for (const doc of allDocuments) {
       if (doc.is_featured) continue;
       const fp = Array.isArray(doc.fullPath) ? doc.fullPath : [];
-      if (fp.length === 0) continue; // 루트 문서는 별도(rootDocs)에서 처리
+      if (fp.length === 0) continue;
       const key = pathToStr(fp);
       const arr = map.get(key);
       if (arr) arr.push(doc);
       else map.set(key, [doc]);
     }
-    // ✅ 정렬 적용
-    for (const [, arr] of map) {
-      arr.sort(sortDocs);
-    }
+    for (const [, arr] of map) arr.sort(sortDocs);
     return map;
   }, [allDocuments]);
 
-  // ✅ 루트([]) 문서들 — 대표 문서(id===73)만 제외 + order 정렬
+  // 루트([]) 문서들 — 대표(73) 제외 + 정렬
   const rootDocs = useMemo(
     () =>
       allDocuments
@@ -293,7 +273,6 @@ const CategoryTree: React.FC<Props> = ({
       const a = target?.closest("a") as HTMLAnchorElement | null;
       if (!a) return;
 
-      // 로고/홈으로 보이는 링크 패턴
       const href = a.getAttribute("href") || "";
       const looksLikeLogo =
         href === "/" ||
@@ -311,7 +290,6 @@ const CategoryTree: React.FC<Props> = ({
       e.preventDefault();
       e.stopPropagation();
 
-      // 루트 문서는 관례적으로 path=0로 전달해 서버 쿼리를 맞춤
       fetchDoc([0], rootRep.title, rootRep.id, { clearCategoryPath: true });
     };
 
@@ -327,13 +305,11 @@ const CategoryTree: React.FC<Props> = ({
       const key = pathToStr(currentPath);
       const docs = docsByPath.get(key) ?? [];
 
-      const open = isReallyOpen(currentPath); // 실열림
-      const closing = isClosing(currentPath); // 닫힘 중
-      const shouldRender = open || closing; // 닫힘 중에도 컨텐츠 유지
+      const open = isReallyOpen(currentPath);
+      const closing = isClosing(currentPath);
+      const shouldRender = open || closing;
 
       const isCategoryActive = equalsPath(selectedCategoryPath, currentPath);
-
-      // 접근성: 토글 대상 id 부여
       const panelId = `wiki-doc-list-${key}`;
 
       return (
@@ -345,16 +321,14 @@ const CategoryTree: React.FC<Props> = ({
               const currentPath = [...parentPath, node.id];
               const isOpenNow = isPathOpen(currentPath);
 
-              // ✅ 1) 대표 문서 우선 오픈 로직
+              // ✅ 대표 문서 우선 오픈
               if (node.document_id != null) {
                 const repId = Number(node.document_id);
                 const repFromList = allDocuments.find(d => d.id === repId);
                 const repIsOpen =
                   selectedDocId === repId && equalsPath(selectedDocPath, currentPath);
 
-                // 대표 문서가 아직 열려있지 않다면 → 대표 문서 먼저 열고 토글은 하지 않음
                 if (!repIsOpen) {
-                  // title 우선 확보 (목록에 없으면 API fallback)
                   let title = repFromList?.title;
                   if (!title) {
                     try {
@@ -368,13 +342,12 @@ const CategoryTree: React.FC<Props> = ({
 
                   if (title) {
                     fetchDoc(currentPath, title, repId, { clearCategoryPath: true });
-                    return; // 👈 토글 동작은 이 클릭에 적용하지 않음
+                    return; // 👈 펼침/접힘 적용하지 않음
                   }
-                  // 혹시 title을 못 구했으면 아래 토글 로직으로 폴백
                 }
               }
 
-              // ✅ 2) 일반 토글 로직 (대표 문서가 이미 열려있거나 없는 경우에만)
+              // ✅ 일반 토글
               if (node.document_id != null) {
                 if (isOpenNow) {
                   await closeTreeWithChildren(node, currentPath);
@@ -400,6 +373,9 @@ const CategoryTree: React.FC<Props> = ({
                     alt=""
                     aria-hidden="true"
                     className="wiki-category-icon-img"
+                    loading="lazy"
+                    decoding="async"
+                    fetchPriority="low"
                   />
                 ) : (
                   <span className="wiki-category-icon-emoji" aria-hidden="true">
@@ -449,7 +425,7 @@ const CategoryTree: React.FC<Props> = ({
           >
             {shouldRender && (
               <>
-                {/* 문서 목록 (order 정렬 적용됨) */}
+                {/* 문서 목록 */}
                 {docs.map((doc) => {
                   const isDocActive = selectedDocId === doc.id;
                   return (
@@ -468,6 +444,9 @@ const CategoryTree: React.FC<Props> = ({
                             src={doc.icon}
                             alt=""
                             aria-hidden="true"
+                            loading="lazy"
+                            decoding="async"
+                            fetchPriority="low"
                             style={{ width: "1em", verticalAlign: "middle" }}
                           />
                         ) : (
@@ -491,7 +470,7 @@ const CategoryTree: React.FC<Props> = ({
   return (
     <ul className="wiki-nav-list">
       {renderTree(categories)}
-      {/* ✅ 루트 문서: 대표(73)만 제외하고 카테고리와 동일한 버튼 스타일로 표시 (order 정렬 적용됨) */}
+      {/* ✅ 루트 문서: 대표(73)만 제외 + 정렬 */}
       {rootDocs.map((doc) => {
         const isDocActive = selectedDocId === doc.id;
         return (
@@ -499,7 +478,6 @@ const CategoryTree: React.FC<Props> = ({
             <button
               className={`wiki-nav-item ${isDocActive ? "active" : ""}`}
               onClick={() => {
-                // 루트 문서는 관례적으로 path=0로 전달
                 fetchDoc([0], doc.title, doc.id, { clearCategoryPath: true });
               }}
             >
@@ -511,6 +489,9 @@ const CategoryTree: React.FC<Props> = ({
                       alt=""
                       aria-hidden="true"
                       className="wiki-category-icon-img"
+                      loading="lazy"
+                      decoding="async"
+                      fetchPriority="low"
                     />
                   ) : (
                     <span className="wiki-category-icon-emoji" aria-hidden="true">

@@ -48,7 +48,9 @@ export async function POST(req: NextRequest) {
     const hasPath = Object.prototype.hasOwnProperty.call(body, 'path');
     const pathVal = body?.path;
 
-    if (!hasPath || !pathVal || !title) {
+    // ⚠️ path=0(숫자)도 허용하도록 체크 수정
+    const pathMissing = !hasPath || pathVal === null || pathVal === undefined || String(pathVal) === '';
+    if (pathMissing || !title) {
       return NextResponse.json({ error: 'path와 title은 필수입니다.' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
     }
 
@@ -79,7 +81,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // same path 마지막 order 계산
+      // 같은 path에서 다음 order
       const maxRow = await sql/*sql*/`
         SELECT COALESCE(MAX("order"), -1) + 1 AS next
         FROM documents
@@ -114,7 +116,7 @@ export async function POST(req: NextRequest) {
 
       created = true;
     }
-    // 기존 문서 수정
+    // 수정
     else {
       documentId = Number(idNum);
 
