@@ -14,7 +14,7 @@ import { Descendant, Text } from "slate";
 
 // ⬇️ 추가: CDN 치환/버전 유틸 + 최적화 이미지 컴포넌트
 import SmartImage from "@/components/common/SmartImage";
-import { cdn, withVersion } from "@/lib/cdn";
+import { cdn, withVersion } from "@lib/cdn";
 
 // ── Element.tsx와 동일한 전역 캐시 (HMR 안전) ─────────────────────
 const WIKI_ICON_CACHE_KEY = "__rdwiki_doc_icon_cache__";
