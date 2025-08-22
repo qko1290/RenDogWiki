@@ -1,37 +1,40 @@
 // File: app/components/common/SmartImage.tsx
-"use client";
-
+import React, { CSSProperties } from "react";
 import Image, { ImageProps } from "next/image";
-// CDN 유틸 이름/경로는 기존 것 그대로 사용하세요.
-import { toProxyUrl } from "@lib/cdn"; // or the function you exported (e.g., rewriteToCDN)
+import { toProxyUrl } from "@lib/cdn"; // 이미 추가해두신 함수
 
 type Props = Omit<ImageProps, "src" | "loader"> & {
   /** 원본(외부) 이미지 URL */
   src: string;
-  /** 강제로 최적화 우회(필요시) */
+  /** px 또는 CSS 값(e.g. "1rem"). 지정 시 style.borderRadius에 반영 */
+  rounded?: number | string;
+  /** Next Image 최적화 사용 비활성화 여부(필요 시) */
   unoptimized?: boolean;
 };
 
 export default function SmartImage({
   src,
+  rounded,
+  style,
   unoptimized,
-  alt,
-  loading,
-  ...rest // ✅ fetchPriority, sizes, className, width/height 등 전부 허용
+  ...rest
 }: Props) {
-  // 필요 시 CDN/프록시로 변환
-  const finalSrc = toProxyUrl ? toProxyUrl(src) : src;
+  const proxied = toProxyUrl(src);
+
+  const mergedStyle: CSSProperties = {
+    ...style,
+    ...(rounded !== undefined
+      ? { borderRadius: typeof rounded === "number" ? `${rounded}px` : rounded }
+      : {}),
+  };
 
   return (
     <Image
-      src={finalSrc}
-      alt={alt}
-      // 기본값: lazy + async 느낌 유지
-      loading={loading ?? "lazy"}
-      // next/image는 decoding prop이 없으므로 rest에 두지 않고 img 태그로 내려가지 않음
-      // (성능상 문제 없고 경고도 없음)
-      unoptimized={unoptimized}
       {...rest}
+      src={proxied}
+      style={mergedStyle}
+      // 로더는 사용하지 않음(도메인 허용과 proxy URL로 처리)
+      unoptimized={unoptimized}
     />
   );
 }
