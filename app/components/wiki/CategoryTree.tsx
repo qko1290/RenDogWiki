@@ -1,10 +1,11 @@
 // =============================================
 // File: components/wiki/CategoryTree.tsx
-// (대표 문서 우선 오픈, 이미지 lazy/async, 루트 문서 정렬 유지)
+// (대표 문서 우선 오픈, 이미지 lazy/async/CloudFront 우회, 루트 문서 정렬 유지)
 // =============================================
 "use client";
 
 import React, { useRef, useLayoutEffect, useMemo, useEffect } from "react";
+import SmartImage from "../common/SmartImage"; // ✅ 이미지 우회/최적화 공통 컴포넌트
 
 type CategoryNode = {
   id: number;
@@ -368,14 +369,17 @@ const CategoryTree: React.FC<Props> = ({
             <span className="wiki-category-main">
               <span className="wiki-cat-icon-token">
                 {node.icon?.startsWith("http") ? (
-                  <img
+                  // ✅ 외부 아이콘은 SmartImage 사용 (CloudFront 경유 + lazy/async)
+                  <SmartImage
                     src={node.icon}
                     alt=""
                     aria-hidden="true"
                     className="wiki-category-icon-img"
-                    loading="lazy"
-                    decoding="async"
+                    width={20}
+                    height={20}
                     fetchPriority="low"
+                    sizes="20px"
+                    style={{ width: 20, height: 20, objectFit: "contain" }}
                   />
                 ) : (
                   <span className="wiki-category-icon-emoji" aria-hidden="true">
@@ -440,14 +444,15 @@ const CategoryTree: React.FC<Props> = ({
                     >
                       <span style={{ marginRight: "0.3em" }}>
                         {doc.icon?.startsWith("http") ? (
-                          <img
+                          <SmartImage
                             src={doc.icon}
                             alt=""
                             aria-hidden="true"
-                            loading="lazy"
-                            decoding="async"
+                            width={16}
+                            height={16}
                             fetchPriority="low"
-                            style={{ width: "1em", verticalAlign: "middle" }}
+                            sizes="16px"
+                            style={{ width: "1em", height: "1em", verticalAlign: "middle" }}
                           />
                         ) : (
                           <span aria-hidden="true">{doc.icon || "📄"}</span>
@@ -484,14 +489,16 @@ const CategoryTree: React.FC<Props> = ({
               <span className="wiki-category-main">
                 <span className="wiki-cat-icon-token">
                   {doc.icon?.startsWith("http") ? (
-                    <img
+                    <SmartImage
                       src={doc.icon}
                       alt=""
                       aria-hidden="true"
                       className="wiki-category-icon-img"
-                      loading="lazy"
-                      decoding="async"
+                      width={20}
+                      height={20}
                       fetchPriority="low"
+                      sizes="20px"
+                      style={{ width: 20, height: 20, objectFit: "contain" }}
                     />
                   ) : (
                     <span className="wiki-category-icon-emoji" aria-hidden="true">
