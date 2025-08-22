@@ -1,0 +1,37 @@
+/** 전체 파일: lib/cdn.ts
+ * - S3 퍼블릭 URL을 CloudFront 도메인으로 치환
+ * - ?v= 파라미터로 캐시 무효화 지원
+ *
+ * 환경변수:
+ *   NEXT_PUBLIC_CDN_BASE = https://d1y7k8qotewoph.cloudfront.net
+ * (커스텀 도메인 연결 시 cdn.example.com 으로 변경)
+ */
+
+const CDN_DEFAULT = 'https://d1y7k8qotewoph.cloudfront.net';
+const CDN = process.env.NEXT_PUBLIC_CDN_BASE || CDN_DEFAULT;
+
+const S3_REGIONAL = 'https://rdwiki.s3.ap-northeast-2.amazonaws.com';
+const S3_GLOBAL   = 'https://rdwiki.s3.amazonaws.com';
+
+/** S3 퍼블릭 URL을 CloudFront CDN 도메인으로 치환 */
+export function cdn(url?: string | null): string {
+  if (!url) return '';
+  try {
+    if (url.startsWith(CDN)) return url;                   // 이미 CDN
+    if (url.startsWith(S3_REGIONAL)) return url.replace(S3_REGIONAL, CDN);
+    if (url.startsWith(S3_GLOBAL))   return url.replace(S3_GLOBAL, CDN);
+    return url; // 그 외(절대경로/타 도메인)는 그대로
+  } catch {
+    return url || '';
+  }
+}
+
+/** v 파라미터로 캐시 버스팅 (updatedAt, contentHash 등 전달) */
+export function withVersion(url: string, v?: string | number): string {
+  if (!url || !v) return url;
+  const u = new URL(url, 'https://dummy'); // 상대경로 방지용 베이스
+  u.searchParams.set('v', String(v));
+  return url.includes('://')
+    ? `${u.protocol}//${u.host}${u.pathname}?${u.searchParams.toString()}`
+    : `${u.pathname}?${u.searchParams.toString()}`;
+}

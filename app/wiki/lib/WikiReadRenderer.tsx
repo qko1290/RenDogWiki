@@ -1,6 +1,7 @@
 // =============================================
 // File: app/wiki/lib/WikiReadRenderer.tsx
 // (이미지 lazy/async/fetchPriority 적용 + 외부 파비콘 네트워크 호출 제거)
+// + CloudFront CDN 치환(cdn) 및 버전 파라미터(withVersion) 적용
 // =============================================
 /**
  * Slate JSON(Descendant[])을 React JSX로 렌더링하는 컴포넌트
@@ -10,6 +11,10 @@
 
 import React, { useEffect, useState } from "react";
 import { Descendant, Text } from "slate";
+
+// ⬇️ 추가: CDN 치환/버전 유틸 + 최적화 이미지 컴포넌트
+import SmartImage from "@/components/common/SmartImage";
+import { cdn, withVersion } from "@/lib/cdn";
 
 // ── Element.tsx와 동일한 전역 캐시 (HMR 안전) ─────────────────────
 const WIKI_ICON_CACHE_KEY = "__rdwiki_doc_icon_cache__";
@@ -193,7 +198,7 @@ function LinkBlockView({ node, keyProp }: { node: any; keyProp: React.Key }) {
     if (wikiIcon) {
       iconNode = wikiIcon.startsWith('http') ? (
         <img
-          src={wikiIcon}
+          src={cdn(wikiIcon)}
           alt="doc icon"
           loading="lazy"
           decoding="async"
@@ -312,7 +317,7 @@ function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key 
           const image =
             item.image ? (
               <img
-                src={item.image}
+                src={cdn(item.image)}
                 alt=""
                 loading="lazy"
                 decoding="async"
@@ -595,7 +600,7 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
         if (typeof el.icon === "string" && el.icon.startsWith("http")) {
           iconHtml = (
             <img
-              src={el.icon}
+              src={cdn(el.icon)}
               alt="icon"
               loading="lazy"
               decoding="async"
@@ -764,11 +769,17 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
       );
     }
 
-    // 이미지 블록
+    // 이미지 블록 (SmartImage로 최적화 + CDN/버전)
     case "image": {
       let justify: 'flex-start' | 'center' | 'flex-end' = 'center';
       if (node.textAlign === 'left') justify = 'flex-start';
       else if (node.textAlign === 'right') justify = 'flex-end';
+
+      const v = (node.updatedAt || node.version) as string | number | undefined;
+      const src = withVersion(cdn(node.url), v);
+
+      const w = node.width ? Number(node.width) : undefined;
+      const h = node.height ? Number(node.height) : undefined;
 
       return (
         <div key={key} style={{ margin: '16px 0' }}>
@@ -782,20 +793,14 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
             }}
           >
             <div style={{ position: 'relative', display: 'inline-block' }}>
-              <img
-                src={node.url}
+              <SmartImage
+                src={src}
                 alt=""
-                loading="lazy"
-                decoding="async"
-                fetchPriority="low"
-                style={{
-                  maxWidth: node.width ? node.width + 'px' : '90%',
-                  height: node.height ? node.height + 'px' : 'auto',
-                  borderRadius: 10,
-                  boxShadow: '0 2px 12px 0 #0001',
-                  background: '#fff',
-                  display: 'block'
-                }}
+                width={w}
+                height={h}
+                sizes="(max-width: 768px) 90vw, 60vw"
+                rounded={10}
+                style={{ boxShadow: '0 2px 12px 0 #0001', background: '#fff' }}
               />
             </div>
           </div>
@@ -807,7 +812,7 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
       return (
         <img
           key={key}
-          src={node.url}
+          src={cdn(node.url)}
           alt=""
           loading="lazy"
           decoding="async"
