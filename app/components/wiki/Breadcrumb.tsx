@@ -2,6 +2,7 @@
 // File: components/wiki/Breadcrumb.tsx
 // =============================================
 import React, { useMemo } from 'react';
+import { toProxyUrl } from '@lib/cdn';
 
 /**
  * 브레드크럼
@@ -79,14 +80,17 @@ const Breadcrumb: React.FC<Props> = ({
                 {item.icon &&
                   (isImageUrl(item.icon) ? (
                     <img
-                      src={item.icon}
+                      src={toProxyUrl(item.icon)}
                       alt=""
                       aria-hidden="true"
+                      loading="lazy"
+                      decoding="async"
                       style={{
                         width: 20,
                         height: 20,
                         marginRight: 5,
                         verticalAlign: 'middle',
+                        objectFit: 'contain',
                       }}
                     />
                   ) : (

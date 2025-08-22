@@ -1,5 +1,5 @@
 // =============================================
-// File: C:\next\rdwiki\app\components\wiki\NpcGrid.tsx
+// File: app/components/wiki/NpcGrid.tsx
 // =============================================
 /**
  * NPC 카드 그리드
@@ -9,6 +9,7 @@
  */
 
 import React from "react";
+import { toProxyUrl } from "@lib/cdn";
 
 export type Npc = {
   id: number;
@@ -77,8 +78,10 @@ export default function NpcGrid({ npcs, onClick, selectedNpcId }: Props) {
           >
             {isImageUrl(npc.icon) ? (
               <img
-                src={npc.icon}
+                src={toProxyUrl(npc.icon)}
                 alt={npc.name}
+                loading="lazy"
+                decoding="async"
                 style={{
                   width: 65,
                   height: 65,

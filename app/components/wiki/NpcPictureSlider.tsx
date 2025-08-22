@@ -1,9 +1,10 @@
 // =============================================
-// File: C:\next\rdwiki\app\components\wiki\NpcPictureSlider.tsx
+// File: app/components/wiki/NpcPictureSlider.tsx
 // =============================================
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { toProxyUrl } from '@lib/cdn';
 
 /**
  * NPC 사진 슬라이더
@@ -14,20 +15,23 @@ import React, { useEffect, useState } from 'react';
 const NpcPictureSlider = ({ pictures = [] }: { pictures: string[] }) => {
   const [idx, setIdx] = useState(0);
 
+  // ✅ 슬라이더에서 사용할 URL을 CloudFront로 미리 리라이트
+  const urls = useMemo(() => pictures.map((p) => toProxyUrl(p)), [pictures]);
+
   // pictures 변경 시 인덱스 안전화(리셋/클램프)
   useEffect(() => {
-    if (!pictures.length) {
+    if (!urls.length) {
       setIdx(0);
       return;
     }
-    if (idx >= pictures.length) setIdx(0);
-  }, [pictures, idx]);
+    if (idx >= urls.length) setIdx(0);
+  }, [urls, idx]);
 
-  if (!pictures.length) {
+  if (!urls.length) {
     return <div className="npc-picture-slider-empty">사진 없음</div>;
   }
 
-  const total = pictures.length;
+  const total = urls.length;
   const prev = () => setIdx(i => (i - 1 + total) % total);
   const next = () => setIdx(i => (i + 1) % total);
 
@@ -46,10 +50,11 @@ const NpcPictureSlider = ({ pictures = [] }: { pictures: string[] }) => {
       }}
     >
       <img
-        src={pictures[idx]}
+        src={urls[idx]}
         alt={`npc image ${idx + 1}/${total}`}
         className="npc-picture-img"
         loading="lazy"
+        decoding="async"
         draggable={false}
       />
 

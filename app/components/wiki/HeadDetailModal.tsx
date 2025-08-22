@@ -1,70 +1,129 @@
 // =============================================
-// File: components/wiki/HeadDetailModal.tsx
+// File: components/wiki/NpcDetailModal.tsx
 // =============================================
 'use client';
 
+import React, { useEffect } from 'react';
+import NpcPictureSlider from './NpcPictureSlider';
+import '@/wiki/css/wiki-detail-modal.css';
+import { toProxyUrl } from '@lib/cdn';
+
 /**
- * 머리(Head) 상세 모달
- * - 좌: 문서 아이콘 + 사진 슬라이더
- * - 우: 좌표(Pill UI)
- * - 배경 클릭 시 닫힘, 내부 클릭은 전파 차단
- * - body 스크롤 잠금 클래스(rd-modal-open) 적용/해제
+ * NPC/퀘스트 상세 모달
+ * - 좌측: 아이콘 + 사진 슬라이더
+ * - 우측: Pill UI(위치/퀘스트/보상/선행조건/대사)
+ * - backdrop 클릭으로 닫힘, 모달 열리는 동안 body 스크롤 잠금
  */
 
-import React, { useEffect } from "react";
-import NpcPictureSlider from "./NpcPictureSlider";
-import "@/wiki/css/wiki-detail-modal.css";
-
-export type Head = {
+type Reward = { icon?: string; text: string };
+export type Npc = {
   id: number;
-  order: number;
+  name: string;
+  icon: string;
+  pictures?: string[];
   location_x: number;
   location_y: number;
   location_z: number;
-  pictures?: string[];
+  line?: string;
+  quest?: string;
+  rewards?: Reward[];
+  requirement?: string;
 };
 
 type Props = {
-  head: Head;
-  /** 문서 아이콘(이모지 or URL). 없으면 🧭 사용 */
-  docIcon?: string;
+  npc: Npc;
   onClose: () => void;
+  /** 퀘스트 상세면 'quest', 일반 NPC면 'npc' (위치/대사만 표시) */
+  mode?: 'quest' | 'npc';
 };
 
-export default function HeadDetailModal({ head, docIcon, onClose }: Props) {
-  // 바디 스크롤 잠금 (NPC 모달과 동일)
+export default function NpcDetailModal({ npc, onClose, mode = 'quest' }: Props) {
+  // 바디 스크롤 잠금 (마운트/언마운트 시점만)
   useEffect(() => {
-    document.body.classList.add("rd-modal-open");
-    return () => document.body.classList.remove("rd-modal-open");
+    document.body.classList.add('rd-modal-open');
+    return () => document.body.classList.remove('rd-modal-open');
   }, []);
 
-  const headerIcon =
-    docIcon
-      ? (docIcon.startsWith("http")
-          ? <img src={docIcon} alt="icon" className="npc-modal-icon" />
-          : <span style={{ fontSize: 56 }}>{docIcon}</span>)
-      : <span style={{ fontSize: 56 }}>🧭</span>;
+  const isQuest = mode === 'quest';
 
   return (
     <div className="npc-modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
       <div className="npc-modal-main" onClick={(e) => e.stopPropagation()}>
-        {/* 좌측: 아이콘 + 사진 슬라이더 */}
+        {/* 좌측: 아이콘 + 사진 */}
         <div className="npc-modal-left">
           <div className="npc-modal-profile">
-            {headerIcon}
-            <div className="npc-modal-name">{head.order}번 머리</div>
+            {npc.icon?.startsWith('http') ? (
+              <img src={toProxyUrl(npc.icon)} alt="icon" className="npc-modal-icon" loading="lazy" decoding="async" />
+            ) : (
+              <span style={{ fontSize: 56 }}>{npc.icon || '🧑'}</span>
+            )}
+            <div className="npc-modal-name">{npc.name}</div>
           </div>
-          <NpcPictureSlider pictures={head.pictures || []} />
+          <NpcPictureSlider pictures={npc.pictures || []} />
         </div>
 
-        {/* 우측: Pill UI (위치만 필요) */}
+        {/* 우측: Pill UI */}
         <div className="npc-modal-right">
+          {/* 위치: 공통 */}
           <div className="mgr-pill-row">
             <span className="mgr-pill-label">위치</span>
             <span className="mgr-pill-value">
               <span className="quest-detail-loc">
-                ( {head.location_x}, {head.location_y}, {head.location_z} )
+                ( {npc.location_x}, {npc.location_y}, {npc.location_z} )
               </span>
+            </span>
+          </div>
+
+          {/* 퀘스트 전용 필드들 */}
+          {isQuest && (
+            <>
+              <div className="mgr-pill-row">
+                <span className="mgr-pill-label">퀘스트</span>
+                <span className="mgr-pill-value">
+                  {npc.quest?.trim() ? npc.quest : <span className="mgr-placeholder">-</span>}
+                </span>
+              </div>
+
+              <div className="mgr-pill-row">
+                <span className="mgr-pill-label">보상</span>
+                <span className="mgr-pill-value" style={{ flexWrap: 'wrap' }}>
+                  {Array.isArray(npc.rewards) && npc.rewards.length > 0 ? (
+                    npc.rewards.map((rw, i) => (
+                      <span key={i} className="mgr-chip">
+                        {rw.icon ? (
+                          rw.icon.startsWith('http') ? (
+                            <img src={toProxyUrl(rw.icon)} alt="" loading="lazy" decoding="async" />
+                          ) : (
+                            <span className="mgr-chip-emoji">{rw.icon}</span>
+                          )
+                        ) : null}
+                        <span>{rw.text}</span>
+                      </span>
+                    ))
+                  ) : (
+                    <span className="mgr-placeholder">-</span>
+                  )}
+                </span>
+              </div>
+
+              <div className="mgr-pill-row">
+                <span className="mgr-pill-label">선행조건</span>
+                <span className="mgr-pill-value">
+                  {npc.requirement?.trim() ? npc.requirement : <span className="mgr-placeholder">-</span>}
+                </span>
+              </div>
+            </>
+          )}
+
+          {/* 대사: 공통 (멀티라인/상단 정렬) */}
+          <div className="mgr-pill-row mgr-pill-row--multi">
+            <span className="mgr-pill-label">대사</span>
+            <span className="mgr-pill-value">
+              {npc.line?.trim() ? (
+                <span style={{ whiteSpace: 'pre-wrap' }}>{npc.line}</span>
+              ) : (
+                <span className="mgr-placeholder">- 대사 없음 -</span>
+              )}
             </span>
           </div>
         </div>

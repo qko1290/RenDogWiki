@@ -2,6 +2,7 @@
 // File: components/wiki/HeadGrid.tsx
 // =============================================
 import React from "react";
+import { toProxyUrl } from "@lib/cdn";
 
 /**
  * 머리(Head) 카드 그리드
@@ -55,8 +56,10 @@ export default function HeadGrid({ heads, onClick, selectedHeadId }: Props) {
         >
           {Array.isArray(head.pictures) && head.pictures.length > 0 ? (
             <img
-              src={head.pictures[0]}
+              src={toProxyUrl(head.pictures[0])}
               alt={`${head.order}번 머리`}
+              loading="lazy"
+              decoding="async"
               style={{
                 width: 45,
                 height: 45,
