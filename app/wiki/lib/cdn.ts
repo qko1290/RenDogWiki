@@ -12,6 +12,8 @@ const CDN = process.env.NEXT_PUBLIC_CDN_BASE || 'https://d1y7k8qotewoph.cloudfro
 
 const S3_REGIONAL = 'https://rdwiki.s3.ap-northeast-2.amazonaws.com';
 const S3_GLOBAL   = 'https://rdwiki.s3.amazonaws.com';
+const CF_HOST = 'd1y7k8qotewoph.cloudfront.net';            // CloudFront 도메인
+const S3_HOST = 'rendog-wiki-images.s3.amazonaws.com';      // S3 도메인
 
 /** S3 퍼블릭 URL을 CloudFront CDN 도메인으로 치환 */
 export function cdn(url?: string | null): string {
@@ -28,4 +30,18 @@ export function withVersion(url: string, v?: string | number): string {
   return url.includes('://')
     ? `${u.protocol}//${u.host}${u.pathname}?${u.searchParams.toString()}`
     : `${u.pathname}?${u.searchParams.toString()}`;
+}
+
+export function toProxyUrl(src: string): string {
+  try {
+    const u = new URL(src);
+    if (u.hostname === S3_HOST) {
+      u.hostname = CF_HOST;
+      return u.toString();
+    }
+    return src;
+  } catch {
+    // src가 절대 URL이 아니면 그대로 사용
+    return src;
+  }
 }
