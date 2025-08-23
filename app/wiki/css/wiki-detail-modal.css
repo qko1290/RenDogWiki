@@ -16,7 +16,7 @@
 /* 모달 본체: 가로/컬럼 고정 */
 .npc-modal-main{
   width: 980px;
-  height: 580px;
+  min-height: 500px;
   background: #fff;
   border-radius: 24px;
   box-shadow: 0 12px 48px rgba(0,0,0,.18);
@@ -33,7 +33,6 @@
   height: auto;
   background: #f7f9fc;
   border-right: 1px solid #eef1f6;
-  padding: 16px;                    /* 내부 패딩 고정 */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -96,7 +95,7 @@
 
 /* ───────── 우측 영역(정보 폼) ───────── */
 .npc-modal-right{
-  width: 360px;                    /* 컬럼 너비와 동일 */
+  width: 520px;                    /* 컬럼 너비와 동일 */
   padding: 16px;                   /* 내부 패딩 고정 */
   display: flex;
   flex-direction: column;
@@ -123,8 +122,8 @@ body.rd-modal-open{ overflow: hidden; }
 /* ───────── 우측 Pill 고정 레이아웃 ───────── */
 .npc-modal-right .mgr-pill-row{
   width: 520px;
-  height: 54px;
-  padding: 6px 10px;
+  height: 44px;
+  padding: 4px 8px;
   background:#fff;
   border:1px solid #e7eef6;
   border-radius:18px;
@@ -141,11 +140,11 @@ body.rd-modal-open{ overflow: hidden; }
   padding: 12px 14px;
 }
 .npc-modal-right .mgr-pill-label{
-  height: 40px;                    /* 라벨 높이 고정 */
+  height: 34px;                    /* 라벨 높이 고정 */
   display:flex; align-items:center; justify-content:center;
-  padding:0 0px;
+  padding: 0 0px;
   border-radius:999px;
-  color:#2a5fb7; font-weight:800; font-size:14px;
+  color:#2a5fb7; font-weight:800; font-size:13px;
   background:linear-gradient(180deg,#f2f7ff,#eaf2ff);
   border:1px solid #dbe8ff;
 }
@@ -187,13 +186,15 @@ body.rd-modal-open{ overflow: hidden; }
 /* 퀘스트 전용: 내용이 길면 높이 자동 확장 */
 .npc-modal-right .mgr-pill-row--quest {
   height: auto;              /* 고정 높이 제거 */
-  min-height: 54px;          /* 기본 최소 높이는 유지 */
-  align-items: flex-start;
-  padding: 10px 12px;
+  min-height: 38px;          /* 기본 최소 높이는 유지 */
+  align-items: center;
+  padding: 4px 8px;
 }
 
 .npc-modal-right .mgr-pill-row--quest .mgr-pill-value {
   white-space: pre-wrap;     /* 줄바꿈 반영 */
-  overflow: visible;         /* 잘리지 않도록 */
+  overflow: hidden;          /* 잘리지 않도록 */
   line-height: 1.55;
+  display: flex;
+  align-items: center;
 }
