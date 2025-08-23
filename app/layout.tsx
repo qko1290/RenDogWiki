@@ -72,9 +72,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko" suppressHydrationWarning>
-      <body className={inter.className}>
-        {children}
-      </body>
+      <head>
+        <meta name="mobile-web-app-capable" content="yes" />
+      </head>
+      <body className={inter.className}>{children}</body>
     </html>
   );
 }
