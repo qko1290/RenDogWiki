@@ -5,6 +5,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import WikiHeader from '@/components/common/Header';
 import { ModalCard } from '@/components/common/RdModal';
 import ImageSelectModal from '@/components/image/ImageSelectModal';
+import { toProxyUrl } from '@lib/cdn';
 
 import {
   SectionHeader,
@@ -373,7 +374,13 @@ export default function NpcManager() {
             </div>
             <div className="mgr-icon-preview">
               {villageIcon?.startsWith('http') ? (
-                <img src={villageIcon} className="rd-preview" alt="icon" />
+                <img
+                  src={toProxyUrl(villageIcon)}
+                  className="rd-preview"
+                  alt="icon"
+                  loading="lazy"
+                  decoding="async"
+                />
               ) : (
                 <span className="mgr-icon-placeholder">미리보기</span>
               )}
@@ -614,9 +621,16 @@ export default function NpcManager() {
                 <span className="mgr-pill-label">사진</span>
                 <span className="mgr-pill-value">
                   {npcPictures.length ? (
-                    npcPictures
-                      .slice(0, 6)
-                      .map((url, i) => <img key={url + i} src={url} alt="" className="mgr-pill-pic" />)
+                    npcPictures.slice(0, 6).map((url, i) => (
+                      <img
+                        key={url   + i}
+                        src={toProxyUrl(url)}
+                        alt=""
+                        className="mgr-pill-pic"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    ))
                   ) : (
                     <span className="mgr-placeholder">사진 없음</span>
                   )}
@@ -789,12 +803,15 @@ export default function NpcManager() {
           {npcPictures.length === 0 && <span className="rd-muted">등록된 사진이 없습니다.</span>}
           {npcPictures.map((url, idx) => (
             <div key={url + idx} className="rd-thumb">
-              <img src={url} alt={`npc-pic-${idx}`} />
+              <img
+                src={toProxyUrl(url)}
+                alt={`npc-pic-${idx}`}
+                loading="lazy"
+                decoding="async"
+              />
               <button
                 className="rd-thumb-x"
-                onClick={() =>
-                  setNpcPictures(npcPictures.filter((_, i) => i !== idx))
-                }
+                onClick={() => setNpcPictures(npcPictures.filter((_, i) => i !== idx))}
                 title="삭제"
                 aria-label={`사진 ${idx + 1} 삭제`}
               >
@@ -899,7 +916,12 @@ export default function NpcManager() {
             </div>
             <div className="mgr-icon-preview">
               {editVillageIcon?.startsWith('http') ? (
-                <img src={editVillageIcon} alt="icon" />
+                <img
+                  src={toProxyUrl(editVillageIcon)}
+                  alt="icon"
+                  loading="lazy"
+                  decoding="async"
+                />
               ) : (
                 <span className="mgr-icon-placeholder">미리보기</span>
               )}
@@ -922,7 +944,12 @@ export default function NpcManager() {
             </div>
             <div className="mgr-icon-preview">
               {editVillageHeadIcon?.startsWith('http') ? (
-                <img src={editVillageHeadIcon} alt="head_icon" />
+                <img
+                  src={toProxyUrl(editVillageHeadIcon)}
+                  alt="head_icon"
+                  loading="lazy"
+                  decoding="async"
+                />
               ) : (
                 <span className="mgr-icon-placeholder">미리보기</span>
               )}

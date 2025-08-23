@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import WikiHeader from '@/components/common/Header';
 import { ModalCard } from '@/components/common/RdModal';
 import ImageSelectModal from '@/components/image/ImageSelectModal';
+import { toProxyUrl } from '@lib/cdn';
 
 import { SectionHeader, EmptyState, IconCell, SortableList, DetailTitle } from '@/components/manager';
 
@@ -341,7 +342,7 @@ export default function HeadManager() {
             </div>
             <div className="mgr-icon-preview">
               {villageIcon?.startsWith('http')
-                ? <img src={villageIcon} alt="icon" />
+                ? <img src={toProxyUrl(villageIcon)} alt="icon" loading="lazy" decoding="async" />
                 : <span className="mgr-icon-placeholder">미리보기</span>}
             </div>
           </div>
@@ -356,7 +357,7 @@ export default function HeadManager() {
             </div>
             <div className="mgr-icon-preview">
               {villageHeadIcon?.startsWith('http')
-                ? <img src={villageHeadIcon} alt="head_icon" />
+                ? <img src={toProxyUrl(villageHeadIcon)} alt="head_icon" loading="lazy" decoding="async" />
                 : <span className="mgr-icon-placeholder">미리보기</span>}
             </div>
           </div>
@@ -419,7 +420,7 @@ export default function HeadManager() {
             </div>
             <div className="mgr-icon-preview">
               {editVillageIcon?.startsWith('http')
-                ? <img src={editVillageIcon} alt="icon" />
+                ? <img src={toProxyUrl(editVillageIcon)} alt="icon" loading="lazy" decoding="async" />
                 : <span className="mgr-icon-placeholder">미리보기</span>}
             </div>
           </div>
@@ -434,7 +435,7 @@ export default function HeadManager() {
             </div>
             <div className="mgr-icon-preview">
               {editVillageHeadIcon?.startsWith('http')
-                ? <img src={editVillageHeadIcon} alt="head_icon" />
+                ? <img src={toProxyUrl(editVillageHeadIcon)} alt="head_icon" loading="lazy" decoding="async" />
                 : <span className="mgr-icon-placeholder">미리보기</span>}
             </div>
           </div>
@@ -491,7 +492,12 @@ export default function HeadManager() {
             {tmpPictures.length === 0 && <span className="rd-muted">등록된 사진이 없습니다.</span>}
             {tmpPictures.map((url, idx) => (
               <div key={url + idx} className="rd-thumb">
-                <img src={url} alt={`head-tmp-${idx}`} />
+                <img
+                  src={toProxyUrl(url)}
+                  alt={`head-tmp-${idx}`}
+                  loading="lazy"
+                  decoding="async"
+                />
                 <button
                   className="rd-thumb-x"
                   onClick={() => setTmpPictures(tmpPictures.filter((_, i) => i !== idx))}
@@ -677,7 +683,14 @@ export default function HeadManager() {
                 <span className="mgr-pill-value">
                   {normalizePics(selectedHead.pictures).length ? (
                     normalizePics(selectedHead.pictures).slice(0, 6).map((url, i) => (
-                      <img key={url + i} src={url} alt="" className="mgr-pill-pic" />
+                      <img
+                        key={url + i}
+                        src={toProxyUrl(url)}
+                        alt=""
+                        className="mgr-pill-pic"
+                        loading="lazy"
+                        decoding="async"
+                      />
                     ))
                   ) : (
                     <span className="mgr-placeholder">사진 없음</span>
@@ -731,7 +744,12 @@ export default function HeadManager() {
             {editPics.length === 0 && <span className="rd-muted">등록된 사진이 없습니다.</span>}
             {editPics.map((url, idx) => (
               <div key={url + idx} className="rd-thumb">
-                <img src={url} alt={`head-pic-${idx}`} />
+                <img
+                  src={toProxyUrl(url)}
+                  alt={`head-pic-${idx}`}
+                  loading="lazy"
+                  decoding="async"
+                />
                 <button
                   className="rd-thumb-x"
                   onClick={() => setEditPics(editPics.filter((_, i) => i !== idx))}
