@@ -14,6 +14,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { toProxyUrl } from '@lib/cdn';
 
 // ----- 타입 -----
 type Category = {
@@ -99,9 +100,14 @@ function Tree({
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 {node.icon?.startsWith('http') ? (
                   <img
-                    src={node.icon}
+                    src={toProxyUrl(node.icon)}
                     alt="icon"
-                    style={{ width: 18, height: 18, objectFit: 'cover', borderRadius: 4 }}
+                    width={18}
+                    height={18}
+                    loading="lazy"
+                    decoding="async"
+                    draggable={false}
+                    style={{ width: 18, height: 18, objectFit: 'cover', borderRadius: 4, display: 'block' }}
                   />
                 ) : (
                   <span style={{ fontSize: 16 }}>{node.icon ?? ''}</span>
@@ -112,6 +118,7 @@ function Tree({
               {/* 오른쪽: 토글 화살표 */}
               {hasChildren && (
                 <button
+                  type="button"
                   style={{
                     border: 'none',
                     background: 'none',
@@ -124,6 +131,7 @@ function Tree({
                     e.stopPropagation();
                     onToggle(node.id);
                   }}
+                  aria-label={isOpen ? '하위 카테고리 접기' : '하위 카테고리 펼치기'}
                 >
                   {isOpen ? '▼' : '▶'}
                 </button>
@@ -307,9 +315,13 @@ export default function WikiLinkModal({
         alignItems: 'center',
         justifyContent: 'center',
       }}
+      aria-hidden={!open}
     >
       <div
         id="wiki-link-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="내부 문서 링크 선택"
         style={{
           background: '#fff',
           borderRadius: 16,
@@ -336,7 +348,9 @@ export default function WikiLinkModal({
         >
           내부 문서 링크 선택
           <button
+            type="button"
             onClick={onClose}
+            aria-label="모달 닫기"
             style={{
               background: '#f2f2f2',
               border: 'none',
@@ -387,6 +401,7 @@ export default function WikiLinkModal({
                 borderRadius: 7,
                 background: '#fcfcfc',
               }}
+              aria-label="문서 제목 검색"
             />
 
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
@@ -419,19 +434,26 @@ export default function WikiLinkModal({
                           onSelect(doc);
                         }}
                         title={selected ? '선택됨' : '클릭하여 선택(최대 2개)'}
+                        aria-selected={selected}
                       >
                         {/* 아이콘 */}
                         <span style={{ marginRight: 6 }}>
                           {doc.icon?.startsWith('http') ? (
                             <img
-                              src={doc.icon}
+                              src={toProxyUrl(doc.icon)}
                               alt="icon"
+                              width={18}
+                              height={18}
+                              loading="lazy"
+                              decoding="async"
+                              draggable={false}
                               style={{
                                 width: 18,
                                 height: 18,
                                 objectFit: 'cover',
                                 borderRadius: 4,
                                 verticalAlign: 'middle',
+                                display: 'block',
                               }}
                             />
                           ) : (
@@ -486,6 +508,7 @@ export default function WikiLinkModal({
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button
+                  type="button"
                   onClick={handleConfirmOne}
                   disabled={selectedDocIds.length !== 1}
                   style={{
@@ -500,11 +523,13 @@ export default function WikiLinkModal({
                     opacity: selectedDocIds.length === 1 ? 1 : 0.6,
                   }}
                   title="한 개 삽입"
+                  aria-disabled={selectedDocIds.length !== 1}
                 >
                   선택(1개)
                 </button>
 
                 <button
+                  type="button"
                   onClick={handleConfirmPair}
                   disabled={selectedDocIds.length !== 2}
                   style={{
@@ -519,6 +544,7 @@ export default function WikiLinkModal({
                     opacity: selectedDocIds.length === 2 ? 1 : 0.6,
                   }}
                   title="선택한 2개를 절반 카드로 삽입"
+                  aria-disabled={selectedDocIds.length !== 2}
                 >
                   절반 2개 삽입
                 </button>

@@ -5,6 +5,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
+import { toProxyUrl } from '@lib/cdn';
 
 /**
  * 간단한 썸네일 그리드
@@ -63,46 +64,52 @@ export function PictureGrid({
 
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap }}>
-      {items.map((url, idx) => (
-        <div key={`${idx}-${url}`} style={{ position: 'relative' }}>
-          <img
-            src={url}
-            alt={`pic-${idx}`}
-            loading="lazy"
-            decoding="async"
-            draggable={false}
-            style={{
-              width: size,
-              height: size,
-              objectFit: 'cover',
-              borderRadius: 8,
-              border: '1px solid #ccc',
-            }}
-          />
-          {onRemove && (
-            <button
-              type="button"
-              onClick={() => onRemove(idx)}
-              aria-label={`사진 ${idx + 1} 삭제`}
-              title="삭제"
+      {items.map((url, idx) => {
+        const src = url?.startsWith('http') ? toProxyUrl(url) : url;
+        return (
+          <div key={`${idx}-${url}`} style={{ position: 'relative' }}>
+            <img
+              src={src}
+              alt={`pic-${idx + 1}`}
+              width={size}
+              height={size}
+              loading="lazy"
+              decoding="async"
+              draggable={false}
               style={{
-                position: 'absolute',
-                top: -8,
-                right: -8,
-                border: 'none',
-                background: '#fff',
-                borderRadius: '50%',
-                width: 24,
-                height: 24,
-                boxShadow: '0 1px 4px #0002',
-                cursor: 'pointer',
+                width: size,
+                height: size,
+                objectFit: 'cover',
+                borderRadius: 8,
+                border: '1px solid #ccc',
+                display: 'block',
               }}
-            >
-              ✕
-            </button>
-          )}
-        </div>
-      ))}
+            />
+            {onRemove && (
+              <button
+                type="button"
+                onClick={() => onRemove(idx)}
+                aria-label={`사진 ${idx + 1} 삭제`}
+                title="삭제"
+                style={{
+                  position: 'absolute',
+                  top: -8,
+                  right: -8,
+                  border: 'none',
+                  background: '#fff',
+                  borderRadius: '50%',
+                  width: 24,
+                  height: 24,
+                  boxShadow: '0 1px 4px #0002',
+                  cursor: 'pointer',
+                }}
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        );
+      })}
 
       {onAddClick && (
         <button

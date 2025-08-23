@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faAlignLeft } from '@fortawesome/free-solid-svg-icons';
+import { toProxyUrl } from '@lib/cdn';
 
 type Heading = {
   text: string;
@@ -163,6 +164,8 @@ export default function TableOfContents({
     boxShadow: '0 2px 14px rgba(0,0,0,.05)',
     padding: '12px 10px',
     zIndex: 50,
+    maxHeight: `calc(100vh - ${top + 20}px)`,
+    overflowY: 'auto',
   };
   const listStyle: React.CSSProperties = { listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 2 };
   const iconBox: React.CSSProperties = { width: 18, height: 18, display: 'grid', placeItems: 'center', flex: '0 0 auto', marginRight: 8 };
@@ -170,11 +173,11 @@ export default function TableOfContents({
   const textStyle: React.CSSProperties = { fontSize: 13.5, fontWeight: 600, letterSpacing: '-0.15px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
 
   if (!indexed.length) {
-    return <aside style={{ ...boxStyle, display: 'grid', placeItems: 'center', color: '#9aa1ad' }}>목차 없음</aside>;
+    return <aside role="navigation" aria-label="Table of contents" style={{ ...boxStyle, display: 'grid', placeItems: 'center', color: '#9aa1ad' }}>목차 없음</aside>;
   }
 
   return (
-    <aside style={boxStyle} aria-label="Table of contents">
+    <aside role="navigation" aria-label="Table of contents" style={boxStyle}>
       <p style={titleStyle}><FontAwesomeIcon icon={faAlignLeft} />&nbsp;&nbsp;{title}</p>
       <ul style={listStyle}>
         {indexed.map((h, i) => {
@@ -183,6 +186,7 @@ export default function TableOfContents({
           return (
             <li key={`${h.id}-${h.__occ}-${i}`}>
               <button
+                type="button"
                 onClick={() => scrollToId(h.id, h.__occ)}
                 title={h.text}
                 aria-current={active ? 'true' : undefined}
@@ -197,7 +201,16 @@ export default function TableOfContents({
               >
                 <span style={iconBox} aria-hidden>
                   {h.icon?.startsWith('http') ? (
-                    <img src={h.icon} alt="" style={{ width: 16, height: 16, objectFit: 'contain', display: 'block' }} />
+                    <img
+                      src={toProxyUrl(h.icon)}
+                      alt=""
+                      width={16}
+                      height={16}
+                      loading="lazy"
+                      decoding="async"
+                      draggable={false}
+                      style={{ width: 16, height: 16, objectFit: 'contain', display: 'block' }}
+                    />
                   ) : h.icon ? (
                     <span style={{ fontSize: 14, lineHeight: 1, display: 'block' }}>{h.icon}</span>
                   ) : null}

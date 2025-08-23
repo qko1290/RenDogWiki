@@ -17,6 +17,7 @@ import { Node, Transforms, Path, Editor, Element as SlateElement } from 'slate';
 import { getHeadingId } from './helpers/getHeadingId';
 import ImageSizeModal from './ImageSizeModal';
 import ImageSelectModal from '@/components/image/ImageSelectModal';
+import { toProxyUrl } from '@lib/cdn';
 import type {
   InlineMarkElement,
   InlineImageElement,
@@ -110,7 +111,13 @@ const Element: React.FC<ElementProps> = ({
     // -------------------- 인라인 링크 --------------------
     case 'link': {
       return (
-        <a {...attributes} href={(element as any).url} style={{ color: '#2676ff' }} target="_blank" rel="noopener noreferrer nofollow">
+        <a
+          {...attributes}
+          href={(element as any).url}
+          style={{ color: '#2676ff' }}
+          target="_blank"
+          rel="noopener noreferrer nofollow"
+        >
           {children}
         </a>
       );
@@ -246,12 +253,15 @@ const Element: React.FC<ElementProps> = ({
               wikiIcon ? (
                 wikiIcon.startsWith('http') ? (
                   <img
-                    src={wikiIcon}
+                    src={toProxyUrl(wikiIcon)}
                     alt="doc icon"
+                    width={24}
+                    height={24}
                     loading="lazy"
                     decoding="async"
                     fetchPriority="low"
-                    style={{ width: 24, height: 24, marginRight: 8, objectFit: 'contain' }}
+                    style={{ width: 24, height: 24, marginRight: 8, objectFit: 'contain', display: 'block' }}
+                    draggable={false}
                   />
                 ) : (
                   <span style={{ fontSize: 20, marginRight: 8, lineHeight: 1 }}>{wikiIcon}</span>
@@ -313,15 +323,20 @@ const Element: React.FC<ElementProps> = ({
           >
             {el.icon?.startsWith('http') ? (
               <img
-                src={el.icon}
+                src={toProxyUrl(el.icon)}
                 alt="icon"
+                width={28}
+                height={28}
                 loading="lazy"
                 decoding="async"
                 fetchPriority="low"
-                style={{ width: '1.7em', height: '1.7em', verticalAlign: 'middle', marginRight: 6, objectFit: 'contain' }}
+                style={{ width: '1.7em', height: '1.7em', verticalAlign: 'middle', marginRight: 6, objectFit: 'contain', display: 'block' }}
+                draggable={false}
               />
             ) : (
-              <span style={{ fontSize: '1.5em', marginRight: 6 }}>{el.icon || (level === 1 ? '📌' : level === 2 ? '🔖' : '📝')}</span>
+              <span style={{ fontSize: '1.5em', marginRight: 6 }}>
+                {el.icon || (level === 1 ? '📌' : level === 2 ? '🔖' : '📝')}
+              </span>
             )}
           </span>
           <span style={{ display: 'inline' }}>{children}</span>
@@ -480,6 +495,8 @@ const Element: React.FC<ElementProps> = ({
         setModalOpen(false);
       };
 
+      const imgSrc = typeof el.url === 'string' && el.url.startsWith('http') ? toProxyUrl(el.url) : el.url;
+
       return (
         <div {...attributes} style={{ margin: '16px 0' }}>
           <div
@@ -488,7 +505,7 @@ const Element: React.FC<ElementProps> = ({
             style={{
               display: 'flex',
               flexDirection: 'row',
-              justifyContent: el.textAlign === 'left' ? 'flex-start' : el.textAlign === 'right' ? 'flex-end' : 'center',
+              justifyContent,
               alignItems: 'flex-start',
               minHeight: 40,
             }}
@@ -496,11 +513,12 @@ const Element: React.FC<ElementProps> = ({
             <div style={{ position: 'relative', display: 'inline-block' }}>
               <img
                 ref={imgRef}
-                src={el.url}
+                src={imgSrc}
                 alt=""
                 loading="lazy"
                 decoding="async"
                 fetchPriority="low"
+                draggable={false}
                 style={{
                   maxWidth: el.width ? el.width + 'px' : '90%',
                   height: el.height ? el.height + 'px' : 'auto',
@@ -572,14 +590,16 @@ const Element: React.FC<ElementProps> = ({
     // -------------------- 인라인 이미지 --------------------
     case 'inline-image': {
       const el = element as InlineImageElement;
+      const src = el.url?.startsWith('http') ? toProxyUrl(el.url) : el.url;
       return (
         <span {...attributes} contentEditable={false} style={{ display: 'inline-block', verticalAlign: 'middle' }}>
           <img
-            src={el.url}
+            src={src}
             alt=""
             loading="lazy"
             decoding="async"
             fetchPriority="low"
+            draggable={false}
             style={{ height: '3em', width: 'auto', display: 'inline', verticalAlign: 'middle', margin: '0 2px', borderRadius: 4 }}
           />
           {children}
@@ -729,6 +749,8 @@ const Element: React.FC<ElementProps> = ({
                   setEditingName(false);
                 };
 
+                const imgSrc = item.image?.startsWith?.('http') ? toProxyUrl(item.image) : item.image;
+
                 return (
                   <div
                     key={idx}
@@ -870,14 +892,17 @@ const Element: React.FC<ElementProps> = ({
                       }}
                       title="이미지 변경"
                     >
-                      {item.image ? (
+                      {imgSrc ? (
                         <img
-                          src={item.image}
+                          src={imgSrc}
                           alt=""
+                          width={65}
+                          height={65}
                           loading="lazy"
                           decoding="async"
                           fetchPriority="low"
-                          style={{ width: 65, height: 65, objectFit: 'contain', borderRadius: 7, background: '#fff' }}
+                          style={{ width: 65, height: 65, objectFit: 'contain', borderRadius: 7, background: '#fff', display: 'block' }}
+                          draggable={false}
                         />
                       ) : (
                         <span style={{ width: 54, height: 54, background: '#ececec', borderRadius: 7, display: 'inline-block' }} />
