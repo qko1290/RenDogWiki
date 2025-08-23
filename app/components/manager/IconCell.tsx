@@ -4,6 +4,7 @@
 'use client';
 
 import React from 'react';
+import { toProxyUrl } from '@lib/cdn';
 
 type IconCellProps = {
   icon?: string | null;
@@ -13,12 +14,18 @@ type IconCellProps = {
   className?: string;
 };
 
-const isImageUrl = (v?: string | null) => !!v && v.startsWith('http');
+// 이미지처럼 렌더해야 하는지 판별(원격 http/https 또는 data:image)
+const isImageLike = (v?: string | null) =>
+  !!v && (/^https?:\/\//i.test(v) || v.startsWith('data:image'));
+
+const isRemoteHttp = (v?: string | null) => !!v && /^https?:\/\//i.test(v);
 
 /**
  * 목록/디테일 셀에 들어가는 작고 단순한 아이콘 셀
- * - 이미지 URL이면 <img>, 그 외(이모지/문자)면 <span>
- * - 아이콘이 없을 때도 셀 크기를 유지해 레이아웃 흔들림을 방지
+ * - 원격 URL(http/https)은 프록시(toProxyUrl)로 감싸서 403/CORS 회피
+ * - data:image도 <img> 로 렌더
+ * - 그 외(이모지/문자)면 <span>
+ * - 아이콘이 없을 때도 셀 크기를 유지해 레이아웃 흔들림 방지
  */
 export const IconCell = React.memo(function IconCell({
   icon,
@@ -27,7 +34,7 @@ export const IconCell = React.memo(function IconCell({
   alt = 'icon',
   className,
 }: IconCellProps) {
-  // 아이콘이 없더라도 공간을 확보(인라인 요소는 width/height가 적용 안 되므로 inline-block)
+  // 아이콘이 없더라도 공간 확보(인라인 요소는 width/height가 적용 안 되므로 inline-block)
   if (!icon) {
     return (
       <span
@@ -37,10 +44,11 @@ export const IconCell = React.memo(function IconCell({
     );
   }
 
-  if (isImageUrl(icon)) {
+  if (isImageLike(icon)) {
+    const src = isRemoteHttp(icon) ? toProxyUrl(icon) : icon;
     return (
       <img
-        src={icon}
+        src={src}
         alt={alt}
         className={className}
         width={size}                 // 레이아웃 안정화(CLS 완화)
