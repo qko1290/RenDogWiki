@@ -183,3 +183,17 @@ body.rd-modal-open{ overflow: hidden; }
   white-space: pre-wrap;
   line-height: 1.55;
 }
+
+/* 퀘스트 전용: 내용이 길면 높이 자동 확장 */
+.npc-modal-right .mgr-pill-row--quest {
+  height: auto;              /* 고정 높이 제거 */
+  min-height: 54px;          /* 기본 최소 높이는 유지 */
+  align-items: flex-start;
+  padding: 10px 12px;
+}
+
+.npc-modal-right .mgr-pill-row--quest .mgr-pill-value {
+  white-space: pre-wrap;     /* 줄바꿈 반영 */
+  overflow: visible;         /* 잘리지 않도록 */
+  line-height: 1.55;
+}

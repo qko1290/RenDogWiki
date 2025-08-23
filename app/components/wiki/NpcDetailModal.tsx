@@ -77,10 +77,14 @@ export default function NpcDetailModal({ npc, onClose, mode = 'quest' }: Props) 
           {/* 퀘스트 전용 필드들 */}
           {isQuest && (
             <>
-              <div className="mgr-pill-row">
+              <div className="mgr-pill-row mgr-pill-row--quest">
                 <span className="mgr-pill-label">퀘스트</span>
                 <span className="mgr-pill-value">
-                  {npc.quest?.trim() ? npc.quest : <span className="mgr-placeholder">-</span>}
+                  {npc.quest?.trim() ? (
+                    <span style={{ whiteSpace: "pre-wrap" }}>{npc.quest}</span>
+                  ) : (
+                    <span className="mgr-placeholder">-</span>
+                  )}
                 </span>
               </div>
 
@@ -106,12 +110,13 @@ export default function NpcDetailModal({ npc, onClose, mode = 'quest' }: Props) 
                 </span>
               </div>
 
-              <div className="mgr-pill-row">
-                <span className="mgr-pill-label">선행조건</span>
-                <span className="mgr-pill-value">
-                  {npc.requirement?.trim() ? npc.requirement : <span className="mgr-placeholder">-</span>}
-                </span>
-              </div>
+              {/* ✅ requirement가 비어 있으면 칸 자체를 렌더링 안함 */}
+              {npc.requirement?.trim() && (
+                <div className="mgr-pill-row">
+                  <span className="mgr-pill-label">선행조건</span>
+                  <span className="mgr-pill-value">{npc.requirement}</span>
+                </div>
+              )}
             </>
           )}
 
