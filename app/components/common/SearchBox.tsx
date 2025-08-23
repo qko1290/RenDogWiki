@@ -13,6 +13,7 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { toProxyUrl } from '@lib/cdn';
 
 // 검색 결과 데이터 타입
 type SearchResult = {
@@ -32,16 +33,13 @@ function highlight(text: string, keyword: string) {
   const re = new RegExp(`(${safe})`, 'gi'); // split 시 캡처 포함
   const parts = text.split(re);
   return parts.map((part, i) =>
-    i % 2 === 1
-      ? (
-          <mark
-            key={i}
-            style={{ background: 'none', color: '#1876f7', fontWeight: 700 }}
-          >
-            {part}
-          </mark>
-        )
-      : <span key={i}>{part}</span>
+    i % 2 === 1 ? (
+      <mark key={i} style={{ background: 'none', color: '#1876f7', fontWeight: 700 }}>
+        {part}
+      </mark>
+    ) : (
+      <span key={i}>{part}</span>
+    ),
   );
 }
 
@@ -63,6 +61,10 @@ function extractSlateTextLine(slate: any, keyword: string): string | null {
   }
   return null;
 }
+
+// 아이콘 값을 이미지처럼 렌더해야 하는지 판별(원격 http/https 또는 data:image)
+const isImageLike = (v?: string) => !!v && (/^https?:\/\//i.test(v) || v.startsWith('data:image'));
+const isRemoteHttp = (v?: string) => !!v && /^https?:\/\//i.test(v);
 
 export default function SearchBox() {
   const [query, setQuery] = useState('');
@@ -206,14 +208,18 @@ export default function SearchBox() {
         className="search-input"
         placeholder="Search"
         value={query}
-        onChange={e => setQuery(e.target.value)}
+        onChange={(e) => setQuery(e.target.value)}
         onFocus={() => results.length > 0 && setOpen(true)}
         onKeyDown={onKeyDown}
         onCompositionStart={() => setIsComposing(true)}
         onCompositionEnd={() => setIsComposing(false)}
         aria-autocomplete="list"
         aria-controls={listId}
-        aria-activedescendant={activeIndex >= 0 && results[activeIndex] ? `${listId}-opt-${results[activeIndex].id}` : undefined}
+        aria-activedescendant={
+          activeIndex >= 0 && results[activeIndex]
+            ? `${listId}-opt-${results[activeIndex].id}`
+            : undefined
+        }
       />
 
       {/* 로딩 상태 */}
@@ -221,7 +227,9 @@ export default function SearchBox() {
         <div
           style={{
             position: 'absolute',
-            left: 0, right: 0, top: 58,
+            left: 0,
+            right: 0,
+            top: 58,
             background: 'white',
             borderRadius: 10,
             boxShadow: '0 6px 32px rgba(0,0,0,0.10)',
@@ -240,8 +248,11 @@ export default function SearchBox() {
         <div
           style={{
             position: 'absolute',
-            left: 0, right: 0, top: 58,
-            background: 'white', color: '#aaa',
+            left: 0,
+            right: 0,
+            top: 58,
+            background: 'white',
+            color: '#aaa',
             borderRadius: 10,
             boxShadow: '0 6px 32px rgba(0,0,0,0.12)',
             padding: '18px 25px',
@@ -299,20 +310,31 @@ export default function SearchBox() {
               >
                 {/* 아이콘 */}
                 <span style={{ marginRight: 12, fontSize: 22 }}>
-                  {res.icon
-                    ? (res.icon.startsWith('http')
-                        ? <img src={res.icon} alt="" style={{ width: 24, height: 24, verticalAlign: 'middle' }} />
-                        : res.icon)
-                    : '📄'}
+                  {res.icon ? (
+                    isImageLike(res.icon) ? (
+                      <img
+                        src={isRemoteHttp(res.icon) ? toProxyUrl(res.icon) : res.icon}
+                        alt=""
+                        width={24}
+                        height={24}
+                        style={{ width: 24, height: 24, verticalAlign: 'middle', objectFit: 'cover' }}
+                        loading="lazy"
+                        decoding="async"
+                        draggable={false}
+                      />
+                    ) : (
+                      res.icon
+                    )
+                  ) : (
+                    '📄'
+                  )}
                 </span>
 
                 {/* 본문 */}
                 <div style={{ minWidth: 0, flex: 1 }}>
                   {/* 제목 매치 */}
                   {res.match_type === 'title' && (
-                    <div style={{ fontWeight: 700, fontSize: 18 }}>
-                      {highlight(res.title, query)}
-                    </div>
+                    <div style={{ fontWeight: 700, fontSize: 18 }}>{highlight(res.title, query)}</div>
                   )}
 
                   {/* 태그 매치 */}
@@ -321,11 +343,18 @@ export default function SearchBox() {
                       <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 2 }}>
                         {highlight(res.title, query)}
                       </div>
-                      <div style={{ color: '#198544', fontSize: 14, marginTop: 2, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      <div
+                        style={{
+                          color: '#198544',
+                          fontSize: 14,
+                          marginTop: 2,
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          gap: 8,
+                        }}
+                      >
                         {res.tags.map((tag, i) => (
-                          <span key={tag + i}>
-                            {highlight(tag, query)}
-                          </span>
+                          <span key={tag + i}>{highlight(tag, query)}</span>
                         ))}
                       </div>
                     </>
@@ -337,10 +366,19 @@ export default function SearchBox() {
                       <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 2 }}>
                         {highlight(res.title, query)}
                       </div>
-                      <div style={{ color: '#555', fontSize: 14, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div
+                        style={{
+                          color: '#555',
+                          fontSize: 14,
+                          marginTop: 2,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
                         {(() => {
                           try {
-                            const slate = typeof res.content === 'string' ? JSON.parse(res.content) : res.content;
+                            const slate =
+                              typeof res.content === 'string' ? JSON.parse(res.content) : res.content;
                             const line = extractSlateTextLine(slate, query) || '';
                             return line ? highlight(line, query) : null;
                           } catch {

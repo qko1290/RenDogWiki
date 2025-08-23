@@ -13,6 +13,7 @@
 
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import Modal from '@/components/common/Modal';
+import { toProxyUrl } from '@lib/cdn';
 
 type Folder = { id: number; name: string; parent_id: number | null };
 type ImageFile = { id: number; name: string; url: string; folder_id: number };
@@ -238,7 +239,7 @@ export default function ImageSelectModal({
 
   const handleInsert = () => {
     if (!selectedImg) return;
-    // 1인자만 받는 기존 핸들러도 정상 작동(추가 인자는 무시됨)
+    // 저장은 원본 URL을 넘김(렌더링 시에만 프록시 사용)
     onSelectImage(selectedImg.url, selectedImg.name, selectedImg);
     onClose();
   };
@@ -417,8 +418,13 @@ export default function ImageSelectModal({
                     }}
                   >
                     <img
-                      src={img.url}
+                      src={toProxyUrl(img.url)}
                       alt={img.name}
+                      width={88}
+                      height={88}
+                      loading="lazy"
+                      decoding="async"
+                      draggable={false}
                       style={{ width: 88, height: 88, borderRadius: 8, objectFit: 'contain', background: '#fff' }}
                     />
                     {selected && (
@@ -462,8 +468,13 @@ export default function ImageSelectModal({
               {selectedImg && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <img
-                    src={selectedImg.url}
+                    src={toProxyUrl(selectedImg.url)}
                     alt={selectedImg.name}
+                    width={38}
+                    height={38}
+                    loading="lazy"
+                    decoding="async"
+                    draggable={false}
                     style={{
                       height: 38,
                       width: 38,
