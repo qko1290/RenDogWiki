@@ -853,11 +853,11 @@ export default function CategoryManager() {
                       if (typeof ic === 'string' && ic.startsWith('http')) {
                         return (
                           <img
-                            src={toProxyUrl(ic)}                           {/* ✅ CDN 우회 */}
+                            src={toProxyUrl(ic)}
                             alt="icon"
                             style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover' }}
-                            loading="lazy"                                  {/* ✅ lazy */}
-                            decoding="async"                                {/* ✅ async */}
+                            loading="lazy"
+                            decoding="async"
                           />
                         );
                       }
