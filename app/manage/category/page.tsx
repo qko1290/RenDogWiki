@@ -210,7 +210,7 @@ function SortableCategoryItem({
         )}
       </div>
 
-      {children && <div className="category-tree-children">{children}</div>}
+      {children}
     </li>
   );
 }
