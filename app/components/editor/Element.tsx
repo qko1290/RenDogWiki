@@ -1040,7 +1040,7 @@ const Element: React.FC<ElementProps> = ({
                         setPriceTableEdit({ blockPath: path, idx, item: { ...item, mode: guessPriceMode(item) } });
                       }}
                     >
-                      <PriceText value={price as any} />
+                      <PriceText value={prices as any} />
                     </div>
                   </div>
                 );
