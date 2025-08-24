@@ -6,6 +6,8 @@ import { ModalCard } from '@/components/common/Modal';
 
 type PriceMode = 'normal' | 'awakening' | 'transcend';
 
+type SavePayload = { stages: string[]; prices: Array<string | number> };
+
 const FIELD_LABELS: Record<PriceMode, string[]> = {
   normal: ['가격'],
   awakening: ['봉인', '1각', '2각', '3각', '4각', 'MAX'],
@@ -24,7 +26,7 @@ type PropsFromItem = {
   open: boolean;
   item: CardItem;
   onClose: () => void;
-  onSave: (data: { stages: string[]; prices: string[] }) => void;
+  onSave: (data: SavePayload) => void;
 };
 
 type PropsFromValues = {
@@ -32,7 +34,7 @@ type PropsFromValues = {
   mode: PriceMode;
   prices: Array<string | number>;
   onClose: () => void;
-  onSave: (data: { stages: string[]; prices: string[] }) => void;
+  onSave: (data: SavePayload) => void; 
 };
 
 type PriceTableEditModalProps = PropsFromItem | PropsFromValues;

@@ -124,15 +124,17 @@ export type InlineImageElement = {
   children: [{ text: string }];
 };
 
+export type PriceTableCardItem = {
+  name?: string;
+  image?: string | null;
+  stages?: string[];
+  prices?: Array<string | number>; // ← number[]에서 변경
+  colorType?: 'default' | 'green' | 'yellow' | string;
+};
+
 export type PriceTableCardElement = {
   type: 'price-table-card';
-  items: {
-    image?: string;      // 이미지 URL
-    name: string;        // 아이템명
-    prices: number[];    // 시세 배열 (강화수치별)
-    stages: string[];    // 예: ['봉인', '1각', ..., 'MAX']
-    colorType?: string;  // 'normal' | 'transcend' 등 (확장 대비)
-  }[];
+  items: PriceTableCardItem[];
   cardsPerRow: number; // 한 줄에 카드 개수(1~5)
   children: { text: '' }[]; // Slate 필수
 }

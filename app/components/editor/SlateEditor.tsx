@@ -267,15 +267,29 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     });
   };
 
-  const handlePriceModalSave = (data: { stages: string[]; prices: number[] }) => {
+  const handlePriceModalSave = (data: { stages: string[]; prices: Array<string | number> }) => {
     const { blockPath, idx } = priceTableEdit;
+
+    // 가격 값 정규화: 숫자는 number로, 기호/문자 포함은 string 그대로 보존
+    const normalizePrices = (arr: Array<string | number>) =>
+      arr.map((v) => {
+        if (typeof v === 'number' && Number.isFinite(v)) return v;
+        const s = String(v ?? '').trim();
+        // 숫자 전용이면 number로 변환, 그 외(기호 포함)는 문자열 유지
+        return /^-?\d+(?:\.\d+)?$/.test(s) ? Number(s) : s;
+      });
 
     if (blockPath && typeof idx === 'number') {
       Editor.withoutNormalizing(editor, () => {
-        const [cardNode] = Editor.node(editor, blockPath) as [any, Path];
+        const entry = Editor.node(editor, blockPath) as [any, Path] | undefined;
+        if (!entry) return;
+        const [cardNode] = entry;
+
         if (cardNode && Array.isArray(cardNode.items)) {
           const nextItems = cardNode.items.map((itm: any, i: number) =>
-            i === idx ? { ...itm, stages: data.stages, prices: data.prices } : itm
+            i === idx
+              ? { ...itm, stages: [...data.stages], prices: normalizePrices(data.prices) }
+              : itm
           );
           Transforms.setNodes(editor, { items: nextItems }, { at: blockPath });
         }
@@ -283,10 +297,12 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     }
 
     setPriceTableEdit({ blockPath: null, idx: null, item: null });
-    stopFreeze();
+
+    // 기존 흐름과 동일: 스크롤/캐럿 복구
+    stopFreeze?.();
     requestAnimationFrame(() => {
-      restoreScroll();
-      restoreCaret(blockPath);
+      restoreScroll?.();
+      if (blockPath) restoreCaret?.(blockPath);
     });
   };
 
