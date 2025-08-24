@@ -95,6 +95,21 @@ function autoFont(base: number, text: string, steps?: Array<[number, number]>) {
   return Math.max(11, (rules.at(-1)?.[1] ?? base) - 2);
 }
 
+function PriceText({ value }: { value: string | number }) {
+  const s = String(value ?? '');
+  if (!s.includes('~')) {
+    return <span className="ptc-price-text">{s}</span>;
+  }
+  const [left, right] = s.split('~', 2);
+  return (
+    <span className="ptc-price-text">
+      <span style={{ whiteSpace: 'nowrap' }}>{left}~</span>
+      <wbr />
+      <span style={{ whiteSpace: 'nowrap' }}>{right}</span>
+    </span>
+  );
+}
+
 // -------------------- 타입 --------------------
 type PriceTableEditState = {
   blockPath: Path | null;
@@ -1007,7 +1022,7 @@ const Element: React.FC<ElementProps> = ({
                     <div
                       style={{
                         fontWeight: 800,
-                        fontSize: priceFont,
+                        fontSize: 20,
                         color: '#5b80f5',
                         textAlign: 'center',
                         letterSpacing: 1,
@@ -1017,8 +1032,6 @@ const Element: React.FC<ElementProps> = ({
                         padding: '2px 10px',
                         transition: 'background 0.1s',
                         minHeight: 28,
-                        lineHeight: 1.1,
-                        wordBreak: 'break-word',
                       }}
                       title="가격 수정"
                       onClick={e => {
@@ -1027,7 +1040,7 @@ const Element: React.FC<ElementProps> = ({
                         setPriceTableEdit({ blockPath: path, idx, item: { ...item, mode: guessPriceMode(item) } });
                       }}
                     >
-                      {priceText}
+                      <PriceText value={price as any} />
                     </div>
                   </div>
                 );

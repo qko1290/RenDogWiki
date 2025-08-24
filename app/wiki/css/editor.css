@@ -490,3 +490,5 @@
 html, body { background:#fff; color:#0f172a; }
 
 .editor-content-scroll { overflow-anchor: none; }
+
+.ptc-price-text { word-break: keep-all; }

@@ -532,19 +532,17 @@ function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key 
               <div
                 style={{
                   fontWeight: 800,
-                  fontSize: priceFont,
+                  fontSize: 20,
                   color: "#5b80f5",
                   textAlign: "center",
                   letterSpacing: "1px",
                   marginTop: 3,
                   borderRadius: 8,
                   padding: "2px 10px",
-                  minHeight: 28,
-                  lineHeight: 1.1,
-                  wordBreak: "break-word"
+                  minHeight: 28
                 }}
               >
-                {priceText}
+                <PriceText value={prices as any} />
               </div>
             </div>
           );
@@ -595,6 +593,21 @@ function renderLeaf(node: any, key?: React.Key): React.ReactNode {
       </span>
     );
   else return <span key={key}>{children}</span>;
+}
+
+function PriceText({ value }: { value: string | number }) {
+  const s = String(value ?? '');
+  if (!s.includes('~')) {
+    return <span className="ptc-price-text">{s}</span>;
+  }
+  const [left, right] = s.split('~', 2);
+  return (
+    <span className="ptc-price-text">
+      <span style={{ whiteSpace: 'nowrap' }}>{left}~</span>
+      <wbr />
+      <span style={{ whiteSpace: 'nowrap' }}>{right}</span>
+    </span>
+  );
 }
 
 // 노드 타입별 렌더링 (재귀)
