@@ -792,11 +792,11 @@ const Element: React.FC<ElementProps> = ({
 
                 const nameShown = item.name || '이름 없음';
                 const nameFont = autoFont(20, String(nameShown), [
-                  [8, 20],
-                  [12, 18],
-                  [16, 16],
-                  [22, 14],
-                  [30, 13],
+                  [7, 18],
+                  [9, 16],
+                  [12, 14],
+                  [16, 13],
+                  [20, 12],
                 ]);
                 const priceFont = autoFont(20, String(priceVal), [
                   [8, 20],
