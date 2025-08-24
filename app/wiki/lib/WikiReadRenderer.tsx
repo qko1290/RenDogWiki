@@ -287,8 +287,8 @@ function PriceText({ value }: { value: string | number }) {
 
 function nameFontSize(name?: string) {
   const n = (name ?? '').trim();
-  if (n.length >= 12) return 16;
-  if (n.length >= 9) return 18;
+  if (n.length >= 9) return 16;
+  if (n.length >= 7) return 18;
   return 20;
 }
 
