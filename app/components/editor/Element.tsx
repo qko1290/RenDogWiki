@@ -110,6 +110,22 @@ function PriceText({ value }: { value: string | number }) {
   );
 }
 
+function formatPriceDisplay(v: string | number): string {
+  // 문자열/숫자 모두 허용. "~"가 있으면 바로 줄바꿈 강제
+  const s = String(v ?? '').trim();
+  const i = s.indexOf('~');
+  if (i >= 0) return s.slice(0, i + 1) + '\n' + s.slice(i + 1);
+  return s;
+}
+
+function nameFontSize(name?: string) {
+  const n = (name ?? '').trim();
+  // 길이에 따라 살짝만 줄여서 줄바꿈 유도 (카드 높이/여백 유지)
+  if (n.length >= 12) return 16;
+  if (n.length >= 9) return 18;
+  return 20;
+}
+
 // -------------------- 타입 --------------------
 type PriceTableEditState = {
   blockPath: Path | null;
@@ -969,17 +985,17 @@ const Element: React.FC<ElementProps> = ({
                     <div
                       style={{
                         fontWeight: 700,
-                        fontSize: nameFont,
+                        fontSize: nameFontSize(item.name),
+                        lineHeight: 1.12,                 // 줄간격만 타이트
                         marginBottom: 0,
                         color: item.name ? '#333' : '#bbb',
                         textAlign: 'center',
-                        minHeight: 24,
+                        minHeight: 24,                    // 카드 총 높이 유지
                         width: '100%',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        lineHeight: 1.15,
-                        wordBreak: 'break-word',
+                        padding: 0                        // 여백 불변
                       }}
                     >
                       {editingName ? (
@@ -992,7 +1008,7 @@ const Element: React.FC<ElementProps> = ({
                             if (e.key === 'Escape') setEditingName(false);
                           }}
                           style={{
-                            fontSize: 18,
+                            fontSize: nameFontSize(editNameValue),
                             fontWeight: 700,
                             color: '#333',
                             textAlign: 'center',
@@ -1000,7 +1016,7 @@ const Element: React.FC<ElementProps> = ({
                             borderRadius: 6,
                             padding: '2px 6px',
                             outline: 'none',
-                            width: '86%',
+                            width: '80%',
                           }}
                         />
                       ) : (
@@ -1013,25 +1029,26 @@ const Element: React.FC<ElementProps> = ({
                           }}
                           title="이름 수정"
                         >
-                          {nameShown || <span style={{ color: '#bbb' }}>이름 없음</span>}
+                          {item.name || <span style={{ color: '#bbb' }}>이름 없음</span>}
                         </span>
                       )}
                     </div>
 
-                    {/* 가격: 문자열 허용 + 길면 폰트 축소 */}
+                    {/* 가격 */}
                     <div
                       style={{
                         fontWeight: 800,
                         fontSize: 20,
+                        lineHeight: 1.04,                 // 줄간격만 타이트
                         color: '#5b80f5',
                         textAlign: 'center',
                         letterSpacing: 1,
-                        marginTop: 3,
+                        marginTop: 3,                     // 기존 margin 유지
                         cursor: 'pointer',
                         borderRadius: 8,
-                        padding: '2px 10px',
-                        transition: 'background 0.1s',
-                        minHeight: 28,
+                        padding: '2px 10px',              // 여백 유지
+                        minHeight: 28,                    // 카드 총 높이 유지
+                        whiteSpace: 'pre-line',           // \n 적용해서 두 줄 표기
                       }}
                       title="가격 수정"
                       onClick={e => {
@@ -1040,7 +1057,7 @@ const Element: React.FC<ElementProps> = ({
                         setPriceTableEdit({ blockPath: path, idx, item: { ...item, mode: guessPriceMode(item) } });
                       }}
                     >
-                      <PriceText value={prices as any} />
+                      {formatPriceDisplay(prices[curIdx] as any)}
                     </div>
                   </div>
                 );

@@ -252,6 +252,19 @@ function LinkBlockView({ node, keyProp }: { node: any; keyProp: React.Key }) {
   );
 }
 
+function formatPriceDisplay(v: string | number): string {
+  const s = String(v ?? '').trim();
+  const i = s.indexOf('~');
+  if (i >= 0) return s.slice(0, i + 1) + '\n' + s.slice(i + 1);
+  return s;
+}
+function nameFontSize(name?: string) {
+  const n = (name ?? '').trim();
+  if (n.length >= 12) return 16;
+  if (n.length >= 9) return 18;
+  return 20;
+}
+
 // 메인 렌더 컴포넌트
 export default function WikiReadRenderer({ content }: { content: Descendant[] }) {
   return <>{content.map((node, idx) => renderNode(node, idx))}</>;
@@ -319,91 +332,69 @@ function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key 
         }}
       >
         {node.items.map((item: any, idx: number) => {
-          const stages: string[] = item.stages || ["가격"];
+          const stages: string[] = item.stages || ['가격'];
           const prices: Array<string | number> =
             Array.isArray(item.prices) && item.prices.length
               ? item.prices
-              : Array(stages.length).fill('');
+              : Array(stages.length).fill(0);
 
           const cardIdx = indexes[idx] ?? 0;
-          const stage = stages[cardIdx] || "";
-          const priceText = String(prices[cardIdx] ?? '');
+          const stage = stages[cardIdx] || '';
+          const priceVal = prices[cardIdx] ?? ''; // ✅ 개별 값 변수로 분리
           const badgeColor = getPriceBadgeColor(stage, item.colorType);
 
-          const nameShown = item.name?.trim() ? item.name : "이름 없음";
-          const nameFont = autoFont(17, String(nameShown), [
-            [8, 17],
-            [12, 16],
-            [16, 15],
-            [22, 14],
-            [30, 13],
-          ]);
-          const priceFont = autoFont(20, priceText, [
-            [8, 20],
-            [12, 18],
-            [16, 16],
-            [22, 14],
-            [30, 12],
-            [40, 11],
-          ]);
+          const name = item.name?.trim() ? item.name : '이름 없음';
 
-          const image =
-            item.image ? (
-              <img
-                src={cdn(item.image)}
-                alt=""
-                loading="lazy"
-                decoding="async"
-                fetchPriority="low"
-                style={{
-                  width: 65,
-                  height: 65,
-                  objectFit: "contain",
-                  borderRadius: 7,
-                  background: "#fff"
-                }}
-              />
-            ) : (
-              <span
-                style={{
-                  width: 54,
-                  height: 54,
-                  background: "#ececec",
-                  borderRadius: 7,
-                  display: "inline-block"
-                }}
-              />
-            );
+          const image = item.image ? (
+            <img
+              src={cdn(item.image)}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              fetchPriority="low"
+              style={{ width: 65, height: 65, objectFit: 'contain', borderRadius: 7, background: '#fff' }}
+            />
+          ) : (
+            <span
+              style={{
+                width: 54,
+                height: 54,
+                background: '#ececec',
+                borderRadius: 7,
+                display: 'inline-block',
+              }}
+            />
+          );
 
           const badge =
             stages.length > 1 ? (
               <div
                 style={{
-                  position: "absolute",
+                  position: 'absolute',
                   top: 5,
-                  left: "50%",
-                  transform: "translateX(-50%)",
+                  left: '50%',
+                  transform: 'translateX(-50%)',
                   zIndex: 3,
                   width: 66,
-                  display: "flex",
-                  justifyContent: "center"
+                  display: 'flex',
+                  justifyContent: 'center',
                 }}
               >
                 <span
                   style={{
                     background: badgeColor,
-                    color: stage === "봉인" ? "#fff" : "#222",
-                    padding: "4px 0px",
+                    color: stage === '봉인' ? '#fff' : '#222',
+                    padding: '4px 0px',
                     borderRadius: 12,
                     fontWeight: 700,
                     fontSize: 15,
                     width: 66,
-                    display: "inline-block",
-                    boxShadow: "0 1px 8px #0001",
-                    border: "1.5px solid #fff",
-                    textAlign: "center",
-                    letterSpacing: "1px",
-                    transition: "background .1s"
+                    display: 'inline-block',
+                    boxShadow: '0 1px 8px #0001',
+                    border: '1.5px solid #fff',
+                    textAlign: 'center',
+                    letterSpacing: '1px',
+                    transition: 'background .1s',
                   }}
                 >
                   {stage}
@@ -412,137 +403,140 @@ function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key 
             ) : null;
 
           const showArrows = hovered === idx && stages.length > 1;
-          const leftArrowBtn =
-            showArrows && (
-              <button
-                style={{
-                  position: "absolute",
-                  left: -12,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  background: "#fff",
-                  border: "1.2px solid #eee",
-                  borderRadius: "50%",
-                  width: 28,
-                  height: 28,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontWeight: 800,
-                  fontSize: 16,
-                  boxShadow: "0 2px 6px #0001",
-                  zIndex: 2,
-                  cursor: "pointer",
-                  opacity: 0.9
-                }}
-                tabIndex={-1}
-                aria-hidden="true"
-                onClick={() => setCardIdx(idx, -1)}
-              >
-                ◀
-              </button>
-            );
-          const rightArrowBtn =
-            showArrows && (
-              <button
-                style={{
-                  position: "absolute",
-                  right: -12,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  background: "#fff",
-                  border: "1.2px solid #eee",
-                  borderRadius: "50%",
-                  width: 28,
-                  height: 28,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontWeight: 800,
-                  fontSize: 16,
-                  boxShadow: "0 2px 6px #0001",
-                  zIndex: 2,
-                  cursor: "pointer",
-                  opacity: 0.9
-                }}
-                tabIndex={-1}
-                aria-hidden="true"
-                onClick={() => setCardIdx(idx, 1)}
-              >
-                ▶
-              </button>
-            );
 
           return (
             <div
               key={idx}
               style={{
-                background: "#fff",
+                background: '#fff',
                 borderRadius: 15,
                 padding: 8,
-                boxShadow: "0 4px 24px 0 rgba(60,60,80,0.12)",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                position: "relative",
+                boxShadow: '0 4px 24px 0 rgba(60,60,80,0.12)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                position: 'relative',
                 minWidth: 140,
                 maxWidth: 140,
                 minHeight: 160,
-                margin: "0 8px"
+                margin: '0 8px',
               }}
               onMouseEnter={() => setHovered(idx)}
               onMouseLeave={() => setHovered(null)}
             >
               {badge}
-              {leftArrowBtn}
-              {rightArrowBtn}
+
+              {/* ✅ 반드시 버튼로 만들고 onClick에서만 호출 */}
+              {showArrows && (
+                <button
+                  style={{
+                    position: 'absolute',
+                    left: -12,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: '#fff',
+                    border: '1.2px solid #eee',
+                    borderRadius: '50%',
+                    width: 28,
+                    height: 28,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 800,
+                    fontSize: 16,
+                    boxShadow: '0 2px 6px #0001',
+                    zIndex: 2,
+                    cursor: 'pointer',
+                    opacity: 0.9,
+                  }}
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  onClick={() => setCardIdx(idx, -1)}
+                >
+                  ◀
+                </button>
+              )}
+              {showArrows && (
+                <button
+                  style={{
+                    position: 'absolute',
+                    right: -12,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: '#fff',
+                    border: '1.2px solid #eee',
+                    borderRadius: '50%',
+                    width: 28,
+                    height: 28,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 800,
+                    fontSize: 16,
+                    boxShadow: '0 2px 6px #0001',
+                    zIndex: 2,
+                    cursor: 'pointer',
+                    opacity: 0.9,
+                  }}
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  onClick={() => setCardIdx(idx, 1)}
+                >
+                  ▶
+                </button>
+              )}
+
               <div
                 style={{
                   marginBottom: 10,
                   marginTop: 34,
                   width: 65,
                   height: 65,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center"
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
                 {image}
               </div>
-              {/* 이름 자동 축소 */}
+
+              {/* 이름: 줄 간격만 타이트, 카드 크기/여백 유지 */}
               <div
                 style={{
                   fontWeight: 700,
-                  fontSize: nameFont,
+                  fontSize: nameFontSize(item.name),
+                  lineHeight: 1.12,
                   marginBottom: 0,
-                  color: item.name ? "#333" : "#bbb",
-                  textAlign: "center",
+                  color: item.name ? '#333' : '#bbb',
+                  textAlign: 'center',
                   minHeight: 24,
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  lineHeight: 1.15,
-                  wordBreak: "break-word"
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 0,
                 }}
               >
-                {nameShown}
+                {name}
               </div>
-              {/* 가격(문자열) 자동 축소 */}
+
+              {/* 가격: '~' 뒤 줄바꿈, 줄간격 타이트 */}
               <div
                 style={{
                   fontWeight: 800,
                   fontSize: 20,
-                  color: "#5b80f5",
-                  textAlign: "center",
-                  letterSpacing: "1px",
+                  lineHeight: 1.04,
+                  color: '#5b80f5',
+                  textAlign: 'center',
+                  letterSpacing: '1px',
                   marginTop: 3,
                   borderRadius: 8,
-                  padding: "2px 10px",
-                  minHeight: 28
+                  padding: '2px 10px',
+                  minHeight: 28,
+                  whiteSpace: 'pre-line',
                 }}
               >
-                <PriceText value={prices as any} />
+                {formatPriceDisplay(priceVal as any)} {/* ✅ 여기서 priceVal 사용 */}
               </div>
             </div>
           );
