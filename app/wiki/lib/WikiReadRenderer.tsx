@@ -257,6 +257,24 @@ export default function WikiReadRenderer({ content }: { content: Descendant[] })
   return <>{content.map((node, idx) => renderNode(node, idx))}</>;
 }
 
+function autoFont(base: number, text: string, steps?: Array<[number, number]>) {
+  const len = Array.from(text ?? '').length;
+  const rules: Array<[number, number]> =
+    steps ??
+    [
+      [8, base],
+      [12, base - 2],
+      [16, base - 4],
+      [22, base - 6],
+      [30, base - 8],
+      [40, base - 9],
+    ];
+  for (const [threshold, size] of rules) {
+    if (len <= threshold) return size;
+  }
+  return Math.max(11, (rules.at(-1)?.[1] ?? base) - 2);
+}
+
 function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key }) {
   const [indexes, setIndexes] = useState<number[]>(() => node.items.map(() => 0));
   const [hovered, setHovered] = useState<number | null>(null);
@@ -302,17 +320,32 @@ function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key 
       >
         {node.items.map((item: any, idx: number) => {
           const stages: string[] = item.stages || ["가격"];
-          const prices: number[] =
+          const prices: Array<string | number> =
             Array.isArray(item.prices) && item.prices.length
               ? item.prices
-              : Array(stages.length).fill(0);
+              : Array(stages.length).fill('');
 
           const cardIdx = indexes[idx] ?? 0;
           const stage = stages[cardIdx] || "";
-          const price = prices[cardIdx] ?? 0;
+          const priceText = String(prices[cardIdx] ?? '');
           const badgeColor = getPriceBadgeColor(stage, item.colorType);
 
-          const name = item.name?.trim() ? item.name : "이름 없음";
+          const nameShown = item.name?.trim() ? item.name : "이름 없음";
+          const nameFont = autoFont(17, String(nameShown), [
+            [8, 17],
+            [12, 16],
+            [16, 15],
+            [22, 14],
+            [30, 13],
+          ]);
+          const priceFont = autoFont(20, priceText, [
+            [8, 20],
+            [12, 18],
+            [16, 16],
+            [22, 14],
+            [30, 12],
+            [40, 11],
+          ]);
 
           const image =
             item.image ? (
@@ -476,10 +509,11 @@ function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key 
               >
                 {image}
               </div>
+              {/* 이름 자동 축소 */}
               <div
                 style={{
                   fontWeight: 700,
-                  fontSize: 17,
+                  fontSize: nameFont,
                   marginBottom: 0,
                   color: item.name ? "#333" : "#bbb",
                   textAlign: "center",
@@ -487,25 +521,30 @@ function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key 
                   width: "100%",
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center"
+                  justifyContent: "center",
+                  lineHeight: 1.15,
+                  wordBreak: "break-word"
                 }}
               >
-                {name}
+                {nameShown}
               </div>
+              {/* 가격(문자열) 자동 축소 */}
               <div
                 style={{
                   fontWeight: 800,
-                  fontSize: 20,
+                  fontSize: priceFont,
                   color: "#5b80f5",
                   textAlign: "center",
                   letterSpacing: "1px",
                   marginTop: 3,
                   borderRadius: 8,
                   padding: "2px 10px",
-                  minHeight: 28
+                  minHeight: 28,
+                  lineHeight: 1.1,
+                  wordBreak: "break-word"
                 }}
               >
-                {price}
+                {priceText}
               </div>
             </div>
           );

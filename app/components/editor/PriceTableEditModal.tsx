@@ -16,7 +16,7 @@ type CardItem = {
   name?: string;
   image?: string | null;
   stages?: string[];
-  prices?: number[];
+  prices?: Array<string | number>;
   colorType?: 'default' | 'green' | 'yellow' | string;
 };
 
@@ -24,15 +24,15 @@ type PropsFromItem = {
   open: boolean;
   item: CardItem;
   onClose: () => void;
-  onSave: (data: { stages: string[]; prices: number[] }) => void;
+  onSave: (data: { stages: string[]; prices: string[] }) => void;
 };
 
 type PropsFromValues = {
   open: boolean;
   mode: PriceMode;
-  prices: number[];
+  prices: Array<string | number>;
   onClose: () => void;
-  onSave: (data: { stages: string[]; prices: number[] }) => void;
+  onSave: (data: { stages: string[]; prices: string[] }) => void;
 };
 
 type PriceTableEditModalProps = PropsFromItem | PropsFromValues;
@@ -48,18 +48,19 @@ function computeInitial(p: PriceTableEditModalProps) {
       stages.length === 1 ? 'normal' :
       stages.length === 2 ? 'transcend' :
       stages.length === 6 ? 'awakening' : 'normal';
-    const prices = p.item.prices?.length ? [...p.item.prices] : new Array(stages.length).fill(0);
+    const raw = p.item.prices ?? [];
+    const prices = raw.length ? raw.map(v => String(v)) : new Array(stages.length).fill('');
     return { mode, stages, prices };
   }
   const m: PriceMode = p.mode ?? 'normal';
   const stages = [...FIELD_LABELS[m]];
   const base = Array.isArray(p.prices) ? p.prices : [];
-  const prices = base.length ? [...base] : new Array(stages.length).fill(0);
+  const prices = base.length ? base.map(v => String(v)) : new Array(stages.length).fill('');
   return { mode: m, stages, prices };
 }
 
 export default function PriceTableEditModal(props: PriceTableEditModalProps) {
-  // 🔔 모달 오픈 시 툴바 드롭다운만 닫기(스크롤 캡처는 카드 클릭 시점에 이미 수행)
+  // 🔔 모달 오픈 시 툴바 드롭다운만 닫기
   useLayoutEffect(() => {
     if (props.open) {
       window.dispatchEvent(new CustomEvent('editor:close-dropdowns'));
@@ -70,16 +71,14 @@ export default function PriceTableEditModal(props: PriceTableEditModalProps) {
 
   const [mode, setMode] = useState<PriceMode>(memoInitial.mode);
   const [stages, setStages] = useState<string[]>(memoInitial.stages);
-  const [priceInputs, setPriceInputs] = useState<string[]>(
-    memoInitial.prices.map(v => (Number.isFinite(v as number) ? String(v) : '0'))
-  );
+  const [priceInputs, setPriceInputs] = useState<string[]>(memoInitial.prices);
 
   useEffect(() => {
     if (!props.open) return;
     const init = computeInitial(props);
     setMode(init.mode);
     setStages(init.stages);
-    setPriceInputs(init.prices.map(v => (Number.isFinite(v as number) ? String(v) : '0')));
+    setPriceInputs(init.prices);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.open]);
 
@@ -90,7 +89,7 @@ export default function PriceTableEditModal(props: PriceTableEditModalProps) {
     setPriceInputs(prev => {
       const next = [...prev];
       next.length = s.length;
-      for (let i = 0; i < s.length; i++) if (typeof next[i] === 'undefined') next[i] = '0';
+      for (let i = 0; i < s.length; i++) if (typeof next[i] === 'undefined') next[i] = '';
       return next;
     });
   };
@@ -98,10 +97,8 @@ export default function PriceTableEditModal(props: PriceTableEditModalProps) {
   const handleChange = (idx: number, val: string) => {
     setPriceInputs(prev => {
       const next = [...prev];
-      let cleaned = val.replace(/[^\d.-]/g, '');
-      if ((cleaned.match(/-/g) || []).length > 1) cleaned = cleaned.replace(/-(?=.+-)/g, '');
-      if ((cleaned.match(/\./g) || []).length > 1) cleaned = cleaned.replace(/\.(?=.+\.)/g, '');
-      next[idx] = cleaned;
+      // 숫자/기호/한글 모두 허용 (trim만)
+      next[idx] = val;
       return next;
     });
   };
@@ -110,11 +107,8 @@ export default function PriceTableEditModal(props: PriceTableEditModalProps) {
     const len = stages.length;
     const norm = [...priceInputs];
     norm.length = len;
-    for (let i = 0; i < len; i++) if (typeof norm[i] === 'undefined') norm[i] = '0';
-    const prices = norm.map(v => {
-      const n = parseFloat(v);
-      return Number.isFinite(n) ? n : 0;
-    });
+    for (let i = 0; i < len; i++) if (typeof norm[i] === 'undefined') norm[i] = '';
+    const prices = norm.map(v => String(v ?? '').trim());
     props.onSave({ stages, prices });
   };
 
@@ -165,11 +159,11 @@ export default function PriceTableEditModal(props: PriceTableEditModalProps) {
             </div>
             <input
               className="rd-input"
-              type="number"
-              inputMode="decimal"
+              type="text"
+              inputMode="text"
               value={priceInputs[i] ?? ''}
               onChange={e => handleChange(i, e.target.value)}
-              placeholder="0"
+              placeholder="예) 51~52"
               aria-label={`${label} 가격`}
             />
           </React.Fragment>

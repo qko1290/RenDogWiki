@@ -1,7 +1,4 @@
-// =============================================
-// File: app/components/editor/Element.tsx
-// (에디터에서도 이미지 lazy/async, 외부 파비콘 호출 제거→인라인 아이콘)
-// =============================================
+// app/components/editor/Element.tsx
 'use client';
 
 import React, { useRef, useState, useEffect } from 'react';
@@ -77,6 +74,25 @@ function guessPriceMode(item: any): 'normal' | 'awakening' | 'transcend' {
   if (item.stages.length === 6 && set.has('봉인') && set.has('MAX')) return 'awakening';
   if (item.stages.includes('거가') && item.stages.includes('거불')) return 'transcend';
   return 'normal';
+}
+
+// 길이에 따라 글자 크기 자동 축소
+function autoFont(base: number, text: string, steps?: Array<[number, number]>) {
+  const len = Array.from(text ?? '').length; // 유니코드 안전 길이
+  const rules: Array<[number, number]> =
+    steps ??
+    [
+      [8, base],
+      [12, base - 2],
+      [16, base - 4],
+      [20, base - 6],
+      [26, base - 8],
+      [34, base - 9],
+    ];
+  for (const [threshold, size] of rules) {
+    if (len <= threshold) return size;
+  }
+  return Math.max(11, (rules.at(-1)?.[1] ?? base) - 2);
 }
 
 // -------------------- 타입 --------------------
@@ -726,11 +742,14 @@ const Element: React.FC<ElementProps> = ({
               }}
             >
               {el.items.map((item, idx) => {
-                const stages = item.stages || ['가격'];
-                const prices = item.prices || [0];
+                const stages: string[] = item.stages || ['가격'];
+                const prices: Array<string | number> =
+                  Array.isArray(item.prices) && item.prices.length ? item.prices : [0];
+
                 const curIdx = stageIdxArr[idx] ?? 0;
                 const stage = stages[curIdx] ?? '';
-                const price = prices[curIdx] ?? 0;
+                const priceText = String(prices[curIdx] ?? '');
+
                 const badgeColor = getPriceBadgeColor(stage, item.colorType);
 
                 const [editingName, setEditingName] = useState(false);
@@ -750,6 +769,23 @@ const Element: React.FC<ElementProps> = ({
                 };
 
                 const imgSrc = item.image?.startsWith?.('http') ? toProxyUrl(item.image) : item.image;
+
+                const nameShown = item.name || '이름 없음';
+                const nameFont = autoFont(20, String(nameShown), [
+                  [8, 20],
+                  [12, 18],
+                  [16, 16],
+                  [22, 14],
+                  [30, 13],
+                ]);
+                const priceFont = autoFont(20, priceText, [
+                  [8, 20],
+                  [12, 18],
+                  [16, 16],
+                  [22, 14],
+                  [30, 12],
+                  [40, 11],
+                ]);
 
                 return (
                   <div
@@ -914,10 +950,11 @@ const Element: React.FC<ElementProps> = ({
                       onSelectImage={handleImageSelect}
                     />
 
+                    {/* 이름: 길면 폰트 축소 */}
                     <div
                       style={{
                         fontWeight: 700,
-                        fontSize: 20,
+                        fontSize: nameFont,
                         marginBottom: 0,
                         color: item.name ? '#333' : '#bbb',
                         textAlign: 'center',
@@ -926,6 +963,8 @@ const Element: React.FC<ElementProps> = ({
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
+                        lineHeight: 1.15,
+                        wordBreak: 'break-word',
                       }}
                     >
                       {editingName ? (
@@ -938,7 +977,7 @@ const Element: React.FC<ElementProps> = ({
                             if (e.key === 'Escape') setEditingName(false);
                           }}
                           style={{
-                            fontSize: 20,
+                            fontSize: 18,
                             fontWeight: 700,
                             color: '#333',
                             textAlign: 'center',
@@ -946,7 +985,7 @@ const Element: React.FC<ElementProps> = ({
                             borderRadius: 6,
                             padding: '2px 6px',
                             outline: 'none',
-                            width: '80%',
+                            width: '86%',
                           }}
                         />
                       ) : (
@@ -959,15 +998,16 @@ const Element: React.FC<ElementProps> = ({
                           }}
                           title="이름 수정"
                         >
-                          {item.name || <span style={{ color: '#bbb' }}>이름 없음</span>}
+                          {nameShown || <span style={{ color: '#bbb' }}>이름 없음</span>}
                         </span>
                       )}
                     </div>
 
+                    {/* 가격: 문자열 허용 + 길면 폰트 축소 */}
                     <div
                       style={{
                         fontWeight: 800,
-                        fontSize: 20,
+                        fontSize: priceFont,
                         color: '#5b80f5',
                         textAlign: 'center',
                         letterSpacing: 1,
@@ -977,6 +1017,8 @@ const Element: React.FC<ElementProps> = ({
                         padding: '2px 10px',
                         transition: 'background 0.1s',
                         minHeight: 28,
+                        lineHeight: 1.1,
+                        wordBreak: 'break-word',
                       }}
                       title="가격 수정"
                       onClick={e => {
@@ -985,7 +1027,7 @@ const Element: React.FC<ElementProps> = ({
                         setPriceTableEdit({ blockPath: path, idx, item: { ...item, mode: guessPriceMode(item) } });
                       }}
                     >
-                      {price}
+                      {priceText}
                     </div>
                   </div>
                 );
