@@ -35,7 +35,8 @@ const SPECIAL_NICKS: Record<string, string> = {
   'rounding_': '라운딩',
   'daramg__': '다람지',
   '_Kei_Yuki': '케이유키',
-  'MINnSEO': '민서'
+  'MINnSEO': '민서',
+  'Wonjun125': '원준'
 };
 
 /**
