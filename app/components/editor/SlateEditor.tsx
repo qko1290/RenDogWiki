@@ -165,11 +165,14 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
   }, []);
 
   // ── 프리즈/복원(컨테이너만) ───────────────────────────────────
-  const lastYRef = useRef(0);
+  const lastYRef = useRef<number | null>(null);
+  const freezeActiveRef = useRef(false);
 
   const captureScroll = useCallback(() => {
     const el = getScrollEl();
-    lastYRef.current = el?.scrollTop ?? 0;
+    if (!el) return;
+    // 가격 모달을 열기 직전(또는 명시적으로 요청한 경우)에만 사용
+    lastYRef.current = el.scrollTop;
   }, [getScrollEl]);
 
   useEffect(() => {
@@ -184,6 +187,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     const el = getScrollEl();
     if (!el) return;
 
+    freezeActiveRef.current = true;
     lastYRef.current = el.scrollTop;
 
     // 모달 열릴 때 커서 스냅샷 저장(그대로 복원이 목표)
@@ -198,7 +202,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       savedSelectionRef.current = editor.selection ?? null;
     }
 
-    const y = lastYRef.current;
+    const y = lastYRef.current ?? el.scrollTop;
     const prevScrollBehavior = el.style.scrollBehavior || '';
     el.style.scrollBehavior = 'auto';
     el.scrollTop = y;
@@ -232,8 +236,11 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
   }, [priceTableEdit.blockPath, startFreeze, stopFreeze]);
 
   const restoreScroll = () => {
+    if (!freezeActiveRef.current) return;             // 프리즈 범위 밖이면 복원 금지
     const el = getScrollEl();
-    if (el) el.scrollTop = lastYRef.current;
+    if (!el) return;
+    if (lastYRef.current == null) return;             // 스냅샷 없으면 복원 금지
+    el.scrollTop = lastYRef.current;
   };
   // ─────────────────────────────────────────────────────────────
 
@@ -268,6 +275,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       restoreCaret(priceTableEdit.blockPath);
       const el = getScrollEl();
       if (el) lastYRef.current = el.scrollTop;
+      lastYRef.current = null;
     });
   };
 
@@ -309,6 +317,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       if (blockPath) restoreCaret?.(blockPath);
       const el = getScrollEl();
       if (el) lastYRef.current = el.scrollTop;
+      lastYRef.current = null;
     });
   };
 
