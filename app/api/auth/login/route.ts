@@ -18,7 +18,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
-// JWT 비밀키: .env에 없으면 개발 편의용 기본값 사용(운영환경에선 반드시 설정 권장)
+// JWT 비밀키
 const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
 
 // DB 조회 결과 타입

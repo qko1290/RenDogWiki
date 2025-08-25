@@ -347,11 +347,24 @@ const Element: React.FC<ElementProps> = ({
       const fontSize = level === 1 ? '28px' : level === 2 ? '22px' : '18px';
       const Tag = `h${level}` as 'h1' | 'h2' | 'h3';
 
+      // ✅ WikiReadRenderer와 동일: 정렬을 flex 컨테이너에 반영
+      const justify =
+        el.textAlign === 'center' ? 'center' :
+        el.textAlign === 'right'  ? 'flex-end' : 'flex-start';
+
       return (
         <Tag
           {...attributes}
           id={getHeadingId(el)}
-          style={{ fontSize, textAlign: el.textAlign || 'left', display: 'flex', alignItems: 'center', gap: 8 }}
+          style={{
+            fontSize,
+            textAlign: el.textAlign || 'left',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            justifyContent: justify, // ✅ 핵심
+            width: '100%',           // ✅ 좌/우 정렬 시 폭 기준 확실히
+          }}
         >
           <span
             onClick={() => onIconClick(el)}
@@ -367,7 +380,14 @@ const Element: React.FC<ElementProps> = ({
                 loading="lazy"
                 decoding="async"
                 fetchPriority="low"
-                style={{ width: '1.7em', height: '1.7em', verticalAlign: 'middle', marginRight: 6, objectFit: 'contain', display: 'block' }}
+                style={{
+                  width: '1.7em',
+                  height: '1.7em',
+                  verticalAlign: 'middle',
+                  marginRight: 6,
+                  objectFit: 'contain',
+                  display: 'block',
+                }}
                 draggable={false}
               />
             ) : (
