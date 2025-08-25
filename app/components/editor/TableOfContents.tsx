@@ -86,7 +86,7 @@ export default function TableOfContents({
     return list[occ] ?? list[0] ?? null;
   };
 
-  // 컨테이너 기준 스무스 스크롤
+  // 컨테이너 기준 스무스 스크롤(별도 상태 저장 없음)
   const scrollToId = (id: string, occ: number) => {
     const target = getTarget(id, occ);
     if (!target) return;
@@ -130,7 +130,7 @@ export default function TableOfContents({
     const observed: HTMLElement[] = [];
     const seenIds = new Set<string>();
     indexed.forEach(({ id }) => {
-      if (seenIds.has(id)) return; // 같은 id는 한 번만 전체 observe
+      if (seenIds.has(id)) return;
       seenIds.add(id);
       const esc = id.replace(/"/g, '\\"');
       document.querySelectorAll<HTMLElement>(`[id="${esc}"]`).forEach(el => {
@@ -143,7 +143,7 @@ export default function TableOfContents({
       observed.forEach(el => obs.unobserve(el));
       obs.disconnect();
     };
-  }, [indexed, headerOffset, rootKey]); // ✅ ref.current 대신 rootKey 사용
+  }, [indexed, headerOffset, rootKey]);
 
   // 초기 진입 시 URL 해시가 있으면 해당 위치로 스크롤
   useEffect(() => {
@@ -151,7 +151,6 @@ export default function TableOfContents({
     const hash = decodeURIComponent(window.location.hash || '').replace(/^#/, '');
     if (!hash) return;
 
-    // 동일 id 중 첫 번째로 이동(필요하면 __occ를 URL에 넣어 확장 가능)
     requestAnimationFrame(() => scrollToId(hash, 0));
   }, [indexed, rootKey]);
 

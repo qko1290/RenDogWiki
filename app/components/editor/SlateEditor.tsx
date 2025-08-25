@@ -1,7 +1,8 @@
-// app/components/editor/SlateEditor.tsx
 'use client';
 
-import React, { useMemo, useState, useCallback, useEffect, useRef, useLayoutEffect } from 'react';
+import React, {
+  useMemo, useState, useCallback, useEffect, useRef, useLayoutEffect
+} from 'react';
 import {
   createEditor, Descendant, Editor, Transforms, Range, Point,
   Element as SlateElement, Node, Path
@@ -34,9 +35,7 @@ type DocState = {
   content: Descendant[];
 };
 
-const EMPTY_INITIAL_VALUE: Descendant[] = [
-  { type: 'paragraph', children: [{ text: '' }] },
-];
+const EMPTY_INITIAL_VALUE: Descendant[] = [{ type: 'paragraph', children: [{ text: '' }] }];
 
 type Props = {
   initialDoc: DocState | null;
@@ -164,36 +163,33 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     return pick ?? candidates[0] ?? null;
   }, []);
 
-  // ── 프리즈/복원(컨테이너만) ───────────────────────────────────
-  const lastYRef = useRef<number | null>(null);
+  // ── 가격 모달 전용 프리즈/복원 상태 ─────────────────────────
+  const lastYRef = useRef(0);
+  const freezeCleanupRef = useRef<(() => void) | null>(null);
   const freezeActiveRef = useRef(false);
 
-  const captureScroll = useCallback(() => {
+  // (선택) 모달 열기 직전 명시적으로 Y 저장하고 싶을 때 사용
+  const captureScrollPrice = useCallback(() => {
     const el = getScrollEl();
-    if (!el) return;
-    // 가격 모달을 열기 직전(또는 명시적으로 요청한 경우)에만 사용
-    lastYRef.current = el.scrollTop;
+    lastYRef.current = el?.scrollTop ?? 0;
   }, [getScrollEl]);
 
   useEffect(() => {
-    const handler = () => captureScroll();
+    const handler = () => captureScrollPrice();
     window.addEventListener('editor:capture-scroll:price', handler as EventListener);
     return () => window.removeEventListener('editor:capture-scroll:price', handler as EventListener);
-  }, [captureScroll]);
-
-  const freezeCleanupRef = useRef<(() => void) | null>(null);
+  }, [captureScrollPrice]);
 
   const startFreeze = useCallback(() => {
     const el = getScrollEl();
     if (!el) return;
 
+    // 프리즈 시작 플래그
     freezeActiveRef.current = true;
-    lastYRef.current = el.scrollTop;
 
-    // 모달 열릴 때 커서 스냅샷 저장(그대로 복원이 목표)
+    // 커서 스냅샷 저장
     try {
       if (editor.selection) {
-        // unhang으로 경계 정리
         savedSelectionRef.current = Editor.unhangRange(editor, editor.selection);
       } else {
         savedSelectionRef.current = null;
@@ -202,7 +198,10 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       savedSelectionRef.current = editor.selection ?? null;
     }
 
-    const y = lastYRef.current ?? el.scrollTop;
+    // 기준 Y 고정
+    lastYRef.current = el.scrollTop;
+    const y = lastYRef.current;
+
     const prevScrollBehavior = el.style.scrollBehavior || '';
     el.style.scrollBehavior = 'auto';
     el.scrollTop = y;
@@ -225,10 +224,13 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
   }, [getScrollEl, editor]);
 
   const stopFreeze = useCallback(() => {
+    if (!freezeActiveRef.current) return;
     freezeCleanupRef.current?.();
     freezeCleanupRef.current = null;
+    freezeActiveRef.current = false;
   }, []);
 
+  // 가격 모달이 열렸을 때만 프리즈, 닫힐 때 해제
   useLayoutEffect(() => {
     if (!priceTableEdit.blockPath) return;
     startFreeze();
@@ -236,18 +238,14 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
   }, [priceTableEdit.blockPath, startFreeze, stopFreeze]);
 
   const restoreScroll = () => {
-    if (!freezeActiveRef.current) return;             // 프리즈 범위 밖이면 복원 금지
     const el = getScrollEl();
-    if (!el) return;
-    if (lastYRef.current == null) return;             // 스냅샷 없으면 복원 금지
-    el.scrollTop = lastYRef.current;
+    if (el) el.scrollTop = lastYRef.current;
   };
-  // ─────────────────────────────────────────────────────────────
 
   // ✅ 커서 복원: 가능한 한 “원래 selection” 그대로
-  const restoreCaret = useCallback((fallbackAfter?: Path | null) => {
-    let restored = false;
+  const restoreCaret = useCallback((_fallbackAfter?: Path | null) => {
     const sel = savedSelectionRef.current;
+    let restored = false;
     if (sel) {
       try {
         Transforms.select(editor, sel);
@@ -258,12 +256,10 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       }
     }
     if (!restored) {
-      // 복원 실패 시만 안전한 위치로 이동(문서 끝)
       const point = Editor.end(editor, []);
       Transforms.select(editor, point);
       ReactEditor.focus(editor);
     }
-    // 사용한 스냅샷은 비움
     savedSelectionRef.current = null;
   }, [editor]);
 
@@ -272,22 +268,20 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     stopFreeze();
     requestAnimationFrame(() => {
       restoreScroll();
-      restoreCaret(priceTableEdit.blockPath);
+      restoreCaret();
       const el = getScrollEl();
       if (el) lastYRef.current = el.scrollTop;
-      lastYRef.current = null;
     });
   };
 
   const handlePriceModalSave = (data: { stages: string[]; prices: Array<string | number> }) => {
     const { blockPath, idx } = priceTableEdit;
 
-    // 가격 값 정규화: 숫자는 number로, 기호/문자 포함은 string 그대로 보존
+    // 가격 값 정규화
     const normalizePrices = (arr: Array<string | number>) =>
       arr.map((v) => {
         if (typeof v === 'number' && Number.isFinite(v)) return v;
         const s = String(v ?? '').trim();
-        // 숫자 전용이면 number로 변환, 그 외(기호 포함)는 문자열 유지
         return /^-?\d+(?:\.\d+)?$/.test(s) ? Number(s) : s;
       });
 
@@ -310,14 +304,12 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
 
     setPriceTableEdit({ blockPath: null, idx: null, item: null });
 
-    // 기존 흐름과 동일: 스크롤/캐럿 복구
-    stopFreeze?.();
+    stopFreeze();
     requestAnimationFrame(() => {
-      restoreScroll?.();
-      if (blockPath) restoreCaret?.(blockPath);
+      restoreScroll();
+      restoreCaret();
       const el = getScrollEl();
       if (el) lastYRef.current = el.scrollTop;
-      lastYRef.current = null;
     });
   };
 

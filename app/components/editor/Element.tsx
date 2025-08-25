@@ -1,4 +1,3 @@
-// app/components/editor/Element.tsx
 'use client';
 
 import React, { useRef, useState, useEffect } from 'react';
@@ -80,8 +79,7 @@ function guessPriceMode(item: any): 'normal' | 'awakening' | 'transcend' {
 function autoFont(base: number, text: string, steps?: Array<[number, number]>) {
   const len = Array.from(text ?? '').length;
   const rules: Array<[number, number]> =
-    steps ??
-    [
+    steps ?? [
       [8, base],
       [12, base - 2],
       [16, base - 4],
@@ -305,7 +303,6 @@ const Element: React.FC<ElementProps> = ({
                 )
               ) : null
             ) : (
-              // 외부 파비콘 네트워크 호출 제거 → 인라인 아이콘
               <span
                 style={{
                   width: 24,
@@ -347,10 +344,11 @@ const Element: React.FC<ElementProps> = ({
       const fontSize = level === 1 ? '28px' : level === 2 ? '22px' : '18px';
       const Tag = `h${level}` as 'h1' | 'h2' | 'h3';
 
-      // ✅ WikiReadRenderer와 동일: 정렬을 flex 컨테이너에 반영
+      // WikiReadRenderer와 동일하게 정렬을 flex 컨테이너에 반영
       const justify =
-        el.textAlign === 'center' ? 'center' :
-        el.textAlign === 'right'  ? 'flex-end' : 'flex-start';
+        el.textAlign === 'center' ? 'center'
+        : el.textAlign === 'right'  ? 'flex-end'
+        : 'flex-start';
 
       return (
         <Tag
@@ -362,8 +360,8 @@ const Element: React.FC<ElementProps> = ({
             display: 'flex',
             alignItems: 'center',
             gap: 8,
-            justifyContent: justify, // ✅ 핵심
-            width: '100%',           // ✅ 좌/우 정렬 시 폭 기준 확실히
+            justifyContent: justify,
+            width: '100%',
           }}
         >
           <span
@@ -812,19 +810,10 @@ const Element: React.FC<ElementProps> = ({
 
                 const nameShown = item.name || '이름 없음';
                 const nameFont = autoFont(20, String(nameShown), [
-                  [7, 18],
-                  [9, 16],
-                  [12, 14],
-                  [16, 13],
-                  [20, 12],
+                  [7, 18], [9, 16], [12, 14], [16, 13], [20, 12],
                 ]);
                 const priceFont = autoFont(20, String(priceVal), [
-                  [8, 20],
-                  [12, 18],
-                  [16, 16],
-                  [22, 14],
-                  [30, 12],
-                  [40, 11],
+                  [8, 20], [12, 18], [16, 16], [22, 14], [30, 12], [40, 11],
                 ]);
 
                 return (
@@ -1043,7 +1032,7 @@ const Element: React.FC<ElementProps> = ({
                       )}
                     </div>
 
-                    {/* 가격: 필요할 때만 줄바꿈 + 길면 폰트 축소, 여백 고정 */}
+                    {/* 가격: 줄바꿈 보정 + 폰트 축소 */}
                     <div
                       style={{
                         fontWeight: 800,
@@ -1061,6 +1050,7 @@ const Element: React.FC<ElementProps> = ({
                       title="가격 수정"
                       onClick={e => {
                         e.stopPropagation();
+                        // ✅ 가격 모달 전용 스크롤 캡처(다른 액션과 분리)
                         window.dispatchEvent(new CustomEvent('editor:capture-scroll:price'));
                         setPriceTableEdit({ blockPath: path, idx, item: { ...item, mode: guessPriceMode(item) } });
                       }}
