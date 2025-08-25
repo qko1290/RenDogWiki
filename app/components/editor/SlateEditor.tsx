@@ -174,8 +174,8 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
 
   useEffect(() => {
     const handler = () => captureScroll();
-    window.addEventListener('editor:capture-scroll', handler);
-    return () => window.removeEventListener('editor:capture-scroll', handler);
+    window.addEventListener('editor:capture-scroll:price', handler as EventListener);
+    return () => window.removeEventListener('editor:capture-scroll:price', handler as EventListener);
   }, [captureScroll]);
 
   const freezeCleanupRef = useRef<(() => void) | null>(null);
@@ -183,6 +183,8 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
   const startFreeze = useCallback(() => {
     const el = getScrollEl();
     if (!el) return;
+
+    lastYRef.current = el.scrollTop;
 
     // 모달 열릴 때 커서 스냅샷 저장(그대로 복원이 목표)
     try {
@@ -264,6 +266,8 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     requestAnimationFrame(() => {
       restoreScroll();
       restoreCaret(priceTableEdit.blockPath);
+      const el = getScrollEl();
+      if (el) lastYRef.current = el.scrollTop;
     });
   };
 
@@ -303,6 +307,8 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     requestAnimationFrame(() => {
       restoreScroll?.();
       if (blockPath) restoreCaret?.(blockPath);
+      const el = getScrollEl();
+      if (el) lastYRef.current = el.scrollTop;
     });
   };
 

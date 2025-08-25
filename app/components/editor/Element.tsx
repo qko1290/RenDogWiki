@@ -1061,7 +1061,7 @@ const Element: React.FC<ElementProps> = ({
                       title="가격 수정"
                       onClick={e => {
                         e.stopPropagation();
-                        window.dispatchEvent(new CustomEvent('editor:capture-scroll'));
+                        window.dispatchEvent(new CustomEvent('editor:capture-scroll:price'));
                         setPriceTableEdit({ blockPath: path, idx, item: { ...item, mode: guessPriceMode(item) } });
                       }}
                     >
