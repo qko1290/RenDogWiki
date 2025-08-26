@@ -43,11 +43,6 @@ export async function PATCH(_req: NextRequest) {
     return NextResponse.json({ error: '이동할 이미지가 없습니다.' }, { status: 400 });
   }
 
-  // ✅ role 속성이 없을 수 있으므로 is_admin / is_writer로 유추
-  const role: Role =
-    user.role ??
-    (user.is_admin ? 'admin' : user.is_writer ? 'writer' : 'guest');
-
   try {
     const rows = await sql/*sql*/`
       SELECT id, uploader
@@ -56,19 +51,6 @@ export async function PATCH(_req: NextRequest) {
     `;
     if (rows.length !== ids.length) {
       return NextResponse.json({ error: '일부 이미지가 존재하지 않습니다.' }, { status: 404 });
-    }
-
-    if (role !== 'admin') {
-      if (role !== 'writer') {
-        return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
-      }
-      const me = String(user.minecraft_name ?? '').toLowerCase();
-      const mineOnly = rows.every(
-        (r: any) => String(r.uploader ?? '').toLowerCase() === me
-      );
-      if (!mineOnly) {
-        return NextResponse.json({ error: '본인이 업로드한 이미지만 이동할 수 있습니다.' }, { status: 403 });
-      }
     }
 
     if (newFolderId !== null) {
