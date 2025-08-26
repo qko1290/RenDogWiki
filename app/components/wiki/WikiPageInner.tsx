@@ -1,6 +1,6 @@
 // =============================================
 // File: app/wiki/WikiPageInner.tsx
-// (이미지 lazy/async 적용 유지, 로더 포함)
+// (이미지 lazy/async 적용 유지, 로더 포함 / 전환 딜레이 적용)
 // =============================================
 'use client';
 
@@ -178,6 +178,11 @@ export default function WikiPageInner({ user }: Props) {
   // ⭐ 루트 문서는 문서 크롬(제목/브레드크럼) 숨김
   const [hideDocChrome, setHideDocChrome] = useState(false);
   const [loadingDoc, setLoadingDoc] = useState(false);
+
+  // ---------- 전환 지연(딜레이) 상태 ----------
+  const [delaying, setDelaying] = useState(false);
+  const SWAP_DELAY_MS = 180; // 체감 120~220ms 권장
+  // -------------------------------------------
 
   const firstLoadRef = useRef(true);
   const mountedRef = useRef(true);
@@ -575,31 +580,11 @@ export default function WikiPageInner({ user }: Props) {
     return () => el.removeEventListener('click', handler);
   }, [docContent, router]);
 
-  // ---------- ✨ 플래시 제거 핵심 ①: 전환 즉시 리스트 초기화/로딩 전환 ----------
+  // ---------- ✨ 전환 딜레이: 잘못된 목록 잔상 대신 로더만 잠깐 노출 ----------
   useEffect(() => {
-    // 문서가 바뀌면 이전 선택/리스트를 즉시 비우고 로딩으로 전환
-    setSelectedNpc(null);
-    setSelectedHead(null);
-    setNpcPage(0);
-    setHeadPage(0);
-
-    if (specialMeta?.kind === 'head') {
-      setHeadLoading(true);
-      setNpcLoading(false);
-      setHeadList([]);
-      setNpcList([]);
-    } else if (specialMeta?.kind === 'npc' || specialMeta?.kind === 'quest') {
-      setNpcLoading(true);
-      setHeadLoading(false);
-      setNpcList([]);
-      setHeadList([]);
-    } else {
-      // 일반 문서/FAQ
-      setNpcLoading(false);
-      setHeadLoading(false);
-      setNpcList([]);
-      setHeadList([]);
-    }
+    setDelaying(true);
+    const t = setTimeout(() => setDelaying(false), SWAP_DELAY_MS);
+    return () => clearTimeout(t);
   }, [selectedDocId, specialMeta?.kind]);
   // -----------------------------------------------------------------------
 
@@ -630,7 +615,7 @@ export default function WikiPageInner({ user }: Props) {
 
     (async () => {
       if (meta.kind === 'head') {
-        // 로딩 true/리스트 비우기는 위 전환 훅에서 이미 수행
+        setHeadLoading(true); setHeadList([]); setHeadPage(0);
         const v = await findVillage([meta.village, selectedDocTitle].filter(Boolean) as string[]);
         if (!v) { setHeadLoading(false); return; }
         const res = await fetch(`/api/head?village_id=${v.id}`);
@@ -641,6 +626,7 @@ export default function WikiPageInner({ user }: Props) {
       }
 
       // quest / npc
+      setNpcLoading(true); setNpcList([]); setNpcPage(0);
       const v = await findVillage([meta.village, selectedDocTitle].filter(Boolean) as string[]);
       if (!v) { setNpcLoading(false); return; }
       const npcType = meta.kind === 'quest' ? 'quest' : 'normal';
@@ -716,13 +702,12 @@ export default function WikiPageInner({ user }: Props) {
     return () => document.removeEventListener('click', onClick, true);
   }, [allDocuments]);
 
+  // 로딩/보이기 제어: 딜레이 중에도 로더만 보이도록 hold 사용
   const isLoadingView = loadingDoc || docContent === null;
+  const hold = isLoadingView || delaying;
 
-  // ---------- ✨ 플래시 제거 핵심 ②: 문서/메타 변화에 따라 콘텐츠 영역 remount ----------
-  const contentSwitchKey = useMemo(
-    () => `${selectedDocId ?? 'root'}|${specialMeta?.kind ?? 'doc'}|${selectedDocTitle ?? ''}`,
-    [selectedDocId, specialMeta?.kind, selectedDocTitle]
-  );
+  // ---------- (선택) 콘텐츠 페이드: 딜레이 중엔 숨기고, 준비되면 페이드-인 ----------
+  const contentClass = hold ? 'is-hold' : 'is-ready';
   // -----------------------------------------------------------------------
 
   return (
@@ -756,8 +741,8 @@ export default function WikiPageInner({ user }: Props) {
             />
           </aside>
 
-          <main className="wiki-content" key={contentSwitchKey}>
-            {!hideDocChrome && !isLoadingView && (
+          <main className={`wiki-content ${contentClass}`}>
+            {!hideDocChrome && !hold && (
               <>
                 <Breadcrumb
                   selectedDocPath={selectedDocPath}
@@ -794,7 +779,7 @@ export default function WikiPageInner({ user }: Props) {
             )}
 
             <div className="wiki-content-body" ref={contentRef}>
-              {isLoadingView ? (
+              {hold ? (
                 <BookLoader />
               ) : isFaq ? (
                 <FaqList query={faqQuery} tags={faqTags} user={user} refreshSignal={faqRefreshSignal} />
@@ -828,14 +813,14 @@ export default function WikiPageInner({ user }: Props) {
                 <BookLoader />
               )}
 
-              {specialMeta?.kind === 'head' && headList.length > 21 && (
+              {specialMeta?.kind === 'head' && headList.length > 21 && !hold && (
                 <div className="wiki-paging-bar">
                   <button onClick={() => setHeadPage(p => Math.max(0, p - 1))} disabled={headPage === 0} className="wiki-paging-btn">◀</button>
                   <span className="wiki-paging-text">{headPage + 1} / {Math.ceil(headList.length / 21)}</span>
                   <button onClick={() => setHeadPage(p => Math.min(Math.ceil(headList.length / 21) - 1, p + 1))} disabled={headPage === Math.ceil(headList.length / 21) - 1} className="wiki-paging-btn">▶</button>
                 </div>
               )}
-              {(specialMeta?.kind === 'npc' || specialMeta?.kind === 'quest') && npcList.length > 21 && (
+              {(specialMeta?.kind === 'npc' || specialMeta?.kind === 'quest') && npcList.length > 21 && !hold && (
                 <div className="wiki-paging-bar">
                   <button onClick={() => setNpcPage(p => Math.max(0, p - 1))} disabled={npcPage === 0} className="wiki-paging-btn">◀</button>
                   <span className="wiki-paging-text">{npcPage + 1} / {Math.ceil(npcList.length / 21)}</span>
@@ -843,14 +828,14 @@ export default function WikiPageInner({ user }: Props) {
                 </div>
               )}
 
-              {selectedNpc && (
+              {selectedNpc && !hold && (
                 <NpcDetailModal
                   npc={selectedNpc}
                   mode={specialMeta?.kind === 'quest' ? 'quest' : 'npc'}
                   onClose={() => setSelectedNpc(null)}
                 />
               )}
-              {selectedHead && (
+              {selectedHead && !hold && (
                 <HeadDetailModal head={selectedHead} docIcon={currentDoc?.icon} onClose={() => setSelectedHead(null)} />
               )}
             </div>
@@ -870,6 +855,12 @@ export default function WikiPageInner({ user }: Props) {
           onSaved={() => { setShowNewFaq(false); setFaqRefreshSignal(v => v + 1); }}
         />
       )}
+
+      {/* (선택) 콘텐츠 페이드 전환용 간단 스타일 */}
+      <style jsx global>{`
+        .wiki-content.is-ready { opacity: 1; transition: opacity .18s ease; }
+        .wiki-content.is-hold  { opacity: 0; }
+      `}</style>
     </div>
   );
 }
@@ -910,7 +901,7 @@ function NewFaqModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
           </div>
           <div>
             <label style={labelStyle}>내용</label>
-            <textarea style={{ ...inputStyle, height: 140, resize: 'vertical' }} value={content} onChange={e => e.target && setContent(e.target.value)} />
+            <textarea style={{ ...inputStyle, height: 140, resize: 'vertical' }} value={content} onChange={e => setContent(e.target.value)} />
           </div>
           <div>
             <label style={labelStyle}>태그(쉼표로 구분, 선택)</label>
