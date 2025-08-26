@@ -1,6 +1,7 @@
 // =============================================
 // File: app/components/common/SearchBox.tsx
 // (문서/FAQ 동시 검색, 2열 반반 표시, IME 즉시 반응)
+// + 헤더 내 중앙/왼쪽 정렬 지원 (align prop)
 // =============================================
 'use client';
 
@@ -16,7 +17,7 @@ type DocResult = {
   icon?: string;
   tags: string[];
   match_type: 'title' | 'tags' | 'content';
-  content?: string; // optional: 일부 본문(JSON 문자열)
+  content?: string;
 };
 
 type FaqItem = {
@@ -66,7 +67,14 @@ const isImageLike = (v?: string) => !!v && (/^https?:\/\//i.test(v) || v.startsW
 const isRemoteHttp = (v?: string) => !!v && /^https?:\/\//i.test(v);
 
 // -------------------- component --------------------
-export default function SearchBox() {
+type Props = {
+  /** 헤더 안 정렬: center | left */
+  align?: 'center' | 'left';
+  /** 박스 너비 (CSS 값). 기본: min(720px, 56vw) */
+  width?: string;
+};
+
+export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)' }: Props) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
 
@@ -78,10 +86,7 @@ export default function SearchBox() {
   const [faqs, setFaqs] = useState<FaqItem[]>([]);
   const [loadingFaqs, setLoadingFaqs] = useState(false);
 
-  // 선택/키보드 포커스는 문서 리스트만 기존처럼 지원
   const [activeDocIndex, setActiveDocIndex] = useState<number>(-1);
-
-  // FAQ 뷰 모달
   const [faqView, setFaqView] = useState<FaqItem | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -140,7 +145,6 @@ export default function SearchBox() {
       setLoadingFaqs(true);
       (async () => {
         try {
-          // ✅ /api/faq?q=...&limit=10 사용 (서버는 title/content/tags ILIKE 검색 가정)
           const url = `/api/faq?q=${encodeURIComponent(q)}&limit=10&offset=0`;
           const res = await fetch(url, { signal: acFaq.signal, cache: 'no-store' });
           const data = res.ok ? await res.json() : { items: [] };
@@ -209,6 +213,15 @@ export default function SearchBox() {
     }
   };
 
+  // 정렬/너비 스타일 (헤더 내 중앙 또는 왼쪽)
+  const wrapperStyle: React.CSSProperties = {
+    position: 'relative',
+    width,
+    // flex 헤더/블록 헤더 모두에서 중앙 정렬 되도록 auto 마진 사용
+    marginLeft: align === 'center' ? 'auto' : 0,
+    marginRight: align === 'center' ? 'auto' : 0,
+  };
+
   return (
     <div
       ref={wrapRef}
@@ -217,7 +230,8 @@ export default function SearchBox() {
       aria-expanded={open}
       aria-owns={listId}
       aria-haspopup="listbox"
-      style={{ position: 'relative' }}
+      style={wrapperStyle}
+      data-align={align}
     >
       <svg className="search-icon" viewBox="0 0 24 24" aria-hidden="true">
         <path d="M21.53 20.47l-3.66-3.66C19.195 15.24 20 13.214 20 11c0-4.97-4.03-9-9-9s-9 4.03-9 9 4.03 9 9 9c2.215 0 4.24-.804 5.808-2.13l3.66 3.66c.147.146.34.22.53.22s.385-.073.53-.22c.295-.293.295-.767.002-1.06zM3.5 11c0-4.135 3.365-7.5 7.5-7.5s7.5 3.365 7.5 7.5-3.365 7.5-7.5 7.5-7.5-3.365-7.5-7.5z" />
@@ -231,7 +245,7 @@ export default function SearchBox() {
         placeholder="Search"
         value={query}
         onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
-        onChange={(e) => setQuery(e.target.value)} // 호환용
+        onChange={(e) => setQuery(e.target.value)}
         onFocus={() => (docs.length || faqs.length) && setOpen(true)}
         onKeyDown={onKeyDown}
         autoComplete="off"
@@ -262,7 +276,6 @@ export default function SearchBox() {
             padding: '10px 12px',
           }}
         >
-          {/* 상단 상태줄 */}
           {(loadingDocs || loadingFaqs) && (
             <div style={{ color: '#9aa1ac', fontSize: 13, padding: '6px 2px 8px' }}>
               {loadingDocs ? '문서 검색 중…' : ''} {loadingDocs && loadingFaqs ? '·' : ''}{' '}
@@ -270,7 +283,6 @@ export default function SearchBox() {
             </div>
           )}
 
-          {/* 2열 그리드: 좌(문서) / 우(FAQ) */}
           <div
             style={{
               display: 'grid',
@@ -286,22 +298,14 @@ export default function SearchBox() {
                 문서
               </div>
 
-              {(!loadingDocs && docs.length === 0) && (
-                <div style={{ color: '#9aa1ac', fontSize: 14, padding: '6px 4px' }}>
-                  결과가 없습니다.
-                </div>
+              {!loadingDocs && docs.length === 0 && (
+                <div style={{ color: '#9aa1ac', fontSize: 14, padding: '6px 4px' }}>결과가 없습니다.</div>
               )}
 
               <ul
                 id={listId}
                 role="listbox"
-                style={{
-                  listStyle: 'none',
-                  margin: 0,
-                  padding: 0,
-                  maxHeight: 360,
-                  overflowY: 'auto',
-                }}
+                style={{ listStyle: 'none', margin: 0, padding: 0, maxHeight: 360, overflowY: 'auto' }}
               >
                 {docs.map((res, idx) => {
                   const selected = idx === activeDocIndex;
@@ -347,9 +351,7 @@ export default function SearchBox() {
                         )}
                       </span>
                       <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ fontWeight: 700, fontSize: 16 }}>
-                          {highlight(res.title, query)}
-                        </div>
+                        <div style={{ fontWeight: 700, fontSize: 16 }}>{highlight(res.title, query)}</div>
                         {res.match_type === 'content' && (
                           <div
                             style={{
@@ -386,21 +388,11 @@ export default function SearchBox() {
                 자주 묻는 질문
               </div>
 
-              {(!loadingFaqs && faqs.length === 0) && (
-                <div style={{ color: '#9aa1ac', fontSize: 14, padding: '6px 4px' }}>
-                  결과가 없습니다.
-                </div>
+              {!loadingFaqs && faqs.length === 0 && (
+                <div style={{ color: '#9aa1ac', fontSize: 14, padding: '6px 4px' }}>결과가 없습니다.</div>
               )}
 
-              <ul
-                style={{
-                  listStyle: 'none',
-                  margin: 0,
-                  padding: 0,
-                  maxHeight: 360,
-                  overflowY: 'auto',
-                }}
-              >
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0, maxHeight: 360, overflowY: 'auto' }}>
                 {faqs.map((f) => (
                   <li
                     key={`faq-${f.id}`}
@@ -546,6 +538,18 @@ export default function SearchBox() {
           </div>
         </div>
       )}
+
+      {/* 컴포넌트 한정 스타일: 모바일에서 폭 확장 */}
+      <style jsx>{`
+        .search-wrapper {
+          max-width: 100%;
+        }
+        @media (max-width: 768px) {
+          .search-wrapper {
+            width: min(92vw, 640px) !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
