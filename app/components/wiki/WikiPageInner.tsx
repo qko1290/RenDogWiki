@@ -348,7 +348,7 @@ export default function WikiPageInner({ user }: Props) {
     if (node.children?.length) {
       node.children.forEach(child => {
         const childPath = [...path, child.id];
-        if (isPathOpen(childPath)) void closeTreeWithChildren(child, childPath);
+        if (isPathOpen(childPath)) void closeTreeWithChildren(node, childPath);
       });
     }
   };
@@ -575,6 +575,34 @@ export default function WikiPageInner({ user }: Props) {
     return () => el.removeEventListener('click', handler);
   }, [docContent, router]);
 
+  // ---------- ✨ 플래시 제거 핵심 ①: 전환 즉시 리스트 초기화/로딩 전환 ----------
+  useEffect(() => {
+    // 문서가 바뀌면 이전 선택/리스트를 즉시 비우고 로딩으로 전환
+    setSelectedNpc(null);
+    setSelectedHead(null);
+    setNpcPage(0);
+    setHeadPage(0);
+
+    if (specialMeta?.kind === 'head') {
+      setHeadLoading(true);
+      setNpcLoading(false);
+      setHeadList([]);
+      setNpcList([]);
+    } else if (specialMeta?.kind === 'npc' || specialMeta?.kind === 'quest') {
+      setNpcLoading(true);
+      setHeadLoading(false);
+      setNpcList([]);
+      setHeadList([]);
+    } else {
+      // 일반 문서/FAQ
+      setNpcLoading(false);
+      setHeadLoading(false);
+      setNpcList([]);
+      setHeadList([]);
+    }
+  }, [selectedDocId, specialMeta?.kind]);
+  // -----------------------------------------------------------------------
+
   // Special 데이터 로딩(FAQ 제외)
   useEffect(() => {
     if (!selectedDocId || !selectedDocTitle) {
@@ -602,21 +630,23 @@ export default function WikiPageInner({ user }: Props) {
 
     (async () => {
       if (meta.kind === 'head') {
-        setHeadLoading(true); setHeadList([]); setHeadPage(0);
+        // 로딩 true/리스트 비우기는 위 전환 훅에서 이미 수행
         const v = await findVillage([meta.village, selectedDocTitle].filter(Boolean) as string[]);
         if (!v) { setHeadLoading(false); return; }
         const res = await fetch(`/api/head?village_id=${v.id}`);
         const heads = res.ok ? await res.json() : [];
+        if (cancelled) return;
         setHeadList(Array.isArray(heads) ? (heads as HeadRow[]) : []); setHeadLoading(false);
         return;
       }
 
-      setNpcLoading(true); setNpcList([]); setNpcPage(0);
+      // quest / npc
       const v = await findVillage([meta.village, selectedDocTitle].filter(Boolean) as string[]);
       if (!v) { setNpcLoading(false); return; }
       const npcType = meta.kind === 'quest' ? 'quest' : 'normal';
       const res = await fetch(`/api/npcs?village_id=${v.id}&npc_type=${npcType}`);
       const npcs = res.ok ? await res.json() : [];
+      if (cancelled) return;
       setNpcList(Array.isArray(npcs) ? (npcs as NpcRow[]) : []); setNpcLoading(false);
     })();
 
@@ -688,6 +718,13 @@ export default function WikiPageInner({ user }: Props) {
 
   const isLoadingView = loadingDoc || docContent === null;
 
+  // ---------- ✨ 플래시 제거 핵심 ②: 문서/메타 변화에 따라 콘텐츠 영역 remount ----------
+  const contentSwitchKey = useMemo(
+    () => `${selectedDocId ?? 'root'}|${specialMeta?.kind ?? 'doc'}|${selectedDocTitle ?? ''}`,
+    [selectedDocId, specialMeta?.kind, selectedDocTitle]
+  );
+  // -----------------------------------------------------------------------
+
   return (
     <div className="wiki-container">
       <WikiHeader user={user} />
@@ -719,7 +756,7 @@ export default function WikiPageInner({ user }: Props) {
             />
           </aside>
 
-          <main className="wiki-content">
+          <main className="wiki-content" key={contentSwitchKey}>
             {!hideDocChrome && !isLoadingView && (
               <>
                 <Breadcrumb
@@ -873,7 +910,7 @@ function NewFaqModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
           </div>
           <div>
             <label style={labelStyle}>내용</label>
-            <textarea style={{ ...inputStyle, height: 140, resize: 'vertical' }} value={content} onChange={e => setContent(e.target.value)} />
+            <textarea style={{ ...inputStyle, height: 140, resize: 'vertical' }} value={content} onChange={e => e.target && setContent(e.target.value)} />
           </div>
           <div>
             <label style={labelStyle}>태그(쉼표로 구분, 선택)</label>
