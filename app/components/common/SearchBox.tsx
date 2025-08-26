@@ -1,15 +1,8 @@
 // =============================================
 // File: app/components/common/SearchBox.tsx
+// (실시간 검색: IME 조합 안정화 + 즉시 트리거)
 // =============================================
 'use client';
-
-/**
- * 문서/태그/본문 통합 검색 입력
- * - 200ms 디바운스 + AbortController로 이전 요청 취소
- * - 키보드 탐색: ↑/↓, Enter 이동, Esc 닫기
- * - IME 조합 중(composition)엔 검색 지연
- * - 결과 하이라이트(안전한 캡처-스플릿 방식)
- */
 
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -23,14 +16,13 @@ type SearchResult = {
   icon?: string;
   tags: string[];
   match_type: 'title' | 'tags' | 'content';
-  content?: string; // 서버가 슬레이트 JSON 문자열(일부) 제공
+  content?: string;
 };
 
-/** 안전한 하이라이트: 캡처-스플릿으로 쪼개고, 홀수 인덱스만 강조 */
 function highlight(text: string, keyword: string) {
   if (!keyword) return text;
   const safe = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const re = new RegExp(`(${safe})`, 'gi'); // split 시 캡처 포함
+  const re = new RegExp(`(${safe})`, 'gi');
   const parts = text.split(re);
   return parts.map((part, i) =>
     i % 2 === 1 ? (
@@ -43,7 +35,6 @@ function highlight(text: string, keyword: string) {
   );
 }
 
-/** 슬레이트(JSON) 구조에서 키워드가 들어있는 첫 텍스트 라인 추출 */
 function extractSlateTextLine(slate: any, keyword: string): string | null {
   if (Array.isArray(slate)) {
     for (const node of slate) {
@@ -62,7 +53,6 @@ function extractSlateTextLine(slate: any, keyword: string): string | null {
   return null;
 }
 
-// 아이콘 값을 이미지처럼 렌더해야 하는지 판별(원격 http/https 또는 data:image)
 const isImageLike = (v?: string) => !!v && (/^https?:\/\//i.test(v) || v.startsWith('data:image'));
 const isRemoteHttp = (v?: string) => !!v && /^https?:\/\//i.test(v);
 
@@ -72,23 +62,28 @@ export default function SearchBox() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const [activeIndex, setActiveIndex] = useState<number>(-1); // 키보드 포커스용
-  const [isComposing, setIsComposing] = useState(false); // IME 조합 여부
+  const [activeIndex, setActiveIndex] = useState<number>(-1);
+  const [isComposing, setIsComposing] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const timerRef = useRef<number | null>(null);
 
+  // 👇 IME 조합 실시간 플래그(상태 업데이트 지연 방지)
+  const composingRef = useRef(false);
+
+  // 👇 조합 종료 직후에도 확실히 검색을 태우기 위한 토글 시그널
+  const [compositionTick, setCompositionTick] = useState(0);
+
   const router = useRouter();
 
-  /** 현재 결과 수 메모 */
   const count = results.length;
 
-  /** 입력 변경 시 -> 디바운스 검색 */
+  // ===== 핵심: 디바운스 & Abort + 조합 상태 반영 =====
   useEffect(() => {
-    // 조합 중이면 검색 보류(한글 등)
-    if (isComposing) return;
+    // 조합 중이면 검색 보류
+    if (isComposing || composingRef.current) return;
 
     // 공백/빈 검색어 → 닫고 초기화
     if (!query.trim()) {
@@ -132,9 +127,11 @@ export default function SearchBox() {
     return () => {
       if (timerRef.current) window.clearTimeout(timerRef.current);
     };
-  }, [query, isComposing]);
+    // ✅ compositionTick을 의존성에 넣어, 일부 브라우저에서 compositionend 직후
+    // onChange가 안 들어오는 케이스도 강제로 트리거
+  }, [query, isComposing, compositionTick]);
 
-  /** 외부 클릭 -> 닫기 */
+  // 외부 클릭 → 닫기
   useEffect(() => {
     const onDocDown = (e: MouseEvent) => {
       const root = wrapRef.current;
@@ -149,7 +146,6 @@ export default function SearchBox() {
     return () => document.removeEventListener('mousedown', onDocDown);
   }, []);
 
-  /** 결과 클릭/Enter 이동 */
   const go = (res: SearchResult | null) => {
     if (!res) return;
     setOpen(false);
@@ -159,7 +155,6 @@ export default function SearchBox() {
     router.push(`/wiki?path=${encodeURIComponent(res.path)}&title=${encodeURIComponent(res.title)}`);
   };
 
-  /** 키보드 핸들러 (↑/↓/Enter/Esc) */
   const onKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
     if (!open || (!count && e.key !== 'Escape')) {
       if (e.key === 'Escape') {
@@ -184,7 +179,6 @@ export default function SearchBox() {
     }
   };
 
-  /** 드롭다운 ARIA 속성 */
   const listId = useMemo(() => `search-list-${Math.random().toString(36).slice(2)}`, []);
 
   return (
@@ -201,18 +195,38 @@ export default function SearchBox() {
         <path d="M21.53 20.47l-3.66-3.66C19.195 15.24 20 13.214 20 11c0-4.97-4.03-9-9-9s-9 4.03-9 9 4.03 9 9 9c2.215 0 4.24-.804 5.808-2.13l3.66 3.66c.147.146.34.22.53.22s.385-.073.53-.22c.295-.293.295-.767.002-1.06zM3.5 11c0-4.135 3.365-7.5 7.5-7.5s7.5 3.365 7.5 7.5-3.365 7.5-7.5 7.5-7.5-3.365-7.5-7.5z" />
       </svg>
 
-      {/* 입력 */}
       <input
         type="search"
         ref={inputRef}
         className="search-input"
         placeholder="Search"
         value={query}
-        onChange={(e) => setQuery(e.target.value)}
+        onChange={(e) => {
+          // 일반 입력: 값 반영
+          setQuery(e.target.value);
+          // 조합 중이면 여기서 검색 트리거하지 않음 (effect 가드)
+        }}
         onFocus={() => results.length > 0 && setOpen(true)}
         onKeyDown={onKeyDown}
-        onCompositionStart={() => setIsComposing(true)}
-        onCompositionEnd={() => setIsComposing(false)}
+        onCompositionStart={() => {
+          composingRef.current = true;
+          setIsComposing(true);
+        }}
+        onCompositionUpdate={() => {
+          // 일부 브라우저에서 compositionend 지연될 때 대비해 ref 유지
+          composingRef.current = true;
+        }}
+        onCompositionEnd={(e) => {
+          // ✅ 조합 종료: 즉시 조합 플래그 해제 + 최신 값 반영 + 트리거 토글
+          composingRef.current = false;
+          setIsComposing(false);
+
+          // 조합이 끝나면서 최종 글자가 반영됐는데 onChange 타이밍 문제로
+          // effect가 안도는 케이스 대비: 값 재동기화 + tick 증가
+          const val = (e.target as HTMLInputElement).value;
+          setQuery(val);
+          setCompositionTick((t) => t + 1);
+        }}
         aria-autocomplete="list"
         aria-controls={listId}
         aria-activedescendant={
@@ -222,7 +236,6 @@ export default function SearchBox() {
         }
       />
 
-      {/* 로딩 상태 */}
       {loading && (
         <div
           style={{
@@ -243,7 +256,6 @@ export default function SearchBox() {
         </div>
       )}
 
-      {/* 결과 없음 */}
       {open && !loading && results.length === 0 && (
         <div
           style={{
@@ -264,7 +276,6 @@ export default function SearchBox() {
         </div>
       )}
 
-      {/* 자동완성 드롭다운 */}
       {open && results.length > 0 && (
         <ul
           id={listId}
@@ -308,7 +319,6 @@ export default function SearchBox() {
                 onMouseEnter={() => setActiveIndex(idx)}
                 onClick={() => go(res)}
               >
-                {/* 아이콘 */}
                 <span style={{ marginRight: 12, fontSize: 22 }}>
                   {res.icon ? (
                     isImageLike(res.icon) ? (
@@ -330,14 +340,11 @@ export default function SearchBox() {
                   )}
                 </span>
 
-                {/* 본문 */}
                 <div style={{ minWidth: 0, flex: 1 }}>
-                  {/* 제목 매치 */}
                   {res.match_type === 'title' && (
                     <div style={{ fontWeight: 700, fontSize: 18 }}>{highlight(res.title, query)}</div>
                   )}
 
-                  {/* 태그 매치 */}
                   {res.match_type === 'tags' && (
                     <>
                       <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 2 }}>
@@ -360,7 +367,6 @@ export default function SearchBox() {
                     </>
                   )}
 
-                  {/* 본문(슬레이트) 매치 */}
                   {res.match_type === 'content' && (
                     <>
                       <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 2 }}>
