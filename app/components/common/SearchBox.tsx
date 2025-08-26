@@ -1,6 +1,6 @@
 // =============================================
 // File: app/components/common/SearchBox.tsx
-// (실시간 검색: 조합 상태와 무관하게 즉시 반응 / onInput 사용)
+// (문서/FAQ 동시 검색, 2열 반반 표시, IME 즉시 반응)
 // =============================================
 'use client';
 
@@ -8,16 +8,28 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { toProxyUrl } from '@lib/cdn';
 
-type SearchResult = {
+// -------------------- types --------------------
+type DocResult = {
   id: number;
   title: string;
   path: string | number;
   icon?: string;
   tags: string[];
   match_type: 'title' | 'tags' | 'content';
-  content?: string;
+  content?: string; // optional: 일부 본문(JSON 문자열)
 };
 
+type FaqItem = {
+  id: number;
+  title: string;
+  content: string;
+  tags: string[];
+  uploader: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+// -------------------- utils --------------------
 function highlight(text: string, keyword: string) {
   if (!keyword) return text;
   const safe = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -33,7 +45,6 @@ function highlight(text: string, keyword: string) {
     ),
   );
 }
-
 function extractSlateTextLine(slate: any, keyword: string): string | null {
   if (Array.isArray(slate)) {
     for (const node of slate) {
@@ -51,67 +62,97 @@ function extractSlateTextLine(slate: any, keyword: string): string | null {
   }
   return null;
 }
-
 const isImageLike = (v?: string) => !!v && (/^https?:\/\//i.test(v) || v.startsWith('data:image'));
 const isRemoteHttp = (v?: string) => !!v && /^https?:\/\//i.test(v);
 
+// -------------------- component --------------------
 export default function SearchBox() {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<SearchResult[]>([]);
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
 
-  const [activeIndex, setActiveIndex] = useState<number>(-1);
+  // 문서
+  const [docs, setDocs] = useState<DocResult[]>([]);
+  const [loadingDocs, setLoadingDocs] = useState(false);
+
+  // FAQ
+  const [faqs, setFaqs] = useState<FaqItem[]>([]);
+  const [loadingFaqs, setLoadingFaqs] = useState(false);
+
+  // 선택/키보드 포커스는 문서 리스트만 기존처럼 지원
+  const [activeDocIndex, setActiveDocIndex] = useState<number>(-1);
+
+  // FAQ 뷰 모달
+  const [faqView, setFaqView] = useState<FaqItem | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
+
+  const abortDocsRef = useRef<AbortController | null>(null);
+  const abortFaqRef = useRef<AbortController | null>(null);
   const timerRef = useRef<number | null>(null);
 
   const router = useRouter();
-
-  const count = results.length;
+  const docsCount = docs.length;
   const listId = useMemo(() => `search-list-${Math.random().toString(36).slice(2)}`, []);
 
-  // ===== 디바운스 + AbortController =====
+  // ===== 디바운스 & 동시 fetch(문서 + FAQ) =====
   useEffect(() => {
-    const q = query; // 스냅샷
-    if (!q.trim()) {
-      // 빈 검색어 → 닫기/초기화
-      setResults([]);
+    const q = query.trim();
+    if (!q) {
       setOpen(false);
-      setActiveIndex(-1);
-      if (abortRef.current) abortRef.current.abort();
+      setDocs([]); setFaqs([]);
+      setActiveDocIndex(-1);
+      if (abortDocsRef.current) abortDocsRef.current.abort();
+      if (abortFaqRef.current) abortFaqRef.current.abort();
       return;
     }
 
     if (timerRef.current) window.clearTimeout(timerRef.current);
     timerRef.current = window.setTimeout(async () => {
-      if (abortRef.current) abortRef.current.abort();
-      const ac = new AbortController();
-      abortRef.current = ac;
-
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/search?query=${encodeURIComponent(q)}`, {
-          signal: ac.signal,
-          cache: 'no-store',
-        });
-        if (!res.ok) throw new Error('search-failed');
-        const data = (await res.json()) as SearchResult[];
-        setResults(data);
-        setOpen(true);
-        setActiveIndex(data.length ? 0 : -1);
-      } catch (e: any) {
-        if (e?.name !== 'AbortError') {
-          // 실패 시에도 드롭다운은 열어두고 "없음" 표기
-          setResults([]);
-          setOpen(true);
-          setActiveIndex(-1);
+      // --- 문서 요청 ---
+      if (abortDocsRef.current) abortDocsRef.current.abort();
+      const acDocs = new AbortController();
+      abortDocsRef.current = acDocs;
+      setLoadingDocs(true);
+      (async () => {
+        try {
+          const res = await fetch(`/api/search?query=${encodeURIComponent(q)}`, {
+            signal: acDocs.signal,
+            cache: 'no-store',
+          });
+          if (!res.ok) throw new Error('search-failed');
+          const data = (await res.json()) as DocResult[];
+          setDocs(data);
+          setActiveDocIndex(data.length ? 0 : -1);
+        } catch (e: any) {
+          if (e?.name !== 'AbortError') {
+            setDocs([]); setActiveDocIndex(-1);
+          }
+        } finally {
+          setLoadingDocs(false);
         }
-      } finally {
-        setLoading(false);
-      }
+      })();
+
+      // --- FAQ 요청 ---
+      if (abortFaqRef.current) abortFaqRef.current.abort();
+      const acFaq = new AbortController();
+      abortFaqRef.current = acFaq;
+      setLoadingFaqs(true);
+      (async () => {
+        try {
+          // ✅ /api/faq?q=...&limit=10 사용 (서버는 title/content/tags ILIKE 검색 가정)
+          const url = `/api/faq?q=${encodeURIComponent(q)}&limit=10&offset=0`;
+          const res = await fetch(url, { signal: acFaq.signal, cache: 'no-store' });
+          const data = res.ok ? await res.json() : { items: [] };
+          setFaqs(Array.isArray(data.items) ? data.items : []);
+        } catch (e: any) {
+          if (e?.name !== 'AbortError') setFaqs([]);
+        } finally {
+          setLoadingFaqs(false);
+        }
+      })();
+
+      setOpen(true);
     }, 200) as unknown as number;
 
     return () => {
@@ -119,51 +160,52 @@ export default function SearchBox() {
     };
   }, [query]);
 
-  // 외부 클릭 → 닫기
+  // 외부 클릭으로 닫기
   useEffect(() => {
     const onDocDown = (e: MouseEvent) => {
       const root = wrapRef.current;
       if (!root) return;
       if (!root.contains(e.target as Node)) {
         setOpen(false);
-        setResults([]);
-        setActiveIndex(-1);
+        setActiveDocIndex(-1);
       }
     };
     document.addEventListener('mousedown', onDocDown);
     return () => document.removeEventListener('mousedown', onDocDown);
   }, []);
 
-  const go = (res: SearchResult | null) => {
+  // 이동
+  const goDoc = (res: DocResult | null) => {
     if (!res) return;
     setOpen(false);
     setQuery('');
-    setResults([]);
-    setActiveIndex(-1);
+    setDocs([]); setFaqs([]);
+    setActiveDocIndex(-1);
     router.push(`/wiki?path=${encodeURIComponent(res.path)}&title=${encodeURIComponent(res.title)}`);
   };
 
+  // 키보드(문서 리스트 포커스)
   const onKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
-    if (!open || (!count && e.key !== 'Escape')) {
+    if (!open || (!docsCount && e.key !== 'Escape')) {
       if (e.key === 'Escape') {
         setOpen(false);
-        setActiveIndex(-1);
+        setActiveDocIndex(-1);
       }
       return;
     }
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setActiveIndex((i) => (i + 1) % count);
+      setActiveDocIndex((i) => (docsCount ? (i + 1) % docsCount : -1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setActiveIndex((i) => (i - 1 + count) % count);
+      setActiveDocIndex((i) => (docsCount ? (i - 1 + docsCount) % docsCount : -1));
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      go(results[activeIndex] ?? results[0] ?? null);
+      goDoc(docs[activeDocIndex] ?? docs[0] ?? null);
     } else if (e.key === 'Escape') {
       e.preventDefault();
       setOpen(false);
-      setActiveIndex(-1);
+      setActiveDocIndex(-1);
     }
   };
 
@@ -181,24 +223,16 @@ export default function SearchBox() {
         <path d="M21.53 20.47l-3.66-3.66C19.195 15.24 20 13.214 20 11c0-4.97-4.03-9-9-9s-9 4.03-9 9 4.03 9 9 9c2.215 0 4.24-.804 5.808-2.13l3.66 3.66c.147.146.34.22.53.22s.385-.073.53-.22c.295-.293.295-.767.002-1.06zM3.5 11c0-4.135 3.365-7.5 7.5-7.5s7.5 3.365 7.5 7.5-3.365 7.5-7.5 7.5-7.5-3.365-7.5-7.5z" />
       </svg>
 
-      {/* 핵심: onInput으로 매 타이핑마다 값 동기화 (조합 중에도 발생) */}
+      {/* onInput: IME 조합 중에도 즉시 반응 */}
       <input
         type="search"
         ref={inputRef}
         className="search-input"
         placeholder="Search"
         value={query}
-        onInput={(e) => {
-          const val = (e.target as HTMLInputElement).value;
-          setQuery(val); // ← 조합 여부와 상관없이 즉시 반영
-        }}
-        // onChange는 일부 환경(모바일/브라우저) 호환용으로 유지
-        onChange={(e) => {
-          if (e.target instanceof HTMLInputElement) {
-            setQuery(e.target.value);
-          }
-        }}
-        onFocus={() => results.length > 0 && setOpen(true)}
+        onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
+        onChange={(e) => setQuery(e.target.value)} // 호환용
+        onFocus={() => (docs.length || faqs.length) && setOpen(true)}
         onKeyDown={onKeyDown}
         autoComplete="off"
         autoCorrect="off"
@@ -207,57 +241,15 @@ export default function SearchBox() {
         aria-autocomplete="list"
         aria-controls={listId}
         aria-activedescendant={
-          activeIndex >= 0 && results[activeIndex]
-            ? `${listId}-opt-${results[activeIndex].id}`
+          activeDocIndex >= 0 && docs[activeDocIndex]
+            ? `${listId}-opt-${docs[activeDocIndex].id}`
             : undefined
         }
       />
 
-      {loading && (
+      {/* 드롭다운 */}
+      {open && (
         <div
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            top: 58,
-            background: 'white',
-            borderRadius: 10,
-            boxShadow: '0 6px 32px rgba(0,0,0,0.10)',
-            padding: '18px 25px',
-            fontSize: 16,
-            color: '#aaa',
-            zIndex: 99,
-          }}
-        >
-          검색 중...
-        </div>
-      )}
-
-      {open && !loading && results.length === 0 && (
-        <div
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            top: 58,
-            background: 'white',
-            color: '#aaa',
-            borderRadius: 10,
-            boxShadow: '0 6px 32px rgba(0,0,0,0.12)',
-            padding: '18px 25px',
-            fontSize: 16,
-            zIndex: 99,
-          }}
-        >
-          검색 결과가 없습니다.
-        </div>
-      )}
-
-      {open && results.length > 0 && (
-        <ul
-          id={listId}
-          role="listbox"
-          className="wiki-search-dropdown"
           style={{
             position: 'absolute',
             left: 0,
@@ -267,115 +259,292 @@ export default function SearchBox() {
             background: 'white',
             borderRadius: 10,
             boxShadow: '0 6px 32px rgba(0,0,0,0.14)',
-            padding: '0.5em 0',
-            margin: 0,
-            maxHeight: 420,
-            overflowY: 'auto',
+            padding: '10px 12px',
           }}
         >
-          {results.map((res, idx) => {
-            const selected = idx === activeIndex;
-            return (
-              <li
-                id={`${listId}-opt-${res.id}`}
-                role="option"
-                aria-selected={selected}
-                key={res.id}
-                className="wiki-search-item"
+          {/* 상단 상태줄 */}
+          {(loadingDocs || loadingFaqs) && (
+            <div style={{ color: '#9aa1ac', fontSize: 13, padding: '6px 2px 8px' }}>
+              {loadingDocs ? '문서 검색 중…' : ''} {loadingDocs && loadingFaqs ? '·' : ''}{' '}
+              {loadingFaqs ? 'FAQ 검색 중…' : ''}
+            </div>
+          )}
+
+          {/* 2열 그리드: 좌(문서) / 우(FAQ) */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: 12,
+              alignItems: 'start',
+              minHeight: 120,
+            }}
+          >
+            {/* 문서 컬럼 */}
+            <div style={{ borderRight: '1px solid #f0f2f5', paddingRight: 8 }}>
+              <div style={{ fontWeight: 800, fontSize: 13, color: '#556070', marginBottom: 6 }}>
+                문서
+              </div>
+
+              {(!loadingDocs && docs.length === 0) && (
+                <div style={{ color: '#9aa1ac', fontSize: 14, padding: '6px 4px' }}>
+                  결과가 없습니다.
+                </div>
+              )}
+
+              <ul
+                id={listId}
+                role="listbox"
                 style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  padding: '13px 30px',
-                  cursor: 'pointer',
-                  borderBottom: idx !== results.length - 1 ? '1px solid #f5f6fa' : undefined,
-                  background: selected ? 'rgba(24,118,247,0.06)' : 'transparent',
-                  fontSize: 16,
-                  lineHeight: 1.3,
-                  gap: 14,
+                  listStyle: 'none',
+                  margin: 0,
+                  padding: 0,
+                  maxHeight: 360,
+                  overflowY: 'auto',
                 }}
-                onMouseEnter={() => setActiveIndex(idx)}
-                onClick={() => go(res)}
               >
-                <span style={{ marginRight: 12, fontSize: 22 }}>
-                  {res.icon ? (
-                    isImageLike(res.icon) ? (
-                      <img
-                        src={isRemoteHttp(res.icon) ? toProxyUrl(res.icon) : res.icon}
-                        alt=""
-                        width={24}
-                        height={24}
-                        style={{ width: 24, height: 24, verticalAlign: 'middle', objectFit: 'cover' }}
-                        loading="lazy"
-                        decoding="async"
-                        draggable={false}
-                      />
-                    ) : (
-                      res.icon
-                    )
-                  ) : (
-                    '📄'
-                  )}
-                </span>
-
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  {res.match_type === 'title' && (
-                    <div style={{ fontWeight: 700, fontSize: 18 }}>{highlight(res.title, query)}</div>
-                  )}
-
-                  {res.match_type === 'tags' && (
-                    <>
-                      <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 2 }}>
-                        {highlight(res.title, query)}
+                {docs.map((res, idx) => {
+                  const selected = idx === activeDocIndex;
+                  return (
+                    <li
+                      id={`${listId}-opt-${res.id}`}
+                      role="option"
+                      aria-selected={selected}
+                      key={`doc-${res.id}`}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        padding: '11px 12px',
+                        cursor: 'pointer',
+                        borderBottom: idx !== docs.length - 1 ? '1px solid #f5f6fa' : undefined,
+                        background: selected ? 'rgba(24,118,247,0.06)' : 'transparent',
+                        fontSize: 15,
+                        lineHeight: 1.3,
+                        gap: 10,
+                        borderRadius: 8,
+                      }}
+                      onMouseEnter={() => setActiveDocIndex(idx)}
+                      onClick={() => goDoc(res)}
+                    >
+                      <span style={{ marginRight: 8, fontSize: 20 }}>
+                        {res.icon ? (
+                          isImageLike(res.icon) ? (
+                            <img
+                              src={isRemoteHttp(res.icon) ? toProxyUrl(res.icon) : res.icon}
+                              alt=""
+                              width={22}
+                              height={22}
+                              style={{ width: 22, height: 22, objectFit: 'cover' }}
+                              loading="lazy"
+                              decoding="async"
+                              draggable={false}
+                            />
+                          ) : (
+                            res.icon
+                          )
+                        ) : (
+                          '📄'
+                        )}
+                      </span>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontWeight: 700, fontSize: 16 }}>
+                          {highlight(res.title, query)}
+                        </div>
+                        {res.match_type === 'content' && (
+                          <div
+                            style={{
+                              color: '#667085',
+                              fontSize: 13,
+                              marginTop: 2,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {(() => {
+                              try {
+                                const slate =
+                                  typeof res.content === 'string' ? JSON.parse(res.content) : res.content;
+                                const line = extractSlateTextLine(slate, query) || '';
+                                return line ? highlight(line, query) : null;
+                              } catch {
+                                return null;
+                              }
+                            })()}
+                          </div>
+                        )}
                       </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+
+            {/* FAQ 컬럼 */}
+            <div style={{ paddingLeft: 8 }}>
+              <div style={{ fontWeight: 800, fontSize: 13, color: '#556070', marginBottom: 6 }}>
+                자주 묻는 질문
+              </div>
+
+              {(!loadingFaqs && faqs.length === 0) && (
+                <div style={{ color: '#9aa1ac', fontSize: 14, padding: '6px 4px' }}>
+                  결과가 없습니다.
+                </div>
+              )}
+
+              <ul
+                style={{
+                  listStyle: 'none',
+                  margin: 0,
+                  padding: 0,
+                  maxHeight: 360,
+                  overflowY: 'auto',
+                }}
+              >
+                {faqs.map((f) => (
+                  <li
+                    key={`faq-${f.id}`}
+                    style={{
+                      padding: '11px 12px',
+                      borderBottom: '1px solid #f5f6fa',
+                      cursor: 'pointer',
+                      borderRadius: 8,
+                    }}
+                    onClick={() => setFaqView(f)}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: 20,
+                          height: 20,
+                          borderRadius: 999,
+                          background: '#eaf2ff',
+                          color: '#1d4ed8',
+                          fontWeight: 900,
+                          fontSize: 12.5,
+                          flex: '0 0 20px',
+                        }}
+                        aria-hidden
+                      >
+                        Q
+                      </span>
+                      <div style={{ fontWeight: 700, fontSize: 15, minWidth: 0 }}>
+                        {highlight(f.title, query)}
+                      </div>
+                    </div>
+                    {f.tags?.length > 0 && (
                       <div
                         style={{
                           color: '#198544',
-                          fontSize: 14,
-                          marginTop: 2,
+                          fontSize: 12,
+                          marginTop: 6,
                           display: 'flex',
                           flexWrap: 'wrap',
-                          gap: 8,
+                          gap: 6,
                         }}
                       >
-                        {res.tags.map((tag, i) => (
-                          <span key={tag + i}>{highlight(tag, query)}</span>
+                        {f.tags.map((t, i) => (
+                          <span key={t + i}>{highlight(t, query)}</span>
                         ))}
                       </div>
-                    </>
-                  )}
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
 
-                  {res.match_type === 'content' && (
-                    <>
-                      <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 2 }}>
-                        {highlight(res.title, query)}
-                      </div>
-                      <div
-                        style={{
-                          color: '#555',
-                          fontSize: 14,
-                          marginTop: 2,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        }}
-                      >
-                        {(() => {
-                          try {
-                            const slate =
-                              typeof res.content === 'string' ? JSON.parse(res.content) : res.content;
-                            const line = extractSlateTextLine(slate, query) || '';
-                            return line ? highlight(line, query) : null;
-                          } catch {
-                            return null;
-                          }
-                        })()}
-                      </div>
-                    </>
-                  )}
+      {/* FAQ 뷰 간단 모달 */}
+      {faqView && (
+        <div
+          onClick={() => setFaqView(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.45)',
+            display: 'grid',
+            placeItems: 'center',
+            padding: 16,
+            zIndex: 10000,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 'min(760px, 100%)',
+              background: '#fff',
+              borderRadius: 16,
+              padding: 16,
+              boxShadow: '0 24px 80px rgba(0,0,0,0.28)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 22,
+                    height: 22,
+                    borderRadius: 999,
+                    background: '#eaf2ff',
+                    color: '#1d4ed8',
+                    fontWeight: 900,
+                    fontSize: 13.5,
+                    flex: '0 0 22px',
+                  }}
+                >
+                  Q
+                </span>
+                <h3 style={{ margin: 0, fontSize: 18 }}>{faqView.title}</h3>
+              </div>
+              <button
+                onClick={() => setFaqView(null)}
+                aria-label="close"
+                style={{
+                  width: 34, height: 34, display: 'grid', placeItems: 'center',
+                  background: 'transparent', border: 0, cursor: 'pointer', color: '#ef4444'
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8">
+                  <path d="M6 6L18 18M18 6L6 18" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+            <div style={{ marginTop: 10 }}>
+              <div
+                style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 12,
+                  background: '#fff5f5', border: '1px solid #ffe2e2', borderRadius: 12, padding: '12px 14px'
+                }}
+              >
+                <span
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    width: 22, height: 22, borderRadius: 999, background: '#ffe9e9', color: '#dc2626',
+                    fontWeight: 900, fontSize: 13.5, flex: '0 0 22px'
+                  }}
+                >
+                  A
+                </span>
+                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', font: 'inherit', color: '#111827' }}>
+                  {faqView.content}
+                </pre>
+              </div>
+              {faqView.tags?.length > 0 && (
+                <div style={{ marginTop: 10, color: '#198544', fontSize: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {faqView.tags.map((t, i) => <span key={t + i}>#{t}</span>)}
                 </div>
-              </li>
-            );
-          })}
-        </ul>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
