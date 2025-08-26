@@ -606,20 +606,31 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
   const restoreCaret = useCallback(() => {
     const sel = savedSelectionRef.current;
     let restored = false;
+
+    // ✅ 외부 인풋 진입 중에는 selection 복원하지 않고 바로 deselect
+    const active = document.activeElement as HTMLElement | null;
+    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
+      try { Transforms.deselect(editor); } catch {}
+      savedSelectionRef.current = null;
+      return;
+    }
+
     if (sel) {
       try {
         Transforms.select(editor, sel);
-        focusNoScroll();   // ← 여기
+        focusNoScroll();   // ← preventScroll로 포커스
         restored = true;
       } catch {
         restored = false;
       }
     }
+
     if (!restored) {
       const point = Editor.end(editor, []);
       Transforms.select(editor, point);
-      focusNoScroll();     // ← 여기
+      focusNoScroll();     // ← preventScroll로 포커스
     }
+
     savedSelectionRef.current = null;
   }, [editor, focusNoScroll]);
 

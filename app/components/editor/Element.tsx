@@ -1005,6 +1005,10 @@ const Element: React.FC<ElementProps> = ({
                             if (e.key === 'Enter') handleNameSave();
                             if (e.key === 'Escape') setEditingName(false);
                           }}
+                          onFocus={() => {
+                            // ✅ 외부 인풋에 들어가는 순간 에디터 selection 제거
+                            try { Transforms.deselect(editorStatic); } catch {}
+                          }}
                           style={{
                             fontSize: nameFont,
                             fontWeight: 700,
@@ -1024,6 +1028,8 @@ const Element: React.FC<ElementProps> = ({
                             e.stopPropagation();
                             setEditNameValue(item.name || '');
                             setEditingName(true);
+                            // ✅ 편집으로 전환하는 시점에도 selection 제거(이벤트 순서 보호)
+                            try { Transforms.deselect(editorStatic); } catch {}
                           }}
                           title="이름 수정"
                         >
