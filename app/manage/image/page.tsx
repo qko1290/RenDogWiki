@@ -45,6 +45,9 @@ function FolderTree({
   setDraggingFolderId,
   setDragOverFolderId,
   onMoveFolder,
+  // NEW: image drag state + handler
+  draggingImageIds,
+  onMoveImages,
 }: {
   folders: Array<{ id: number; name: string; parent_id: number | null; uploader?: string }>;
   parentId: number | null;
@@ -70,6 +73,9 @@ function FolderTree({
   setDraggingFolderId: (id: number | null) => void;
   setDragOverFolderId: (id: number | null) => void;
   onMoveFolder: (dragId: number, newParentId: number | null) => void;
+
+  draggingImageIds: number[] | null;
+  onMoveImages: (ids: number[], newFolderId: number | null) => Promise<void>;
 }) {
   const [editName, setEditName] = useState('');
 
@@ -102,6 +108,9 @@ function FolderTree({
     }
     return next;
   }
+
+  const acceptDrop = (folderId: number) =>
+    (draggingFolderId == null || draggingFolderId !== folderId) && (draggingImageIds == null || draggingImageIds.length > 0);
 
   return (
     <ul className="folder-list" style={{ paddingLeft: depth === 0 ? 0 : 16 }}>
@@ -168,23 +177,41 @@ function FolderTree({
                   }}
                   draggable
                   onDragStart={(e) => {
+                    // 폴더 자체 드래그 시작
                     setDraggingFolderId(folder.id);
                     e.dataTransfer.setData('text/plain', String(folder.id));
                     e.dataTransfer.effectAllowed = 'move';
                   }}
                   onDragOver={(e) => {
-                    if (draggingFolderId === folder.id) return;
+                    // 폴더/이미지 모두 허용
+                    if (!acceptDrop(folder.id)) return;
                     e.preventDefault();
                     setDragOverFolderId(folder.id);
                     e.dataTransfer.dropEffect = 'move';
                   }}
-                  onDrop={(e) => {
+                  onDrop={async (e) => {
                     e.preventDefault();
-                    const dragId =
-                      draggingFolderId ?? Number(e.dataTransfer.getData('text/plain'));
+                    const folderDragId = draggingFolderId ?? Number(e.dataTransfer.getData('text/plain'));
+                    const imagesJson = e.dataTransfer.getData('application/rdwiki-images');
+
                     setDragOverFolderId(null);
-                    if (Number.isFinite(dragId) && dragId !== folder.id) {
-                      onMoveFolder(dragId, folder.id);
+
+                    // 이미지 이동 우선 처리
+                    if (imagesJson) {
+                      try {
+                        const ids: number[] = JSON.parse(imagesJson);
+                        if (Array.isArray(ids) && ids.length) {
+                          await onMoveImages(ids, folder.id);
+                        }
+                      } catch {
+                        // 무시
+                      }
+                      return;
+                    }
+
+                    // 폴더 이동
+                    if (Number.isFinite(folderDragId) && folderDragId !== folder.id) {
+                      onMoveFolder(folderDragId, folder.id);
                     }
                   }}
                   onDragEnd={() => {
@@ -242,6 +269,8 @@ function FolderTree({
                 setDraggingFolderId={setDraggingFolderId}
                 setDragOverFolderId={setDragOverFolderId}
                 onMoveFolder={onMoveFolder}
+                draggingImageIds={draggingImageIds}
+                onMoveImages={onMoveImages}
               />
             )}
           </li>
@@ -258,6 +287,8 @@ function FileList({
   onContextMenuImage,
   selectedItems,
   searchQuery,
+  // NEW: image dragging state setters
+  setDraggingImageIds,
 }: {
   images: Array<{ id: number; name: string; url: string; folder_id: number; uploader?: string }>;
   currentFolderId: number | null;
@@ -265,6 +296,7 @@ function FileList({
   onContextMenuImage: (item: any, e: React.MouseEvent) => void;
   selectedItems: any[];
   searchQuery: string;
+  setDraggingImageIds: (ids: number[] | null) => void;
 }) {
   const q = searchQuery.trim().toLowerCase();
   const imgs = useMemo(
@@ -283,6 +315,18 @@ function FileList({
         <div
           key={'img-' + img.id}
           className={'image-explorer-thumbnail' + (isSelected(img) ? ' selected' : '')}
+          draggable
+          onDragStart={(e) => {
+            // 다중 선택이면 선택된 이미지 전부, 아니면 자신만
+            const ids = isSelected(img)
+              ? selectedItems.filter((i) => i.type === 'image').map((i) => i.id)
+              : [img.id];
+
+            setDraggingImageIds(ids);
+            e.dataTransfer.setData('application/rdwiki-images', JSON.stringify(ids));
+            e.dataTransfer.effectAllowed = 'move';
+          }}
+          onDragEnd={() => setDraggingImageIds(null)}
           onClick={(e) => {
             e.stopPropagation();
             onSelect({ ...img, type: 'image' }, e);
@@ -296,11 +340,11 @@ function FileList({
         >
           <div className="image-explorer-thumbbox">
             <img
-              src={toProxyUrl(img.url)}       // ✅ CloudFront 경유
+              src={toProxyUrl(img.url)}
               alt={img.name}
               className="image-explorer-thumbimg"
-              loading="lazy"                  // ✅ lazy
-              decoding="async"                // ✅ async
+              loading="lazy"
+              decoding="async"
               onError={(e) => {
                 (e.currentTarget as HTMLImageElement).src = '/default-thumbnail.png';
               }}
@@ -333,7 +377,7 @@ export default function ImageManagePage() {
   const isAdmin = role === 'admin';
   const isWriter = role === 'writer';
 
-  const myName = (user?.minecraft_name ?? '').toLowerCase(); // ⚠️ 업로더 비교는 minecraft_name 기준
+  const myName = (user?.minecraft_name ?? '').toLowerCase();
 
   const [folders, setFolders] = useState<
     Array<{ id: number; name: string; parent_id: number | null; uploader?: string }>
@@ -362,7 +406,10 @@ export default function ImageManagePage() {
   const [draggingFolderId, setDraggingFolderId] = useState<number | null>(null);
   const [dragOverFolderId, setDragOverFolderId] = useState<number | null>(null);
 
-  // ✅ 폴더 중복 생성 방지용 상태/락
+  // NEW: 이미지 드래그 중 상태
+  const [draggingImageIds, setDraggingImageIds] = useState<number[] | null>(null);
+
+  // ✅ 폴더 생성 중복 가드(이전 답변에서 추가된 부분 유지)
   const [creatingFolder, setCreatingFolder] = useState(false);
   const createFolderLockRef = useRef(false);
   const newFolderIdemRef = useRef<string | null>(null);
@@ -372,7 +419,7 @@ export default function ImageManagePage() {
       id: Number(f.id),
       name: String(f.name),
       parent_id: f.parent_id === null || f.parent_id === undefined ? null : Number(f.parent_id),
-      uploader: f.uploader ? String(f.uploader) : undefined, // <- 받으면 보관
+      uploader: f.uploader ? String(f.uploader) : undefined,
     }));
 
   const normalizeImages = (data: any[]) =>
@@ -381,7 +428,7 @@ export default function ImageManagePage() {
       name: String(i.name),
       url: String(i.url),
       folder_id: Number(i.folder_id),
-      uploader: i.uploader ? String(i.uploader) : undefined, // <- 받으면 보관
+      uploader: i.uploader ? String(i.uploader) : undefined,
     }));
 
   const reloadFolders = useCallback(
@@ -462,7 +509,28 @@ export default function ImageManagePage() {
 
   const handleImagesUploaded = () => refreshImages();
 
-  // ✅ 동일 시도 재전송 방지를 위한 Idempotency-Key 헤더 지원
+  // ===== 이미지 이동 API =====
+  const moveImages = useCallback(
+    async (ids: number[], newFolderId: number | null) => {
+      if (!ids.length) return;
+      const res = await fetch('/api/image/move', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids, new_folder_id: newFolderId }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        alert(d?.error || '이미지 이동 실패');
+        return;
+      }
+      // 현재 폴더가 출발지일 수 있으니 항상 갱신
+      await refreshImages();
+      setSelectedItems([]);
+    },
+    [refreshImages]
+  );
+
+  // ===== 폴더 생성/이름변경/삭제 기존 로직 유지 =====
   const createFolderRequest = async (
     name: string,
     parentId: number | null,
@@ -488,7 +556,6 @@ export default function ImageManagePage() {
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
 
-  // ✅ 생성 연타/엔터 연타 가드 + 생성 중 로딩 상태
   const handleCreateFolder = async () => {
     const name = newFolderName.trim();
     if (!name) return;
@@ -498,7 +565,6 @@ export default function ImageManagePage() {
     setCreatingFolder(true);
     try {
       const parentId = selectedFolder ?? null;
-
       const idem =
         (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
       newFolderIdemRef.current = idem;
@@ -550,7 +616,6 @@ export default function ImageManagePage() {
   const handleDeleteFolderSingle = async () => {
     if (!selectedFolder) return;
 
-    // writer면 내 폴더만
     if (!isAdmin) {
       const f = folders.find((x) => x.id === selectedFolder);
       const ok = isWriter && f?.uploader?.toLowerCase?.() === myName;
@@ -582,7 +647,6 @@ export default function ImageManagePage() {
     const ids = idsOverride ?? selectedItems.map((i) => i.id);
     if (!ids.length) return;
 
-    // writer면 내 이미지들만 전부 선택되어 있어야 함
     if (!isAdmin) {
       const allMine = isWriter && selectedItems.every(
         (i) => i.type === 'image' && i.uploader?.toLowerCase?.() === myName
@@ -805,7 +869,6 @@ export default function ImageManagePage() {
   const isMultiImage = selectedItems.length > 1;
   const isMultiSelecting = isMultiFolder || isMultiImage;
 
-  // 삭제 버튼 활성화 판단(클라이언트가 1차 가드, 최종 검증은 서버)
   const allSelectedImagesMine =
     selectedItems.length > 0 &&
     selectedItems.every((i) => i.type === 'image' && i.uploader?.toLowerCase?.() === myName);
@@ -853,6 +916,7 @@ export default function ImageManagePage() {
               clearImageSelection();
             }}
           >
+            {/* RDWIKI 루트 (여기로도 이미지 드롭하여 최상위로 이동 가능) */}
             <div
               className={'folder-btn' + (selectedFolder === null ? ' active bg-blue-100' : '')}
               onClick={() => {
@@ -878,26 +942,40 @@ export default function ImageManagePage() {
                 });
               }}
               onDragOver={(e) => {
-                if (draggingFolderId != null) {
-                  e.preventDefault();
-                  setDragOverFolderId(-1);
-                }
+                // 폴더/이미지 모두 루트로 수용
+                e.preventDefault();
+                setDragOverFolderId(-1);
+                e.dataTransfer.dropEffect = 'move';
               }}
               onDragLeave={() => {
                 if (dragOverFolderId === -1) setDragOverFolderId(null);
               }}
-              onDrop={(e) => {
+              onDrop={async (e) => {
                 e.preventDefault();
-                const dragId =
+                const folderDragId =
                   draggingFolderId ?? Number(e.dataTransfer.getData('text/plain'));
+                const imagesJson = e.dataTransfer.getData('application/rdwiki-images');
                 setDragOverFolderId(null);
-                if (Number.isFinite(dragId)) {
-                  moveFolder(dragId, null);
+
+                if (imagesJson) {
+                  try {
+                    const ids: number[] = JSON.parse(imagesJson);
+                    if (Array.isArray(ids) && ids.length) {
+                      await moveImages(ids, null);
+                    }
+                  } catch {
+                    // ignore
+                  }
+                  return;
+                }
+                if (Number.isFinite(folderDragId)) {
+                  await moveFolder(folderDragId, null);
                 }
               }}
             >
               <span>📂</span> RDWIKI
             </div>
+
             <FolderTree
               folders={folders}
               parentId={null}
@@ -915,6 +993,8 @@ export default function ImageManagePage() {
               setDraggingFolderId={setDraggingFolderId}
               setDragOverFolderId={setDragOverFolderId}
               onMoveFolder={(dragId, newPid) => moveFolder(dragId, newPid)}
+              draggingImageIds={draggingImageIds}
+              onMoveImages={moveImages}
             />
           </aside>
 
@@ -1079,6 +1159,7 @@ export default function ImageManagePage() {
                 onContextMenuImage={handleThumbContextMenu}
                 selectedItems={selectedItems}
                 searchQuery={searchQuery}
+                setDraggingImageIds={setDraggingImageIds}
               />
             </div>
           </section>
@@ -1265,7 +1346,6 @@ export default function ImageManagePage() {
               onClick={async () => {
                 if (deletingType === 'folder') {
                   if (selectedFolderIds.length > 1) {
-                    // 다중 폴더 삭제: writer는 전부 본인 폴더여야 함
                     if (!isAdmin) {
                       const mine = isWriter && selectedFolderIds.every((id) => folderOwnedByMe(id));
                       if (!mine) {
