@@ -1,6 +1,7 @@
 // =============================================
 // File: components/wiki/CategoryTree.tsx
 // (대표 문서 우선 오픈, 이미지 lazy/async/CloudFront 우회, 루트 문서 정렬 유지)
+// + 초기 로딩 가드(interactionReady) 및 안전장치 추가
 // =============================================
 "use client";
 
@@ -54,6 +55,9 @@ type Props = {
   isPathOpen: (path: number[]) => boolean;
   isClosing: (path: number[]) => boolean;
   finalizeClose: (path: number[]) => void;
+
+  /** 👇 추가: 초기 로딩 끝나 상호작용 가능한지 여부 */
+  interactionReady: boolean;
 };
 
 function pathToStr(path: number[]) {
@@ -99,7 +103,7 @@ function CollapsibleList({
 
     const prefersReduced =
       typeof window !== "undefined" &&
-      window.matchMedia &&
+      "matchMedia" in window &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     const D = prefersReduced ? 0 : 280;
@@ -148,16 +152,22 @@ function CollapsibleList({
         el.style.height = `${Math.ceil(frozen)}px`;
 
         const releaseToAuto = () => {
-          if (!prevOpenRef.current) return;
-          requestAnimationFrame(() => {
-            el.style.height = "auto";
-          });
+          // 열려있는 상태에서만 auto로
+          if (prevOpenRef.current) {
+            requestAnimationFrame(() => {
+              el.style.height = "auto";
+            });
+          }
         };
 
-        const fonts = (document as any).fonts;
-        if (fonts && fonts.status !== "loaded") {
-          fonts.ready.then(releaseToAuto);
-        } else {
+        try {
+          const fonts = (document as any).fonts;
+          if (fonts && fonts.ready && typeof fonts.ready.then === "function") {
+            fonts.ready.then(releaseToAuto).catch(releaseToAuto);
+          } else {
+            requestAnimationFrame(() => requestAnimationFrame(releaseToAuto));
+          }
+        } catch {
           requestAnimationFrame(() => requestAnimationFrame(releaseToAuto));
         }
       };
@@ -233,6 +243,7 @@ const CategoryTree: React.FC<Props> = ({
   isPathOpen,
   isClosing,
   finalizeClose,
+  interactionReady, // 👈 추가
 }) => {
   // 숨길 루트 대표 문서 ID
   const HIDE_ROOT_DOC_ID = 73;
@@ -271,35 +282,56 @@ const CategoryTree: React.FC<Props> = ({
   // 로고(홈 링크) 클릭 시, 숨긴 루트 대표 문서(id===73) 열기
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement | null;
-      const a = target?.closest("a") as HTMLAnchorElement | null;
-      if (!a) return;
+      try {
+        const target = e.target as HTMLElement | null;
+        const a = target?.closest("a") as HTMLAnchorElement | null;
+        if (!a) return;
 
-      const href = a.getAttribute("href") || "";
-      const looksLikeLogo =
-        href === "/" ||
-        href === "/wiki" ||
-        a.id === "wiki-logo" ||
-        a.classList.contains("wiki-logo");
+        const href = a.getAttribute("href") || "";
+        const looksLikeLogo =
+          href === "/" ||
+          href === "/wiki" ||
+          a.id === "wiki-logo" ||
+          a.classList.contains("wiki-logo");
 
-      if (!looksLikeLogo) return;
+        if (!looksLikeLogo) return;
+        if (!interactionReady) {
+          // 초기 로딩 중엔 로고 클릭은 무시 (뒤에서 openRootDocById가 처리)
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
 
-      const rootRep = allDocuments.find(
-        (d) => Array.isArray(d.fullPath) && d.fullPath.length === 0 && d.id === HIDE_ROOT_DOC_ID
-      );
-      if (!rootRep) return;
+        const rootRep = allDocuments.find(
+          (d) => Array.isArray(d.fullPath) && d.fullPath.length === 0 && d.id === HIDE_ROOT_DOC_ID
+        );
+        if (!rootRep) return;
 
-      e.preventDefault();
-      e.stopPropagation();
+        e.preventDefault();
+        e.stopPropagation();
 
-      fetchDoc([0], rootRep.title, rootRep.id, { clearCategoryPath: true });
+        fetchDoc([0], rootRep.title, rootRep.id, { clearCategoryPath: true });
+      } catch {
+        // no-op
+      }
     };
 
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);
-  }, [allDocuments, fetchDoc]);
+  }, [allDocuments, fetchDoc, interactionReady]);
 
   const isReallyOpen = (path: number[]) => isPathOpen(path) && !isClosing(path);
+
+  // 클릭 가드 유틸
+  const guardClick = (e: React.MouseEvent | React.KeyboardEvent) => {
+    if (!interactionReady) {
+      e.preventDefault();
+      e.stopPropagation();
+      // 시각적 비활성화는 CSS로 처리(.is-disabled)
+      return true;
+    }
+    return false;
+  };
 
   const renderTree = (nodes: CategoryNode[], parentPath: number[] = []) =>
     nodes.map((node) => {
@@ -318,17 +350,18 @@ const CategoryTree: React.FC<Props> = ({
         <li key={`cat-${node.id}`}>
           {/* === 카테고리 행 === */}
           <button
-            className={`wiki-nav-item ${isCategoryActive ? "active" : ""}`}
-            onClick={async () => {
+            className={`wiki-nav-item ${isCategoryActive ? "active" : ""} ${interactionReady ? "" : "is-disabled"}`}
+            onClick={async (e) => {
+              if (guardClick(e)) return;
+
               const currentPath = [...parentPath, node.id];
               const isOpenNow = isPathOpen(currentPath);
 
               // ✅ 대표 문서 우선 오픈
               if (node.document_id != null) {
                 const repId = Number(node.document_id);
-                const repFromList = allDocuments.find(d => d.id === repId);
-                const repIsOpen =
-                  selectedDocId === repId && equalsPath(selectedDocPath, currentPath);
+                const repFromList = allDocuments.find((d) => d.id === repId);
+                const repIsOpen = selectedDocId === repId && equalsPath(selectedDocPath, currentPath);
 
                 if (!repIsOpen) {
                   let title = repFromList?.title;
@@ -339,7 +372,9 @@ const CategoryTree: React.FC<Props> = ({
                         const data = await r.json();
                         title = data?.title || "";
                       }
-                    } catch {}
+                    } catch {
+                      // ignore
+                    }
                   }
 
                   if (title) {
@@ -350,28 +385,38 @@ const CategoryTree: React.FC<Props> = ({
               }
 
               // ✅ 일반 토글
-              if (node.document_id != null) {
-                if (isOpenNow) {
-                  await closeTreeWithChildren(node, currentPath);
+              try {
+                if (node.document_id != null) {
+                  if (isOpenNow) {
+                    await closeTreeWithChildren(node, currentPath);
+                  } else {
+                    await togglePath(currentPath);
+                  }
                 } else {
-                  await togglePath(currentPath);
+                  if (isOpenNow) {
+                    await closeTreeWithChildren(node, currentPath);
+                  } else {
+                    handleArrowClick(node, currentPath);
+                  }
                 }
-              } else {
-                if (isOpenNow) {
-                  await closeTreeWithChildren(node, currentPath);
-                } else {
-                  handleArrowClick(node, currentPath);
-                }
+              } catch {
+                // interaction safety
               }
+            }}
+            onKeyDown={(e) => {
+              if ((e.key === "Enter" || e.key === " ") && guardClick(e)) return;
             }}
             aria-expanded={open}
             aria-controls={panelId}
+            aria-disabled={!interactionReady}
+            disabled={!interactionReady}
+            title={!interactionReady ? "로딩 중입니다…" : undefined}
           >
             <span className="wiki-category-main">
               <span className="wiki-cat-icon-token">
                 {node.icon?.startsWith("http") ? (
                   <img
-                    src={toProxyUrl(node.icon)}    // ✅ CloudFront로 리라이트
+                    src={toProxyUrl(node.icon)} // ✅ CloudFront로 리라이트
                     alt=""
                     aria-hidden="true"
                     className="wiki-category-icon-img"
@@ -392,19 +437,14 @@ const CategoryTree: React.FC<Props> = ({
               <span
                 className={`wiki-category-arrow${open ? " open" : ""}`}
                 onClick={(e) => {
+                  if (guardClick(e as any)) return;
                   e.stopPropagation();
                   handleArrowClick(node, currentPath);
                 }}
-                style={{ display: "inline-block", verticalAlign: "middle" }}
+                style={{ display: "inline-block", verticalAlign: "middle", pointerEvents: interactionReady ? "auto" : "none", opacity: interactionReady ? 1 : 0.5 }}
                 aria-hidden="true"
               >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 16 16"
-                  style={{ display: "block" }}
-                  className="wiki-arrow-svg"
-                >
+                <svg width="16" height="16" viewBox="0 0 16 16" style={{ display: "block" }} className="wiki-arrow-svg">
                   <polyline
                     points="5,4 11,8 5,12"
                     fill="none"
@@ -433,17 +473,19 @@ const CategoryTree: React.FC<Props> = ({
                   return (
                     <li
                       key={`doc-${doc.id}`}
-                      className={`wiki-doc-item ${isDocActive ? "active" : ""}`}
-                      onClick={() =>
-                        fetchDoc(currentPath, doc.title, doc.id, {
-                          clearCategoryPath: true,
-                        })
-                      }
+                      className={`wiki-doc-item ${isDocActive ? "active" : ""} ${interactionReady ? "" : "is-disabled"}`}
+                      onClick={(e) => {
+                        if (guardClick(e as any)) return;
+                        fetchDoc(currentPath, doc.title, doc.id, { clearCategoryPath: true });
+                      }}
+                      aria-disabled={!interactionReady}
+                      title={!interactionReady ? "로딩 중입니다…" : undefined}
+                      style={{ pointerEvents: interactionReady ? "auto" : "none", opacity: interactionReady ? 1 : 0.6 }}
                     >
                       <span style={{ marginRight: "0.3em" }}>
                         {doc.icon?.startsWith("http") ? (
                           <img
-                            src={toProxyUrl(doc.icon)}     // ✅ CloudFront로 리라이트
+                            src={toProxyUrl(doc.icon)} // ✅ CloudFront로 리라이트
                             alt=""
                             aria-hidden="true"
                             loading="lazy"
@@ -480,16 +522,20 @@ const CategoryTree: React.FC<Props> = ({
         return (
           <li key={`rootdoc-${doc.id}`}>
             <button
-              className={`wiki-nav-item ${isDocActive ? "active" : ""}`}
-              onClick={() => {
+              className={`wiki-nav-item ${isDocActive ? "active" : ""} ${interactionReady ? "" : "is-disabled"}`}
+              onClick={(e) => {
+                if (guardClick(e)) return;
                 fetchDoc([0], doc.title, doc.id, { clearCategoryPath: true });
               }}
+              aria-disabled={!interactionReady}
+              disabled={!interactionReady}
+              title={!interactionReady ? "로딩 중입니다…" : undefined}
             >
               <span className="wiki-category-main">
                 <span className="wiki-cat-icon-token">
                   {doc.icon?.startsWith("http") ? (
                     <img
-                      src={toProxyUrl(doc.icon)}     // ✅ CloudFront로 리라이트
+                      src={toProxyUrl(doc.icon)} // ✅ CloudFront로 리라이트
                       alt=""
                       aria-hidden="true"
                       className="wiki-category-icon-img"

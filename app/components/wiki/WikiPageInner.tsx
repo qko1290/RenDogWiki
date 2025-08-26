@@ -710,6 +710,11 @@ export default function WikiPageInner({ user }: Props) {
   const contentClass = hold ? 'is-hold' : 'is-ready';
   // -----------------------------------------------------------------------
 
+  const interactionReady =
+    categories.length > 0 &&
+    allDocuments.length > 0 &&
+    Object.keys(categoryIdMap).length > 0;
+
   return (
     <div className="wiki-container">
       <WikiHeader user={user} />
@@ -738,6 +743,7 @@ export default function WikiPageInner({ user }: Props) {
               isPathOpen={isPathOpen}
               isClosing={isClosing}
               finalizeClose={finalizeClose}
+              interactionReady={interactionReady}
             />
           </aside>
 
