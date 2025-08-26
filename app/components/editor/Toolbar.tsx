@@ -35,7 +35,7 @@ import CustomColorDropdown from "./CustomColorDropdown";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faHeading, faFillDrip, faPalette, faTextHeight, faLink,
-  faImage, faBookOpen, faDollarSign,
+  faImage, faBookOpen, faDollarSign, faFont,
   faAlignLeft, faMinus,
   faBold, faItalic, faUnderline, faStrikethrough,
   faGripLinesVertical, faIcons, faPhotoFilm
@@ -51,6 +51,18 @@ type ToolbarProps = {
 };
 
 const FONT_SIZES = ['11px', '13px', '15px', '16px', '19px', '24px', '28px', '30px', '34px', '38px'];
+
+// 🔤 폰트 패밀리: 표시 라벨과 실제 CSS 값 분리(수정/확장 편의성)
+const FONT_FAMILIES = [
+  { label: '기본(본문과 동일)', value: 'inherit' },
+  { label: 'Inter', value: '"Inter", system-ui, Arial, sans-serif' },
+  { label: 'Pretendard', value: 'Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif' },
+  { label: 'Noto Sans KR', value: '"Noto Sans KR", system-ui, "Malgun Gothic", sans-serif' },
+  { label: 'Gowun Dodum', value: '"Gowun Dodum", "Noto Sans KR", sans-serif' },
+  { label: 'D2Coding (모노)', value: '"D2Coding", ui-monospace, SFMono-Regular, "Cascadia Code", "Source Code Pro", Menlo, Consolas, "Liberation Mono", monospace' },
+  { label: 'Serif', value: 'serif' },
+  { label: 'Monospace', value: 'monospace' },
+];
 
 const HEADINGS = [
   { label: '제목 1 추가', value: 'heading-one' },
@@ -298,7 +310,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
         )}
       </div>
 
-      {/* 폰트 크기 (dropdownId를 fontSize로 사용) */}
+      {/* 폰트 크기 */}
       <DropdownButton
         label={<FontAwesomeIcon icon={faTextHeight} />}
         items={FONT_SIZES}
@@ -307,6 +319,20 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
         openDropdown={openDropdown}
         setOpenDropdown={setOpenDropdown}
         onSelect={value => toggleMark(editor, 'fontSize', value)}
+      />
+
+      {/* 🔤 폰트 종류 (폰트 크기 오른쪽) */}
+      <DropdownButton
+        label={<FontAwesomeIcon icon={faFont} />}
+        items={FONT_FAMILIES.map(f => f.label)}
+        itemsMap={Object.fromEntries(FONT_FAMILIES.map(f => [f.label, f.value]))}
+        selectionRef={selectionRef}
+        dropdownId="fontFamily"
+        openDropdown={openDropdown}
+        setOpenDropdown={setOpenDropdown}
+        onSelect={(cssValue) => {
+          Editor.addMark(editor as any, 'fontFamily', cssValue);
+        }}
       />
 
       {/* 배경색 */}

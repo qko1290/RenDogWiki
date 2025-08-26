@@ -21,6 +21,7 @@ type CustomText = {
   color?: string;           // 글자색
   fontSize?: string;        // 폰트 크기(px 등)
   backgroundColor?: string; // 배경색
+  fontFamily?: string;
 };
 
 // [블럭/링크/구분선 등 요소별 타입 정의]

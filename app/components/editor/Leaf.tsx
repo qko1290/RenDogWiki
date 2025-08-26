@@ -16,7 +16,7 @@ import { RenderLeafProps } from 'slate-react';
 /** 폰트 크기 보정: 숫자 또는 숫자문자 → px 단위로 정규화 */
 function normalizeFontSize(v: unknown): string | number | undefined {
   if (v == null) return undefined;
-  if (typeof v === 'number') return Math.max(1, v);         // 음수/0 방지
+  if (typeof v === 'number') return Math.max(1, v); // 음수/0 방지
   if (typeof v === 'string') {
     const s = v.trim();
     if (!s) return undefined;
@@ -30,18 +30,26 @@ function normalizeFontSize(v: unknown): string | number | undefined {
 }
 
 const Leaf = ({ attributes, children, leaf }: RenderLeafProps) => {
-  // 텍스트 스타일(색상, 크기, 배경)
+  // 텍스트 스타일(색상, 크기, 배경, 폰트)
   const style: React.CSSProperties = {};
-  if (leaf.color) style.color = String(leaf.color);
-  const fs = normalizeFontSize(leaf.fontSize);
+
+  if ((leaf as any).color) style.color = String((leaf as any).color);
+
+  const fs = normalizeFontSize((leaf as any).fontSize);
   if (fs !== undefined) style.fontSize = fs as any;
-  if (leaf.backgroundColor) style.backgroundColor = String(leaf.backgroundColor);
+
+  if ((leaf as any).backgroundColor)
+    style.backgroundColor = String((leaf as any).backgroundColor);
+
+  // ✅ 추가: 폰트 패밀리 적용
+  if ((leaf as any).fontFamily)
+    style.fontFamily = String((leaf as any).fontFamily);
 
   // 텍스트 마크(굵게, 이탤릭, 밑줄, 취소선)
-  if (leaf.bold) children = <strong>{children}</strong>;
-  if (leaf.italic) children = <em>{children}</em>;
-  if (leaf.underline) children = <u>{children}</u>;
-  if (leaf.strikethrough) children = <s>{children}</s>;
+  if ((leaf as any).bold) children = <strong>{children}</strong>;
+  if ((leaf as any).italic) children = <em>{children}</em>;
+  if ((leaf as any).underline) children = <u>{children}</u>;
+  if ((leaf as any).strikethrough) children = <s>{children}</s>;
 
   return (
     <span {...attributes} style={style}>
