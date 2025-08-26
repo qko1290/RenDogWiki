@@ -213,15 +213,6 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
     }
   };
 
-  // 정렬/너비 스타일 (헤더 내 중앙 또는 왼쪽)
-  const wrapperStyle: React.CSSProperties = {
-    position: 'relative',
-    width,
-    // flex 헤더/블록 헤더 모두에서 중앙 정렬 되도록 auto 마진 사용
-    marginLeft: align === 'center' ? 'auto' : 0,
-    marginRight: align === 'center' ? 'auto' : 0,
-  };
-
   return (
     <div
       ref={wrapRef}
@@ -230,7 +221,6 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
       aria-expanded={open}
       aria-owns={listId}
       aria-haspopup="listbox"
-      style={wrapperStyle}
       data-align={align}
     >
       <svg className="search-icon" viewBox="0 0 24 24" aria-hidden="true">
