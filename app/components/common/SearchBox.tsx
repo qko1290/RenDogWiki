@@ -1,6 +1,6 @@
 // =============================================
 // File: app/components/common/SearchBox.tsx
-// (실시간 검색: IME 조합 안정화 + 즉시 트리거)
+// (실시간 검색: 조합 상태와 무관하게 즉시 반응 / onInput 사용)
 // =============================================
 'use client';
 
@@ -8,7 +8,6 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { toProxyUrl } from '@lib/cdn';
 
-// 검색 결과 데이터 타입
 type SearchResult = {
   id: number;
   title: string;
@@ -63,30 +62,22 @@ export default function SearchBox() {
   const [loading, setLoading] = useState(false);
 
   const [activeIndex, setActiveIndex] = useState<number>(-1);
-  const [isComposing, setIsComposing] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const timerRef = useRef<number | null>(null);
 
-  // 👇 IME 조합 실시간 플래그(상태 업데이트 지연 방지)
-  const composingRef = useRef(false);
-
-  // 👇 조합 종료 직후에도 확실히 검색을 태우기 위한 토글 시그널
-  const [compositionTick, setCompositionTick] = useState(0);
-
   const router = useRouter();
 
   const count = results.length;
+  const listId = useMemo(() => `search-list-${Math.random().toString(36).slice(2)}`, []);
 
-  // ===== 핵심: 디바운스 & Abort + 조합 상태 반영 =====
+  // ===== 디바운스 + AbortController =====
   useEffect(() => {
-    // 조합 중이면 검색 보류
-    if (isComposing || composingRef.current) return;
-
-    // 공백/빈 검색어 → 닫고 초기화
-    if (!query.trim()) {
+    const q = query; // 스냅샷
+    if (!q.trim()) {
+      // 빈 검색어 → 닫기/초기화
       setResults([]);
       setOpen(false);
       setActiveIndex(-1);
@@ -94,17 +85,15 @@ export default function SearchBox() {
       return;
     }
 
-    // 200ms 디바운스
     if (timerRef.current) window.clearTimeout(timerRef.current);
     timerRef.current = window.setTimeout(async () => {
-      // 이전 요청 취소
       if (abortRef.current) abortRef.current.abort();
       const ac = new AbortController();
       abortRef.current = ac;
 
       setLoading(true);
       try {
-        const res = await fetch(`/api/search?query=${encodeURIComponent(query)}`, {
+        const res = await fetch(`/api/search?query=${encodeURIComponent(q)}`, {
           signal: ac.signal,
           cache: 'no-store',
         });
@@ -115,6 +104,7 @@ export default function SearchBox() {
         setActiveIndex(data.length ? 0 : -1);
       } catch (e: any) {
         if (e?.name !== 'AbortError') {
+          // 실패 시에도 드롭다운은 열어두고 "없음" 표기
           setResults([]);
           setOpen(true);
           setActiveIndex(-1);
@@ -127,9 +117,7 @@ export default function SearchBox() {
     return () => {
       if (timerRef.current) window.clearTimeout(timerRef.current);
     };
-    // ✅ compositionTick을 의존성에 넣어, 일부 브라우저에서 compositionend 직후
-    // onChange가 안 들어오는 케이스도 강제로 트리거
-  }, [query, isComposing, compositionTick]);
+  }, [query]);
 
   // 외부 클릭 → 닫기
   useEffect(() => {
@@ -179,8 +167,6 @@ export default function SearchBox() {
     }
   };
 
-  const listId = useMemo(() => `search-list-${Math.random().toString(36).slice(2)}`, []);
-
   return (
     <div
       ref={wrapRef}
@@ -195,38 +181,29 @@ export default function SearchBox() {
         <path d="M21.53 20.47l-3.66-3.66C19.195 15.24 20 13.214 20 11c0-4.97-4.03-9-9-9s-9 4.03-9 9 4.03 9 9 9c2.215 0 4.24-.804 5.808-2.13l3.66 3.66c.147.146.34.22.53.22s.385-.073.53-.22c.295-.293.295-.767.002-1.06zM3.5 11c0-4.135 3.365-7.5 7.5-7.5s7.5 3.365 7.5 7.5-3.365 7.5-7.5 7.5-7.5-3.365-7.5-7.5z" />
       </svg>
 
+      {/* 핵심: onInput으로 매 타이핑마다 값 동기화 (조합 중에도 발생) */}
       <input
         type="search"
         ref={inputRef}
         className="search-input"
         placeholder="Search"
         value={query}
+        onInput={(e) => {
+          const val = (e.target as HTMLInputElement).value;
+          setQuery(val); // ← 조합 여부와 상관없이 즉시 반영
+        }}
+        // onChange는 일부 환경(모바일/브라우저) 호환용으로 유지
         onChange={(e) => {
-          // 일반 입력: 값 반영
-          setQuery(e.target.value);
-          // 조합 중이면 여기서 검색 트리거하지 않음 (effect 가드)
+          if (e.target instanceof HTMLInputElement) {
+            setQuery(e.target.value);
+          }
         }}
         onFocus={() => results.length > 0 && setOpen(true)}
         onKeyDown={onKeyDown}
-        onCompositionStart={() => {
-          composingRef.current = true;
-          setIsComposing(true);
-        }}
-        onCompositionUpdate={() => {
-          // 일부 브라우저에서 compositionend 지연될 때 대비해 ref 유지
-          composingRef.current = true;
-        }}
-        onCompositionEnd={(e) => {
-          // ✅ 조합 종료: 즉시 조합 플래그 해제 + 최신 값 반영 + 트리거 토글
-          composingRef.current = false;
-          setIsComposing(false);
-
-          // 조합이 끝나면서 최종 글자가 반영됐는데 onChange 타이밍 문제로
-          // effect가 안도는 케이스 대비: 값 재동기화 + tick 증가
-          const val = (e.target as HTMLInputElement).value;
-          setQuery(val);
-          setCompositionTick((t) => t + 1);
-        }}
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
         aria-autocomplete="list"
         aria-controls={listId}
         aria-activedescendant={
@@ -403,4 +380,3 @@ export default function SearchBox() {
     </div>
   );
 }
-
