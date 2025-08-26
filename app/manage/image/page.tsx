@@ -3,7 +3,7 @@
 // =============================================
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import WikiHeader from '@/components/common/Header';
 import ImageUploadModal from '@/components/image/ImageUploadModal';
 import { ModalCard } from '@/components/common/Modal';
@@ -362,6 +362,11 @@ export default function ImageManagePage() {
   const [draggingFolderId, setDraggingFolderId] = useState<number | null>(null);
   const [dragOverFolderId, setDragOverFolderId] = useState<number | null>(null);
 
+  // ✅ 폴더 중복 생성 방지용 상태/락
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const createFolderLockRef = useRef(false);
+  const newFolderIdemRef = useRef<string | null>(null);
+
   const normalizeFolders = (data: any[]) =>
     data.map((f) => ({
       id: Number(f.id),
@@ -457,26 +462,49 @@ export default function ImageManagePage() {
 
   const handleImagesUploaded = () => refreshImages();
 
-  const createFolderRequest = async (name: string, parentId: number | null) => {
+  // ✅ 동일 시도 재전송 방지를 위한 Idempotency-Key 헤더 지원
+  const createFolderRequest = async (
+    name: string,
+    parentId: number | null,
+    idemKey?: string
+  ) => {
     const res = await fetch('/api/image/folder/create', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Idempotency-Key': idemKey || '',
+      },
       body: JSON.stringify({ name, parent_id: parentId ?? null }),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data?.error || '폴더 생성 실패');
-    return data.folder;
+
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      (json as any).status = res.status;
+      throw json;
+    }
+    return json.folder;
   };
 
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
 
+  // ✅ 생성 연타/엔터 연타 가드 + 생성 중 로딩 상태
   const handleCreateFolder = async () => {
     const name = newFolderName.trim();
     if (!name) return;
+    if (createFolderLockRef.current || creatingFolder) return;
+
+    createFolderLockRef.current = true;
+    setCreatingFolder(true);
     try {
       const parentId = selectedFolder ?? null;
-      await createFolderRequest(name, parentId);
+
+      const idem =
+        (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
+      newFolderIdemRef.current = idem;
+
+      const folder = await createFolderRequest(name, parentId, idem);
+
       setNewFolderName('');
       setNewFolderOpen(false);
 
@@ -491,8 +519,18 @@ export default function ImageManagePage() {
       }
 
       await reloadFolders({ restoreSelection: false });
+      setSelectedFolder(folder?.id ?? null);
+      setSelectedFolderIds(folder?.id ? [folder.id] : []);
+      setSelectedItems([]);
     } catch (e: any) {
-      alert(e.message || '폴더 생성 실패');
+      if (e?.status === 409) {
+        alert('같은 이름의 폴더가 이미 있거나, 중복 제출이 감지되었습니다.');
+      } else {
+        alert(e?.error || '폴더 생성 실패');
+      }
+    } finally {
+      createFolderLockRef.current = false;
+      setCreatingFolder(false);
     }
   };
 
@@ -1154,15 +1192,16 @@ export default function ImageManagePage() {
         title="새 폴더"
         actions={
           <>
-            <button className="rd-btn secondary" onClick={closeNewFolder}>
+            <button className="rd-btn secondary" onClick={closeNewFolder} disabled={creatingFolder}>
               취소
             </button>
             <button
               className="rd-btn primary"
               onClick={handleCreateFolder}
-              disabled={!newFolderName.trim()}
+              disabled={!newFolderName.trim() || creatingFolder}
+              aria-busy={creatingFolder}
             >
-              생성
+              {creatingFolder ? '생성 중…' : '생성'}
             </button>
           </>
         }
@@ -1174,7 +1213,10 @@ export default function ImageManagePage() {
           onChange={(e) => setNewFolderName(e.target.value)}
           autoFocus
           onKeyDown={(e) => {
-            if (e.key === 'Enter') handleCreateFolder();
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              if (!creatingFolder && newFolderName.trim()) handleCreateFolder();
+            }
             if (e.key === 'Escape') closeNewFolder();
           }}
           placeholder="예) 스크린샷"
