@@ -104,6 +104,7 @@ export default function TableOfContents({
       root.scrollTo({ top: y, behavior: 'smooth' });
     }
     try { history.replaceState(null, '', `#${id}`); } catch {}
+    try { window.dispatchEvent(new CustomEvent('editor:toc-jump', { detail: { id, occ } })); } catch {}
   };
 
   // 스크롤 스파이(컨테이너 기준)
