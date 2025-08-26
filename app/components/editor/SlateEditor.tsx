@@ -576,33 +576,6 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     } catch {}
   }, [editor]);
 
-  // 목차 점프 시, 캐럿을 해당 heading 끝으로 옮겨둔다(포커스하지 않음)
-  useEffect(() => {
-    const onTocJump = (ev: any) => {
-      const id: string | undefined = ev?.detail?.id;
-      const occ: number = ev?.detail?.occ ?? 0;
-      if (!id) return;
-
-      const esc = id.replace(/"/g, '\\"');
-      const list = document.querySelectorAll<HTMLElement>(`[id="${esc}"]`);
-      const target = list[occ] ?? list[0];
-      if (!target) return;
-
-      try {
-        const slateNode = ReactEditor.toSlateNode(editor, target);
-        const path = ReactEditor.findPath(editor, slateNode as any);
-        const point = Editor.end(editor, path);
-        // DOM selection은 에디터가 포커스 됐을 때만 동기화되므로, 지금은 스크롤 안 일어남
-        Transforms.select(editor, point);
-        // 혹시 바로 포커스가 필요한 경우에도 스크롤 억제
-        // focusNoScroll();
-      } catch {}
-    };
-
-    window.addEventListener('editor:toc-jump', onTocJump as EventListener);
-    return () => window.removeEventListener('editor:toc-jump', onTocJump as EventListener);
-  }, [editor, focusNoScroll]);
-
   const restoreCaret = useCallback(() => {
     const sel = savedSelectionRef.current;
     let restored = false;

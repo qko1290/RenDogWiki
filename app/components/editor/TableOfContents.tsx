@@ -147,13 +147,18 @@ export default function TableOfContents({
   }, [indexed, headerOffset, rootKey]);
 
   // 초기 진입 시 URL 해시가 있으면 해당 위치로 스크롤
-  useEffect(() => {
-    if (!indexed.length) return;
-    const hash = decodeURIComponent(window.location.hash || '').replace(/^#/, '');
-    if (!hash) return;
-
-    requestAnimationFrame(() => scrollToId(hash, 0));
-  }, [indexed, rootKey]);
+  const didInitialHashScroll = useRef(false);
+    useEffect(() => {
+      if (didInitialHashScroll.current) return;
+      const hash = decodeURIComponent(window.location.hash || '').replace(/^#/, '');
+      if (!hash) return;
+      // 타겟이 렌더된 뒤 한 프레임 후 이동
+      const raf = requestAnimationFrame(() => {
+        scrollToId(hash, 0);
+        didInitialHashScroll.current = true;
+      });
+      return () => cancelAnimationFrame(raf);
+    }, []);
 
   // ----- UI -----
   const boxStyle: React.CSSProperties = {
