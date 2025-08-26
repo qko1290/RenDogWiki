@@ -77,8 +77,8 @@
 /* 검색 컨테이너 (검색창과 아이콘 묶음) */
 .search-wrapper {
   position: relative;
-  width: 100%;
-  max-width: 900px;
+  width: 70%;
+  max-width: 700px;
   margin-left : 0;
 }
 
