@@ -54,14 +54,25 @@ const FONT_SIZES = ['11px', '13px', '15px', '16px', '19px', '24px', '28px', '30p
 
 // 🔤 폰트 패밀리: 표시 라벨과 실제 CSS 값 분리(수정/확장 편의성)
 const FONT_FAMILIES = [
-  { label: '기본(본문과 동일)', value: 'inherit' },
-  { label: 'Inter', value: '"Inter", system-ui, Arial, sans-serif' },
-  { label: 'Pretendard', value: 'Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif' },
-  { label: 'Noto Sans KR', value: '"Noto Sans KR", system-ui, "Malgun Gothic", sans-serif' },
-  { label: 'Gowun Dodum', value: '"Gowun Dodum", "Noto Sans KR", sans-serif' },
-  { label: 'D2Coding (모노)', value: '"D2Coding", ui-monospace, SFMono-Regular, "Cascadia Code", "Source Code Pro", Menlo, Consolas, "Liberation Mono", monospace' },
-  { label: 'Serif', value: 'serif' },
-  { label: 'Monospace', value: 'monospace' },
+  { label: '기본서체', value: 'inherit' },
+
+  // 요청 폰트 (NAVER 계열 및 손글씨)
+  { label: '나눔스퀘어 네오', value: '"NanumSquareNeo","NanumSquare Neo","NanumSquareNeoOTF","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif' },
+  { label: '마루부리',       value: '"MaruBuri","MaruBuri-Regular","MaruBuriOTF","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif' },
+  { label: '나눔바른고딕',   value: '"NanumBarunGothic","NanumBarun Gothic","NanumBarunGothicOTF","Malgun Gothic","Apple SD Gothic Neo",Arial,sans-serif' },
+  { label: '다시시작해',     value: '"DSSaSiSa","DSSaSiSaR","DSSaSiSaG","Noto Sans KR",sans-serif' },
+  { label: '바른히피',       value: '"BareunHippy","Bareun-hippy","BareunHippyOTF","Noto Sans KR",sans-serif' },
+
+  // 깔끔/대중적 한글 웹폰트 (권장 셋)
+  { label: 'Pretendard',        value: 'Pretendard,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif' },
+  { label: 'SUIT',              value: '"SUIT",-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif' },
+  { label: 'Spoqa Han Sans Neo',value: '"Spoqa Han Sans Neo","Spoqa Han Sans KR","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif' },
+  { label: 'Noto Sans KR',      value: '"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif' },
+  { label: 'IBM Plex Sans KR',  value: '"IBM Plex Sans KR","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif' },
+  { label: 'LINE Seed KR',      value: '"LINE Seed KR","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif' },
+  { label: 'Gowun Dodum',       value: '"Gowun Dodum","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",Arial,sans-serif' },
+  { label: 'Gowun Batang',      value: '"Gowun Batang","Batang",serif' },
+  { label: 'Hahmlet(명조)',     value: '"Hahmlet","Nanum Myeongjo",serif' },
 ];
 
 const HEADINGS = [
@@ -330,9 +341,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
         dropdownId="fontFamily"
         openDropdown={openDropdown}
         setOpenDropdown={setOpenDropdown}
-        onSelect={(cssValue) => {
-          Editor.addMark(editor as any, 'fontFamily', cssValue);
-        }}
       />
 
       {/* 배경색 */}

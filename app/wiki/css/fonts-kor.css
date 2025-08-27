@@ -1,0 +1,106 @@
+/* 요청 폰트들 – 실제 파일 경로/CDN으로 교체하세요.
+   권장: woff2 우선, font-display: swap */
+
+/* 나눔스퀘어 네오 */
+@font-face {
+  font-family: 'NanumSquareNeo';
+  src:
+    local('NanumSquare Neo'),
+    url('/fonts/NanumSquareNeo-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'NanumSquareNeo';
+  src:
+    local('NanumSquare Neo Bold'),
+    url('/fonts/NanumSquareNeo-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 마루부리 */
+@font-face {
+  font-family: 'MaruBuri';
+  src:
+    local('MaruBuri Regular'),
+    url('/fonts/MaruBuri-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'MaruBuri';
+  src:
+    local('MaruBuri Bold'),
+    url('/fonts/MaruBuri-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 나눔바른고딕 */
+@font-face {
+  font-family: 'NanumBarunGothic';
+  src:
+    local('NanumBarunGothic'),
+    url('/fonts/NanumBarunGothic-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'NanumBarunGothic';
+  src:
+    local('NanumBarunGothic Bold'),
+    url('/fonts/NanumBarunGothic-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 다시시작해 (예: Noonnu 등에서 받는 경우, 실제 family 이름 확인 필수) */
+@font-face {
+  font-family: 'DSSaSiSa';
+  src:
+    local('다시시작해'),
+    url('/fonts/DSSaSiSa-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 바른히피 */
+@font-face {
+  font-family: 'BareunHippy';
+  src:
+    local('바른히피'),
+    url('/fonts/BareunHippy-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 깔끔/대중적 셋 – 필요시 추가 로드(이미 쓰고 있다면 생략 가능) */
+@font-face {
+  font-family: 'SUIT';
+  src: local('SUIT Variable'),
+       url('/fonts/SUIT-Variable.woff2') format('woff2');
+  font-weight: 100 900; /* variable */
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Spoqa Han Sans Neo';
+  src: local('Spoqa Han Sans Neo Regular'),
+       url('/fonts/SpoqaHanSansNeo-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 나머지(Noto Sans KR, IBM Plex Sans KR, Gowun, Hahmlet, LINE Seed KR 등)는
+   Google Fonts 또는 제공처에서 @font-face 추가해 주세요. */
