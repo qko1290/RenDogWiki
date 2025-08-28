@@ -25,8 +25,8 @@ import type {
   HeadingThreeElement,
   ParagraphElement,
 } from '@/types/slate';
-import { findTablePath, findCellPos } from './helpers/tableOps';
-import { beginDrag, hoverCell, tablePathKey, useCellDragHighlight } from './helpers/tableDrag';
+import { findTablePath } from './helpers/tableOps';
+import { tablePathKey, useCellDragHighlight, useDragRect, beginDrag, hoverCell } from './helpers/tableDrag';
 
 // -------------------- 모듈 전역 캐시 (HMR 안전) --------------------
 const WIKI_ICON_CACHE_KEY = '__rdwiki_doc_icon_cache__';
@@ -1094,10 +1094,19 @@ const Element: React.FC<ElementProps> = ({
     // -------------------- 표(Table) --------------------
     case 'table': {
       const table = element as any;
+      const editorStatic = useSlateStatic();
+      // 현재 테이블 path → 키
+      let tKey = 't';
+      try {
+        const tPath = ReactEditor.findPath(editorStatic, element);
+        tKey = tablePathKey(tPath);
+      } catch {}
+
       return (
         <table
           {...attributes}
           className="slate-table"
+          data-tkey={tKey}
           style={{
             borderCollapse: 'collapse',
             width: table.fullWidth ? '100%' : undefined,
@@ -1113,52 +1122,83 @@ const Element: React.FC<ElementProps> = ({
     }
     case 'table-cell': {
       const el = element as any;
+      const editorStatic = useSlateStatic();
+
+      // 위치/키 계산
+      const path = ReactEditor.findPath(editorStatic, element);
+      const tPath = findTablePath(editorStatic, path);
+      const tKey = tablePathKey(tPath);
+      const r = path[path.length - 2] as number;
+      const c = path[path.length - 1] as number;
+
       const colSpan = Math.max(1, Number(el.colspan) || 1);
       const rowSpan = Math.max(1, Number(el.rowspan) || 1);
 
-      const cellPath = ReactEditor.findPath(editor, element);
-      const tablePath = findTablePath(editor, cellPath);
-      const key = tablePathKey(tablePath);
-      const { r, c } = findCellPos(cellPath);
+      // 드래그 하이라이트/사각형
+      const isSel = useCellDragHighlight(tKey, r, c);
+      const rect = useDragRect(tKey);
+      const edge = rect && isSel ? {
+        top:    r === rect.r0,
+        right:  c === rect.c1,
+        bottom: r === rect.r1,
+        left:   c === rect.c0,
+      } : { top:false, right:false, bottom:false, left:false };
 
-      const highlighted = useCellDragHighlight(key, r, c);
-
-      const onMouseDown: React.MouseEventHandler<HTMLTableCellElement> = (e) => {
-        if (e.button !== 0) return;     // 좌클릭만
-        e.preventDefault();             // 브라우저 기본 텍스트 드래그 방지(파란 강조 방지)
-        beginDrag(editor, tablePath, key, r, c, e.clientX, e.clientY);
-      };
-
-      const onMouseEnter: React.MouseEventHandler<HTMLTableCellElement> = () => {
-        hoverCell(key, r, c);
-      };
-
+      // 우클릭 메뉴
       const onCtx: React.MouseEventHandler<HTMLTableCellElement> = (e) => {
         e.preventDefault();
         e.stopPropagation();
+        const path = ReactEditor.findPath(editorStatic, element);
         window.dispatchEvent(
           new CustomEvent('editor:table-menu', {
-            detail: { x: e.clientX, y: e.clientY, cellPath },
+            detail: { x: e.clientX, y: e.clientY, cellPath: path }
           })
         );
       };
 
+      // 선택 배경 + 외곽선(4방향 정확히)
+      const selBg = isSel ? 'rgba(80,200,120,.18)' : undefined;
+      const outline = isSel ? [
+        edge.top    ? 'inset 0  2px 0  rgba(80,200,120,.65)' : '',
+        edge.right  ? 'inset -2px 0  0  rgba(80,200,120,.65)' : '',
+        edge.bottom ? 'inset 0 -2px 0  rgba(80,200,120,.65)' : '',
+        edge.left   ? 'inset 2px  0  0  rgba(80,200,120,.65)' : '',
+      ].filter(Boolean).join(', ') : undefined;
+
       return (
         <td
           {...attributes}
+          data-tkey={tKey}
+          data-r={r}
+          data-c={c}
           colSpan={colSpan}
           rowSpan={rowSpan}
-          onMouseDown={onMouseDown}
-          onMouseEnter={onMouseEnter}
           onContextMenu={onCtx}
+          /* ▼▼ 추가: 드래그 시작/이동 연결 ▼▼ */
+          onMouseDown={(e) => {
+            // 좌클릭만 처리, 수정키(Shift/Ctrl/Meta) 눌린 상태는 무시
+            if (e.button !== 0 || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
+            beginDrag(
+              editorStatic,  // 현재 에디터
+              tPath,         // 이 셀이 속한 table path
+              tKey,          // 테이블 고유 키
+              r, c,          // 시작 좌표
+              e.clientX, e.clientY
+            );
+            // 여기서는 preventDefault 하지 않습니다. (클릭만 하면 커서 배치 허용)
+          }}
+          onMouseEnter={() => {
+            // 드래그 중일 때만 hover 반영됨
+            hoverCell(tKey, r, c);
+          }}
+          /* ▲▲ 추가 끝 ▲▲ */
           className="slate-table__cell"
           style={{
             border: '1px solid #e5e7eb',
-            background: highlighted ? '#E8FAEE' : '#ffffff',
-            outline: highlighted ? '2px solid #9BE0B0' : undefined,
+            background: selBg,
+            boxShadow: outline,
             padding: 6,
             verticalAlign: 'top',
-            transition: 'background .06s, outline .06s',
           }}
         >
           <div className="slate-table__cell-inner">{children}</div>
