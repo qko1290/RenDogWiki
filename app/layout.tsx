@@ -4,6 +4,8 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import '@/wiki/css/fonts-kor.css';
 
+export const dynamic = 'force-dynamic';
+
 // NOTE: 배포 도메인을 환경변수로 설정하면 메타데이터/OG에 반영됩니다.
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://wiki.example.com";
 
