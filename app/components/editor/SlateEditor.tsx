@@ -25,6 +25,7 @@ import PriceTableEditModal from './PriceTableEditModal';
 import '@/wiki/css/editor.css';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faImage } from '@fortawesome/free-solid-svg-icons';
+import TableContextMenu from './TableContextMenu';
 
 type DocState = {
   id?: number;
@@ -756,6 +757,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
           onSave={handlePriceModalSave}
         />
       )}
+      <TableContextMenu editor={editor} />
     </>
   );
 }

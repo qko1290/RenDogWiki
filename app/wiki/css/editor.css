@@ -492,3 +492,88 @@ html, body { background:#fff; color:#0f172a; }
 .editor-content-scroll { overflow-anchor: none; }
 
 .ptc-price-text { word-break: keep-all; }
+
+/* ====== Table (Slate) ====== */
+.slate-table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 420px;
+  table-layout: fixed;
+  border: 1px solid #e5e7eb;
+}
+
+.slate-table-row {}
+
+.slate-table-cell {
+  border: 1px solid #e5e7eb;
+  vertical-align: top;
+  padding: 8px 10px;
+  background: #fff;
+  /* 셀 내부 문단 간격 */
+}
+.slate-table-cell p { margin: 0; line-height: 1.6; }
+
+/* ====== 표 크기 선택기 ====== */
+.tbl-pick { user-select: none; }
+.tbl-pick-grid {
+  display: grid;
+  grid-auto-rows: 18px;
+  gap: 3px;
+}
+.tbl-pick-cell {
+  width: 18px; height: 18px;
+  border: 1px solid #e5e7eb;
+  border-radius: 3px;
+  background: #fff;
+}
+.tbl-pick-cell.is-active { background: #dbeafe; border-color: #93c5fd; }
+.tbl-pick-info {
+  text-align: center;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* --- Slate 테이블 --- */
+.slate-table {
+  border-collapse: collapse;
+  width: 100%;
+  table-layout: fixed;       /* 커서 위치 시각 안정화 */
+  margin: 8px 0;
+}
+.slate-table__cell {
+  border: 1px solid #e5e7eb;
+  vertical-align: top;
+  padding: 8px;
+  min-width: 120px;
+  height: 40px;
+  position: relative;
+}
+.slate-table__cell-inner {
+  min-height: 20px;
+  line-height: 1.45;
+}
+.slate-table td:focus-within {
+  outline: 2px solid #93c5fd;
+  outline-offset: -2px;
+}
+
+/* --- 테이블 피커(6x6) --- */
+.table-picker-popover {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0,0,0,.12);
+  padding: 12px 12px 8px;
+  z-index: 9999;
+  user-select: none;
+}
+.table-picker-grid { display: grid; gap: 2px; }
+.table-picker-row { display: grid; grid-template-columns: repeat(6, 24px); gap: 2px; }
+.table-picker-cell {
+  width: 24px; height: 24px; border: 1px solid #e5e7eb; background: #fff; border-radius: 4px;
+}
+.table-picker-cell.selected { background: #dbeafe; border-color: #bfdbfe; }
+.table-picker-caption {
+  margin-top: 8px; text-align: center; font-size: 12px; color: #6b7280;
+}

@@ -12,13 +12,41 @@ import type { MarkFormat } from '@/types/slate';
 
 type StyleMark = 'color' | 'fontSize' | 'backgroundColor';
 
+/** 안전한 marks 조회: selection이 엘리먼트 경로일 때 throw 나는 문제 방지 */
+const safeMarks = (editor: Editor) => {
+  try {
+    // selection 이 없거나 비정상일 때는 null 반환
+    if (!editor.selection) return null;
+    // 내부적으로 leaf를 찾다가 throw 될 수 있으므로 try/catch
+    return Editor.marks(editor);
+  } catch {
+    return null;
+  }
+};
+
 /**
  * 마크(텍스트 스타일) 활성화 여부
  * - format: 'bold', 'italic', 'color', 'fontSize' 등
  */
 export const isMarkActive = (editor: Editor, format: MarkFormat | StyleMark) => {
-  const marks = Editor.marks(editor);
-  return marks ? (marks as any)[format] !== undefined : false;
+  try {
+    const { selection } = editor;
+    if (!selection) return false;
+
+    // 선택 범위에 텍스트 노드가 하나라도 있는지 확인
+    const iter = Editor.nodes(editor, {
+      at: Editor.unhangRange(editor, selection),
+      match: Text.isText,
+      universal: true,
+    });
+    const first = iter.next().value;
+    if (!first) return false;
+
+    const marks = Editor.marks(editor);
+    return marks ? (marks as any)[format] !== undefined : false;
+  } catch {
+    return false;
+  }
 };
 
 /**
@@ -36,52 +64,34 @@ export const toggleMark = (
   const { selection } = editor;
   if (!selection) return;
 
-  const isCollapsed = Range.isCollapsed(selection);
   const isStyle = (fmt: string): fmt is StyleMark =>
     fmt === 'color' || fmt === 'fontSize' || fmt === 'backgroundColor';
 
-  // ----- 값 기반 스타일 마크 처리 -----
   if (isStyle(format)) {
-    // 현재 값과 동일하면 불필요한 업데이트 방지
-    const current = (Editor.marks(editor) as any)?.[format];
+    let current: any;
+    try { current = (Editor.marks(editor) as any)?.[format]; } catch { current = undefined; }
+
     const nextValue = value ?? '';
 
-    // 제거(값이 비었거나 동일 값 재요청 시 제거 의도)
     if (!nextValue) {
-      if (isCollapsed) {
-        Editor.removeMark(editor, format);
-      } else {
-        Transforms.unsetNodes(editor, format as any, {
-          match: Text.isText,
-          split: true,
-        });
+      if (Range.isCollapsed(selection)) Editor.removeMark(editor, format);
+      else {
+        Transforms.unsetNodes(editor, format as any, { match: Text.isText, split: true });
       }
       return;
     }
-
-    // 동일 값이면 히스토리 오염 방지 차단
     if (current === nextValue) return;
 
-    // 적용
-    if (isCollapsed) {
-      // 커서만 있을 때는 addMark로 이후 타이핑에도 유지
-      Editor.addMark(editor, format, nextValue);
-    } else {
-      // 영역 선택일 때는 해당 범위 텍스트 노드에 직접 값 세팅
-      Transforms.setNodes(
-        editor,
-        { [format]: nextValue } as any,
-        { match: Text.isText, split: true }
-      );
+    if (Range.isCollapsed(selection)) Editor.addMark(editor, format, nextValue);
+    else {
+      Transforms.setNodes(editor, { [format]: nextValue } as any, { match: Text.isText, split: true });
     }
     return;
   }
 
-  // ----- 기본 토글 마크 처리(bold/italic/underline/...) -----
-  const active = isMarkActive(editor, format as MarkFormat);
-  if (active) {
-    Editor.removeMark(editor, format);
-  } else {
-    Editor.addMark(editor, format, true);
-  }
+  // 기본 마크 토글(bold/italic/...)
+  let active = false;
+  try { active = isMarkActive(editor, format as MarkFormat); } catch { active = false; }
+  if (active) Editor.removeMark(editor, format);
+  else Editor.addMark(editor, format, true);
 };

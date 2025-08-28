@@ -10,11 +10,10 @@
 'use client';
 
 import React from 'react';
-import { useSlate } from 'slate-react';
+import { useSlate, ReactEditor } from 'slate-react';
 import { Range, Transforms } from 'slate';
 import type { MarkFormat } from '@/types/slate';
 import { isMarkActive, toggleMark } from './helpers/toggleMark';
-import { ReactEditor } from 'slate-react';
 
 type MarkButtonProps = {
   /** 'bold' | 'italic' | 'underline' | 'strikethrough' 등 */
@@ -31,19 +30,20 @@ const MarkButton = ({ format, icon, selectionRef }: MarkButtonProps) => {
 
   /**
    * 클릭 시:
-   * - selectionRef에서 선택 복원(없으면 무시)
+   * - selectionRef에서 선택 복원(없으면 현재 selection 유지)
    * - 에디터 포커스 후 해당 마크 토글
    * - setTimeout: DOM 업데이트/selection 타이밍 충돌 방지
    */
   const handleMouseDown = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
+
     setTimeout(() => {
-      const selection = selectionRef.current;
-      if (selection) {
-        Transforms.select(editor, selection);
-        ReactEditor.focus(editor);
-        toggleMark(editor, format);
+      const saved = selectionRef.current;
+      if (saved) {
+        try { Transforms.select(editor, saved); } catch {}
       }
+      ReactEditor.focus(editor);
+      toggleMark(editor, format);
     }, 0);
   };
 

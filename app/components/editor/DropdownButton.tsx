@@ -5,14 +5,15 @@
  * 에디터 툴바 드롭다운 버튼
  * - label(표시명) + items(옵션 문자열 배열) 렌더링
  * - 드롭다운이 열릴 때 selectionRef에 현재 selection 저장
- * - 항목 클릭(또는 Enter/Space) 시 selectionRef로 커서 복원 → 포커스 → 해당 마크 적용
+ * - 항목 클릭(또는 Enter/Space) 시 selectionRef로 커서 복원 → 포커스 → 해당 마크/동작 수행
  * - 열림/닫힘은 부모의 openDropdown 상태로 제어(동일 툴바 내 상호 배타 열림)
  * - (옵션) itemsMap으로 표시 라벨 → 실제 값 매핑 가능
+ * - ✅ 드롭다운이 오른쪽/컨테이너에 의해 잘리지 않도록 필요 시 position:fixed 로 전환
  */
 
 'use client';
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSlate, ReactEditor } from 'slate-react';
 import { Editor, Range, Transforms } from 'slate';
 
@@ -21,12 +22,15 @@ type DropdownButtonProps = {
   items: string[];
   /** 표시 라벨 → 실제 값 매핑(없으면 라벨 그대로 값 사용) */
   itemsMap?: Record<string, string>;
+  /** 선택 시 외부 동작 처리(없으면 기본: mark 추가) */
   onSelect?: (appliedValue: string) => void;
   selectionRef: React.MutableRefObject<Range | null>;
   dropdownId: string;
   openDropdown: string | null;
   setOpenDropdown: (id: string | null) => void;
 };
+
+const MENU_EST_WIDTH = 260; // 대략 메뉴 가로폭(오른쪽 오버플로우 감지용)
 
 const DropdownButton = ({
   label, items, itemsMap, onSelect, selectionRef,
@@ -35,21 +39,94 @@ const DropdownButton = ({
   const editor = useSlate();
   const isOpen = openDropdown === dropdownId;
 
-  const handleSelect = useCallback((itemLabel: string) => {
-    const markType = dropdownId;
-    const applied = itemsMap?.[itemLabel] ?? itemLabel;
+  // 버튼 위치로 고정 배치가 필요한지 판단
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLUListElement>(null);
+  const [fixedPos, setFixedPos] = useState<null | { top: number; left: number; alignRight: boolean }>(null);
 
-    setTimeout(() => {
-      if (selectionRef.current) {
-        Transforms.select(editor, selectionRef.current);
-      }
-      ReactEditor.focus(editor);
-      Editor.addMark(editor, markType, applied);
-    }, 0);
+  // 열릴 때 selection 저장 + 메뉴 위치 계산
+  const openMenu = useCallback(() => {
+    selectionRef.current = editor.selection ?? null;
+    setOpenDropdown(dropdownId);
 
-    onSelect?.(applied);
+    // 버튼 화면 좌표 → 오른쪽 여백 부족하면 fixed + 오른쪽 정렬
+    requestAnimationFrame(() => {
+      const r = btnRef.current?.getBoundingClientRect();
+      if (!r) { setFixedPos(null); return; }
+      const rightSpace = window.innerWidth - r.left;
+      const needFixed = rightSpace < MENU_EST_WIDTH + 16;
+      if (!needFixed) { setFixedPos(null); return; }
+      setFixedPos({
+        top: Math.round(r.bottom + 6),
+        left: Math.round(r.right), // 기본은 왼→오 표시
+        alignRight: true,          // alignRight 시 translateX(-100%)
+      });
+    });
+  }, [dropdownId, editor.selection, selectionRef, setOpenDropdown]);
+
+  const closeMenu = useCallback(() => {
     setOpenDropdown(null);
-  }, [dropdownId, editor, itemsMap, onSelect, selectionRef, setOpenDropdown]);
+    setFixedPos(null);
+  }, [setOpenDropdown]);
+
+  // 외부 클릭 시 닫기
+  useEffect(() => {
+    if (!isOpen) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t)) return;
+      if (menuRef.current?.contains(t)) return;
+      closeMenu();
+    };
+    window.addEventListener('mousedown', onDown, { capture: true });
+    return () => window.removeEventListener('mousedown', onDown, { capture: true } as any);
+  }, [isOpen, closeMenu]);
+
+  // 스크롤/리사이즈 시 fixed 위치 재계산
+  useEffect(() => {
+    if (!isOpen || !fixedPos) return;
+    const recalc = () => {
+      const r = btnRef.current?.getBoundingClientRect();
+      if (!r) return;
+      setFixedPos(prev =>
+        prev
+          ? { top: Math.round(r.bottom + 6), left: Math.round(r.right), alignRight: true }
+          : null
+      );
+    };
+    window.addEventListener('scroll', recalc, true);
+    window.addEventListener('resize', recalc);
+    return () => {
+      window.removeEventListener('scroll', recalc, true);
+      window.removeEventListener('resize', recalc);
+    };
+  }, [isOpen, fixedPos]);
+
+  const handleSelect = useCallback(
+    (itemLabel: string) => {
+      const applied = itemsMap?.[itemLabel] ?? itemLabel;
+
+      setTimeout(() => {
+        try {
+          if (selectionRef.current) {
+            Transforms.select(editor, selectionRef.current);
+          }
+          ReactEditor.focus(editor);
+          if (onSelect) {
+            onSelect(applied);
+          } else {
+            // 기본 동작: 마크 추가(dropdownId 키로)
+            Editor.addMark(editor, dropdownId, applied);
+          }
+        } catch {
+          /* no-op */
+        }
+      }, 0);
+
+      closeMenu();
+    },
+    [dropdownId, editor, itemsMap, onSelect, selectionRef, closeMenu]
+  );
 
   const onItemKeyDown: React.KeyboardEventHandler<HTMLLIElement> = (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -62,20 +139,17 @@ const DropdownButton = ({
   const onMenuKeyDown: React.KeyboardEventHandler<HTMLUListElement> = (e) => {
     if (e.key === 'Escape') {
       e.preventDefault();
-      setOpenDropdown(null);
+      closeMenu();
       setTimeout(() => ReactEditor.focus(editor), 0);
     }
   };
 
   return (
-    <div className="editor-dropdown">
+    <div className="editor-dropdown" style={{ position: 'relative', display: 'inline-block' }}>
       <button
+        ref={btnRef}
         type="button"
-        onMouseDown={e => {
-          e.preventDefault();
-          selectionRef.current = editor.selection ?? null;
-          setOpenDropdown(isOpen ? null : dropdownId);
-        }}
+        onMouseDown={e => { e.preventDefault(); isOpen ? closeMenu() : openMenu(); }}
         className="editor-toolbar-btn"
         aria-haspopup="menu"
         aria-expanded={isOpen}
@@ -84,13 +158,27 @@ const DropdownButton = ({
         {label}
       </button>
 
-      {isOpen && items.length > 0 && (
+      {/* 일반(absolute) 메뉴 */}
+      {isOpen && !fixedPos && items.length > 0 && (
         <ul
+          ref={menuRef}
           id={`${dropdownId}-menu`}
           className="editor-dropdown-menu"
           role="menu"
           aria-label={typeof label === 'string' ? label : undefined}
           onKeyDown={onMenuKeyDown}
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 6px)',
+            left: 0,
+            minWidth: 180,
+            background: '#fff',
+            border: '1px solid #e5e7eb',
+            borderRadius: 10,
+            boxShadow: '0 8px 28px rgba(0,0,0,.12)',
+            padding: 6,
+            zIndex: 1000
+          }}
         >
           {items.map((itemLabel, idx) => (
             <li
@@ -100,6 +188,50 @@ const DropdownButton = ({
               data-value={itemLabel}
               onMouseDown={() => handleSelect(itemLabel)}
               onKeyDown={onItemKeyDown}
+              style={{ padding: '8px 12px', borderRadius: 8, cursor: 'pointer' }}
+              onMouseEnter={e => (e.currentTarget.style.background = '#f3f4f6')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+            >
+              {itemLabel}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* 오른쪽 잘림 방지: 화면 고정 메뉴 */}
+      {isOpen && fixedPos && items.length > 0 && (
+        <ul
+          ref={menuRef}
+          id={`${dropdownId}-menu`}
+          className="editor-dropdown-menu editor-dropdown-menu--fixed"
+          role="menu"
+          aria-label={typeof label === 'string' ? label : undefined}
+          onKeyDown={onMenuKeyDown}
+          style={{
+            position: 'fixed',
+            top: fixedPos.top,
+            left: fixedPos.left,
+            transform: fixedPos.alignRight ? 'translateX(-100%)' : undefined,
+            minWidth: 180,
+            background: '#fff',
+            border: '1px solid #e5e7eb',
+            borderRadius: 10,
+            boxShadow: '0 8px 28px rgba(0,0,0,.12)',
+            padding: 6,
+            zIndex: 10000
+          }}
+        >
+          {items.map((itemLabel, idx) => (
+            <li
+              key={idx}
+              role="menuitem"
+              tabIndex={0}
+              data-value={itemLabel}
+              onMouseDown={() => handleSelect(itemLabel)}
+              onKeyDown={onItemKeyDown}
+              style={{ padding: '8px 12px', borderRadius: 8, cursor: 'pointer' }}
+              onMouseEnter={e => (e.currentTarget.style.background = '#f3f4f6')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
               {itemLabel}
             </li>

@@ -292,6 +292,34 @@ function nameFontSize(name?: string) {
   return 20;
 }
 
+/** 숫자/문자 폰트 크기를 정규화: 숫자는 px, 단위가 있으면 그대로 */
+function normalizeFontSize(v: unknown): string | number | undefined {
+  if (v == null) return undefined;
+  if (typeof v === 'number') return Math.max(1, v);
+  if (typeof v === 'string') {
+    const s = v.trim();
+    if (!s) return undefined;
+    if (/(px|rem|em|%|vh|vw)$/i.test(s)) return s;         // 이미 단위가 있으면 그대로
+    if (/^\d+(\.\d+)?$/.test(s)) return `${s}px`;          // 숫자면 px
+    return s;
+  }
+  return undefined;
+}
+
+/** "16px" → 16 추출 (px만 파싱) */
+function toPxNumber(v: string | number | undefined): number | undefined {
+  if (v == null) return undefined;
+  if (typeof v === 'number') return v;
+  const m = /^(-?\d+(?:\.\d+)?)px$/i.exec(v);
+  return m ? parseFloat(m[1]) : undefined;
+}
+
+/** 손글씨 계열은 기본보다 살짝 크게 보정 */
+const HANDWRITING_SCALE: Record<string, number> = {
+  BareunHippy: 1.18,                    // 나눔손글씨 바른히피
+  NanumHandwritingMiddleSchool: 1.14,   // 나눔손글씨 중학생
+};
+
 // 메인 렌더 컴포넌트
 export default function WikiReadRenderer({ content }: { content: Descendant[] }) {
   return <>{content.map((node, idx) => renderNode(node, idx))}</>;
@@ -590,17 +618,40 @@ function renderLeaf(node: any, key?: React.Key): React.ReactNode {
   if (node.strikethrough) children = <s>{children}</s>;
 
   const style: React.CSSProperties = {};
+
+  // 색/배경
   if (node.color) style.color = node.color;
   if (node.backgroundColor) style.backgroundColor = node.backgroundColor;
-  if (node.fontSize) style.fontSize = node.fontSize;
 
-  if (Object.keys(style).length > 0)
-    return (
-      <span key={key} style={style}>
-        {children}
-      </span>
-    );
-  else return <span key={key}>{children}</span>;
+  // 폰트 패밀리
+  const family = node.fontFamily ? String(node.fontFamily) : undefined;
+  if (family) style.fontFamily = family;
+
+  // 폰트 크기 + 손글씨 보정
+  const normalized = normalizeFontSize(node.fontSize);
+  const basePx = toPxNumber(normalized);
+  const scale = family && HANDWRITING_SCALE[family] ? HANDWRITING_SCALE[family] : 1;
+
+  if (scale !== 1) {
+    if (typeof basePx === 'number') {
+      style.fontSize = `${Math.round(basePx * scale)}px`;
+    } else if (normalized !== undefined) {
+      // rem/em/% 등은 사용자가 준 그대로
+      style.fontSize = normalized as any;
+    } else {
+      // 별도 지정이 없으면 손글씨만 기본을 약간 키움
+      style.fontSize = `${scale}em`;
+    }
+    style.lineHeight = style.lineHeight ?? 1.35; // 손글씨는 줄간 살짝 넉넉하게
+  } else {
+    if (normalized !== undefined) style.fontSize = normalized as any;
+  }
+
+  return (
+    <span key={key} style={style}>
+      {children}
+    </span>
+  );
 }
 
 // 노드 타입별 렌더링 (재귀)

@@ -9,7 +9,7 @@ import {
   useSlate,
   useSlateStatic,
 } from 'slate-react';
-import { Node, Transforms, Path, Editor, Element as SlateElement } from 'slate';
+import { Node, Transforms, Path, Editor, Element as SlateElement, Text } from 'slate';
 import { getHeadingId } from './helpers/getHeadingId';
 import ImageSizeModal from './ImageSizeModal';
 import ImageSelectModal from '@/components/image/ImageSelectModal';
@@ -25,6 +25,8 @@ import type {
   HeadingThreeElement,
   ParagraphElement,
 } from '@/types/slate';
+import { findTablePath, findCellPos } from './helpers/tableOps';
+import { beginDrag, hoverCell, tablePathKey, useCellDragHighlight } from './helpers/tableDrag';
 
 // -------------------- 모듈 전역 캐시 (HMR 안전) --------------------
 const WIKI_ICON_CACHE_KEY = '__rdwiki_doc_icon_cache__';
@@ -43,7 +45,7 @@ const setWikiDocsAll = (rows: any[]) => {
 // 외부 링크용 인라인 아이콘
 const ExternalLinkIcon: React.FC<{ size?: number }> = ({ size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
-    <path d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42 9.3-9.29H14V3zM19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7z" fill="currentColor"/>
+    <path d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42 9.3-9.29H14V3zM19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0  0 0 2-2v-7h-2v7z" fill="currentColor"/>
   </svg>
 );
 
@@ -344,7 +346,6 @@ const Element: React.FC<ElementProps> = ({
       const fontSize = level === 1 ? '28px' : level === 2 ? '22px' : '18px';
       const Tag = `h${level}` as 'h1' | 'h2' | 'h3';
 
-      // WikiReadRenderer와 동일하게 정렬을 flex 컨테이너에 반영
       const justify =
         el.textAlign === 'center' ? 'center'
         : el.textAlign === 'right'  ? 'flex-end'
@@ -458,7 +459,7 @@ const Element: React.FC<ElementProps> = ({
       );
     }
 
-    // -------------------- 기본 단락 --------------------
+    // -------------------- 기본 문단 --------------------
     case 'paragraph': {
       const el = element as ParagraphElement;
       const indentLine = (el as any).indentLine;
@@ -497,7 +498,7 @@ const Element: React.FC<ElementProps> = ({
       );
     }
 
-    // -------------------- 정보 박스 --------------------
+    // -------------------- 인포박스 --------------------
     case 'info-box': {
       const raw =
         (element as any).boxType ||
@@ -523,7 +524,7 @@ const Element: React.FC<ElementProps> = ({
       );
     }
 
-    // -------------------- 본문 내 삽입 이미지 (void) --------------------
+    // -------------------- 본문 이미지 (void) --------------------
     case 'image': {
       const el = element as any;
       const selected = useSelected();
@@ -687,7 +688,7 @@ const Element: React.FC<ElementProps> = ({
       );
     }
 
-    // -------------------- 가격표 카드 블럭 (void) --------------------
+    // -------------------- 가격표 카드 (void) --------------------
     case 'price-table-card': {
       const el = element as PriceTableCardElement;
       const path = ReactEditor.findPath(editorStatic, el);
@@ -979,7 +980,7 @@ const Element: React.FC<ElementProps> = ({
                       onSelectImage={handleImageSelect}
                     />
 
-                    {/* 이름: 길면 폰트 축소 */}
+                    {/* 이름 */}
                     <div
                       style={{
                         fontWeight: 700,
@@ -1006,7 +1007,6 @@ const Element: React.FC<ElementProps> = ({
                             if (e.key === 'Escape') setEditingName(false);
                           }}
                           onFocus={() => {
-                            // ✅ 외부 인풋에 들어가는 순간 에디터 selection 제거
                             try { Transforms.deselect(editorStatic); } catch {}
                           }}
                           style={{
@@ -1028,7 +1028,6 @@ const Element: React.FC<ElementProps> = ({
                             e.stopPropagation();
                             setEditNameValue(item.name || '');
                             setEditingName(true);
-                            // ✅ 편집으로 전환하는 시점에도 selection 제거(이벤트 순서 보호)
                             try { Transforms.deselect(editorStatic); } catch {}
                           }}
                           title="이름 수정"
@@ -1038,7 +1037,7 @@ const Element: React.FC<ElementProps> = ({
                       )}
                     </div>
 
-                    {/* 가격: 줄바꿈 보정 + 폰트 축소 */}
+                    {/* 가격 */}
                     <div
                       style={{
                         fontWeight: 800,
@@ -1056,7 +1055,6 @@ const Element: React.FC<ElementProps> = ({
                       title="가격 수정"
                       onClick={e => {
                         e.stopPropagation();
-                        // ✅ 가격 모달 전용 스크롤 캡처(다른 액션과 분리)
                         window.dispatchEvent(new CustomEvent('editor:capture-scroll:price'));
                         setPriceTableEdit({ blockPath: path, idx, item: { ...item, mode: guessPriceMode(item) } });
                       }}
@@ -1074,7 +1072,7 @@ const Element: React.FC<ElementProps> = ({
       );
     }
 
-    // -------------------- 한 줄에 여러 링크 블록 --------------------
+    // -------------------- 링크 블록 Row --------------------
     case 'link-block-row': {
       return (
         <div
@@ -1090,6 +1088,81 @@ const Element: React.FC<ElementProps> = ({
         >
           {children}
         </div>
+      );
+    }
+
+    // -------------------- 표(Table) --------------------
+    case 'table': {
+      const table = element as any;
+      return (
+        <table
+          {...attributes}
+          className="slate-table"
+          style={{
+            borderCollapse: 'collapse',
+            width: table.fullWidth ? '100%' : undefined,
+            tableLayout: 'fixed',
+          }}
+        >
+          <tbody>{children}</tbody>
+        </table>
+      );
+    }
+    case 'table-row': {
+      return <tr {...attributes}>{children}</tr>;
+    }
+    case 'table-cell': {
+      const el = element as any;
+      const colSpan = Math.max(1, Number(el.colspan) || 1);
+      const rowSpan = Math.max(1, Number(el.rowspan) || 1);
+
+      const cellPath = ReactEditor.findPath(editor, element);
+      const tablePath = findTablePath(editor, cellPath);
+      const key = tablePathKey(tablePath);
+      const { r, c } = findCellPos(cellPath);
+
+      const highlighted = useCellDragHighlight(key, r, c);
+
+      const onMouseDown: React.MouseEventHandler<HTMLTableCellElement> = (e) => {
+        if (e.button !== 0) return;     // 좌클릭만
+        e.preventDefault();             // 브라우저 기본 텍스트 드래그 방지(파란 강조 방지)
+        beginDrag(editor, tablePath, key, r, c, e.clientX, e.clientY);
+      };
+
+      const onMouseEnter: React.MouseEventHandler<HTMLTableCellElement> = () => {
+        hoverCell(key, r, c);
+      };
+
+      const onCtx: React.MouseEventHandler<HTMLTableCellElement> = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        window.dispatchEvent(
+          new CustomEvent('editor:table-menu', {
+            detail: { x: e.clientX, y: e.clientY, cellPath },
+          })
+        );
+      };
+
+      return (
+        <td
+          {...attributes}
+          colSpan={colSpan}
+          rowSpan={rowSpan}
+          onMouseDown={onMouseDown}
+          onMouseEnter={onMouseEnter}
+          onContextMenu={onCtx}
+          className="slate-table__cell"
+          style={{
+            border: '1px solid #e5e7eb',
+            background: highlighted ? '#E8FAEE' : '#ffffff',
+            outline: highlighted ? '2px solid #9BE0B0' : undefined,
+            padding: 6,
+            verticalAlign: 'top',
+            transition: 'background .06s, outline .06s',
+          }}
+        >
+          <div className="slate-table__cell-inner">{children}</div>
+        </td>
       );
     }
 
