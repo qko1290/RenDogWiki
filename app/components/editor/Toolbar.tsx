@@ -129,17 +129,17 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
   const [showPriceTableInsertModal, setShowPriceTableInsertModal] = useState(false);
 
   // 표 삽입 드롭다운
-  const [showTablePicker, setShowTablePicker] = useState(false);
-  const tableBtnRef = useRef<HTMLButtonElement>(null);
+  // const [showTablePicker, setShowTablePicker] = useState(false);
+  // const tableBtnRef = useRef<HTMLButtonElement>(null);
 
-  const [tableOpen, setTableOpen] = useState(false);
+  // const [tableOpen, setTableOpen] = useState(false);
 
   // ===== 유틸: 모두 닫기 =====
   const closeAllDropdowns = () => {
     setOpenDropdown(null);
     setShowColorDropdown(false);
     setShowBgColorDropdown(false);
-    setShowTablePicker(false);
+    // setShowTablePicker(false);
   };
 
   // 전역 이벤트로 닫기
@@ -150,9 +150,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
   }, []);
 
   // 같은 종류/다른 종류 간 상호배타 처리
-  useEffect(() => { if (openDropdown) { setShowColorDropdown(false); setShowBgColorDropdown(false); setShowTablePicker(false); } }, [openDropdown]);
-  useEffect(() => { if (showColorDropdown) { setOpenDropdown(null); setShowBgColorDropdown(false); setShowTablePicker(false); } }, [showColorDropdown]);
-  useEffect(() => { if (showBgColorDropdown) { setOpenDropdown(null); setShowColorDropdown(false); setShowTablePicker(false); } }, [showBgColorDropdown]);
+  useEffect(() => { if (openDropdown) { setShowColorDropdown(false); setShowBgColorDropdown(false);} }, [openDropdown]);
+  useEffect(() => { if (showColorDropdown) { setOpenDropdown(null); setShowBgColorDropdown(false);} }, [showColorDropdown]);
+  useEffect(() => { if (showBgColorDropdown) { setOpenDropdown(null); setShowColorDropdown(false);} }, [showBgColorDropdown]);
 
   // 툴바 내부 모달이 열릴 때는 자동으로 모두 닫기
   const anyToolbarModalOpen =
@@ -621,7 +621,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
         }}
       />
 
-      {/* 표 삽입 */}
+      {/* 표 삽입 
       <div style={{ position: 'relative', display: 'inline-block' }}>
         <button
           ref={tableBtnRef}                           // ✅ 버튼에만 ref 부여
@@ -648,6 +648,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
           }}
         />
       </div>
+      */}
     </div>
   );
 };

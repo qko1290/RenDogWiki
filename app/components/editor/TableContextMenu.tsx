@@ -4,10 +4,10 @@
  * C:\next\rdwiki\app\components\editor\TableContextMenu.tsx
  * 표 우클릭 컨텍스트 메뉴
  * - open 이벤트: window.dispatchEvent(new CustomEvent('editor:table-menu', { detail:{ x,y, cellPath } }))
- * - 항목: 셀 병합(선택 직사각형), 행 분할(rowspan 해제), 열 분할(colspan 해제), 너비 맞춤, 삭제
+ * - 항목: 셀 병합(선택 직사각형), 행 분할(rowspan 해제), 열 분할(colspan 해제), 너비 맞춤, 삭제(행/열 전체 선택 시)
  */
 
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Editor, Path } from 'slate';
 import { ReactEditor } from 'slate-react';
 import {
@@ -17,8 +17,13 @@ import {
   splitCellByRow,
   toggleTableFullWidth,
   removeTable,
-  findTablePath
+  findTablePath,
+  isFullRowSelection,
+  isFullColSelection,
+  removeRows,
+  removeCols,
 } from './helpers/tableOps';
+import { getDragRect, clearDrag } from './helpers/tableDrag';
 
 type Props = { editor: Editor };
 
@@ -28,9 +33,8 @@ export default function TableContextMenu({ editor }: Props) {
   const [cellPath, setCellPath] = useState<Path | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
 
-  // 메뉴 오픈 이벤트 구독
   useEffect(() => {
-    const onOpen = (e: Event) => {
+    const onOpen = (e: any) => {
       const { x, y, cellPath } = (e as CustomEvent).detail || {};
       setXY({ x, y });
       setCellPath(cellPath);
@@ -40,7 +44,6 @@ export default function TableContextMenu({ editor }: Props) {
     return () => window.removeEventListener('editor:table-menu' as any, onOpen as any);
   }, []);
 
-  // 외부 클릭/휠/ESC 닫기
   useEffect(() => {
     if (!open) return;
     const close = (e: MouseEvent) => {
@@ -58,29 +61,27 @@ export default function TableContextMenu({ editor }: Props) {
     };
   }, [open]);
 
-  // 화면 가장자리 클램프
-  useLayoutEffect(() => {
-    if (!open) return;
-    requestAnimationFrame(() => {
-      const box = boxRef.current?.getBoundingClientRect();
-      if (!box) return;
-      let { x, y } = xy;
-      if (x + box.width > window.innerWidth - 8) x = Math.max(8, window.innerWidth - 8 - box.width);
-      if (y + box.height > window.innerHeight - 8) y = Math.max(8, window.innerHeight - 8 - box.height);
-      if (x !== xy.x || y !== xy.y) setXY({ x, y });
-    });
-  }, [open, xy]);
-
   if (!open || !cellPath) return null;
 
   const act = (fn: () => void) => () => {
     try { ReactEditor.focus(editor as any); } catch {}
     fn();
+    clearDrag(); // 작업 후 드래그 상태 초기화
     setOpen(false);
   };
 
-  const rect = getSelectedRectOrCell(editor, cellPath);
   const tablePath = findTablePath(editor, cellPath);
+
+  // 드래그 rect 우선, 없으면 selection 기반
+  const rect = (() => {
+    const drag = getDragRect();
+    if (drag && Path.equals(drag.tablePath, tablePath)) return drag;
+    return getSelectedRectOrCell(editor, cellPath);
+  })();
+
+  const canDeleteRow = isFullRowSelection(editor, rect);
+  const canDeleteCol = isFullColSelection(editor, rect);
+  const canDelete = canDeleteRow || canDeleteCol;
 
   return (
     <div
@@ -99,7 +100,20 @@ export default function TableContextMenu({ editor }: Props) {
       <MenuItem onClick={act(() => splitCellByRow(editor, cellPath))}>행 분할</MenuItem>
       <MenuItem onClick={act(() => splitCellByCol(editor, cellPath))}>열 분할</MenuItem>
       <MenuItem onClick={act(() => toggleTableFullWidth(editor, tablePath))}>너비 맞춤</MenuItem>
-      <MenuItem danger onClick={act(() => removeTable(editor, tablePath))}>삭제</MenuItem>
+
+      <MenuItem
+        danger={canDelete}
+        onClick={
+          canDelete
+            ? act(() => {
+                if (canDeleteRow) removeRows(editor, rect.tablePath, rect.r0, rect.r1);
+                else if (canDeleteCol) removeCols(editor, rect.tablePath, rect.c0, rect.c1);
+              })
+            : () => {}
+        }
+      >
+        {canDeleteRow ? '행 삭제' : canDeleteCol ? '열 삭제' : '삭제(행/열 전체 선택 시)'}
+      </MenuItem>
     </div>
   );
 }

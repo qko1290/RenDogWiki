@@ -1,3 +1,4 @@
+'use client';
 // =============================================
 // File: app/wiki/write/page.tsx
 // =============================================
@@ -7,7 +8,6 @@
  * - 문서 데이터 로드 후 SlateEditor에 전달
  * - /wiki/write?path=카테고리경로&title=문서제목 형식으로 진입
  */
-'use client';
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from 'next/navigation';

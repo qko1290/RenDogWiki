@@ -4,10 +4,10 @@
 /**
  * 표 드래그 선택 전역 스토어
  * - 드래그 중 user-select:none
- * - mouseup 기본동작 차단 → 파란 기본 선택 방지
- * - 드래그가 끝난 뒤엔 에디터 selection은 "단일 커서"로만 두고,
- *   사각형(rect)은 별도로 유지(컨텍스트 메뉴/병합용)
- * - 표 밖/선택 외 영역 클릭 시 rect 자동 해제
+ * - mouseup 기본동작 차단 → 네이티브 파란 선택 방지
+ * - 드래그 종료 후에도 사각형(rect)은 남김(컨텍스트 메뉴/병합/삭제에서 사용)
+ * - 표 밖 클릭 또는 같은 표 내에서도 영역 밖 클릭 시 rect 해제
+ * - SSR 안전(브라우저에서만 글로벌 리스너 등록)
  */
 
 import * as React from 'react';
@@ -22,7 +22,7 @@ type State = {
   tablePath: Path | null;
   startRC: { r: number; c: number } | null;
   startXY: { x: number; y: number } | null;
-  rect: DragRect | null;          // ← 드래그 종료 후에도 남김
+  rect: DragRect | null;
   editor: Editor | null;
   prevUserSelect: string | null;
 };
@@ -38,23 +38,36 @@ const S: State = {
   prevUserSelect: null,
 };
 
-const EVT = new EventTarget();
+const EVT = typeof window !== 'undefined' ? new EventTarget() : ({} as EventTarget);
 const emit = () => EVT.dispatchEvent(new Event('change'));
 
 export const tablePathKey = (p: Path) => p.join('.');
 
 const disableUserSelect = () => {
+  if (typeof document === 'undefined') return;
   if (S.prevUserSelect == null) {
     S.prevUserSelect = document.body.style.userSelect;
     document.body.style.userSelect = 'none';
   }
 };
 const restoreUserSelect = () => {
+  if (typeof document === 'undefined') return;
   if (S.prevUserSelect != null) {
     document.body.style.userSelect = S.prevUserSelect;
     S.prevUserSelect = null;
   }
 };
+
+// 컨텍스트 메뉴/명령에서 읽는 전역 rect
+let __rect: null | { tablePath: Path; r0:number; c0:number; r1:number; c1:number } = null;
+export function getDragRect() { return __rect; }
+export function clearDrag() {
+  __rect = null;
+  if (S.rect) { S.rect = null; emit(); }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('editor:table-drag:clear'));
+  }
+}
 
 const moveHandler = (e: MouseEvent) => {
   if (!S.tableKey || !S.startXY || !S.startRC) return;
@@ -66,16 +79,16 @@ const moveHandler = (e: MouseEvent) => {
     try { window.getSelection()?.removeAllRanges(); } catch {}
     const { r, c } = S.startRC;
     S.rect = { r0: r, c0: c, r1: r, c1: c };
+    __rect = S.tablePath ? { tablePath: S.tablePath, ...S.rect } : null;
     emit();
   }
 };
 
 const upHandler = (e: MouseEvent) => {
-  // ★ 기본 파란 선택 방지
-  e.preventDefault();
+  e.preventDefault(); // 네이티브 파란 선택 방지
 
-  removeEventListener('mousemove', moveHandler, true);
-  removeEventListener('mouseup', upHandler, true);
+  window.removeEventListener('mousemove', moveHandler, true);
+  window.removeEventListener('mouseup', upHandler, true);
 
   const wasActive = S.active;
   const rect = S.rect;
@@ -83,14 +96,12 @@ const upHandler = (e: MouseEvent) => {
   const tablePath = S.tablePath;
   const start = S.startRC;
 
-  // 드래그 상태만 종료(사각형은 유지)
   S.active = false;
   S.startRC = null;
   S.startXY = null;
   S.editor = null;
   emit();
 
-  // selection 적용은 다음 프레임 이후(네이티브 selection과 타이밍 충돌 방지)
   requestAnimationFrame(() => {
     try {
       if (!editor || !tablePath) return;
@@ -100,11 +111,13 @@ const upHandler = (e: MouseEvent) => {
         const end = Editor.end(editor, [...tablePath, start.r, start.c]);
         Transforms.select(editor, end);
         ReactEditor.focus(editor as any);
+        __rect = null;
       } else if (wasActive && rect) {
-        // 드래그한 경우: 파란 드래그를 없애기 위해 "단일 커서"만 남김
+        // 드래그한 경우: 커서는 rect 끝 셀에, rect는 유지
         const end = Editor.end(editor, [...tablePath, rect.r1, rect.c1]);
         Transforms.select(editor, end);
         ReactEditor.focus(editor as any);
+        __rect = { tablePath, ...rect };
       }
     } catch {}
     requestAnimationFrame(() => restoreUserSelect());
@@ -128,9 +141,12 @@ export function beginDrag(
   S.startXY = { x, y };
   S.editor = editor;
 
+  __rect = null;
   disableUserSelect();
-  addEventListener('mousemove', moveHandler, true);
-  addEventListener('mouseup', upHandler, true);
+  if (typeof window !== 'undefined') {
+    window.addEventListener('mousemove', moveHandler, true);
+    window.addEventListener('mouseup', upHandler, true);
+  }
 }
 
 /** 드래그 중 hover 셀 갱신 */
@@ -142,7 +158,27 @@ export function hoverCell(tableKey: string, r: number, c: number) {
   const r1 = Math.max(S.startRC.r, r);
   const c1 = Math.max(S.startRC.c, c);
   S.rect = { r0, c0, r1, c1 };
+  __rect = S.tablePath ? { tablePath: S.tablePath, ...S.rect } : null;
   emit();
+}
+
+/** 레일 클릭용: 사각형을 직접 설정 */
+export function selectRectDirect(
+  editor: Editor,
+  tablePath: Path,
+  tableKey: string,
+  r0: number, c0: number, r1: number, c1: number
+) {
+  S.tableKey = tableKey;
+  S.tablePath = tablePath.slice();
+  S.rect = { r0, c0, r1, c1 };
+  __rect = { tablePath: S.tablePath, ...S.rect };
+  emit();
+  try {
+    const end = Editor.end(editor, [...tablePath, r1, c1]);
+    Transforms.select(editor, end);
+    ReactEditor.focus(editor as any);
+  } catch {}
 }
 
 /** 현재 테이블의 드래그 사각형 */
@@ -150,25 +186,13 @@ export function currentRectForTable(tableKey: string): DragRect | null {
   return S.rect && S.tableKey === tableKey ? { ...S.rect } : null;
 }
 
-/** 리액트 훅: 셀 하이라이트 표시 여부 */
-export function useCellDragHighlight(tableKey: string, r: number, c: number) {
-  const [, setTick] = React.useState(0);
-  React.useEffect(() => {
-    const cb = () => setTick(v => (v + 1) & 1023);
-    EVT.addEventListener('change', cb);
-    return () => EVT.removeEventListener('change', cb);
-  }, []);
-  if (!S.rect || S.tableKey !== tableKey) return false;
-  return r >= S.rect.r0 && r <= S.rect.r1 && c >= S.rect.c0 && c <= S.rect.c1;
-}
-
 /** 리액트 훅: 현재 사각형(테두리 계산용) */
 export function useDragRect(tableKey: string) {
   const [, setTick] = React.useState(0);
   React.useEffect(() => {
     const cb = () => setTick(v => (v + 1) & 1023);
-    EVT.addEventListener('change', cb);
-    return () => EVT.removeEventListener('change', cb);
+    EVT.addEventListener('change', cb as any);
+    return () => EVT.removeEventListener('change', cb as any);
   }, []);
   return S.tableKey === tableKey && S.rect ? { ...S.rect } : null;
 }
@@ -178,25 +202,26 @@ export function clearRect() {
   if (S.rect) { S.rect = null; emit(); }
 }
 
-/* ---------- 선택 해제 규칙 ----------
-   - 표 밖 클릭 → rect 해제
-   - 같은 표 안이라도 rect가 있고, rect 영역 밖의 셀 클릭 → 해제
------------------------------------- */
-addEventListener('mousedown', (e) => {
-  if (!S.rect) return;
-  const td = (e.target as HTMLElement | null)?.closest('td.slate-table__cell') as HTMLElement | null;
-  const key = td?.dataset?.tkey || null;
-  const r = td?.dataset?.r ? parseInt(td.dataset.r, 10) : NaN;
-  const c = td?.dataset?.c ? parseInt(td.dataset.c, 10) : NaN;
+export function isDragPrimedOrActive() {
+  return !!S.startRC || !!S.active;
+}
 
-  // 표 바깥이거나(키 없음), 다른 표 → 해제
-  if (!key || key !== S.tableKey) { clearRect(); return; }
+/* ---------- rect 해제 규칙 ---------- */
+if (typeof window !== 'undefined') {
+  window.addEventListener('mousedown', (e) => {
+    if (!S.rect) return;
+    const td = (e.target as HTMLElement | null)?.closest('td.slate-table__cell') as HTMLElement | null;
+    const key = (td?.dataset as any)?.tkey || null;
+    const r = td?.dataset?.r ? parseInt(td.dataset.r, 10) : NaN;
+    const c = td?.dataset?.c ? parseInt(td.dataset.c, 10) : NaN;
 
-  // 같은 표지만, 선택 영역 밖 → 해제
-  if (
-    Number.isFinite(r) && Number.isFinite(c) &&
-    (r < S.rect!.r0 || r > S.rect!.r1 || c < S.rect!.c0 || c > S.rect!.c1)
-  ) {
-    clearRect();
-  }
-}, true);
+    if (!key || key !== S.tableKey) { clearDrag(); return; }
+
+    if (
+      Number.isFinite(r) && Number.isFinite(c) &&
+      (r < S.rect!.r0 || r > S.rect!.r1 || c < S.rect!.c0 || c > S.rect!.c1)
+    ) {
+      clearDrag();
+    }
+  }, true);
+}

@@ -24,9 +24,9 @@ import type {
   HeadingTwoElement,
   HeadingThreeElement,
   ParagraphElement,
+  VideoElement,
 } from '@/types/slate';
-import { findTablePath } from './helpers/tableOps';
-import { tablePathKey, useCellDragHighlight, useDragRect, beginDrag, hoverCell } from './helpers/tableDrag';
+import { tablePathKey, useDragRect, beginDrag, hoverCell, selectRectDirect, isDragPrimedOrActive } from './helpers/tableDrag';
 
 // -------------------- 모듈 전역 캐시 (HMR 안전) --------------------
 const WIKI_ICON_CACHE_KEY = '__rdwiki_doc_icon_cache__';
@@ -1094,117 +1094,272 @@ const Element: React.FC<ElementProps> = ({
     // -------------------- 표(Table) --------------------
     case 'table': {
       const table = element as any;
-      const editorStatic = useSlateStatic();
-      // 현재 테이블 path → 키
-      let tKey = 't';
-      try {
-        const tPath = ReactEditor.findPath(editorStatic, element);
-        tKey = tablePathKey(tPath);
-      } catch {}
+
+      // 이 테이블의 고유 키
+      const tablePath = ReactEditor.findPath(editor, element);
+      const tkey = tablePathKey(tablePath);
+
+      // 드래그 사각형 상태
+      const rect = useDragRect(tkey);
+
+      // 오버레이/레일 위치 계산용 ref
+      const wrapRef = React.useRef<HTMLDivElement | null>(null);
+      const ovRef = React.useRef<HTMLDivElement | null>(null);
+
+      // 오버레이 위치 맞추기
+      const positionOverlay = React.useCallback(() => {
+        const wrap = wrapRef.current, ov = ovRef.current;
+        if (!wrap || !ov || !rect) { if (ov) ov.style.display = 'none'; return; }
+
+        const q = (r: number, c: number) =>
+          wrap.querySelector(`td.slate-table__cell[data-tkey="${tkey}"][data-r="${r}"][data-c="${c}"]`) as HTMLElement | null;
+
+        const a = q(rect.r0, rect.c0);
+        const b = q(rect.r1, rect.c1);
+        if (!a || !b) { ov.style.display = 'none'; return; }
+
+        const ra = a.getBoundingClientRect();
+        const rb = b.getBoundingClientRect();
+        const base = wrap.getBoundingClientRect();
+
+        const left = Math.round(ra.left - base.left);
+        const top  = Math.round(ra.top  - base.top);
+        const right  = Math.round(rb.right  - base.left);
+        const bottom = Math.round(rb.bottom - base.top);
+
+        ov.style.display = 'block';
+        ov.style.left   = left + 'px';
+        ov.style.top    = top + 'px';
+        ov.style.width  = Math.max(0, right - left - 1) + 'px';
+        ov.style.height = Math.max(0, bottom - top - 1) + 'px';
+      }, [rect, tkey]);
+
+      React.useLayoutEffect(() => { positionOverlay(); }, [positionOverlay]);
+      React.useEffect(() => {
+        if (!wrapRef.current) return;
+        const ro = new ResizeObserver(() => positionOverlay());
+        ro.observe(wrapRef.current);
+        return () => ro.disconnect();
+      }, [positionOverlay]);
+
+      // 좌 레일 클릭 → 행 전체 선택
+      const onRailLeft = (e: React.MouseEvent<HTMLDivElement>) => {
+        const wrap = wrapRef.current; if (!wrap) return;
+        const trs = Array.from(wrap.querySelectorAll('tr')) as HTMLElement[];
+        const y = e.clientY;
+        let row = 0;
+        for (let i = 0; i < trs.length; i++) {
+          const r = trs[i].getBoundingClientRect();
+          if (y >= r.top && y <= r.bottom) { row = i; break; }
+        }
+        const cols = (trs[0]?.querySelectorAll('td.slate-table__cell')?.length ?? 1) - 1;
+        selectRectDirect(editor, tablePath, tkey, row, 0, row, Math.max(0, cols));
+      };
+
+      // 상 레일 클릭 → 열 전체 선택
+      const onRailTop = (e: React.MouseEvent<HTMLDivElement>) => {
+        const wrap = wrapRef.current; if (!wrap) return;
+        const firstRow = wrap.querySelector('tr'); if (!firstRow) return;
+        const tds = Array.from(firstRow.querySelectorAll('td.slate-table__cell')) as HTMLElement[];
+        const x = e.clientX;
+        let col = 0;
+        for (let i = 0; i < tds.length; i++) {
+          const r = tds[i].getBoundingClientRect();
+          if (x >= r.left && x <= r.right) { col = i; break; }
+        }
+        const rows = wrap.querySelectorAll('tr').length - 1;
+        selectRectDirect(editor, tablePath, tkey, 0, col, Math.max(0, rows), col);
+      };
 
       return (
-        <table
+        <div
           {...attributes}
-          className="slate-table"
-          data-tkey={tKey}
-          style={{
-            borderCollapse: 'collapse',
-            width: table.fullWidth ? '100%' : undefined,
-            tableLayout: 'fixed',
+          ref={wrapRef}
+          data-tkey={tkey}
+          style={{ position: 'relative' }}
+          onMouseMoveCapture={(e) => {
+            if (isDragPrimedOrActive()) { e.preventDefault(); e.stopPropagation(); }
+          }}
+          onMouseUpCapture={(e) => {
+            if (isDragPrimedOrActive()) { e.preventDefault(); e.stopPropagation(); }
           }}
         >
-          <tbody>{children}</tbody>
-        </table>
+          <table
+            className="slate-table"
+            onDragStart={(e) => e.preventDefault()}
+            style={{ borderCollapse: 'collapse', tableLayout: 'fixed', width: table.fullWidth ? '100%' : undefined }}
+          >
+            <tbody>{children}</tbody>
+          </table>
+
+          {/* ✅ 드래그 오버레이: 반드시 contentEditable={false} */}
+          <div
+            ref={ovRef}
+            contentEditable={false}
+            aria-hidden
+            style={{
+              position: 'absolute',
+              left: 0, top: 0, width: 0, height: 0,
+              border: '2px solid #2a9d6f',
+              borderRadius: 6,
+              boxSizing: 'border-box',
+              background: 'rgba(42,157,111,.12)',
+              pointerEvents: 'none',
+              display: 'none',
+            }}
+          />
+
+          {/* ✅ 좌/상단 레일: 반드시 contentEditable={false} + 버블 차단 */}
+          <div
+            contentEditable={false}
+            aria-hidden
+            onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onRailLeft(e); }}
+            style={{
+              position: 'absolute', left: -14, top: 0, width: 14, height: '100%',
+              background: '#eceff3', borderRadius: 6, userSelect: 'none', cursor: 'default'
+            }}
+          />
+          <div
+            contentEditable={false}
+            aria-hidden
+            onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onRailTop(e); }}
+            style={{
+              position: 'absolute', left: 0, top: -14, height: 14, width: '100%',
+              background: '#eceff3', borderRadius: 6, userSelect: 'none', cursor: 'default'
+            }}
+          />
+        </div>
       );
     }
+
     case 'table-row': {
       return <tr {...attributes}>{children}</tr>;
     }
+
     case 'table-cell': {
       const el = element as any;
-      const editorStatic = useSlateStatic();
-
-      // 위치/키 계산
-      const path = ReactEditor.findPath(editorStatic, element);
-      const tPath = findTablePath(editorStatic, path);
-      const tKey = tablePathKey(tPath);
-      const r = path[path.length - 2] as number;
-      const c = path[path.length - 1] as number;
-
       const colSpan = Math.max(1, Number(el.colspan) || 1);
       const rowSpan = Math.max(1, Number(el.rowspan) || 1);
 
-      // 드래그 하이라이트/사각형
-      const isSel = useCellDragHighlight(tKey, r, c);
-      const rect = useDragRect(tKey);
-      const edge = rect && isSel ? {
-        top:    r === rect.r0,
-        right:  c === rect.c1,
-        bottom: r === rect.r1,
-        left:   c === rect.c0,
-      } : { top:false, right:false, bottom:false, left:false };
+      const path = ReactEditor.findPath(editor, element);
+      const tablePath = path.slice(0, -2);
+      const tkey = tablePathKey(tablePath);
+      const { r, c } = { r: path[path.length - 2] as number, c: path[path.length - 1] as number };
 
-      // 우클릭 메뉴
+      const onDown: React.MouseEventHandler<HTMLTableCellElement> = (e) => {
+        if (e.button !== 0) return;       // 좌클릭만
+        e.preventDefault();               // 네이티브 선택/드래그 차단
+        e.stopPropagation();              // Slate 핸들러로 버블 금지
+        beginDrag(editor, tablePath, tkey, r, c, e.clientX, e.clientY);
+      };
+
+      const onEnter = () => hoverCell(tkey, r, c);
+
       const onCtx: React.MouseEventHandler<HTMLTableCellElement> = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const path = ReactEditor.findPath(editorStatic, element);
         window.dispatchEvent(
-          new CustomEvent('editor:table-menu', {
-            detail: { x: e.clientX, y: e.clientY, cellPath: path }
-          })
+          new CustomEvent('editor:table-menu', { detail: { x: e.clientX, y: e.clientY, cellPath: path } })
         );
       };
-
-      // 선택 배경 + 외곽선(4방향 정확히)
-      const selBg = isSel ? 'rgba(80,200,120,.18)' : undefined;
-      const outline = isSel ? [
-        edge.top    ? 'inset 0  2px 0  rgba(80,200,120,.65)' : '',
-        edge.right  ? 'inset -2px 0  0  rgba(80,200,120,.65)' : '',
-        edge.bottom ? 'inset 0 -2px 0  rgba(80,200,120,.65)' : '',
-        edge.left   ? 'inset 2px  0  0  rgba(80,200,120,.65)' : '',
-      ].filter(Boolean).join(', ') : undefined;
 
       return (
         <td
           {...attributes}
-          data-tkey={tKey}
+          data-tkey={tkey}
           data-r={r}
           data-c={c}
           colSpan={colSpan}
           rowSpan={rowSpan}
+          onMouseDown={onDown}
+          onMouseEnter={onEnter}
           onContextMenu={onCtx}
-          /* ▼▼ 추가: 드래그 시작/이동 연결 ▼▼ */
-          onMouseDown={(e) => {
-            // 좌클릭만 처리, 수정키(Shift/Ctrl/Meta) 눌린 상태는 무시
-            if (e.button !== 0 || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
-            beginDrag(
-              editorStatic,  // 현재 에디터
-              tPath,         // 이 셀이 속한 table path
-              tKey,          // 테이블 고유 키
-              r, c,          // 시작 좌표
-              e.clientX, e.clientY
-            );
-            // 여기서는 preventDefault 하지 않습니다. (클릭만 하면 커서 배치 허용)
-          }}
-          onMouseEnter={() => {
-            // 드래그 중일 때만 hover 반영됨
-            hoverCell(tKey, r, c);
-          }}
-          /* ▲▲ 추가 끝 ▲▲ */
+          onDragStart={(e) => e.preventDefault()}   // 네이티브 HTML drag 이미지 방지
+          draggable={false}
           className="slate-table__cell"
           style={{
             border: '1px solid #e5e7eb',
-            background: selBg,
-            boxShadow: outline,
+            background: '#ffffff',
             padding: 6,
             verticalAlign: 'top',
           }}
         >
-          <div className="slate-table__cell-inner">{children}</div>
+          {children}
         </td>
       );
     }
+
+    case 'video': {
+      const el = element as VideoElement;
+      const selected = useSelected();
+      const focused = useFocused();
+      const [modalOpen, setModalOpen] = useState(false);
+
+      let justifyContent: 'flex-start' | 'center' | 'flex-end' = 'center';
+      if (el.textAlign === 'left') justifyContent = 'flex-start';
+      else if (el.textAlign === 'right') justifyContent = 'flex-end';
+
+      const handleSaveSize = (width: number, height: number) => {
+        const path = ReactEditor.findPath(editor, element);
+        Transforms.setNodes(editor, { width, height }, { at: path });
+        setModalOpen(false);
+      };
+
+      const src = typeof el.url === 'string' && el.url.startsWith('http') ? toProxyUrl(el.url) : el.url;
+
+      return (
+        <div {...attributes} style={{ margin: '16px 0' }}>
+          <div
+            key={el.textAlign || 'center'}
+            contentEditable={false}
+            style={{ display:'flex', justifyContent, alignItems:'flex-start', minHeight: 40 }}
+          >
+            <div style={{ position:'relative', display:'inline-block' }}>
+              <video
+                src={src}
+                controls
+                playsInline
+                preload="metadata"
+                style={{
+                  maxWidth: el.width ? el.width + 'px' : '90%',
+                  height: el.height ? el.height + 'px' : 'auto',
+                  borderRadius: 10,
+                  boxShadow: '0 2px 12px 0 #0001',
+                  background: '#000',
+                  display: 'block',
+                  outline: selected && focused ? '2px solid #2a90ff' : 'none',
+                  transition: 'outline 0.1s',
+                }}
+              />
+              {selected && (
+                <button
+                  type="button"
+                  aria-label="영상 크기 편집"
+                  onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setModalOpen(true); }}
+                  style={{
+                    position:'absolute', top:8, right:8, background:'#fff', border:'1.5px solid #2a90ff',
+                    borderRadius:'50%', boxShadow:'0 1px 5px #0001', width:32, height:32,
+                    display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', zIndex:1, padding:0
+                  }}
+                  tabIndex={-1}
+                  title="영상 크기 편집"
+                >
+                  {/* 펜 아이콘 같은거 쓰던 것과 동일하게, 없으면 그냥 '⚙️' */}
+                  ⚙️
+                </button>
+              )}
+            </div>
+          </div>
+          {children}
+          <ImageSizeModal  /* 그대로 재사용 */
+            open={modalOpen}
+            width={el.width}
+            height={el.height}
+            onSave={handleSaveSize}
+            onClose={() => setModalOpen(false)}
+          />
+        </div>
+      );
 
     // -------------------- 기본 fallback --------------------
     default: {

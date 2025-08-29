@@ -1,11 +1,11 @@
 /**
  * C:\next\rdwiki\app\components\editor\helpers\tableOps.ts
- * 표 조작 유틸(병합/분할/행·열/삭제/너비맞춤)
+ * 표 조작 유틸(병합/분할/행·열/삭제/너비맞춤/비우기)
  * - 스키마: table > table-row[] > table-cell{rowspan?:number, colspan?:number} > paragraph > text
  */
 
-import { Editor, Element as SlateElement, Node, Path, Transforms } from 'slate';
-import type { TableCellElement, TableElement } from '@/types/slate';
+import { Editor, Element as SlateElement, Node, Path, Transforms, Point } from 'slate';
+import type { TableCellElement } from '@/types/slate';
 
 export type CellPos = { r: number; c: number };
 const isTable = (n: any) => SlateElement.isElement(n) && n.type === 'table';
@@ -72,30 +72,26 @@ export function getSelectedRectOrCell(editor: Editor, fallbackCellPath: Path) {
 }
 
 /** 셀 병합(선택 직사각형). 지원: 동일 표 내 사각형 병합 */
-export function mergeCells(
-  editor: Editor,
-  rect: { tablePath: Path; r0: number; c0: number; r1: number; c1: number }
-) {
+export function mergeCells(editor: Editor, rect: {tablePath: Path; r0:number; c0:number; r1:number; c1:number}) {
   const { tablePath, r0, c0, r1, c1 } = rect;
   if (r0 === r1 && c0 === c1) return; // 한 셀만 선택이면 무시
 
   Editor.withoutNormalizing(editor, () => {
     // 1) 상단행: c0+1..c1 제거(역순)
     for (let col = c1; col >= c0 + 1; col--) {
-      Transforms.removeNodes(editor, { at: [...tablePath, r0, col] });
+      try { Transforms.removeNodes(editor, { at: [...tablePath, r0, col] }); } catch {}
     }
     // 2) 그 아래 행들: c0..c1 제거(역순)
     for (let row = r0 + 1; row <= r1; row++) {
       for (let col = c1; col >= c0; col--) {
-        Transforms.removeNodes(editor, { at: [...tablePath, row, col] });
+        try { Transforms.removeNodes(editor, { at: [...tablePath, row, col] }); } catch {}
       }
     }
     // 3) 좌상단 셀에 rowspan/colspan 부여
-    Transforms.setNodes<TableCellElement>(
-      editor,
-      { rowspan: (r1 - r0 + 1), colspan: (c1 - c0 + 1) },
-      { at: [...tablePath, r0, c0] }
-    );
+    try {
+      Transforms.setNodes(editor, { rowspan: (r1 - r0 + 1), colspan: (c1 - c0 + 1) } as any, { at: [...tablePath, r0, c0] });
+    } catch {}
+    moveCaretToTopLeftCell(editor, tablePath, r0, c0);
   });
 }
 
@@ -103,51 +99,128 @@ export function mergeCells(
 export function splitCellByRow(editor: Editor, cellPath: Path) {
   const tablePath = findTablePath(editor, cellPath);
   const { r, c } = findCellPos(cellPath);
-  const cell = Node.get(editor, cellPath) as any;
-  const rowSpan = Math.max(1, Number(cell.rowspan) || 1);
-
-  if (rowSpan <= 1) return; // 분할 대상 아님
+  let rowSpan = 1;
+  try { rowSpan = Math.max(1, Number((Node.get(editor, cellPath) as any).rowspan) || 1); } catch {}
+  if (rowSpan <= 1) return;
 
   Editor.withoutNormalizing(editor, () => {
-    // 1) 현재 셀은 rowspan 1로
-    Transforms.setNodes<TableCellElement>(editor, { rowspan: 1 }, { at: cellPath });
-
-    // 2) 아래 행들에 새 셀 삽입
+    try { Transforms.setNodes(editor, { rowspan: 1 } as any, { at: cellPath }); } catch {}
     for (let i = 1; i < rowSpan; i++) {
-      const targetRowPath = [...tablePath, r + i];
-      const rowNode = Node.get(editor, targetRowPath) as any;
-      const insertIndex = Math.min(c, rowNode.children.length);
-      Transforms.insertNodes<TableCellElement>(editor, makeEmptyCell(), { at: [...targetRowPath, insertIndex] });
+      const rowPath = [...tablePath, r + i];
+      try {
+        const rowNode = Node.get(editor, rowPath) as any;
+        const insertIndex = Math.min(c, rowNode.children?.length ?? c);
+        Transforms.insertNodes(editor, makeEmptyCell(), { at: [...rowPath, insertIndex] });
+      } catch {}
     }
+    moveCaretToTopLeftCell(editor, tablePath, r, c);
   });
 }
 
 /** 현재 셀을 열 기준 분할(colspan 해제) */
 export function splitCellByCol(editor: Editor, cellPath: Path) {
-  const { r, c } = findCellPos(cellPath);
   const tablePath = findTablePath(editor, cellPath);
-  const cell = Node.get(editor, cellPath) as any;
-  const colSpan = Math.max(1, Number(cell.colspan) || 1);
-
+  const { r, c } = findCellPos(cellPath);
+  let colSpan = 1;
+  try { colSpan = Math.max(1, Number((Node.get(editor, cellPath) as any).colspan) || 1); } catch {}
   if (colSpan <= 1) return;
 
   Editor.withoutNormalizing(editor, () => {
-    Transforms.setNodes<TableCellElement>(editor, { colspan: 1 }, { at: cellPath });
-    // 오른쪽에 (colSpan-1)개 삽입
+    try { Transforms.setNodes(editor, { colspan: 1 } as any, { at: cellPath }); } catch {}
     for (let i = 1; i < colSpan; i++) {
-      Transforms.insertNodes<TableCellElement>(editor, makeEmptyCell(), { at: [...tablePath, r, c + i] });
+      try { Transforms.insertNodes(editor, makeEmptyCell(), { at: [...tablePath, r, c + i] }); } catch {}
     }
+    moveCaretToTopLeftCell(editor, tablePath, r, c);
   });
 }
 
 /** 표 너비 맞춤 토글 */
 export function toggleTableFullWidth(editor: Editor, tablePath: Path) {
-  const table = Node.get(editor, tablePath) as any;
-  const next = !table.fullWidth;
-  Transforms.setNodes<TableElement>(editor, { fullWidth: next }, { at: tablePath });
+  try {
+    const table = Node.get(editor, tablePath) as any;
+    const next = !table.fullWidth;
+    Transforms.setNodes(editor, { fullWidth: next } as any, { at: tablePath });
+  } catch {}
 }
 
-/** 표 삭제 */
+/** 표 자체 삭제 */
 export function removeTable(editor: Editor, tablePath: Path) {
-  Transforms.removeNodes(editor, { at: tablePath });
+  try { Transforms.removeNodes(editor, { at: tablePath }); } catch {}
+}
+
+export function moveCaretToTopLeftCell(editor: Editor, tablePath: Path, r0 = 0, c0 = 0) {
+  try {
+    const cellPath = [...tablePath, r0, c0];
+    const start = Editor.start(editor, cellPath);
+    Transforms.select(editor, start);
+  } catch {}
+}
+
+/** 선택 직사각형의 모든 셀을 '빈 셀'로 치환(내용 삭제) */
+export function clearCellsRect(
+  editor: Editor,
+  rect: { tablePath: Path; r0: number; c0: number; r1: number; c1: number }
+) {
+  const { tablePath, r0, c0, r1, c1 } = rect;
+
+  Editor.withoutNormalizing(editor, () => {
+    for (let r = r1; r >= r0; r--) {
+      for (let c = c1; c >= c0; c--) {
+        const path = [...tablePath, r, c];
+        try {
+          Transforms.removeNodes(editor, { at: path });
+          Transforms.insertNodes(editor, makeEmptyCell(), { at: path });
+        } catch {
+          // 병합 등으로 실제 셀이 없을 수 있으니 무시
+        }
+      }
+    }
+    moveCaretToTopLeftCell(editor, tablePath, r0, c0);
+  });
+}
+
+/* ---------- 네이버 스타일 행/열 삭제 & 판정 ---------- */
+
+export function removeRows(editor: Editor, tablePath: Path, r0: number, r1: number) {
+  Editor.withoutNormalizing(editor, () => {
+    for (let r = r1; r >= r0; r--) {
+      try { Transforms.removeNodes(editor, { at: [...tablePath, r] }); } catch {}
+    }
+    try {
+      const tbl = Node.get(editor, tablePath) as any;
+      if (!tbl.children?.length) Transforms.removeNodes(editor, { at: tablePath });
+    } catch {}
+  });
+}
+
+export function removeCols(editor: Editor, tablePath: Path, c0: number, c1: number) {
+  Editor.withoutNormalizing(editor, () => {
+    try {
+      const tbl = Node.get(editor, tablePath) as any;
+      const rows = tbl.children?.length ?? 0;
+      for (let r = 0; r < rows; r++) {
+        for (let c = c1; c >= c0; c--) {
+          try { Transforms.removeNodes(editor, { at: [...tablePath, r, c] }); } catch {}
+        }
+      }
+      const first = (Node.get(editor, [...tablePath, 0]) as any)?.children?.length ?? 0;
+      if (first === 0) Transforms.removeNodes(editor, { at: tablePath });
+    } catch {}
+  });
+}
+
+export function isFullRowSelection(
+  editor: Editor,
+  rect: { tablePath: Path; r0:number; c0:number; r1:number; c1:number }
+) {
+  const { rows, cols } = getTableSize(editor, rect.tablePath);
+  return rect.c0 === 0 && rect.c1 === cols - 1 && rows > 0;
+}
+
+export function isFullColSelection(
+  editor: Editor,
+  rect: { tablePath: Path; r0:number; c0:number; r1:number; c1:number }
+) {
+  const { rows, cols } = getTableSize(editor, rect.tablePath);
+  return rect.r0 === 0 && rect.r1 === rows - 1 && cols > 0;
 }

@@ -170,6 +170,15 @@ export type TableElement = {
   children: TableRowElement[];
 };
 
+export type VideoElement = {
+  type: 'video';
+  url: string;
+  width?: number;
+  height?: number;
+  textAlign?: 'left' | 'center' | 'right';
+  children: [{ text: '' }];
+};
+
 // ===== 모든 Element 통합 =====
 export type CustomElement =
   | ParagraphElement
@@ -187,7 +196,8 @@ export type CustomElement =
   | ImageElement
   | TableElement
   | TableRowElement
-  | TableCellElement;
+  | TableCellElement
+  | VideoElement;
 
 // Slate 타입 오버라이드
 declare module 'slate' {
