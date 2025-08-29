@@ -1,6 +1,5 @@
 // =============================================
 // File: app/api/auth/me/route.ts
-// (DB 최신 반환 + 레거시 토큰 감지 시 자동 재발급)
 // =============================================
 /**
  * 현재 로그인 사용자 정보 & 회원 탈퇴
@@ -10,16 +9,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { sql } from '@/wiki/lib/db';
-import { getAuthUser } from '@/wiki/lib/auth';
+import { getAuthUser } from '@/wiki/lib/auth'; // 경로 통일
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-
-export const runtime = 'nodejs';
 
 type Role = 'guest' | 'writer' | 'admin';
-const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
 
 export async function GET() {
   try {
@@ -31,7 +25,7 @@ export async function GET() {
       );
     }
 
-    // 최신 사용자 정보 조회
+    // 최신 사용자 정보 조회 -> 필요한 컬럼만 선택
     const rows = await sql`
       SELECT id, username, email, minecraft_name, role
       FROM users
@@ -46,70 +40,20 @@ export async function GET() {
       );
     }
 
+    // 응답 스키마 표준화
     const dbUser = rows[0] as any;
     const role: Role = String(dbUser.role || 'guest').toLowerCase() as Role;
 
-    // ── 레거시/불완전 토큰 자동 정정 ─────────────────────────────
-    // 조건: 토큰에 username/minecraft_name 등 변하는 값이 들어있거나,
-    //       id/role 누락 등 비정상 구조일 때 새 토큰으로 재발급
-    let needsRefresh = false;
-    const c = cookies();
-    const token = c.get('token')?.value;
-
-    if (token) {
-      try {
-        const payload: any = jwt.verify(token, JWT_SECRET);
-        // 레거시 클레임이 있거나 필수 클레임 누락 시 갱신
-        if (
-          payload?.username !== undefined ||
-          payload?.minecraft_name !== undefined ||
-          payload?.email !== undefined ||
-          payload?.id == null ||
-          payload?.role == null
-        ) {
-          needsRefresh = true;
-        }
-        // id 불일치 보호
-        if (payload?.id != null && Number(payload.id) !== Number(dbUser.id)) {
-          needsRefresh = true;
-        }
-      } catch {
-        // 검증 실패 → 새 토큰 발급
-        needsRefresh = true;
-      }
-    }
-
-    const res = NextResponse.json(
+    return NextResponse.json(
       {
         loggedIn: true,
         user: dbUser,
-        role,
-        roles: [],
-        permissions: [],
+        role,                 // 'guest' | 'writer' | 'admin'
+        roles: [],            // 확장 여지
+        permissions: [],      // 확장 여지
       },
       { headers: { 'Cache-Control': 'no-store' } }
     );
-
-    if (needsRefresh) {
-      const newToken = jwt.sign(
-        {
-          sub: dbUser.id,
-          id: dbUser.id, // getAuthUser() 호환 유지
-          role,
-        },
-        JWT_SECRET,
-        { expiresIn: '7d' }
-      );
-      res.cookies.set('token', newToken, {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
-        path: '/',
-        maxAge: 60 * 60 * 24 * 7,
-      });
-    }
-
-    return res;
   } catch (err) {
     console.error('[auth/me:GET] unexpected error:', err);
     return NextResponse.json(
@@ -161,7 +105,7 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // 사용자 삭제
+    // 사용자 삭제 -> 연관 데이터 처리 전략은 별도 정책에 따름
     await sql`DELETE FROM users WHERE id = ${auth.id}`;
 
     // JWT 쿠키 만료
