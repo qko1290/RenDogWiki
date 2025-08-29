@@ -30,18 +30,27 @@ import { logActivity, resolveFolderName } from '@wiki/lib/activity';
 import sharp from 'sharp';
 import crypto from 'crypto';
 
-// ---- 동영상 인코딩 의존성 ----
+// ---- 동영상 인코딩 의존성 (타입 선언 없음 → TS 억제) ----
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
 import ffmpeg from 'fluent-ffmpeg';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
 import ffmpegStatic from 'ffmpeg-static';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
 import ffprobeStatic from 'ffprobe-static';
+
 import os from 'os';
 import path from 'path';
 import { promises as fs } from 'fs';
 
-ffmpeg.setFfmpegPath(ffmpegStatic as unknown as string);
-ffmpeg.setFfprobePath((ffprobeStatic as any).path);
+(ffmpeg as any).setFfmpegPath(ffmpegStatic as unknown as string);
+(ffmpeg as any).setFfprobePath((ffprobeStatic as any).path as string);
 
 export const runtime = 'nodejs';
+export const revalidate = 0;
+export const dynamic = 'force-dynamic';
 
 // ---- 설정 (env로 조정 가능) ----
 // 이미지
@@ -143,7 +152,7 @@ async function processImageIfNeeded(file: File): Promise<{
 // ---------------------- 영상 처리 ----------------------
 async function getDurationSec(filePath: string): Promise<number> {
   return new Promise((resolve) => {
-    ffmpeg.ffprobe(filePath, (err, data) => {
+    (ffmpeg as any).ffprobe(filePath, (err: any, data: any) => {
       if (err) return resolve(0);
       resolve(Number(data?.format?.duration || 0) || 0);
     });
@@ -169,7 +178,7 @@ async function transcodeToTargetMP4(
   );
 
   await new Promise<void>((resolve, reject) => {
-    ffmpeg(inputPath)
+    (ffmpeg as any)(inputPath)
       .outputOptions([
         '-c:v libx264',
         '-preset veryfast',
@@ -182,7 +191,7 @@ async function transcodeToTargetMP4(
         '-movflags +faststart',
       ])
       .on('end', () => resolve())
-      .on('error', reject)
+      .on('error', (e: unknown) => reject(e))
       .save(outPath);
   });
 
@@ -365,7 +374,7 @@ export async function POST(req: NextRequest) {
       { images: uploaded },
       { headers: { 'Cache-Control': 'no-store' } }
     );
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[image/upload POST] unexpected error:', err);
     return NextResponse.json(
       { error: 'Server error' },
