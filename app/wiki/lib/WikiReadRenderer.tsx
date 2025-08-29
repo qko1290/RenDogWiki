@@ -904,6 +904,50 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
       );
     }
 
+    // ⬇️ 영상 블록: 이미지와 동일한 정렬(textAlign) + CDN/버전 적용
+    case "video": {
+      let justify: 'flex-start' | 'center' | 'flex-end' = 'center';
+      if (node.textAlign === 'left') justify = 'flex-start';
+      else if (node.textAlign === 'right') justify = 'flex-end';
+
+      const v = (node.updatedAt || node.version) as string | number | undefined;
+      const src = withVersion(cdn(node.url), v);
+
+      const w = node.width ? Number(node.width) : undefined;
+      const h = node.height ? Number(node.height) : undefined;
+
+      return (
+        <div key={key} style={{ margin: '16px 0' }}>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'row',
+              justifyContent: justify,
+              alignItems: 'flex-start',
+              minHeight: 40
+            }}
+          >
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+              <video
+                src={src}
+                controls
+                playsInline
+                preload="metadata"
+                style={{
+                  maxWidth: w ? `${w}px` : '90%',
+                  height: h ? `${h}px` : 'auto',
+                  borderRadius: 10,
+                  boxShadow: '0 2px 12px 0 #0001',
+                  background: '#000',
+                  display: 'block'
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     case "inline-image":
       return (
         <img

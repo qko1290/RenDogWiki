@@ -4,8 +4,8 @@
 'use client';
 
 /**
- * 이미지 업로드 모달
- * - 클릭/드래그로 이미지 선택, 중복 자동 제거(이름+사이즈 기준)
+ * 이미지·영상 업로드 모달
+ * - 클릭/드래그로 파일 선택, 중복 자동 제거(이름+사이즈 기준)
  * - 지정된 폴더로 업로드 후 상위에 결과(images) 전달
  * - 네트워크 오류/서버 오류에 대한 가드 포함
  */
@@ -18,6 +18,8 @@ type ImageFile = {
   name: string;
   url: string;
   folder_id: number;
+  // 서버가 내려주면 mime_type도 들어올 수 있음
+  mime_type?: string | null;
 };
 
 type Props = {
@@ -39,11 +41,16 @@ export default function ImageUploadModal({ open, onClose, folderId, onUploaded }
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  /** 허용 확장자 (이미지/영상만) */
+  const acceptFile = (f: File) =>
+    f.type.startsWith('image/') || f.type.startsWith('video/');
+
   /** 파일 배열을 병합(이름+사이즈 중복 제거) */
   const addFiles = (incoming: File[]) => {
+    const merged = incoming.filter(acceptFile);
     setFiles(prev => [
       ...prev,
-      ...incoming.filter(f => !prev.some(p => p.name === f.name && p.size === f.size))
+      ...merged.filter(f => !prev.some(p => p.name === f.name && p.size === f.size))
     ]);
   };
 
@@ -103,8 +110,8 @@ export default function ImageUploadModal({ open, onClose, folderId, onUploaded }
     <ModalCard
       open={open}
       onClose={onClose}
-      title="이미지 업로드"
-      width={520}   // 필요시 조절
+      title="이미지·영상 업로드"
+      width={520}
     >
       <label
         htmlFor="rd-upload-input"
@@ -120,14 +127,14 @@ export default function ImageUploadModal({ open, onClose, folderId, onUploaded }
           </svg>
         </div>
         <div className="text">
-          <span>클릭 또는 드래그하여 이미지 업로드</span>
+          <span>클릭 또는 드래그하여 이미지/영상 업로드</span>
         </div>
         <input
           id="rd-upload-input"
           ref={inputRef}
           type="file"
           multiple
-          accept="image/*"
+          accept="image/*,video/*"
           onChange={handleSelect}
         />
       </label>

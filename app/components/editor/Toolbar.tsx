@@ -1,10 +1,7 @@
-// =============================================
-// File: app/components/editor/Toolbar.tsx
-// =============================================
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useSlate } from 'slate-react';
+import { useSlate, ReactEditor } from 'slate-react';
 import { Editor, Range, Transforms, Element as SlateElement } from 'slate';
 
 import MarkButton from './MarkButton';
@@ -18,6 +15,7 @@ import { toggleMark } from './helpers/toggleMark';
 import '@/wiki/css/editor-toolbar.css';
 import ImageSelectModal from '@/components/image/ImageSelectModal';
 import { insertImage } from './helpers/insertImage';
+import { insertMedia } from './helpers/insertMedia';
 import { setImageAlignment } from './helpers/setImageAlignment';
 import { InlineMarkElement } from '@/types/slate';
 import LinkInputModal from './LinkInputModal';
@@ -96,6 +94,31 @@ const INLINE_MARKS = [
 
 const INLINE_IMAGE_OPTIONS = ['업로드/선택', '링크 삽입'];
 
+type MediaRow = {
+  id: number;
+  name: string;
+  url: string;
+  folder_id: number;
+  mime_type?: string | null;
+};
+
+const isProbablyVideo = (url: string, mime?: string | null) => {
+  if (mime && mime.startsWith('video/')) return true;
+  const clean = url.split('?')[0].split('#')[0];
+  const ext = clean.substring(clean.lastIndexOf('.') + 1).toLowerCase();
+  return ['mp4','webm','ogg','mov','m4v','avi','mkv'].includes(ext);
+};
+
+const insertVideoNode = (editor: any, url: string) => {
+  Transforms.insertNodes(editor, {
+    type: 'video',
+    url,
+    width: 720,
+    children: [{ text: '' }],
+  } as any);
+  try { ReactEditor.focus(editor); } catch {}
+};
+
 export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
   const editor = useSlate();
 
@@ -128,18 +151,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
 
   const [showPriceTableInsertModal, setShowPriceTableInsertModal] = useState(false);
 
-  // 표 삽입 드롭다운
-  // const [showTablePicker, setShowTablePicker] = useState(false);
-  // const tableBtnRef = useRef<HTMLButtonElement>(null);
-
-  // const [tableOpen, setTableOpen] = useState(false);
-
   // ===== 유틸: 모두 닫기 =====
   const closeAllDropdowns = () => {
     setOpenDropdown(null);
     setShowColorDropdown(false);
     setShowBgColorDropdown(false);
-    // setShowTablePicker(false);
   };
 
   // 전역 이벤트로 닫기
@@ -162,7 +178,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
 
   useEffect(() => { if (anyToolbarModalOpen) closeAllDropdowns(); }, [anyToolbarModalOpen]);
 
-  // 외부 클릭(색상/배경/표 피커 닫기)
+  // 외부 클릭(색상/배경 닫기)
   useEffect(() => {
     const handle = (e: MouseEvent) => {
       const toolbar = document.getElementById('editor-toolbar');
@@ -203,10 +219,18 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
     Transforms.insertNodes(editor, mark);
   }
 
-  const handleSelectInlineImage = (url: string) => {
+  const handleSelectInlineImage = (item: { url: string; mime_type?: string | null } | string) => {
+    const url = typeof item === 'string' ? item : item.url;
+    const mime = typeof item === 'string' ? undefined : item.mime_type;
+    // 인라인은 이미지에만 허용(영상은 블록으로 처리)
+    if (mime?.startsWith?.('video/')) {
+      insertMedia(editor, { url, mime }); // 영상이면 블록 video
+      return;
+    }
     insertInlineImage(editor, url);
     setInlineImgModalOpen(false);
   };
+  
   const handleInlineImgLinkInsert = (url: string) => {
     insertInlineImage(editor, url);
     setInlineImgLinkModalOpen(false);
@@ -434,13 +458,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
         }}
       />
 
-      {/* 이미지 정렬 (선택 시만) */}
+      {/* 이미지/영상 정렬 (선택 시만) */}
       {(() => {
         const { selection } = editor;
         if (!selection) return null;
         const [match] = Editor.nodes(editor, {
           at: selection,
-          match: n => SlateElement.isElement(n) && (n as any).type === 'image',
+          match: n =>
+            SlateElement.isElement(n) &&
+            ((n as any).type === 'image' || (n as any).type === 'video'),
         });
         if (!match) return null;
         return (
@@ -481,7 +507,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
         setOpenDropdown={setOpenDropdown}
       />
 
-      {/* 블록 이미지 */}
+      {/* 블록 이미지/영상 (선택 또는 링크) */}
       <DropdownButton
         label={<FontAwesomeIcon icon={faPhotoFilm} />}
         items={['업로드/선택', '링크로 삽입']}
@@ -497,16 +523,25 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
       <ImageSelectModal
         open={blockImgModalOpen}
         onClose={() => setBlockImgModalOpen(false)}
-        onSelectImage={(url) => {
-          insertImage(editor, url);
+        onSelectImage={(url: string, _name?: string, row?: MediaRow) => {
+          const v = row?.url ?? url;
+          if (isProbablyVideo(v, row?.mime_type)) {
+            insertVideoNode(editor, v);
+          } else {  
+            insertImage(editor, v);
+          }
           setBlockImgModalOpen(false);
         }}
       />
       <ImageUrlInputModal
         open={blockImgLinkModalOpen}
         onClose={() => setBlockImgLinkModalOpen(false)}
-        onSubmit={(url) => {
-          insertImage(editor, url);
+        onSubmit={(url: string) => {
+          if (isProbablyVideo(url)) {
+            insertVideoNode(editor, url);
+          } else {
+            insertImage(editor, url);
+          }
           setBlockImgLinkModalOpen(false);
         }}
       />
@@ -532,7 +567,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
       <ImageUrlInputModal
         open={inlineImgLinkModalOpen}
         onClose={() => setInlineImgLinkModalOpen(false)}
-        onSubmit={handleInlineImgLinkInsert}
+        onSubmit={(url) => {
+          handleSelectInlineImage(url);
+        }}
       />
 
       {/* 들여쓰기 라인 토글 */}
@@ -620,35 +657,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
           setShowPriceTableInsertModal(false);
         }}
       />
-
-      {/* 표 삽입 
-      <div style={{ position: 'relative', display: 'inline-block' }}>
-        <button
-          ref={tableBtnRef}                           // ✅ 버튼에만 ref 부여
-          className="editor-toolbar-btn"
-          onMouseDown={e => {
-            e.preventDefault();
-            selectionRef.current = editor.selection ?? null; // 삽입 후 복원용
-            setTableOpen(v => !v);
-          }}
-          title="표 삽입"
-        >
-          <FontAwesomeIcon icon={faTable} />
-        </button>
-
-        <TablePicker
-          anchor={tableBtnRef.current}                // ✅ 버튼 DOM을 앵커로 사용
-          open={tableOpen}
-          onClose={() => setTableOpen(false)}
-          onPick={(r, c) => {
-            if (selectionRef.current) {
-              try { Transforms.select(editor, selectionRef.current); } catch {}
-            }
-            insertTable(editor, r, c);
-          }}
-        />
-      </div>
-      */}
     </div>
   );
 };

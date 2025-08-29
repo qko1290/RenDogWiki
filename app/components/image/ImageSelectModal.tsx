@@ -4,7 +4,7 @@
 'use client';
 
 /**
- * 이미지 선택 모달
+ * 이미지·영상 선택 모달
  * - 좌측 폴더 트리 / 우측 썸네일 그리드
  * - 단일 선택, 더블클릭 또는 "삽입" 버튼으로 콜백 호출
  * - 검색 시 서버 검색 결과를 표시
@@ -16,7 +16,7 @@ import Modal from '@/components/common/Modal';
 import { toProxyUrl } from '@lib/cdn';
 
 type Folder = { id: number; name: string; parent_id: number | null };
-type ImageFile = { id: number; name: string; url: string; folder_id: number };
+type MediaFile = { id: number; name: string; url: string; folder_id: number; mime_type?: string | null };
 
 type FolderTreeProps = {
   folders: Folder[];
@@ -139,15 +139,15 @@ export default function ImageSelectModal({
   open: boolean;
   onClose: () => void;
   /** 하위 호환: (url) 또는 (url, name, row) 모두 허용 */
-  onSelectImage: (url: string, name?: string, row?: ImageFile) => void;
+  onSelectImage: (url: string, name?: string, row?: MediaFile) => void;
 }) {
   const [folders, setFolders] = useState<Folder[]>([]);
-  const [images, setImages] = useState<ImageFile[]>([]);
+  const [images, setImages] = useState<MediaFile[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<number | null>(null);
   const [treeState, setTreeState] = useState<Record<number, boolean>>({});
-  const [selectedImg, setSelectedImg] = useState<ImageFile | null>(null);
+  const [selectedImg, setSelectedImg] = useState<MediaFile | null>(null);
   const [search, setSearch] = useState('');
-  const [searchRows, setSearchRows] = useState<ImageFile[]>([]);
+  const [searchRows, setSearchRows] = useState<MediaFile[]>([]);
   const searching = search.trim().length > 0;
 
   const normalizeFolders = (data: any[]): Folder[] =>
@@ -157,12 +157,13 @@ export default function ImageSelectModal({
       parent_id: f.parent_id === null || f.parent_id === undefined ? null : Number(f.parent_id),
     }));
 
-  const normalizeImages = (data: any[]): ImageFile[] =>
+  const normalizeMedia = (data: any[]): MediaFile[] =>
     data.map((i: any) => ({
       id: Number(i.id),
       name: String(i.name),
       url: String(i.url),
       folder_id: Number(i.folder_id),
+      mime_type: i.mime_type ? String(i.mime_type) : null,
     }));
 
   // 모달 열릴 때 폴더 목록 초기화
@@ -188,7 +189,7 @@ export default function ImageSelectModal({
     })();
   }, [open]);
 
-  // 폴더 선택 시 이미지 조회
+  // 폴더 선택 시 목록 조회
   useEffect(() => {
     if (!open || searching) return;
     if (selectedFolder) {
@@ -199,7 +200,7 @@ export default function ImageSelectModal({
             { cache: 'no-store' }
           );
           const raw = await r.json();
-          setImages(normalizeImages(raw));
+          setImages(normalizeMedia(raw));
         } catch {
           setImages([]);
         }
@@ -226,7 +227,7 @@ export default function ImageSelectModal({
           { cache: 'no-store', signal: ctrl.signal }
         );
         const rows = await res.json();
-        setSearchRows(normalizeImages(rows));
+        setSearchRows(normalizeMedia(rows));
         setSelectedImg(null);
       } catch {
         if (!ctrl.signal.aborted) setSearchRows([]);
@@ -261,7 +262,7 @@ export default function ImageSelectModal({
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="이미지 선택"
+          aria-label="이미지·영상 선택"
           style={{
             pointerEvents: 'auto',
             width: 780,
@@ -285,11 +286,11 @@ export default function ImageSelectModal({
               borderBottom: '1px solid #f0f2f6',
             }}
           >
-            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#111827' }}>이미지 선택</h3>
+            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#111827' }}>이미지·영상 선택</h3>
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
               <div style={{ position: 'relative' }}>
                 <input
-                  placeholder="이미지 이름 검색"
+                  placeholder="이미지/영상 이름 검색"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   style={{
@@ -388,12 +389,13 @@ export default function ImageSelectModal({
             >
               {listToShow.length === 0 && (
                 <div style={{ color: '#9aa1ad', margin: '40px auto' }}>
-                  {searching ? '검색 결과가 없습니다.' : '이 폴더에 이미지 없음'}
+                  {searching ? '검색 결과가 없습니다.' : '이 폴더에 미디어 없음'}
                 </div>
               )}
 
               {listToShow.map((img) => {
                 const selected = selectedImg?.id === img.id;
+                const isVideo = (img.mime_type || '').startsWith('video/');
                 return (
                   <button
                     key={img.id}
@@ -417,16 +419,45 @@ export default function ImageSelectModal({
                       padding: 0,
                     }}
                   >
-                    <img
-                      src={toProxyUrl(img.url)}
-                      alt={img.name}
-                      width={88}
-                      height={88}
-                      loading="lazy"
-                      decoding="async"
-                      draggable={false}
-                      style={{ width: 88, height: 88, borderRadius: 8, objectFit: 'contain', background: '#fff' }}
-                    />
+                    {isVideo ? (
+                      <div style={{ position: 'relative' }}>
+                        <video
+                          src={toProxyUrl(img.url)}
+                          preload="metadata"
+                          playsInline
+                          muted
+                          width={88}
+                          height={88}
+                          style={{ width: 88, height: 88, borderRadius: 8, background: '#000' }}
+                        />
+                        <span
+                          style={{
+                            position: 'absolute',
+                            right: 4,
+                            bottom: 4,
+                            background: '#0008',
+                            color: '#fff',
+                            fontWeight: 800,
+                            fontSize: 12,
+                            padding: '2px 6px',
+                            borderRadius: 6,
+                          }}
+                        >
+                          ▶
+                        </span>
+                      </div>
+                    ) : (
+                      <img
+                        src={toProxyUrl(img.url)}
+                        alt={img.name}
+                        width={88}
+                        height={88}
+                        loading="lazy"
+                        decoding="async"
+                        draggable={false}
+                        style={{ width: 88, height: 88, borderRadius: 8, objectFit: 'contain', background: '#fff' }}
+                      />
+                    )}
                     {selected && (
                       <span
                         style={{
@@ -467,23 +498,42 @@ export default function ImageSelectModal({
             <div style={{ flex: 1, minHeight: 38 }}>
               {selectedImg && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <img
-                    src={toProxyUrl(selectedImg.url)}
-                    alt={selectedImg.name}
-                    width={38}
-                    height={38}
-                    loading="lazy"
-                    decoding="async"
-                    draggable={false}
-                    style={{
-                      height: 38,
-                      width: 38,
-                      objectFit: 'cover',
-                      borderRadius: 8,
-                      border: '1px solid #e6eaf0',
-                      background: '#fafafa',
-                    }}
-                  />
+                  { (selectedImg.mime_type || '').startsWith('video/') ? (
+                    <video
+                      src={toProxyUrl(selectedImg.url)}
+                      preload="metadata"
+                      playsInline
+                      muted
+                      width={38}
+                      height={38}
+                      style={{
+                        height: 38,
+                        width: 38,
+                        objectFit: 'cover',
+                        borderRadius: 8,
+                        border: '1px solid #e6eaf0',
+                        background: '#000',
+                      }}
+                    />
+                  ) : (
+                    <img
+                      src={toProxyUrl(selectedImg.url)}
+                      alt={selectedImg.name}
+                      width={38}
+                      height={38}
+                      loading="lazy"
+                      decoding="async"
+                      draggable={false}
+                      style={{
+                        height: 38,
+                        width: 38,
+                        objectFit: 'cover',
+                        borderRadius: 8,
+                        border: '1px solid #e6eaf0',
+                        background: '#fafafa',
+                      }}
+                    />
+                  )}
                   <span style={{ color: '#374151', fontSize: 14, fontWeight: 600 }}>{selectedImg.name}</span>
                 </div>
               )}

@@ -2,7 +2,7 @@
 // File: app/api/image/view/route.ts
 // =============================================
 /**
- * 이미지 폴더별 목록 조회
+ * 이미지(미디어) 폴더별 목록 조회
  * - GET 쿼리 -> folder_id(필수)
  * - 최신순(id DESC)으로 반환
  * - 캐시 방지 -> no-store
@@ -37,9 +37,10 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // 폴더 내 이미지 최신순 조회
+    // 폴더 내 미디어 최신순 조회
     const rows = await sql/*sql*/`
-      SELECT * FROM images
+      SELECT id, name, url, folder_id, uploader, mime_type
+      FROM images
       WHERE folder_id = ${folderId}
       ORDER BY id DESC
     `;

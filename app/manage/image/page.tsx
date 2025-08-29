@@ -290,7 +290,7 @@ function FileList({
   // NEW: image dragging state setters
   setDraggingImageIds,
 }: {
-  images: Array<{ id: number; name: string; url: string; folder_id: number; uploader?: string }>;
+  images: Array<{ id: number; name: string; url: string; folder_id: number; mime_type?: string | null; uploader?: string }>;
   currentFolderId: number | null;
   onSelect: (item: any, e: React.MouseEvent) => void;
   onContextMenuImage: (item: any, e: React.MouseEvent) => void;
@@ -311,55 +311,87 @@ function FileList({
 
   return (
     <div className="image-explorer-filelist">
-      {imgs.map((img) => (
-        <div
-          key={'img-' + img.id}
-          className={'image-explorer-thumbnail' + (isSelected(img) ? ' selected' : '')}
-          draggable
-          onDragStart={(e) => {
-            // 다중 선택이면 선택된 이미지 전부, 아니면 자신만
-            const ids = isSelected(img)
-              ? selectedItems.filter((i) => i.type === 'image').map((i) => i.id)
-              : [img.id];
+      {imgs.map((img) => {
+        const isVideo = (img.mime_type || '').startsWith('video/');
+        return (
+          <div
+            key={'img-' + img.id}
+            className={'image-explorer-thumbnail' + (isSelected(img) ? ' selected' : '')}
+            draggable
+            onDragStart={(e) => {
+              // 다중 선택이면 선택된 항목 전부, 아니면 자신만
+              const ids = isSelected(img)
+                ? selectedItems.filter((i) => i.type === 'image').map((i) => i.id)
+                : [img.id];
 
-            setDraggingImageIds(ids);
-            e.dataTransfer.setData('application/rdwiki-images', JSON.stringify(ids));
-            e.dataTransfer.effectAllowed = 'move';
-          }}
-          onDragEnd={() => setDraggingImageIds(null)}
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelect({ ...img, type: 'image' }, e);
-          }}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onContextMenuImage({ ...img, type: 'image' }, e);
-          }}
-          tabIndex={0}
-        >
-          <div className="image-explorer-thumbbox">
-            <img
-              src={toProxyUrl(img.url)}
-              alt={img.name}
-              className="image-explorer-thumbimg"
-              loading="lazy"
-              decoding="async"
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).src = '/default-thumbnail.png';
-              }}
-            />
+              setDraggingImageIds(ids);
+              e.dataTransfer.setData('application/rdwiki-images', JSON.stringify(ids));
+              e.dataTransfer.effectAllowed = 'move';
+            }}
+            onDragEnd={() => setDraggingImageIds(null)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect({ ...img, type: 'image' }, e); // DB 테이블이 images이므로 type은 그대로 'image'
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onContextMenuImage({ ...img, type: 'image' }, e);
+            }}
+            tabIndex={0}
+          >
+            <div className="image-explorer-thumbbox">
+              {isVideo ? (
+                <div className="video-thumb" style={{ position: 'relative' }}>
+                  <video
+                    src={toProxyUrl(img.url)}
+                    preload="metadata"
+                    playsInline
+                    muted
+                    className="image-explorer-thumbimg"
+                    style={{ display: 'block' }}
+                  />
+                  <span
+                    className="video-badge"
+                    style={{
+                      position: 'absolute',
+                      right: 6,
+                      bottom: 6,
+                      background: '#0008',
+                      color: '#fff',
+                      fontWeight: 800,
+                      fontSize: 12,
+                      padding: '2px 6px',
+                      borderRadius: 6,
+                    }}
+                  >
+                    ▶
+                  </span>
+                </div>
+              ) : (
+                <img
+                  src={toProxyUrl(img.url)}
+                  alt={img.name}
+                  className="image-explorer-thumbimg"
+                  loading="lazy"
+                  decoding="async"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = '/default-thumbnail.png';
+                  }}
+                />
+              )}
+            </div>
+            <span className="thumbnail-label">
+              {(() => {
+                const i = img.name.lastIndexOf('.');
+                const base = i !== -1 ? img.name.slice(0, i) : img.name;
+                return base.length > 12 ? base.slice(0, 12) + '…' : base;
+              })()}
+            </span>
           </div>
-          <span className="thumbnail-label">
-            {(() => {
-              const i = img.name.lastIndexOf('.');
-              const base = i !== -1 ? img.name.slice(0, i) : img.name;
-              return base.length > 12 ? base.slice(0, 12) + '…' : base;
-            })()}
-          </span>
-        </div>
-      ))}
-      {imgs.length === 0 && <div className="text-gray-400 mt-8">이 폴더에는 이미지가 없습니다.</div>}
+        );
+      })}
+      {imgs.length === 0 && <div className="text-gray-400 mt-8">이 폴더에는 미디어가 없습니다.</div>}
     </div>
   );
 }
@@ -428,6 +460,7 @@ export default function ImageManagePage() {
       name: String(i.name),
       url: String(i.url),
       folder_id: Number(i.folder_id),
+      mime_type: i.mime_type ? String(i.mime_type) : null,
       uploader: i.uploader ? String(i.uploader) : undefined,
     }));
 
