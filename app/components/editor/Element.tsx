@@ -1360,6 +1360,7 @@ const Element: React.FC<ElementProps> = ({
           />
         </div>
       );
+    }
 
     // -------------------- 기본 fallback --------------------
     default: {
