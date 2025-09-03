@@ -866,6 +866,8 @@ export default function WikiPageInner({ user }: Props) {
       <style jsx global>{`
         .wiki-content.is-ready { opacity: 1; transition: opacity .18s ease; }
         .wiki-content.is-hold  { opacity: 0; }
+        @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
+        :root { --wiki-round-font: 'Jua', 'Pretendard', 'Malgun Gothic', system-ui, sans-serif; }
       `}</style>
     </div>
   );
