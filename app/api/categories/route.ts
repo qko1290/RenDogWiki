@@ -13,6 +13,9 @@ import { sql } from '@/wiki/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { logActivity, resolveCategoryName } from '@wiki/lib/activity';
 import { getAuthUser } from '@/wiki/lib/auth';
+import { cached, cacheKey, invalidate } from '@/wiki/lib/cache';
+
+export const runtime = 'nodejs';
 
 // 숫자/문자/널 입력을 정수 또는 null로 정규화
 function toNullableInt(v: unknown): number | null {
@@ -26,7 +29,7 @@ function parseModes(param: string | null): string[] {
   if (!param) return [];
   const arr = param
     .split(',')
-    .map(s => s.trim().toLowerCase())
+    .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
   return Array.from(new Set(arr));
 }
@@ -35,36 +38,53 @@ export async function GET(req: NextRequest) {
   try {
     const modes = parseModes(req.nextUrl.searchParams.get('modes'));
 
-    // 모드 미지정: 전체 조회
+    // 모드 미지정: 전체 조회(캐시)
     if (modes.length === 0) {
-      const rows = await sql`
-        SELECT * FROM categories
-        ORDER BY parent_id, "order"
-      `;
-      return NextResponse.json(rows, { headers: { 'Cache-Control': 'no-store' } });
+      const rows = await cached(
+        'category:all',
+        { ttlSec: 600, tags: ['category:list', 'category:tree'] },
+        async () => sql`SELECT * FROM categories ORDER BY parent_id, "order"`
+      );
+      return NextResponse.json(rows, {
+        headers: { 'Cache-Control': 's-maxage=600, stale-while-revalidate=60' },
+      });
     }
 
-    // ✅ 모드 지정: RECURSIVE + 배열 겹침( && )로 최상위만 고른 뒤 하위 전부 확장
-    const rows = await sql`
-      WITH RECURSIVE roots AS (
-        SELECT id
-        FROM categories
-        WHERE COALESCE(mode_tags, '{}'::text[]) && ${modes as unknown as string[]}::text[]
-      ),
-      tree AS (
-        SELECT c.*
-        FROM categories c
-        JOIN roots r ON r.id = c.id
-        UNION ALL
-        SELECT c2.*
-        FROM categories c2
-        JOIN tree t ON c2.parent_id = t.id
-      )
-      SELECT * FROM tree
-      ORDER BY parent_id, "order"
-    `;
+    // 모드 지정: roots만 고른 뒤 재귀 확장(캐시)
+    const key = cacheKey('category:tree', 'modes', ...modes);
+    const rows = await cached(
+      key,
+      { ttlSec: 600, tags: ['category:tree', 'category:list'] },
+      async () => {
+        // postgres 드라이버 호환을 위해 EXISTS + ANY 사용
+        return sql`
+          WITH RECURSIVE roots AS (
+            SELECT id
+            FROM categories
+            WHERE EXISTS (
+              SELECT 1
+              FROM unnest(COALESCE(mode_tags, '{}'::text[])) t
+              WHERE t = ANY(${modes})
+            )
+          ),
+          tree AS (
+            SELECT c.*
+            FROM categories c
+            JOIN roots r ON r.id = c.id
+            UNION ALL
+            SELECT c2.*
+            FROM categories c2
+            JOIN tree t ON c2.parent_id = t.id
+          )
+          SELECT * FROM tree
+          ORDER BY parent_id, "order"
+        `;
+      }
+    );
 
-    return NextResponse.json(rows, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json(rows, {
+      headers: { 'Cache-Control': 's-maxage=600, stale-while-revalidate=60' },
+    });
   } catch (err) {
     console.error('[categories GET] unexpected error:', err);
     return NextResponse.json(
@@ -149,6 +169,9 @@ export async function POST(req: NextRequest) {
         mode_tags: mode_tags,
       },
     });
+
+    // ✅ 캐시 무효화
+    invalidate('category:list', 'category:tree', 'category:modes');
 
     // 6) 생성된 id 반환
     return NextResponse.json(

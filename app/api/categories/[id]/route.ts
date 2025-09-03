@@ -1,9 +1,6 @@
-// =============================================
-// File: app/api/categories/[id]/route.ts
-// =============================================
 /**
  * 카테고리 단건에 대한 수정/삭제/정렬 API
- * - PUT  -> 카테고리 정보 수정(name/parent_id/order/document_id/icon)
+ * - PUT  -> 카테고리 정보 수정(name/parent_id/order/document_id/icon/mode_tags)
  * - DELETE -> 재귀적으로 하위 카테고리와 그 안의 문서/본문 삭제
  * - POST -> 드래그 앤 드롭 결과를 반영해 order만 갱신
  * - 참고: 활동 로그는 사람이 읽을 수 있는 라벨로 남김 -> resolveCategoryName 사용
@@ -13,6 +10,9 @@ import { sql } from '@/wiki/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { logActivity, resolveCategoryName } from '@wiki/lib/activity';
 import { getAuthUser } from '@/wiki/lib/auth';
+import { invalidate } from '@/wiki/lib/cache';
+
+export const runtime = 'nodejs';
 
 // 문자열/숫자/널을 받아 정수 또는 null로 정규화
 function toNullableInt(v: unknown): number | null {
@@ -21,7 +21,7 @@ function toNullableInt(v: unknown): number | null {
   return Number.isFinite(n) ? Math.trunc(n) : null;
 }
 
-// 숫자처럼 보이면 정수, 아니면 0(기본값)으로
+// 숫자처럼 보이면 정수, 아니면 기본값
 function toIntOrDefault(v: unknown, d = 0): number {
   const n = Number(v);
   return Number.isFinite(n) ? Math.trunc(n) : d;
@@ -31,7 +31,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   try {
     const idNum = Number(params.id);
     if (!Number.isFinite(idNum)) {
-      return NextResponse.json({ error: 'invalid category id' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json(
+        { error: 'invalid category id' },
+        { status: 400, headers: { 'Cache-Control': 'no-store' } }
+      );
     }
 
     const body = await req.json().catch(() => null);
@@ -43,7 +46,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     const document_id = body?.document_id;
     const icon = typeof body?.icon === 'string' && body.icon !== '' ? body.icon : null;
 
-    // ✅ mode_tags 파싱(소문자/공백정리/중복제거)
+    // mode_tags 파싱(소문자/공백정리/중복제거)
     const mode_tags: string[] = Array.isArray(body?.mode_tags)
       ? Array.from(
           new Set(
@@ -55,7 +58,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       : [];
 
     if (!name) {
-      return NextResponse.json({ error: 'name is required' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json(
+        { error: 'name is required' },
+        { status: 400, headers: { 'Cache-Control': 'no-store' } }
+      );
     }
 
     const parentIdFixed = toNullableInt(parent_id);
@@ -63,10 +69,12 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     const documentIdFixed = toNullableInt(document_id);
 
     if (parentIdFixed !== null && parentIdFixed === idNum) {
-      return NextResponse.json({ error: 'parent_id cannot be the same as id' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json(
+        { error: 'parent_id cannot be the same as id' },
+        { status: 400, headers: { 'Cache-Control': 'no-store' } }
+      );
     }
 
-    // ✅ mode_tags까지 함께 업데이트
     await sql`
       UPDATE categories SET
         name = ${name},
@@ -78,7 +86,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       WHERE id = ${idNum}
     `;
 
-    // (대표문서 토글 로직 기존 유지)
+    // ✅ 캐시 무효화
+    invalidate('category:list', 'category:tree', 'category:modes', `category:${idNum}`);
 
     const user = getAuthUser();
     const username = user?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
@@ -96,21 +105,21 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         order: orderFixed,
         document_id: documentIdFixed,
         icon,
-        mode_tags, // ✅ 로그에도 기록
+        mode_tags,
       },
     });
 
     return NextResponse.json({ message: 'updated' }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (err) {
     console.error('[categories:id PUT] unexpected error:', err);
-    return NextResponse.json({ error: '카테고리 업데이트 중 오류가 발생했습니다.' }, { status: 500 });
+    return NextResponse.json(
+      { error: '카테고리 업데이트 중 오류가 발생했습니다.' },
+      { status: 500 }
+    );
   }
 }
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const idNum = Number(params.id);
     if (!Number.isFinite(idNum)) {
@@ -164,10 +173,13 @@ export async function DELETE(
     // 카테고리 일괄 삭제
     await sql`DELETE FROM categories WHERE id = ANY(${catIds})`;
 
+    // ✅ 캐시 무효화
+    invalidate('category:list', 'category:tree', 'category:modes');
+    if (docIds.length) invalidate(...docIds.map((d) => `doc:${d}`), 'doc:list');
+
     // 활동 로그
     const user = getAuthUser();
-    const username =
-      user?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
+    const username = user?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
 
     await logActivity({
       action: 'category.delete',
@@ -176,16 +188,10 @@ export async function DELETE(
       targetId: idNum,
       targetName: rootName,
       targetPath: parentLabel,
-      meta: {
-        deleted_category_ids: catIds,
-        deleted_document_ids: docIds,
-      },
+      meta: { deleted_category_ids: catIds, deleted_document_ids: docIds },
     });
 
-    return NextResponse.json(
-      { message: 'deleted' },
-      { headers: { 'Cache-Control': 'no-store' } }
-    );
+    return NextResponse.json({ message: 'deleted' }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (err) {
     console.error('[categories:id DELETE] unexpected error:', err);
     return NextResponse.json(
@@ -195,10 +201,7 @@ export async function DELETE(
   }
 }
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const idNum = Number(params.id);
     if (!Number.isFinite(idNum)) {
@@ -214,6 +217,9 @@ export async function POST(
 
     await sql`UPDATE categories SET "order" = ${order} WHERE id = ${idNum}`;
 
+    // ✅ 캐시 무효화
+    invalidate('category:list', 'category:tree');
+
     // 로그에 표시할 라벨
     const catRows = (await sql`
       SELECT name, parent_id
@@ -225,8 +231,7 @@ export async function POST(
     const parentLabel = await resolveCategoryName(catRows[0]?.parent_id ?? null);
 
     const user = getAuthUser();
-    const username =
-      user?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
+    const username = user?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
 
     await logActivity({
       action: 'category.reorder',
@@ -238,10 +243,7 @@ export async function POST(
       meta: { order },
     });
 
-    return NextResponse.json(
-      { message: 'order updated' },
-      { headers: { 'Cache-Control': 'no-store' } }
-    );
+    return NextResponse.json({ message: 'order updated' }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (err) {
     console.error('[categories:id POST] unexpected error:', err);
     return NextResponse.json(

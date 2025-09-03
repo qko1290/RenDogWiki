@@ -1,10 +1,19 @@
-// app/api/documents/[id]/route.ts
+/**
+ * 문서 단건 관련 API
+ * - POST: 부분 업데이트(주로 order 재정렬용)
+ * - PUT : 경로(path) 이동(Shift 드롭)
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
 import { getAuthUser } from '@/wiki/lib/auth';
 import { logActivity, resolveCategoryName } from '@wiki/lib/activity';
+import { invalidate } from '@/wiki/lib/cache';
 
 export const runtime = 'nodejs';
+
+const docTag = (id: number) => `doc:${id}`;
+const listTag = (p: string | number) => `doclist:${String(p)}`;
 
 // POST: 부분 업데이트(주로 order 재정렬용)
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -35,12 +44,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       WHERE id = ${id}
     `;
 
+    // ✅ 캐시 무효화
+    invalidate(docTag(id), 'doc:list', listTag(before[0].path));
+
     const user = getAuthUser();
     const username = user?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
     const targetPath = await resolveCategoryName(/^\d+$/.test(String(before[0].path)) ? Number(before[0].path) : null);
 
     await logActivity({
-      action: 'document.update',            // 정렬도 업데이트로 기록
+      action: 'document.update', // 정렬도 업데이트로 기록
       username,
       targetType: 'document',
       targetId: id,
@@ -95,6 +107,9 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       SET path = ${newPath}, "order" = ${nextOrder}, updated_at = NOW()
       WHERE id = ${id}
     `;
+
+    // ✅ 캐시 무효화
+    invalidate(docTag(id), 'doc:list', listTag(oldPath), listTag(newPath));
 
     const user = getAuthUser();
     const username = user?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
