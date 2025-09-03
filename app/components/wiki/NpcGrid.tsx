@@ -3,15 +3,7 @@ import React from "react";
 import { toProxyUrl } from "@lib/cdn";
 
 const ALLOWED_TAGS = [
-  "추천",
-  "필수",
-  "완정",
-  "보스",
-  "타임어택",
-  "기사단",
-  "극난퀘",
-  "혼의 시련",
-  "6차",
+  "추천","필수","완정","보스","타임어택","기사단","극난퀘","혼의 시련","6차",
 ] as const;
 type TagKey = (typeof ALLOWED_TAGS)[number];
 
@@ -23,7 +15,7 @@ export type Npc = {
   location_y: number;
   location_z: number;
   pictures?: string[];
-  tag?: string | null; // 한국어 태그 그대로
+  tag?: string | null;
 };
 
 type Props = {
@@ -32,8 +24,7 @@ type Props = {
   selectedNpcId?: number | null;
 };
 
-const isImageUrl = (v?: string | null) =>
-  typeof v === "string" && v.startsWith("http");
+const isImageUrl = (v?: string | null) => typeof v === "string" && v.startsWith("http");
 const slug = (t: string) => t.replace(/\s+/g, "-");
 
 export default function NpcGrid({ npcs, onClick, selectedNpcId }: Props) {
@@ -53,9 +44,7 @@ export default function NpcGrid({ npcs, onClick, selectedNpcId }: Props) {
         const selected = selectedNpcId === npc.id;
         const handleActivate = () => onClick?.(npc);
 
-        const tag = (ALLOWED_TAGS as readonly string[]).includes(
-          (npc.tag ?? "") as string
-        )
+        const tag = (ALLOWED_TAGS as readonly string[]).includes((npc.tag ?? "") as string)
           ? (npc.tag as TagKey)
           : null;
 
@@ -73,114 +62,120 @@ export default function NpcGrid({ npcs, onClick, selectedNpcId }: Props) {
                 e.preventDefault();
                 handleActivate();
               }
-            }}  // ← 여기 괄호 두 개만 닫히면 OK!
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              border: "1.5px solid #ddd",
-              borderRadius: 12,
-              height: 110,
-              cursor: "pointer",
-              background: selected ? "#e7f6ff" : "#fff",
-              boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
-              position: "relative",
-              outline: "none",
-              overflow: "hidden",
             }}
+            className="npc-card"
           >
-            {/* ✅ 우상단 태그 뱃지 */}
-            {tag && (
-              <span className={`npc-tag-badge tag-${slug(tag)}`} aria-hidden>
-                {tag}
-              </span>
-            )}
-
-            {isImageUrl(npc.icon) ? (
-              <img
-                src={toProxyUrl(npc.icon)}
-                alt={npc.name}
-                loading="lazy"
-                decoding="async"
-                style={{
-                  width: 65,
-                  height: 65,
-                  borderRadius: 10,
-                  objectFit: "cover",
-                  background: "#fff",
-                }}
-              />
-            ) : (
-              <span style={{ fontSize: 44 }}>{npc.icon || "🧑"}</span>
-            )}
-
-            <div
-              style={{
-                fontSize: 21,
-                fontWeight: 900,
-                textAlign: "center",
-                color: "#111",
-                letterSpacing: 0.5,
-                textShadow:
-                  "0 1.5px 0 #fff, 1.5px 0 0 #fff, 0 -1.5px 0 #fff, -1.5px 0 0 #fff",
-                fontFamily: "Pretendard, Malgun Gothic, sans-serif",
-              }}
-            >
-              {npc.name}
+            <div className="npc-icon-wrap">
+              {/* ✅ 아이콘 우상단에 ‘걸치듯’ 배지 */}
+              {tag && (
+                <span
+                  className={`npc-tag-badge tag-${slug(tag)}`}
+                  aria-hidden
+                >
+                  {tag}
+                </span>
+              )}
+              {isImageUrl(npc.icon) ? (
+                <img
+                  src={toProxyUrl(npc.icon)}
+                  alt={npc.name}
+                  loading="lazy"
+                  decoding="async"
+                  className="npc-icon-img"
+                />
+              ) : (
+                <span className="npc-emoji">{npc.icon || "🧑"}</span>
+              )}
             </div>
 
-            {/* styled-jsx: 뱃지 스타일 */}
+            <div className="npc-name">{npc.name}</div>
+
             <style jsx>{`
-              .npc-tag-badge {
-                position: absolute;
-                right: 6px;
-                top: 6px;
-                font-size: 12px;
-                font-weight: 800;
-                padding: 4px 8px;
-                border-radius: 8px;
-                line-height: 1;
-                color: var(--tag-fg, #ffffff);
-                background: var(--tag-bg, #111827);
-                box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.95),
-                  0 1.5px 0 rgba(0, 0, 0, 0.25);
-                pointer-events: none;
-              }
-              .npc-tag-badge::after {
-                content: "";
-                position: absolute;
-                right: 12px;
-                bottom: -5px;
-                width: 14px;
-                height: 8px;
-                background: var(--tag-bg, #111827);
-                border-bottom-left-radius: 8px;
-                box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.95);
+              .npc-card {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                height: 110px;
+                border: 1.5px solid #ddd;
+                border-radius: 12px;
+                background: ${selected ? "#e7f6ff" : "#fff"};
+                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+                cursor: pointer;
+                position: relative;
+                outline: none;
+                overflow: hidden;
               }
 
-              /* 태그별 색 테마 */
-              .tag-완정 {
-                --tag-bg: #3b82f6;
+              .npc-icon-wrap {
+                position: relative;      /* ← 배지의 기준 */
+                width: 65px;
+                height: 65px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
               }
+
+              .npc-icon-img {
+                width: 65px;
+                height: 65px;
+                border-radius: 10px;
+                object-fit: cover;
+                background: #fff;
+                display: block;
+              }
+
+              .npc-emoji {
+                font-size: 44px;
+                line-height: 1;
+              }
+
+              .npc-name {
+                font-size: 21px;
+                font-weight: 900;
+                text-align: center;
+                color: #111;
+                letter-spacing: 0.5px;
+                text-shadow: 0 1.5px 0 #fff, 1.5px 0 0 #fff, 0 -1.5px 0 #fff, -1.5px 0 0 #fff;
+                font-family: Pretendard, Malgun Gothic, sans-serif;
+              }
+
+              /* ===========================
+                 뱃지 스타일 (요구사항 반영)
+                 - 아이콘 우상단에 ‘걸치게’
+                 - 크기 1.5배 (font-size 18px)
+                 - 흰 배경 / 컬러 테두리 / 글씨는 테두리와 동일색
+                 - 둥글 둥글한 알약 모양
+                 =========================== */
+              .npc-tag-badge {
+                position: absolute;
+                top: -6px;               /* 살짝 바깥으로 */
+                right: -6px;             /* 살짝 바깥으로 */
+                transform: translate(0, 0);
+                font-size: 18px;         /* 12px → 18px (≈1.5배) */
+                font-weight: 800;
+                padding: 4px 10px;       /* 크기 키움 */
+                line-height: 1.1;
+                white-space: nowrap;
+                border-radius: 10px;     /* 모서리 부드럽게 */
+                background: #fff;        /* 흰 배경 */
+                color: var(--tag-color, #111827);
+                border: 2px solid var(--tag-color, #111827);
+                box-shadow: 0 2px 4px rgba(0,0,0,0.12);
+                pointer-events: none;    /* 클릭 방해 X */
+                z-index: 1;
+              }
+
+              /* 태그별 테마 컬러 (글씨/테두리 동일색) */
+              .tag-완정     { --tag-color: #3b82f6; } /* 파랑 */
               .tag-필수,
               .tag-극난퀘,
-              .tag-보스 {
-                --tag-bg: #ef4444;
-              }
-              .tag-추천 {
-                --tag-bg: #10b981;
-              }
-              .tag-타임어택 {
-                --tag-bg: #f97316;
-              }
-              .tag-기사단 {
-                --tag-bg: #8b5cf6;
-              }
+              .tag-보스     { --tag-color: #ef4444; } /* 빨강 */
+              .tag-추천     { --tag-color: #10b981; } /* 초록 */
+              .tag-타임어택 { --tag-color: #f97316; } /* 주황 */
+              .tag-기사단   { --tag-color: #8b5cf6; } /* 보라 */
               .tag-혼의-시련,
-              .tag-6차 {
-                --tag-bg: #0ea5e9;
-              }
+              .tag-6차      { --tag-color: #0ea5e9; } /* 하늘색 */
             `}</style>
           </div>
         );
