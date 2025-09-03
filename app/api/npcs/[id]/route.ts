@@ -1,19 +1,14 @@
 // =============================================
 // File: app/api/npc/[id]/route.ts
 // =============================================
-/**
- * NPC 단건 수정/삭제
- * - PATCH -> 특정 NPC(id)의 필드들 부분 업데이트(넘어온 것만 반영)
- * - DELETE -> 특정 NPC(id) 삭제
- * - pictures/rewards는 항상 배열(JSON)로 보장해서 반환
- */
-
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
 import { getAuthUser } from '@/wiki/lib/auth';
 import { logActivity } from '@wiki/lib/activity';
 
 export const runtime = 'nodejs';
+
+type TagKey = 'done' | 'hard' | 'must' | null;
 
 type NpcRow = {
   id: number;
@@ -27,12 +22,12 @@ type NpcRow = {
   order: number;
   requirement: string | null;
   quest: string;
-  npc_type: string; // 'normal' | 'quest' (그 외 값도 DB엔 있을 수 있음)
-  pictures: unknown; // json/text/array 모두 가능
+  npc_type: string;
+  pictures: unknown;
   rewards: unknown;
+  tag: string | null;
 };
 
-// 문자열/JSON/배열을 안전한 배열로 변환
 function parseArray(v: unknown): any[] {
   if (Array.isArray(v)) return v;
   if (v == null) return [];
@@ -40,63 +35,46 @@ function parseArray(v: unknown): any[] {
     try {
       const j = JSON.parse(v);
       return Array.isArray(j) ? j : [];
-    } catch {
-      return [];
-    }
+    } catch { return []; }
   }
   return [];
 }
-
-// 숫자 필드 -> 유효 숫자면 정수로, 아니면 fallback
 function toNumOr<T extends number>(v: unknown, fallback: T): T {
   const n = Number(v);
   return (Number.isFinite(n) ? Math.trunc(n) : fallback) as T;
 }
-
-// 문자열 필드 -> 문자열이면 trim해서, 아니면 fallback
 function toStrOr<T extends string | null>(v: unknown, fallback: T): T {
   if (typeof v === 'string') return (v as string).trim() as T;
   return fallback;
 }
-
-// npc_type 정규화 -> 'normal' | 'quest'만 허용, 아니면 기존값 유지
 function toNpcTypeOr(v: unknown, fallback: string): string {
   if (typeof v !== 'string') return fallback;
   const t = v.trim().toLowerCase();
   return t === 'normal' || t === 'quest' ? t : fallback;
 }
+const ALLOWED: ReadonlyArray<NonNullable<TagKey>> = ['done', 'hard', 'must'];
+function toTagOr(v: unknown, fallback: TagKey): TagKey {
+  if (v === undefined) return fallback;
+  if (v === null || v === '') return null;
+  const s = String(v).trim() as any;
+  return (ALLOWED as readonly string[]).includes(s) ? (s as TagKey) : fallback;
+}
 
-/**
- * [NPC 정보 수정] PATCH
- * - params.id: NPC 고유 id
- * - body: 수정할 필드들(넘어온 키만 반영)
- */
+/** PATCH: 단건 수정 */
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const id = Number(params.id);
     if (!Number.isFinite(id) || id <= 0) {
-      return NextResponse.json(
-        { error: 'Invalid id' },
-        { status: 400, headers: { 'Cache-Control': 'no-store' } },
-      );
+      return NextResponse.json({ error: 'Invalid id' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
     }
-
     const body = await req.json().catch(() => ({} as any));
 
-    // 현재 행 조회
     const rows = (await sql/*sql*/`SELECT * FROM npc WHERE id = ${id} LIMIT 1`) as unknown as NpcRow[];
     if (!rows.length) {
-      return NextResponse.json(
-        { error: 'Not found' },
-        { status: 404, headers: { 'Cache-Control': 'no-store' } },
-      );
+      return NextResponse.json({ error: 'Not found' }, { status: 404, headers: { 'Cache-Control': 'no-store' } });
     }
-
     const cur = rows[0];
-    const curPictures = parseArray(cur.pictures);
-    const curRewards = parseArray(cur.rewards);
 
-    // 넘어온 값만 덮어쓰기 -> 나머지는 기존 유지
     const merged = {
       name: toStrOr(body?.name, cur.name),
       icon: toStrOr(body?.icon, cur.icon),
@@ -106,15 +84,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       line: body?.line === undefined ? cur.line : toStrOr(body?.line, cur.line),
       village_id: toNumOr(body?.village_id, cur.village_id),
       order: toNumOr(body?.order, cur.order),
-      requirement:
-        body?.requirement === undefined ? cur.requirement : toStrOr(body?.requirement, cur.requirement),
+      requirement: body?.requirement === undefined ? cur.requirement : toStrOr(body?.requirement, cur.requirement),
       quest: toStrOr(body?.quest, cur.quest),
       npc_type: toNpcTypeOr(body?.npc_type, cur.npc_type),
-      pictures: body?.pictures === undefined ? curPictures : parseArray(body?.pictures),
-      rewards: body?.rewards === undefined ? curRewards : parseArray(body?.rewards),
+      pictures: body?.pictures === undefined ? parseArray(cur.pictures) : parseArray(body?.pictures),
+      rewards:  body?.rewards  === undefined ? parseArray(cur.rewards)  : parseArray(body?.rewards),
+      tag: body?.tag === undefined ? (cur.tag ?? null) : (body?.tag ?? null),
     };
 
-    // 업데이트
     await sql/*sql*/`
       UPDATE npc SET
         name        = ${merged.name},
@@ -129,26 +106,18 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         quest       = ${merged.quest},
         npc_type    = ${merged.npc_type},
         pictures    = ${JSON.stringify(merged.pictures)},
-        rewards     = ${JSON.stringify(merged.rewards)}
+        rewards     = ${JSON.stringify(merged.rewards)},
+        tag         = ${merged.tag}
       WHERE id = ${id}
     `;
 
-    // 갱신본 재조회 -> pictures/rewards는 배열로 보정해서 반환
-    const updatedRows = (await sql/*sql*/`
-      SELECT *
-      FROM npc
-      WHERE id = ${id}
-      LIMIT 1
-    `) as unknown as NpcRow[];
-
+    const updatedRows = (await sql/*sql*/`SELECT * FROM npc WHERE id = ${id} LIMIT 1`) as unknown as NpcRow[];
     const updated = updatedRows[0];
     (updated as any).pictures = parseArray(updated.pictures);
-    (updated as any).rewards = parseArray(updated.rewards);
+    (updated as any).rewards  = parseArray(updated.rewards);
 
-    // 활동 로그(이름 변경 정도만 가볍게 기록)
     const me = getAuthUser();
     const username = me?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
-
     await logActivity({
       action: 'npc.update',
       username,
@@ -156,69 +125,38 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       targetId: id,
       targetName: updated.name,
       targetPath: String(updated.village_id),
-      meta: { before: { name: cur.name }, after: { name: updated.name } },
+      meta: { field: 'tag', value: updated.tag ?? null },
     });
 
     return NextResponse.json(updated, { headers: { 'Cache-Control': 'no-store' } });
   } catch (err) {
     console.error('[npc PATCH] unexpected error:', err);
-    return NextResponse.json(
-      { error: 'Server error' },
-      { status: 500, headers: { 'Cache-Control': 'no-store' } },
-    );
+    return NextResponse.json({ error: 'Server error' }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
   }
 }
 
-/**
- * [NPC 삭제] DELETE
- * - 단일 NPC 제거
- */
+/** DELETE: 그대로 */
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const id = Number(params.id);
     if (!Number.isFinite(id) || id <= 0) {
-      return NextResponse.json(
-        { error: 'Invalid id' },
-        { status: 400, headers: { 'Cache-Control': 'no-store' } },
-      );
+      return NextResponse.json({ error: 'Invalid id' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
     }
-
     const me = getAuthUser();
     const username = me?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
 
     const rows = (await sql/*sql*/`
-      SELECT id, name, village_id
-      FROM npc
-      WHERE id = ${id}
-      LIMIT 1
-    `) as unknown as Array<Pick<NpcRow, 'id' | 'name' | 'village_id'>>;
-
-    if (!rows.length) {
-      return NextResponse.json(
-        { error: 'Not found' },
-        { status: 404, headers: { 'Cache-Control': 'no-store' } },
-      );
-    }
+      SELECT id, name, village_id FROM npc WHERE id = ${id} LIMIT 1
+    `) as unknown as Array<Pick<NpcRow,'id'|'name'|'village_id'>>;
+    if (!rows.length) return NextResponse.json({ error: 'Not found' }, { status: 404, headers: { 'Cache-Control': 'no-store' } });
 
     const row = rows[0];
     await sql/*sql*/`DELETE FROM npc WHERE id = ${id}`;
-
-    await logActivity({
-      action: 'npc.delete',
-      username,
-      targetType: 'npc',
-      targetId: id,
-      targetName: row.name,
-      targetPath: String(row.village_id),
-      meta: null,
-    });
+    await logActivity({ action: 'npc.delete', username, targetType:'npc', targetId:id, targetName:row.name, targetPath:String(row.village_id), meta:null });
 
     return NextResponse.json({ success: true }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (err) {
     console.error('[npc DELETE] unexpected error:', err);
-    return NextResponse.json(
-      { error: 'Server error' },
-      { status: 500, headers: { 'Cache-Control': 'no-store' } },
-    );
+    return NextResponse.json({ error: 'Server error' }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
   }
 }

@@ -46,3 +46,23 @@
 .rw-add-btn:hover{background:#2fc151;border-color:#2fc151;}
 .rw-add-iconwrap{position:absolute;right:8px;top:6px;width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,.18);display:grid;place-items:center;transition:none;}
 .rw-plus{width:20px;height:20px;color:#fff;}
+
+/* 태그 세그먼트 */
+.tag-seg { display:flex; flex-wrap:wrap; gap:8px; }
+.seg-choice {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1.5px solid #d1d5db;
+  background: #f8fafc;
+  font-weight: 800;
+}
+.seg-choice.active,
+.seg-choice[aria-checked="true"] {
+  border-color: #111827;
+  background: #e5e7eb;
+}
+
+/* (선택) 태그 색 팔레트 — 나중에 값만 채우면 그리드 배지 색이 바뀝니다 */
+:root {
+  /* --tag-추천-bg: #2563eb; --tag-추천-fg: #fff; ... 필요할 때만 선언 */
+}

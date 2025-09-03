@@ -21,6 +21,7 @@ export type Npc = {
   quest?: string;
   rewards?: Reward[];
   requirement?: string;
+  tag?: string | null;
 };
 
 type Props = {

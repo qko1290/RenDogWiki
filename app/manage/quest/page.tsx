@@ -20,6 +20,11 @@ import '@/wiki/css/quest-manager.css';
 
 type Role = 'guest' | 'writer' | 'admin';
 
+const ALLOWED_TAGS = [
+  '추천','필수','완정','보스','타임어택','기사단','극난퀘','혼의 시련','6차',
+] as const;
+type TagKey = typeof ALLOWED_TAGS[number];
+
 type Village = {
   id: number;
   name: string;
@@ -28,7 +33,9 @@ type Village = {
   head_icon?: string | null;
   uploader?: string | null;
 };
+
 type QuestReward = { icon: string; text: string };
+
 type Npc = {
   id: number;
   name: string;
@@ -45,6 +52,7 @@ type Npc = {
   npc_type: string;
   pictures?: string[];
   uploader?: string | null;
+  tag?: string | null;
 };
 
 export default function QuestNpcManager() {
@@ -105,6 +113,8 @@ export default function QuestNpcManager() {
   const [editImageModalOpen, setEditImageModalOpen] = useState(false);
   const [editHeadIconModalOpen, setEditHeadIconModalOpen] = useState(false);
 
+  const [tmpTag, setTmpTag] = useState<TagKey | null>(null);
+
   const normalizePictures = (pics: any): string[] => {
     if (Array.isArray(pics)) return [...pics];
     if (pics == null) return [];
@@ -164,6 +174,8 @@ export default function QuestNpcManager() {
     setTmpRewards(normalizeRewards(selectedNpc.rewards));
     setTmpRequirement(selectedNpc.requirement || '');
     setNpcPictures(normalizePictures(selectedNpc.pictures));
+    const t = (selectedNpc as any).tag ?? null;
+    setTmpTag((ALLOWED_TAGS as readonly string[]).includes(t) ? (t as TagKey) : null);
   }, [selectedNpc]);
 
   const handleAddVillage = useCallback(async () => {
@@ -701,6 +713,32 @@ export default function QuestNpcManager() {
                 <span className="mgr-pill-label">대사</span>
                 <span className="mgr-pill-value">
                   {selectedNpc.line?.trim() ? selectedNpc.line : <span className="mgr-placeholder">- 대사 없음 -</span>}
+                </span>
+              </div>
+
+              {/* ✅ 태그 스위치 (즉시 저장) */}
+              <div className="mgr-pill-row" role="radiogroup" aria-label="태그 선택">
+                <span className="mgr-pill-label">태그</span>
+                <span className="mgr-pill-value tag-seg">
+                  {[null, ...ALLOWED_TAGS].map((key) => {
+                    const label = key ?? '없음';
+                    const active = tmpTag === key;
+                    return (
+                      <button
+                        key={label}
+                        type="button"
+                        role="radio"
+                        aria-checked={active}
+                        className={`seg-choice${active ? ' active' : ''}`}
+                        onClick={async () => {
+                          setTmpTag(key as TagKey | null);
+                          await patchNpc({ tag: key ?? null });   // ✅ API에 그대로 저장(null=없음)
+                        }}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </span>
               </div>
             </div>
