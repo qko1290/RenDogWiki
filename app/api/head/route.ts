@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
 import { logActivity, resolveVillageName } from '@wiki/lib/activity';
 import { getAuthUser } from '@/wiki/lib/auth';
+import { cached } from '@/wiki/lib/cache'; // ✅ 추가: 앱 메모리 캐시
 
 export const runtime = 'nodejs';
 
@@ -52,17 +53,21 @@ export async function GET(req: NextRequest) {
       return NextResponse.json([], { headers: { 'Cache-Control': 'no-store' } });
     }
 
-    const rows = (await sql`
-      SELECT id, village_id, "order", location_x, location_y, location_z, pictures
-      FROM head_finder
-      WHERE village_id = ${village_id}
-      ORDER BY "order"
-    `) as unknown as HeadRow[];
+    // ✅ 마을별 목록 60초 캐시
+    const cacheKey = `head:list:v=${village_id}`;
+    const normalized = await cached(cacheKey, { ttlSec: 60 }, async () => {
+      const rows = (await sql`
+        SELECT id, village_id, "order", location_x, location_y, location_z, pictures
+        FROM head_finder
+        WHERE village_id = ${village_id}
+        ORDER BY "order"
+      `) as unknown as HeadRow[];
 
-    const normalized = rows.map((r) => ({
-      ...r,
-      pictures: parsePictures(r.pictures),
-    }));
+      return rows.map((r) => ({
+        ...r,
+        pictures: parsePictures(r.pictures),
+      }));
+    });
 
     return NextResponse.json(normalized, {
       headers: { 'Cache-Control': 'no-store' },

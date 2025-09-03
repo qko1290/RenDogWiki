@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
 import { getAuthUser } from '@/wiki/lib/auth';
+import { cached } from '@/wiki/lib/cache'; // ✅ 추가: 앱 메모리 캐시
 
 export const runtime = 'nodejs';
 
@@ -38,24 +39,24 @@ export async function GET(req: NextRequest) {
     const limit = Math.max(1, Math.min(100, Number(sp.get('limit') ?? 20)));
     const offset = Math.max(0, Number(sp.get('offset') ?? 0));
 
-    // 조건을 파라미터화: q/tags가 비어있으면 무시되도록
-    const rows = await sql`
-      SELECT id, title, content, tags, uploader, created_at, updated_at
-      FROM faq_questions
-      WHERE (${q} = '' OR title ILIKE ${'%' + q + '%'} OR content ILIKE ${'%' + q + '%'})
-        AND (${tagsCsv} = '' OR tags && string_to_array(${tagsCsv}, ','))
-      ORDER BY created_at DESC
-      LIMIT ${limit} OFFSET ${offset}
-    `;
-    const totalRows = await sql`
-      SELECT COUNT(*) AS cnt
-      FROM faq_questions
-      WHERE (${q} = '' OR title ILIKE ${'%' + q + '%'} OR content ILIKE ${'%' + q + '%'})
-        AND (${tagsCsv} = '' OR tags && string_to_array(${tagsCsv}, ','))
-    `;
-
-    return NextResponse.json(
-      {
+    // ✅ 120초 메모리 캐시 (쿼리 조합별)
+    const cacheKey = `faq:list:q=${q}|tags=${tagsCsv}|limit=${limit}|offset=${offset}`;
+    const data = await cached(cacheKey, { ttlSec: 120 }, async () => {
+      const rows = await sql`
+        SELECT id, title, content, tags, uploader, created_at, updated_at
+        FROM faq_questions
+        WHERE (${q} = '' OR title ILIKE ${'%' + q + '%'} OR content ILIKE ${'%' + q + '%'})
+          AND (${tagsCsv} = '' OR tags && string_to_array(${tagsCsv}, ','))
+        ORDER BY created_at DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `;
+      const totalRows = await sql`
+        SELECT COUNT(*) AS cnt
+        FROM faq_questions
+        WHERE (${q} = '' OR title ILIKE ${'%' + q + '%'} OR content ILIKE ${'%' + q + '%'})
+          AND (${tagsCsv} = '' OR tags && string_to_array(${tagsCsv}, ','))
+      `;
+      return {
         items: rows.map((r: any) => ({
           id: r.id,
           title: r.title,
@@ -66,7 +67,11 @@ export async function GET(req: NextRequest) {
           updated_at: r.updated_at,
         })),
         total: Number(totalRows[0]?.cnt ?? 0),
-      },
+      };
+    });
+
+    return NextResponse.json(
+      data,
       { headers: { 'Cache-Control': 'no-store' } }
     );
   } catch (e) {

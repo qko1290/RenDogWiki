@@ -1,17 +1,19 @@
 // =============================================
-// File: app/api/villages/route.ts
+// File: app/api/villages/route.ts   ← GET만 캐시 추가
 // =============================================
 /**
  * 마을 전체 조회/추가
  * - GET  -> name 없으면 전체 목록(order, name 순), name 있으면 단일 조회
  * - POST -> 새 마을 추가 (필수: name, icon)
- * - 응답은 실시간 갱신 성격 -> 캐시 금지
+ * - 목록 조회는 읽기 비중이 높아 120초 메모리 캐시 적용
+ * - 쓰기/단건 생성 응답은 no-store 유지
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
 import { getAuthUser } from '@/wiki/lib/auth';
 import { logActivity } from '@wiki/lib/activity';
+import { cached } from '@/wiki/lib/cache'; // ✅ 캐시 유틸
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -33,24 +35,33 @@ export async function GET(req: NextRequest) {
     const name = nameParam ? nameParam.trim() : '';
 
     if (!name) {
+      // ✅ 전체 목록 120초 캐시
+      const data = await cached('villages:all', { ttlSec: 120 }, async () => {
+        const rows = await sql/*sql*/`
+          SELECT id, name, icon, "order", head_icon
+          FROM village
+          ORDER BY "order", name
+        `;
+        return rows;
+      });
+      return NextResponse.json(data, { headers: { 'Cache-Control': 'no-store' } });
+    }
+
+    // ✅ 단일 조회도 쿼리별 캐시
+    const data = await cached(`village:by-name:${name}`, { ttlSec: 120 }, async () => {
       const rows = await sql/*sql*/`
         SELECT id, name, icon, "order", head_icon
         FROM village
-        ORDER BY "order", name
+        WHERE name = ${name}
+        LIMIT 1
       `;
-      return NextResponse.json(rows, { headers: { 'Cache-Control': 'no-store' } });
-    }
+      return Array.isArray(rows) && rows.length ? rows[0] : null;
+    });
 
-    const rows = await sql/*sql*/`
-      SELECT id, name, icon, "order", head_icon
-      FROM village
-      WHERE name = ${name}
-      LIMIT 1
-    `;
-    if (!Array.isArray(rows) || rows.length === 0) {
+    if (!data) {
       return new NextResponse(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
     }
-    return NextResponse.json(rows[0], { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json(data, { headers: { 'Cache-Control': 'no-store' } });
   } catch (err) {
     console.error('[villages GET] unexpected error:', err);
     return NextResponse.json(
@@ -69,16 +80,25 @@ export async function POST(req: NextRequest) {
     const order = intOr(body?.order, 0);
     const head_icon = body?.head_icon === undefined ? null : strOr(body?.head_icon, null);
 
-    if (!name || !icon) return NextResponse.json({ error: 'name, icon 필수' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+    if (!name || !icon) {
+      return NextResponse.json(
+        { error: 'name, icon 필수' },
+        { status: 400, headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
 
     const dup = await sql/*sql*/`SELECT 1 FROM village WHERE name = ${name} LIMIT 1`;
-    if (Array.isArray(dup) && dup.length > 0) return NextResponse.json({ error: '이미 존재하는 이름입니다.' }, { status: 409, headers: { 'Cache-Control': 'no-store' } });
+    if (Array.isArray(dup) && dup.length > 0) {
+      return NextResponse.json(
+        { error: '이미 존재하는 이름입니다.' },
+        { status: 409, headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
 
-    // uploader 필수 컬럼 채우기
-    const user = getAuthUser();
-    const username = user?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
+    // uploader/username
     const me = getAuthUser();
     const uploader = me?.minecraft_name ?? req.headers.get('x-wiki-username') ?? 'admin';
+    const username = uploader;
 
     const rows = await sql/*sql*/`
       INSERT INTO village (name, icon, "order", head_icon, uploader)
@@ -96,6 +116,7 @@ export async function POST(req: NextRequest) {
       meta: { order: rows[0].order, head_icon: rows[0].head_icon ?? null },
     });
 
+    // ⚠️ 별도 무효화 API가 없다면 TTL 만료(120s)로 일관성 확보
     return NextResponse.json(rows[0], { headers: { 'Cache-Control': 'no-store' } });
   } catch (err) {
     console.error('[villages POST] unexpected error:', err);

@@ -1,3 +1,6 @@
+// =============================================
+// File: app/api/npcs/route.ts  (전체 코드)
+// =============================================
 /**
  * NPC 목록 조회/추가
  * - GET  -> village_id(필수), npc_type(선택) 기준 목록 반환 (order, name 순)
@@ -6,13 +9,11 @@
  * - 응답은 실시간 갱신 성격 -> 캐시 금지
  */
 
-// =============================================
-// File: app/api/npcs/route.ts  (전체 코드)
-// =============================================
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
 import { getAuthUser } from '@/wiki/lib/auth';
 import { logActivity, resolveVillageName } from '@wiki/lib/activity';
+import { cached } from '@/wiki/lib/cache'; // ✅ 추가: 앱 메모리 캐시
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -52,19 +53,23 @@ export async function GET(req: NextRequest) {
       return NextResponse.json([], { headers: { 'Cache-Control': 'no-store' } });
     }
 
-    const rows = (await sql/*sql*/`
-      SELECT * FROM npc
-      WHERE village_id = ${village_id}
-        AND npc_type = ${npcTypeParam}
-      ORDER BY "order", name
-    `) as unknown as any[];
+    // ✅ 마을+타입 조합별 60초 캐시
+    const cacheKey = `npc:list:v=${village_id}:t=${npcTypeParam}`;
+    const normalized = await cached(cacheKey, { ttlSec: 60 }, async () => {
+      const rows = (await sql/*sql*/`
+        SELECT * FROM npc
+        WHERE village_id = ${village_id}
+          AND npc_type = ${npcTypeParam}
+        ORDER BY "order", name
+      `) as unknown as any[];
 
-    const normalized = rows.map((row) => ({
-      ...row,
-      pictures: toArray(row.pictures),
-      rewards:  toArray(row.rewards),
-      tag:      (row as any).tag ?? null,
-    }));
+      return rows.map((row) => ({
+        ...row,
+        pictures: toArray(row.pictures),
+        rewards:  toArray(row.rewards),
+        tag:      (row as any).tag ?? null,
+      }));
+    });
 
     return NextResponse.json(normalized, { headers: { 'Cache-Control': 'no-store' } });
   } catch (err) {
