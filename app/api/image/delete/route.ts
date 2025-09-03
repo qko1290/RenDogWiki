@@ -16,36 +16,36 @@ export const runtime = 'nodejs';
 export async function DELETE(req: NextRequest) {
   try {
     // 1) 입력 파싱 -> ids는 정수 배열만 허용, 중복 제거
-    const body = await req.json().catch(() => null);
-    const idsRaw = Array.isArray(body?.ids) ? body.ids : null;
-    if (!idsRaw || idsRaw.length === 0) {
-      return NextResponse.json(
-        { error: 'ids 필요' },
-        { status: 400, headers: { 'Cache-Control': 'no-store' } }
-      );
+    type DeleteBody = { ids: number[] };
+
+    const body = (await req.json().catch(() => null)) as Partial<DeleteBody> | null;
+    const idsRaw: number[] = Array.isArray(body?.ids) ? (body!.ids as number[]) : [];
+
+    if (idsRaw.length === 0) {
+      return NextResponse.json({ error: 'ids 필요' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
     }
-    const ids = Array.from(
+
+    // 양수 정수만, 중복 제거
+    const ids: number[] = Array.from(
       new Set(
         idsRaw
-          .map((v: unknown) => Number(v))
-          .filter((n: number) => Number.isFinite(n) && n > 0)
+          .map((v) => Number(v))
+          .filter((n): n is number => Number.isFinite(n) && n > 0)
       )
     );
+
     if (ids.length === 0) {
-      return NextResponse.json(
-        { error: '유효한 id가 없습니다.' },
-        { status: 400, headers: { 'Cache-Control': 'no-store' } }
-      );
+      return NextResponse.json({ error: '유효한 id가 없습니다.' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
     }
 
     const username = req.headers.get('x-wiki-username') ?? null;
 
     // 2) 삭제 대상 s3_key 조회
-    const rows = (await sql`
+    const rows = await sql<{ s3_key: string | null }[]>`
       SELECT s3_key
       FROM images
-      WHERE id = ANY(${ids})
-    `) as unknown as Array<{ s3_key: string | null }>;
+      WHERE id IN (${sql(ids)})
+    `;
 
     // 키 정리 -> 빈 문자열/null 제거
     const keys = rows
@@ -82,7 +82,10 @@ export async function DELETE(req: NextRequest) {
     }
 
     // 4) DB에서 이미지 row 삭제
-    await sql`DELETE FROM images WHERE id = ANY(${ids})`;
+    await sql`
+      DELETE FROM images
+      WHERE id IN (${sql(ids)})
+    `;
 
     // 5) 활동 로그
     await logActivity({
