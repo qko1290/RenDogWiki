@@ -1,14 +1,19 @@
-// =============================================
-// File: app/components/wiki/NpcGrid.tsx (전체 코드)
-// =============================================
+// app/components/wiki/NpcGrid.tsx
 import React from "react";
 import { toProxyUrl } from "@lib/cdn";
 
-// 허용 태그(한국어) — 색은 CSS 변수로 빼서 나중에 쉽게 변경
 const ALLOWED_TAGS = [
-  '추천','필수','완정','보스','타임어택','기사단','극난퀘','혼의 시련','6차',
+  "추천",
+  "필수",
+  "완정",
+  "보스",
+  "타임어택",
+  "기사단",
+  "극난퀘",
+  "혼의 시련",
+  "6차",
 ] as const;
-type TagKey = typeof ALLOWED_TAGS[number];
+type TagKey = (typeof ALLOWED_TAGS)[number];
 
 export type Npc = {
   id: number;
@@ -18,7 +23,7 @@ export type Npc = {
   location_y: number;
   location_z: number;
   pictures?: string[];
-  tag?: string | null;     // ✅ API 그대로(한국어 또는 null)
+  tag?: string | null; // 한국어 태그 그대로
 };
 
 type Props = {
@@ -27,8 +32,9 @@ type Props = {
   selectedNpcId?: number | null;
 };
 
-const isImageUrl = (v?: string | null) => typeof v === "string" && v.startsWith("http");
-const slug = (t: string) => t.replace(/\s+/g, '-'); // CSS 변수 키 변환(공백 → 하이픈)
+const isImageUrl = (v?: string | null) =>
+  typeof v === "string" && v.startsWith("http");
+const slug = (t: string) => t.replace(/\s+/g, "-");
 
 export default function NpcGrid({ npcs, onClick, selectedNpcId }: Props) {
   return (
@@ -47,8 +53,9 @@ export default function NpcGrid({ npcs, onClick, selectedNpcId }: Props) {
         const selected = selectedNpcId === npc.id;
         const handleActivate = () => onClick?.(npc);
 
-        // 표시용: 허용 목록에 있는 태그만 뱃지로 렌더(그 외 값은 뱃지 미표시)
-        const tag = (ALLOWED_TAGS as readonly string[]).includes((npc.tag ?? '') as string)
+        const tag = (ALLOWED_TAGS as readonly string[]).includes(
+          (npc.tag ?? "") as string
+        )
           ? (npc.tag as TagKey)
           : null;
 
@@ -66,14 +73,14 @@ export default function NpcGrid({ npcs, onClick, selectedNpcId }: Props) {
                 e.preventDefault();
                 handleActivate();
               }
-            }}
+            }}  // ← 여기 괄호 두 개만 닫히면 OK!
             style={{
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
               border: "1.5px solid #ddd",
-              borderRadius: 10,
+              borderRadius: 12,
               height: 110,
               cursor: "pointer",
               background: selected ? "#e7f6ff" : "#fff",
@@ -83,23 +90,9 @@ export default function NpcGrid({ npcs, onClick, selectedNpcId }: Props) {
               overflow: "hidden",
             }}
           >
-            {/* ✅ 우상단 태그 배지 (색은 CSS 변수) */}
+            {/* ✅ 우상단 태그 뱃지 */}
             {tag && (
-              <span
-                aria-hidden
-                style={{
-                  position: "absolute",
-                  right: 6,
-                  top: 6,
-                  fontSize: 12,
-                  fontWeight: 800,
-                  padding: "4px 8px",
-                  borderRadius: 8,
-                  boxShadow: "0 1px 3px rgba(0,0,0,.25)",
-                  background: `var(--tag-${slug(tag)}-bg, #111827)`,
-                  color: `var(--tag-${slug(tag)}-fg, #ffffff)`,
-                }}
-              >
+              <span className={`npc-tag-badge tag-${slug(tag)}`} aria-hidden>
                 {tag}
               </span>
             )}
@@ -136,6 +129,59 @@ export default function NpcGrid({ npcs, onClick, selectedNpcId }: Props) {
             >
               {npc.name}
             </div>
+
+            {/* styled-jsx: 뱃지 스타일 */}
+            <style jsx>{`
+              .npc-tag-badge {
+                position: absolute;
+                right: 6px;
+                top: 6px;
+                font-size: 12px;
+                font-weight: 800;
+                padding: 4px 8px;
+                border-radius: 8px;
+                line-height: 1;
+                color: var(--tag-fg, #ffffff);
+                background: var(--tag-bg, #111827);
+                box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.95),
+                  0 1.5px 0 rgba(0, 0, 0, 0.25);
+                pointer-events: none;
+              }
+              .npc-tag-badge::after {
+                content: "";
+                position: absolute;
+                right: 12px;
+                bottom: -5px;
+                width: 14px;
+                height: 8px;
+                background: var(--tag-bg, #111827);
+                border-bottom-left-radius: 8px;
+                box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.95);
+              }
+
+              /* 태그별 색 테마 */
+              .tag-완정 {
+                --tag-bg: #3b82f6;
+              }
+              .tag-필수,
+              .tag-극난퀘,
+              .tag-보스 {
+                --tag-bg: #ef4444;
+              }
+              .tag-추천 {
+                --tag-bg: #10b981;
+              }
+              .tag-타임어택 {
+                --tag-bg: #f97316;
+              }
+              .tag-기사단 {
+                --tag-bg: #8b5cf6;
+              }
+              .tag-혼의-시련,
+              .tag-6차 {
+                --tag-bg: #0ea5e9;
+              }
+            `}</style>
           </div>
         );
       })}

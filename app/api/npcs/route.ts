@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
     const row = inserted[0];
     row.pictures = toArray(row.pictures);
     row.rewards  = toArray(row.rewards);
-    row.tag      = toTagKey(row.tag);
+    row.tag      = row.tag ?? null;
 
     const villageLabel = await resolveVillageName(row.village_id);
     await logActivity({
