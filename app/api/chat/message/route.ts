@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   try {
     const me = getAuthUser();
     if (!me) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } });
     }
 
     // 입력 파싱 -> text는 2000자까지, 공백만 있으면 거부
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
     const rawText = typeof body?.text === 'string' ? body.text : '';
     const text = String(rawText).slice(0, 2000);
     if (!text.trim()) {
-      return NextResponse.json({ error: 'EMPTY' }, { status: 400 });
+      return NextResponse.json({ error: 'EMPTY' }, { status: 400, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } });
     }
 
     // replyToId -> 숫자면 사용, 아니면 null
@@ -78,13 +78,13 @@ export async function POST(req: Request) {
     await ablyRest.channels.get(GLOBAL_CHANNEL).publish('message.created', msg);
 
     return NextResponse.json(msg, {
-      headers: { 'Cache-Control': 'no-store' },
+      headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' },
     });
   } catch (e: any) {
     console.error('/api/chat/message error:', e);
     return NextResponse.json(
       { error: 'post-failed', detail: String(e?.message || e) },
-      { status: 500 }
+      { status: 500, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
     );
   }
 }

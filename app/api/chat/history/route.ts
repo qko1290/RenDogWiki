@@ -72,13 +72,13 @@ export async function GET(req: Request) {
 
     return NextResponse.json(
       { items, nextCursor },
-      { headers: { 'Cache-Control': 'no-store' } }
+      { headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
     );
   } catch (err) {
     console.error('[chat/history GET] unexpected error:', err);
     return NextResponse.json(
       { error: '메시지 조회 중 오류가 발생했습니다.' },
-      { status: 500 }
+      { status: 500, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
     );
   }
 }

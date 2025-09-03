@@ -21,7 +21,7 @@ export async function GET() {
     if (!auth) {
       return NextResponse.json(
         { loggedIn: false, role: 'guest', roles: [], permissions: [] },
-        { status: 401, headers: { 'Cache-Control': 'no-store' } }
+        { status: 401, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
       );
     }
 
@@ -36,7 +36,7 @@ export async function GET() {
     if (!Array.isArray(rows) || rows.length === 0) {
       return NextResponse.json(
         { loggedIn: false, role: 'guest', roles: [], permissions: [] },
-        { status: 401, headers: { 'Cache-Control': 'no-store' } }
+        { status: 401, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
       );
     }
 
@@ -52,13 +52,13 @@ export async function GET() {
         roles: [],            // 확장 여지
         permissions: [],      // 확장 여지
       },
-      { headers: { 'Cache-Control': 'no-store' } }
+      { headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
     );
   } catch (err) {
     console.error('[auth/me:GET] unexpected error:', err);
     return NextResponse.json(
       { error: '사용자 정보를 불러오는 중 오류가 발생했습니다.' },
-      { status: 500 }
+      { status: 500, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
     );
   }
 }
@@ -67,7 +67,7 @@ export async function DELETE(req: NextRequest) {
   try {
     const auth = getAuthUser();
     if (!auth) {
-      return NextResponse.json({ error: '인증 필요' }, { status: 401 });
+      return NextResponse.json({ error: '인증 필요' }, { status: 401, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } });
     }
 
     // 본문 파싱 -> 비밀번호 필수
@@ -76,7 +76,7 @@ export async function DELETE(req: NextRequest) {
     if (!password) {
       return NextResponse.json(
         { error: '비밀번호가 필요합니다.' },
-        { status: 400 }
+        { status: 400, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
       );
     }
 
@@ -90,7 +90,7 @@ export async function DELETE(req: NextRequest) {
     if (!Array.isArray(rows) || rows.length === 0) {
       return NextResponse.json(
         { error: '사용자를 찾을 수 없습니다.' },
-        { status: 404 }
+        { status: 404, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
       );
     }
 
@@ -101,7 +101,7 @@ export async function DELETE(req: NextRequest) {
     if (!ok) {
       return NextResponse.json(
         { error: '비밀번호가 일치하지 않습니다.' },
-        { status: 401 }
+        { status: 401, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
       );
     }
 
@@ -111,7 +111,7 @@ export async function DELETE(req: NextRequest) {
     // JWT 쿠키 만료
     const res = NextResponse.json(
       { message: '탈퇴 완료' },
-      { headers: { 'Cache-Control': 'no-store' } }
+      { headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
     );
     res.cookies.set('token', '', {
       httpOnly: true,
@@ -127,7 +127,7 @@ export async function DELETE(req: NextRequest) {
     console.error('[auth/me:DELETE] unexpected error:', err);
     return NextResponse.json(
       { error: '탈퇴 처리 중 오류가 발생했습니다.' },
-      { status: 500 }
+      { status: 500, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
     );
   }
 }

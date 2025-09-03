@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     if (!type || type.length > 128) {
       return NextResponse.json(
         { ok: false, error: 'type-required' },
-        { status: 400, headers: { 'Cache-Control': 'no-store' } }
+        { status: 400, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
       );
     }
 
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
     if (!key) {
       return NextResponse.json(
         { ok: false, error: 'ably-key-missing' },
-        { status: 500, headers: { 'Cache-Control': 'no-store' } }
+        { status: 500, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
       );
     }
 
@@ -49,7 +49,7 @@ export async function POST(req: Request) {
     if (serialized.length > MAX_PAYLOAD_BYTES) {
       return NextResponse.json(
         { ok: false, error: 'payload-too-large' },
-        { status: 413, headers: { 'Cache-Control': 'no-store' } }
+        { status: 413, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
       );
     }
 
@@ -60,13 +60,13 @@ export async function POST(req: Request) {
 
     return NextResponse.json(
       { ok: true },
-      { headers: { 'Cache-Control': 'no-store' } }
+      { headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
     );
   } catch (err: any) {
     console.error('/api/chat/publish error', err);
     return NextResponse.json(
       { ok: false, error: err?.message || 'publish-failed' },
-      { status: 500, headers: { 'Cache-Control': 'no-store' } }
+      { status: 500, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
     );
   }
 }

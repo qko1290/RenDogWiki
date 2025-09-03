@@ -116,13 +116,13 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(
       { me_id: meId, messages },
-      { headers: { 'Cache-Control': 'no-store' } }
+      { headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
     );
   } catch (e: any) {
     console.error('/api/chat/list error:', e);
     return NextResponse.json(
       { error: 'list-failed', detail: String(e?.message || e) },
-      { status: 500 }
+      { status: 500, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
     );
   }
 }

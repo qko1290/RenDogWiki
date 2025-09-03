@@ -26,7 +26,7 @@ export async function POST(req: Request) {
   try {
     const me = getAuthUser();
     if (!me) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } });
     }
 
     const body = await req.json().catch(() => null);
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     const type = body?.type as ReactionType;
 
     if (!Number.isFinite(msgId) || (type !== 'like' && type !== 'dislike')) {
-      return NextResponse.json({ error: 'BAD_REQUEST' }, { status: 400 });
+      return NextResponse.json({ error: 'BAD_REQUEST' }, { status: 400, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } });
     }
 
     // ===== 트랜잭션처럼 순서 보장해서 처리 =====
@@ -108,13 +108,13 @@ export async function POST(req: Request) {
     await ablyRest.channels.get(GLOBAL_CHANNEL).publish('reaction.updated', payload);
 
     return NextResponse.json(payload, {
-      headers: { 'Cache-Control': 'no-store' },
+      headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' },
     });
   } catch (e: any) {
     console.error('/api/chat/reaction error:', e);
     return NextResponse.json(
       { error: 'reaction-failed', detail: String(e?.message || e) },
-      { status: 500 }
+      { status: 500, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
     );
   }
 }

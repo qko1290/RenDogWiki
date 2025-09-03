@@ -15,6 +15,7 @@
 
 import { NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
+import { cached } from '@/wiki/lib/cache'; // ✅ 내부 마이크로 캐시(앱 메모리)
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -44,6 +45,46 @@ const ROOT_LABEL: Record<string, string> = {
 
 function isNumericLike(v: unknown): v is string {
   return typeof v === 'string' && /^\d+$/.test(v);
+}
+
+/** ✅ 숫자 id 집합 → 이름 맵을 60초 동안 앱 메모리에 캐시 */
+async function getFolderNameMap(ids: number[]): Promise<Record<number, string>> {
+  if (!ids.length) return {};
+  const key = `activity:folderNames:${ids.slice().sort((a, b) => a - b).join(',')}`;
+  return cached(key, { ttlSec: 60 }, async () => {
+    const rs = (await sql`
+      SELECT id, name FROM image_folders WHERE id = ANY(${ids})
+    `) as unknown as { id: number; name: string }[];
+    const obj: Record<number, string> = {};
+    for (const r of rs) obj[Number(r.id)] = r.name;
+    return obj;
+  });
+}
+
+async function getCategoryNameMap(ids: number[]): Promise<Record<number, string>> {
+  if (!ids.length) return {};
+  const key = `activity:categoryNames:${ids.slice().sort((a, b) => a - b).join(',')}`;
+  return cached(key, { ttlSec: 60 }, async () => {
+    const rs = (await sql`
+      SELECT id, name FROM categories WHERE id = ANY(${ids})
+    `) as unknown as { id: number; name: string }[];
+    const obj: Record<number, string> = {};
+    for (const r of rs) obj[Number(r.id)] = r.name;
+    return obj;
+  });
+}
+
+async function getVillageNameMap(ids: number[]): Promise<Record<number, string>> {
+  if (!ids.length) return {};
+  const key = `activity:villageNames:${ids.slice().sort((a, b) => a - b).join(',')}`;
+  return cached(key, { ttlSec: 60 }, async () => {
+    const rs = (await sql`
+      SELECT id, name FROM village WHERE id = ANY(${ids})
+    `) as unknown as { id: number; name: string }[];
+    const obj: Record<number, string> = {};
+    for (const r of rs) obj[Number(r.id)] = r.name;
+    return obj;
+  });
 }
 
 export async function GET(req: Request) {
@@ -144,30 +185,12 @@ export async function GET(req: Request) {
     }
   }
 
-  // 필요한 라벨만 일괄 조회
-  const folderNameMap = new Map<number, string>();
-  if (needFolderIds.size) {
-    const rs = (await sql`
-      SELECT id, name FROM image_folders WHERE id = ANY(${Array.from(needFolderIds)})
-    `) as unknown as { id: number; name: string }[];
-    rs.forEach((r) => folderNameMap.set(r.id, r.name));
-  }
-
-  const categoryNameMap = new Map<number, string>();
-  if (needCategoryIds.size) {
-    const rs = (await sql`
-      SELECT id, name FROM categories WHERE id = ANY(${Array.from(needCategoryIds)})
-    `) as unknown as { id: number; name: string }[];
-    rs.forEach((r) => categoryNameMap.set(r.id, r.name));
-  }
-
-  const villageNameMap = new Map<number, string>();
-  if (needVillageIds.size) {
-    const rs = (await sql`
-      SELECT id, name FROM village WHERE id = ANY(${Array.from(needVillageIds)})
-    `) as unknown as { id: number; name: string }[];
-    rs.forEach((r) => villageNameMap.set(r.id, r.name));
-  }
+  // 필요한 라벨만 일괄 조회 (✅ 60초 마이크로 캐시)
+  const [folderNameMap, categoryNameMap, villageNameMap] = await Promise.all([
+    getFolderNameMap(Array.from(needFolderIds)),
+    getCategoryNameMap(Array.from(needCategoryIds)),
+    getVillageNameMap(Array.from(needVillageIds)),
+  ]);
 
   // 숫자 경로라면 id -> 이름으로 바꿔서 반환
   const labeled: Row[] = rows.map((r) => {
@@ -178,15 +201,15 @@ export async function GET(req: Request) {
     } else if (isNumericLike(path)) {
       const id = Number(path);
       if (r.target_type === 'folder' || r.target_type === 'image') {
-        path = folderNameMap.get(id) ?? path;
+        path = folderNameMap[id] ?? path;
       } else if (r.target_type === 'category' || r.target_type === 'document') {
-        path = categoryNameMap.get(id) ?? path;
+        path = categoryNameMap[id] ?? path;
       } else if (
         r.target_type === 'npc' ||
         r.target_type === 'head' ||
         r.target_type === 'village'
       ) {
-        path = villageNameMap.get(id) ?? path;
+        path = villageNameMap[id] ?? path;
       }
     }
 
@@ -197,6 +220,6 @@ export async function GET(req: Request) {
 
   return NextResponse.json(
     { items: labeled, nextCursor },
-    { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate' } }
+    { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate', 'X-App-Cache': 'OFF' } }
   );
 }

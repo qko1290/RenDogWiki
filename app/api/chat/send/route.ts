@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     if (!me) {
       return NextResponse.json(
         { error: 'unauthorized' },
-        { status: 401, headers: { 'Cache-Control': 'no-store' } }
+        { status: 401, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
       );
     }
 
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     if (!text.trim()) {
       return NextResponse.json(
         { error: 'bad-request' },
-        { status: 400, headers: { 'Cache-Control': 'no-store' } }
+        { status: 400, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
       );
     }
 
@@ -94,13 +94,13 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(
       { ok: true, id: newId },
-      { headers: { 'Cache-Control': 'no-store' } }
+      { headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
     );
   } catch (e: any) {
     console.error('/api/chat/send error:', e);
     return NextResponse.json(
       { error: 'send-failed', detail: String(e?.message || e) },
-      { status: 500 }
+      { status: 500, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
     );
   }
 }

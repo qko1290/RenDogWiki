@@ -23,7 +23,7 @@ export async function GET() {
     if (!KEY) {
       return NextResponse.json(
         { error: 'no-ably-key' },
-        { status: 500, headers: { 'Cache-Control': 'no-store' } }
+        { status: 500, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
       );
     }
 
@@ -48,13 +48,13 @@ export async function GET() {
     });
 
     return NextResponse.json(tokenRequest, {
-      headers: { 'Cache-Control': 'no-store' },
+      headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' },
     });
   } catch (e: any) {
     console.error('/api/chat/ably-token error:', e);
     return NextResponse.json(
       { error: 'ably-token-failed', detail: String(e?.message || e) },
-      { status: 500, headers: { 'Cache-Control': 'no-store' } }
+      { status: 500, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
     );
   }
 }

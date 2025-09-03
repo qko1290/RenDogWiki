@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     if (!me) {
       return NextResponse.json(
         { error: 'unauthorized' },
-        { status: 401, headers: { 'Cache-Control': 'no-store' } }
+        { status: 401, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
       );
     }
 
@@ -31,13 +31,13 @@ export async function POST(req: NextRequest) {
     if (!Number.isFinite(messageId) || messageId <= 0) {
       return NextResponse.json(
         { error: 'bad-id' },
-        { status: 400, headers: { 'Cache-Control': 'no-store' } }
+        { status: 400, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
       );
     }
     if (!kind) {
       return NextResponse.json(
         { error: 'bad-type' },
-        { status: 400, headers: { 'Cache-Control': 'no-store' } }
+        { status: 400, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
       );
     }
 
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
     if (!row) {
       return NextResponse.json(
         { error: 'not-found' },
-        { status: 404, headers: { 'Cache-Control': 'no-store' } }
+        { status: 404, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
       );
     }
 
@@ -94,13 +94,13 @@ export async function POST(req: NextRequest) {
         i_liked: row.i_liked,
         i_disliked: row.i_disliked,
       },
-      { headers: { 'Cache-Control': 'no-store' } }
+      { headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
     );
   } catch (e: any) {
     console.error('/api/chat/toggle-reaction error:', e);
     return NextResponse.json(
       { error: 'toggle-failed', detail: String(e?.message || e) },
-      { status: 500, headers: { 'Cache-Control': 'no-store' } }
+      { status: 500, headers: { 'Cache-Control': 'no-store', 'X-App-Cache': 'OFF' } }
     );
   }
 }

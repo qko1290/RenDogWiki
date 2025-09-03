@@ -248,7 +248,7 @@ export default function WikiPageInner({ user }: Props) {
     (async () => {
       try {
         const catUrl = mode ? `/api/categories?modes=${encodeURIComponent(mode)}` : '/api/categories';
-        const resCat = await fetch(catUrl, { cache: 'no-store' });
+        const resCat = await fetch(catUrl);
         const catData = await resCat.json();
 
         const mod = await import('@/wiki/lib/buildCategoryTree');
@@ -281,7 +281,7 @@ export default function WikiPageInner({ user }: Props) {
         setClosingMap({});
 
         // 전체 문서
-        const resDoc = await fetch('/api/documents?all=1', { cache: 'no-store' });
+        const resDoc = await fetch('/api/documents?all=1');
         const docsRaw = await resDoc.json();
         const rawList: any[] = Array.isArray(docsRaw)
           ? docsRaw
@@ -494,7 +494,7 @@ export default function WikiPageInner({ user }: Props) {
     setLoadingDoc(true);  
 
     const pathParam = isRoot ? '0' : String(categoryPath.at(-1));
-    fetch(`/api/documents?path=${pathParam}&title=${encodeURIComponent(docTitle)}`, { cache: 'no-store' })
+    fetch(`/api/documents?path=${pathParam}&title=${encodeURIComponent(docTitle)}`)
       .then(res => { if (!res.ok) throw new Error('문서를 찾을 수 없습니다.'); return res.json(); })
       .then(data => {
         if (!mountedRef.current || reqId !== docReqIdRef.current) return;
@@ -529,7 +529,7 @@ export default function WikiPageInner({ user }: Props) {
     const reqId = ++docReqIdRef.current;
     setLoadingDoc(true);
     try {
-      const r = await fetch(`/api/documents?id=${docId}`, { cache: 'no-store' });
+      const r = await fetch(`/api/documents?id=${docId}`);
       if (!r.ok) throw 0;
       const data = await r.json();
       if (!mountedRef.current || reqId !== docReqIdRef.current) return;
