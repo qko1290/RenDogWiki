@@ -6,12 +6,5 @@
       { "protocol": "https", "hostname": "d1y7k8qotewoph.cloudfront.net" },
       { "protocol": "https", "hostname": "rendog-wiki-images.s3.amazonaws.com" }
     ]
-  },
-  "crons": [
-    {
-      "path": "/api/warmup",
-      "schedule": "*/20 * * * *"
-    }
-  ]
+  }
 }
-
