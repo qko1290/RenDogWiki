@@ -35,7 +35,7 @@ export default function NpcGrid({ npcs, onClick, selectedNpcId }: Props) {
         display: "grid",
         gridTemplateColumns: "repeat(7, 1fr)",
         gridTemplateRows: "repeat(3, 1fr)",
-        gap: 20,
+        gap: "60px 20px",
         margin: "20px 0",
       }}
     >
