@@ -147,12 +147,12 @@ export default function NpcGrid({ npcs, onClick, selectedNpcId }: Props) {
               */
               .npc-tag-badge {
                 position: absolute;
-                top: -10px;
-                right: -10px;
+                top: -20px;
+                right: -45px;
                 font-family: var(--wiki-round-font, 'Jua'), Pretendard, Malgun Gothic, sans-serif;
-                font-size: 18px;          /* 12px → 18px */
+                font-size: 14px;          /* 12px → 18px */
                 font-weight: 800;
-                padding: 6px 12px;
+                padding: 4px 8px;
                 line-height: 1.05;
                 white-space: nowrap;
                 color: var(--tag-color, #111827);
