@@ -7,11 +7,6 @@
       { "protocol": "https", "hostname": "rendog-wiki-images.s3.amazonaws.com" }
     ]
   },
-  "functions": {
-    "app/api/**/*.{js,ts}": {
-      "regions": ["icn1", "hnd1", "hkg1"]
-    }
-  },
   "crons": [
     {
       "path": "/api/warmup",
