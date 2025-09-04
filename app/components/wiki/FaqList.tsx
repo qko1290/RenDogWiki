@@ -37,9 +37,7 @@ function useAuthFlags(user: User) {
         const roles: string[] = (me?.roles ?? me?.user?.roles ?? me?.permissions ?? me?.user?.permissions ?? [])
           .map((v: any) => String(v).toLowerCase());
 
-        // ✅ manager 제거: admin만 관리자
         const isAdmin = role === 'admin' || roles.includes('admin');
-        // ✅ 작성 가능: admin 또는 writer
         const canWrite = isAdmin || role === 'writer' || roles.includes('writer');
 
         if (!cancelled) setFlags({ canWrite, isAdmin, loading: false });
@@ -51,6 +49,26 @@ function useAuthFlags(user: User) {
   }, [user?.id]);
 
   return flags;
+}
+
+// ────────────────────────────────────────────────────────────
+// 단건 조회 유틸: 항상 최신값을 가져오도록 no-store
+// ────────────────────────────────────────────────────────────
+async function fetchFaqDetail(id: number): Promise<FaqItem | null> {
+  try {
+    const r = await fetch(`/api/faq/${id}`, { cache: 'no-store' });
+    if (r.status === 204 || !r.ok) return null;
+    const data = await r.json();
+    const tags = Array.isArray(data.tags)
+      ? data.tags
+      : String(data.tags ?? '')
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+    return { ...data, tags };
+  } catch {
+    return null;
+  }
 }
 
 export default function FaqList({
@@ -132,12 +150,11 @@ export default function FaqList({
   }
 
   useEffect(() => {
-  if (!menu.open) return;
+    if (!menu.open) return;
 
-  const close = () => setMenu({ open:false, id:null, x:0, y:0 });
+    const close = () => setMenu({ open:false, id:null, x:0, y:0 });
     const onPointer = (e: Event) => {
       const el = e.target as HTMLElement | null;
-      // 팝업이나 ⋯버튼을 누른 게 아니면 닫기
       if (!el?.closest('.faq-popover') && !el?.closest('.faq-menu-btn')) close();
     };
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
@@ -177,8 +194,15 @@ export default function FaqList({
         ) : (
           viewItems.map(it => (
             <div key={it.id} className="faq-row">
-              {/* 제목(왼쪽) */}
-              <button className="faq-title" onClick={() => setSel(it)} title={it.title}>
+              {/* 제목(왼쪽): 항상 단건 최신값으로 모달 오픈 */}
+              <button
+                className="faq-title"
+                onClick={async () => {
+                  const fresh = await fetchFaqDetail(it.id);
+                  setSel(fresh ?? it);
+                }}
+                title={it.title}
+              >
                 <span className="faq-q">Q</span>
                 <span className="faq-title-text">{it.title}</span>
               </button>
@@ -187,14 +211,13 @@ export default function FaqList({
               {isAdmin && (
                 <div className="faq-menu" onClick={(e) => e.stopPropagation()}>
                   <button
-                    className="faq-menu-btn"
+                    className="faq-menu-btn faq-menu-btn"
                     aria-label="more"
                     onClick={(e) => {
                       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                      // 버튼의 오른쪽 가장자리에 '붙여서', 아래로 6px 내린 위치
                       const x = Math.min(
-                        window.innerWidth - 100 - 8,  // 우측 밖으로 나가지 않게
-                        Math.max(8, rect.right - 100) // 버튼 오른쪽에 flush
+                        window.innerWidth - 100 - 8,
+                        Math.max(8, rect.right - 100)
                       );
                       const y = rect.bottom + 6;
 
@@ -227,7 +250,15 @@ export default function FaqList({
           }}
           role="menu"
         >
-          <button role="menuitem" onClick={() => { setMenu({open:false,id:null,x:0,y:0}); setEditTarget(items.find(i => i.id === menu.id) || null); }}>
+          <button
+            role="menuitem"
+            onClick={async () => {
+              const id = menu.id!;
+              setMenu({open:false,id:null,x:0,y:0});
+              const fresh = await fetchFaqDetail(id);
+              setEditTarget(fresh ?? (items.find(i => i.id === id) || null));
+            }}
+          >
             수정
           </button>
           <button
@@ -301,7 +332,14 @@ export default function FaqList({
           mode="edit"
           initial={{ id: editTarget.id, title: editTarget.title, content: editTarget.content, tags: editTarget.tags }}
           onClose={() => setEditTarget(null)}
-          onSaved={() => { setEditTarget(null); refresh(); }}
+          onSaved={async () => {
+            setEditTarget(null);
+            await refresh();
+            if (sel?.id) {
+              const fresh = await fetchFaqDetail(sel.id);
+              if (fresh) setSel(fresh);
+            }
+          }}
         />
       )}
 
@@ -342,7 +380,7 @@ export default function FaqList({
           font-size: 16px;
           font-weight: 700;
           background: none; border: 0;
-          padding: 2px 0;            /* › 화살표 제거 */
+          padding: 2px 0;
           cursor: pointer;
           text-align: left; flex: 1 1 auto;
           color: #0f172a;
@@ -401,7 +439,7 @@ export default function FaqList({
           width: 36px; height: 36px;
           display: grid; place-items: center;
           background: transparent; border: 0; border-radius: 0;
-          color: #ef4444;           /* 빨간색 */
+          color: #ef4444;
           cursor: pointer;
           transition: transform .12s ease;
         }
