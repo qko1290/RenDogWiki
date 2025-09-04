@@ -117,6 +117,8 @@ export async function POST(req: NextRequest) {
     });
 
     // ⚠️ 별도 무효화 API가 없다면 TTL 만료(120s)로 일관성 확보
+    const { invalidate } = await import('@/wiki/lib/cache');
+    invalidate('villages:all', `village:by-name:${name}`, 'bootstrap:v1');
     return NextResponse.json(rows[0], { headers: { 'Cache-Control': 'no-store' } });
   } catch (err) {
     console.error('[villages POST] unexpected error:', err);

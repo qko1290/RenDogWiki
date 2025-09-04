@@ -247,15 +247,17 @@ export default function WikiPageInner({ user }: Props) {
     let cancelled = false;
     (async () => {
       try {
-        const catUrl = mode ? `/api/categories?modes=${encodeURIComponent(mode)}` : '/api/categories';
-        const resCat = await fetch(catUrl);
-        const catData = await resCat.json();
+        const url = '/api/bootstrap' + (mode ? `?m=${encodeURIComponent(mode)}` : '');
+        const r = await fetch(url, { cache: 'force-cache' });
+        const { categories: catData, documents: docsRaw, featured } = await r.json();
 
+        // 카테고리 트리 구성
         const mod = await import('@/wiki/lib/buildCategoryTree');
         const tree = mod.buildCategoryTree(catData) as CategoryNode[];
         if (cancelled || !mountedRef.current) return;
         setCategories(tree);
 
+        // 맵/경로 구축
         const idToPath: Record<number, number[]> = {};
         const catMap: Record<number, CategoryNode> = {};
         const walk = (nodes: CategoryNode[], path: number[] = []) => {
@@ -271,36 +273,32 @@ export default function WikiPageInner({ user }: Props) {
         setCategoryIdToPathMap(idToPath);
         setCategoryIdMap(catMap);
 
-        // 초기 상태 리셋
-        setSelectedDocId(null);
-        setSelectedDocPath(null);
-        setSelectedDocTitle(null);
-        setSelectedCategoryPath(null);
-        setDocContent(null);
-        setOpenPaths([]);
-        setClosingMap({});
-
-        // 전체 문서
-        const resDoc = await fetch('/api/documents?all=1');
-        const docsRaw = await resDoc.json();
-        const rawList: any[] = Array.isArray(docsRaw)
-          ? docsRaw
-          : Array.isArray(docsRaw.documents) ? docsRaw.documents : [];
-
-        // ⭐ fullPath 계산: path===0 → []
-        const mapped: Document[] = rawList.map((r: any) => {
+        // 전체 문서 메타
+        const mapped: Document[] = (docsRaw || []).map((r: any) => {
           const pNum = /^\d+$/.test(String(r.path)) ? Number(r.path) : NaN;
           const fullPath =
             Number(r.path) === 0 ? [] :
             Number.isFinite(pNum) ? (idToPath[pNum] || [pNum]) : [];
           return { ...r, fullPath, special: r.special ?? null };
         });
-
         if (cancelled || !mountedRef.current) return;
         setAllDocuments(mapped);
 
-        // ❌ 여기서 루트 문서를 바로 열지 않음 (지연 오픈 로직은 아래 effect에서 처리)
-      } catch {}
+        // 최초 뷰를 바로 렌더(대표 문서)
+        if (featured?.id && featured?.content) {
+          setHideDocChrome(true);
+          setSelectedDocId(featured.id);
+          setSelectedDocTitle(featured.title ?? null);
+          setSelectedDocPath([]); // 루트
+          setSelectedCategoryPath(null);
+          setDocContent(typeof featured.content === 'string'
+            ? JSON.parse(featured.content) : featured.content);
+          setTableOfContents(extractHeadings(typeof featured.content === 'string'
+            ? JSON.parse(featured.content) : featured.content));
+        }
+      } catch (e) {
+        console.error('[bootstrap init] failed', e);
+      }
     })();
     return () => { cancelled = true; };
   }, [mode]);

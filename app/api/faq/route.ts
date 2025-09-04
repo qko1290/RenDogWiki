@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
 
     // ✅ 120초 메모리 캐시 (쿼리 조합별)
     const cacheKey = `faq:list:q=${q}|tags=${tagsCsv}|limit=${limit}|offset=${offset}`;
-    const data = await cached(cacheKey, { ttlSec: 120 }, async () => {
+    const data = await cached(cacheKey, { ttlSec: 120, tags: ['faq:list'] }, async () => {
       const rows = await sql`
         SELECT id, title, content, tags, uploader, created_at, updated_at
         FROM faq_questions
@@ -98,6 +98,8 @@ export async function POST(req: NextRequest) {
       RETURNING id, title, content, tags, uploader, created_at, updated_at
     `;
     const r = rows[0];
+    const { invalidate } = await import('@/wiki/lib/cache');
+    invalidate('faq:list', 'bootstrap:v1');
     return NextResponse.json(
       {
         id: r.id,
