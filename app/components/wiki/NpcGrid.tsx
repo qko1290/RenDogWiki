@@ -1,3 +1,4 @@
+// app/components/wiki/NpcGrid.tsx
 import React, { useMemo, useState } from "react";
 import { toProxyUrl } from "@lib/cdn";
 
@@ -22,22 +23,18 @@ type Props = {
   onClick?: (npc: Npc) => void;
   selectedNpcId?: number | null;
 
-  /** 0부터 시작하는 페이지 인덱스(제어 컴포넌트로 쓰려면 사용) */
+  /** 제어형으로 쓰려면 제공 */
   page?: number;
-  /** 페이지 변경 콜백(제어 컴포넌트로 쓰려면 함께 제공) */
   onPageChange?: (nextPage: number) => void;
-  /** 페이지당 아이템 수(기본 21 = 7×3) */
+  /** 기본 21(7×3) */
   pageSize?: number;
-  /** 하단 페이저 표시 여부(기본 true) */
+  /** 페이저 노출 */
   showPager?: boolean;
 };
 
-const COLS = 7;
-const ROWS = 3;
-const DEFAULT_PAGE_SIZE = COLS * ROWS; // 21
+const DEFAULT_PAGE_SIZE = 7 * 3;
 
-const isImageUrl = (v?: string | null) =>
-  typeof v === "string" && v.startsWith("http");
+const isImageUrl = (v?: string | null) => typeof v === "string" && v.startsWith("http");
 const slug = (t: string) => t.replace(/\s+/g, "-");
 
 export default function NpcGrid({
@@ -49,14 +46,11 @@ export default function NpcGrid({
   pageSize = DEFAULT_PAGE_SIZE,
   showPager = true,
 }: Props) {
-  // 내부 페이지 상태 (제어 props 미지정 시 사용)
   const [innerPage, setInnerPage] = useState(0);
   const curPage = typeof page === "number" ? page : innerPage;
 
-  // 총 페이지
   const pageCount = Math.max(1, Math.ceil(npcs.length / pageSize));
 
-  // 현재 페이지에 해당하는 21개(또는 pageSize) 슬라이스
   const view = useMemo(() => {
     const start = curPage * pageSize;
     return npcs.slice(start, start + pageSize);
@@ -64,11 +58,8 @@ export default function NpcGrid({
 
   const goPage = (p: number) => {
     const next = Math.min(Math.max(0, p), pageCount - 1);
-    if (typeof page === "number" && onPageChange) {
-      onPageChange(next);
-    } else {
-      setInnerPage(next);
-    }
+    if (typeof page === "number" && onPageChange) onPageChange(next);
+    else setInnerPage(next);
   };
 
   return (
@@ -78,9 +69,7 @@ export default function NpcGrid({
           const selected = selectedNpcId === npc.id;
           const handleActivate = () => onClick?.(npc);
 
-          const tag = (ALLOWED_TAGS as readonly string[]).includes(
-            (npc.tag ?? "") as string
-          )
+          const tag = (ALLOWED_TAGS as readonly string[]).includes((npc.tag ?? "") as string)
             ? (npc.tag as TagKey)
             : null;
 
@@ -103,10 +92,7 @@ export default function NpcGrid({
             >
               <div className="npc-icon-wrap">
                 {tag && (
-                  <span
-                    className={`npc-tag-badge tag-${slug(tag)}`}
-                    aria-hidden
-                  >
+                  <span className={`npc-tag-badge tag-${slug(tag)}`} aria-hidden>
                     {tag}
                   </span>
                 )}
@@ -141,9 +127,7 @@ export default function NpcGrid({
           >
             ◀
           </button>
-          <span className="npc-pg-text">
-            {curPage + 1} / {pageCount}
-          </span>
+          <span className="npc-pg-text">{curPage + 1} / {pageCount}</span>
           <button
             type="button"
             className="npc-pg-btn"
@@ -156,31 +140,63 @@ export default function NpcGrid({
         </div>
       )}
 
-      {/* 한 블록으로 통합한 스타일 (styled-jsx 안정성) */}
       <style jsx>{`
-        .npc-grid-wrap {
-          width: 100%;
-        }
+        .npc-grid-wrap { width: 100%; }
 
-        /* ====== 핵심 레이아웃 규칙 ======
-           - 반드시 7열 (repeat(7, ...))
-           - 왼쪽 정렬(여백은 오른쪽에 남김)
-           - 세로는 3줄까지만 표시(21개는 위에서 슬라이스)
-         */
+        /* ===== 핵심 =====
+           - 항상 7열 (repeat(7, ...))
+           - 왼쪽 정렬
+           - 크기/간격은 화면 폭에 따라 변수로 반응 (아이콘 정사각형 유지)
+        */
         .npc-grid {
-          --card-w: 140px;  /* 카드 가로폭(필요시 조정) */
-          --gap-x: 20px;    /* 가로 간격 */
-          --gap-y: 40px;    /* 세로 간격 */
+          /* 기본(데스크탑) */
+          --card-w: 140px;  /* 카드 가로폭 */
+          --icon:   65px;   /* 아이콘 한 변(정사각형) */
+          --gap-x:  20px;   /* 가로 간격 */
+          --gap-y:  40px;   /* 세로 간격 */
 
           display: grid;
-          grid-template-columns: repeat(7, var(--card-w)); /* 하드코딩으로 안정화 */
-          justify-content: start;   /* 왼쪽 정렬 */
+          grid-template-columns: repeat(7, var(--card-w));
+          justify-content: start;     /* 왼쪽 정렬 */
           column-gap: var(--gap-x);
           row-gap: var(--gap-y);
           margin: 20px 0;
         }
 
-        /* 카드: 가로폭 고정, 아이콘도 고정 크기 */
+        /* --- 반응형 튜닝 ---
+           15인치 노트북 같은 좁은 폭에서 자동으로 축소되며,
+           7열/정사각형은 유지됩니다.
+        */
+        /* ~1440px */
+        @media (max-width: 1440px) {
+          .npc-grid { --card-w: 132px; --icon: 60px; --gap-x: 18px; --gap-y: 36px; }
+        }
+        /* ~1280px */
+        @media (max-width: 1280px) {
+          .npc-grid { --card-w: 120px; --icon: 56px; --gap-x: 16px; --gap-y: 32px; }
+        }
+        /* ~1120px */
+        @media (max-width: 1120px) {
+          .npc-grid { --card-w: 108px; --icon: 52px; --gap-x: 14px; --gap-y: 28px; }
+        }
+        /* ~1024px (일반 15.6" 노트북에 근접) */
+        @media (max-width: 1024px) {
+          .npc-grid { --card-w: 100px; --icon: 48px; --gap-x: 12px; --gap-y: 26px; }
+        }
+        /* ~920px */
+        @media (max-width: 920px) {
+          .npc-grid { --card-w: 92px; --icon: 44px; --gap-x: 10px; --gap-y: 24px; }
+        }
+        /* ~820px */
+        @media (max-width: 820px) {
+          .npc-grid { --card-w: 86px; --icon: 42px; --gap-x: 10px; --gap-y: 22px; }
+        }
+        /* 비상 폴백(아주 좁은 폭): 그래도 7열 유지 */
+        @media (max-width: 760px) {
+          .npc-grid { --card-w: 80px; --icon: 40px; --gap-x: 8px; --gap-y: 20px; }
+        }
+
+        /* 카드/아이콘은 변수로 크기 결정 → 정사각형 유지 */
         .npc-card {
           width: var(--card-w);
           height: 110px;
@@ -191,34 +207,33 @@ export default function NpcGrid({
           border: 1.5px solid #ddd;
           border-radius: 12px;
           background: #fff;
-          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+          box-shadow: 0 2px 6px rgba(0,0,0,0.04);
           cursor: pointer;
           position: relative;
           outline: none;
-          overflow: visible; /* 뱃지가 삐져나가도 보이게 */
+          overflow: visible;
         }
-        .npc-card.is-selected {
-          background: #e7f6ff;
-        }
+        .npc-card.is-selected { background: #e7f6ff; }
 
         .npc-icon-wrap {
-          position: relative; /* 뱃지 기준점 */
-          width: 65px;
-          height: 65px;
+          position: relative;
+          width: var(--icon);
+          height: var(--icon);      /* ← 정사각형 */
           display: flex;
           align-items: center;
           justify-content: center;
         }
         .npc-icon-img {
-          width: 65px;
-          height: 65px;
+          width: var(--icon);
+          height: var(--icon);      /* ← 정사각형 */
           border-radius: 10px;
           object-fit: cover;
           background: #fff;
           display: block;
         }
         .npc-emoji {
-          font-size: 44px;
+          /* 이모지 크기도 아이콘 비율에 맞춰 조정 */
+          font-size: calc(var(--icon) * 0.68);
           line-height: 1;
         }
 
@@ -228,11 +243,11 @@ export default function NpcGrid({
           text-align: center;
           color: #111;
           letter-spacing: 0.5px;
-          text-shadow: 0 1.5px 0 #fff, 1.5px 0 0 #fff, 0 -1.5px 0 0 #fff, -1.5px 0 0 #fff;
+          text-shadow: 0 1.5px 0 #fff, 1.5px 0 0 #fff, 0 -1.5px 0 #fff, -1.5px 0 0 #fff;
           font-family: var(--wiki-round-font, 'Jua'), Pretendard, Malgun Gothic, sans-serif;
         }
 
-        /* ===== 뱃지 ===== */
+        /* 뱃지 */
         .npc-tag-badge {
           position: absolute;
           top: -20px;
@@ -276,13 +291,8 @@ export default function NpcGrid({
           cursor: pointer;
           transition: opacity .18s ease;
         }
-        .npc-pg-btn:disabled {
-          opacity: 0.5;
-          cursor: default;
-        }
-        .npc-pg-text {
-          font-size: 16px;
-        }
+        .npc-pg-btn:disabled { opacity: 0.5; cursor: default; }
+        .npc-pg-text { font-size: 16px; }
       `}</style>
     </div>
   );
