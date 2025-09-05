@@ -22,13 +22,12 @@ type Props = {
   npcs: Npc[];
   onClick?: (npc: Npc) => void;
   selectedNpcId?: number | null;
-
-  /** 제어형으로 쓰려면 제공 */
+  /** 제어형 페이지(0부터). 미지정 시 내부 상태 사용 */
   page?: number;
   onPageChange?: (nextPage: number) => void;
-  /** 기본 21(7×3) */
+  /** 기본 21(7x3) */
   pageSize?: number;
-  /** 페이저 노출 */
+  /** 페이저 표시 (기본 true) */
   showPager?: boolean;
 };
 
@@ -96,7 +95,6 @@ export default function NpcGrid({
                     {tag}
                   </span>
                 )}
-
                 {isImageUrl(npc.icon) ? (
                   <img
                     src={toProxyUrl(npc.icon)}
@@ -109,7 +107,6 @@ export default function NpcGrid({
                   <span className="npc-emoji">{npc.icon || "🧑"}</span>
                 )}
               </div>
-
               <div className="npc-name">{npc.name}</div>
             </div>
           );
@@ -141,70 +138,41 @@ export default function NpcGrid({
       )}
 
       <style jsx>{`
-        .npc-grid-wrap { width: 100%; }
+        /* 컨테이너 쿼리 활성화: 내부 치수(가로폭)에 반응하는 cqw 단위 사용 */
+        .npc-grid-wrap {
+          width: 100%;
+          container-type: inline-size;
+        }
 
-        /* ===== 핵심 =====
-           - 항상 7열 (repeat(7, ...))
+        /* ===== 레이아웃 =====
+           - 항상 7열
+           - 컨테이너 폭을 균등 분배(1fr) → 남는 공간 없음
            - 왼쪽 정렬
-           - 크기/간격은 화면 폭에 따라 변수로 반응 (아이콘 정사각형 유지)
         */
         .npc-grid {
-          /* 기본(데스크탑) */
-          --card-w: 140px;  /* 카드 가로폭 */
-          --icon:   65px;   /* 아이콘 한 변(정사각형) */
-          --gap-x:  20px;   /* 가로 간격 */
-          --gap-y:  40px;   /* 세로 간격 */
+          /* 기본 값 (필요시 아래 clamp 계수만 미세조정) */
+          --gap-x: clamp(10px, 1.2cqw, 24px);  /* 가로 간격: 컨테이너 폭 비례 */
+          --gap-y: clamp(16px, 1.8cqw, 36px);  /* 세로 간격 */
+          --icon:  clamp(40px, 6.8cqw, 78px);  /* 아이콘 정사각형 한 변 */
+          --name:  clamp(14px, 1.6cqw, 20px);  /* 이름 폰트 크기 */
 
           display: grid;
-          grid-template-columns: repeat(7, var(--card-w));
-          justify-content: start;     /* 왼쪽 정렬 */
+          grid-template-columns: repeat(7, 1fr); /* 7개 트랙을 항상 유지 */
+          justify-content: start;                /* 왼쪽 정렬(트랙은 이미 꽉 찬 상태) */
           column-gap: var(--gap-x);
           row-gap: var(--gap-y);
           margin: 20px 0;
         }
 
-        /* --- 반응형 튜닝 ---
-           15인치 노트북 같은 좁은 폭에서 자동으로 축소되며,
-           7열/정사각형은 유지됩니다.
-        */
-        /* ~1440px */
-        @media (max-width: 1440px) {
-          .npc-grid { --card-w: 132px; --icon: 60px; --gap-x: 18px; --gap-y: 36px; }
-        }
-        /* ~1280px */
-        @media (max-width: 1280px) {
-          .npc-grid { --card-w: 120px; --icon: 56px; --gap-x: 16px; --gap-y: 32px; }
-        }
-        /* ~1120px */
-        @media (max-width: 1120px) {
-          .npc-grid { --card-w: 108px; --icon: 52px; --gap-x: 14px; --gap-y: 28px; }
-        }
-        /* ~1024px (일반 15.6" 노트북에 근접) */
-        @media (max-width: 1024px) {
-          .npc-grid { --card-w: 100px; --icon: 48px; --gap-x: 12px; --gap-y: 26px; }
-        }
-        /* ~920px */
-        @media (max-width: 920px) {
-          .npc-grid { --card-w: 92px; --icon: 44px; --gap-x: 10px; --gap-y: 24px; }
-        }
-        /* ~820px */
-        @media (max-width: 820px) {
-          .npc-grid { --card-w: 86px; --icon: 42px; --gap-x: 10px; --gap-y: 22px; }
-        }
-        /* 비상 폴백(아주 좁은 폭): 그래도 7열 유지 */
-        @media (max-width: 760px) {
-          .npc-grid { --card-w: 80px; --icon: 40px; --gap-x: 8px; --gap-y: 20px; }
-        }
-
-        /* 카드/아이콘은 변수로 크기 결정 → 정사각형 유지 */
+        /* 카드: 트랙 너비를 그대로 사용 → 영역을 꽉 채움 */
         .npc-card {
-          width: var(--card-w);
-          height: 110px;
+          width: 100%;
+          min-height: calc(var(--icon) + 44px); /* 아이콘 + 이름 영역 여유 */
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          border: 1.5px solid #ddd;
+          border: 1.5px solid #e5e7eb;
           border-radius: 12px;
           background: #fff;
           box-shadow: 0 2px 6px rgba(0,0,0,0.04);
@@ -212,50 +180,51 @@ export default function NpcGrid({
           position: relative;
           outline: none;
           overflow: visible;
+          padding: clamp(6px, 0.8cqw, 10px);
         }
         .npc-card.is-selected { background: #e7f6ff; }
 
+        /* 아이콘: 정사각형 유지 */
         .npc-icon-wrap {
           position: relative;
           width: var(--icon);
-          height: var(--icon);      /* ← 정사각형 */
+          height: var(--icon);
           display: flex;
           align-items: center;
           justify-content: center;
         }
         .npc-icon-img {
           width: var(--icon);
-          height: var(--icon);      /* ← 정사각형 */
+          height: var(--icon);
           border-radius: 10px;
           object-fit: cover;
           background: #fff;
           display: block;
         }
         .npc-emoji {
-          /* 이모지 크기도 아이콘 비율에 맞춰 조정 */
           font-size: calc(var(--icon) * 0.68);
           line-height: 1;
         }
 
         .npc-name {
-          font-size: 21px;
+          font-size: var(--name);
           font-weight: 900;
           text-align: center;
           color: #111;
-          letter-spacing: 0.5px;
-          text-shadow: 0 1.5px 0 #fff, 1.5px 0 0 #fff, 0 -1.5px 0 #fff, -1.5px 0 0 #fff;
+          letter-spacing: 0.3px;
+          text-shadow: 0 1.2px 0 #fff, 1.2px 0 0 #fff, 0 -1.2px 0 #fff, -1.2px 0 0 #fff;
           font-family: var(--wiki-round-font, 'Jua'), Pretendard, Malgun Gothic, sans-serif;
         }
 
-        /* 뱃지 */
+        /* 태그 뱃지(크기도 살짝 스케일) */
         .npc-tag-badge {
           position: absolute;
-          top: -20px;
-          right: -45px;
+          top: calc(var(--icon) * -0.32);
+          right: calc(var(--icon) * -0.65);
           font-family: var(--wiki-round-font, 'Jua'), Pretendard, Malgun Gothic, sans-serif;
-          font-size: 14px;
+          font-size: clamp(11px, 1.2cqw, 14px);
           font-weight: 800;
-          padding: 4px 8px;
+          padding: clamp(2px, 0.4cqw, 4px) clamp(6px, 0.8cqw, 8px);
           line-height: 1.05;
           white-space: nowrap;
           color: var(--tag-color, #111827);
