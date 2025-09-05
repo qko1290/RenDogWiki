@@ -22,13 +22,10 @@ type Props = {
   npcs: Npc[];
   onClick?: (npc: Npc) => void;
   selectedNpcId?: number | null;
-  /** 제어형 페이지(0부터). 미지정 시 내부 상태 사용 */
   page?: number;
   onPageChange?: (nextPage: number) => void;
-  /** 기본 21(7×3) */
-  pageSize?: number;
-  /** 페이저 표시 */
-  showPager?: boolean;
+  pageSize?: number;          // 기본 21(7x3)
+  showPager?: boolean;        // 기본 true
 };
 
 const DEFAULT_PAGE_SIZE = 7 * 3;
@@ -89,25 +86,30 @@ export default function NpcGrid({
               }}
               className={`npc-card${selected ? " is-selected" : ""}`}
             >
-              <div className="npc-icon-wrap">
-                {tag && (
-                  <span className={`npc-tag-badge tag-${slug(tag)}`} aria-hidden>
-                    {tag}
-                  </span>
-                )}
-                {isImageUrl(npc.icon) ? (
-                  <img
-                    src={toProxyUrl(npc.icon)}
-                    alt={npc.name}
-                    loading="lazy"
-                    decoding="async"
-                    className="npc-icon-img"
-                  />
-                ) : (
-                  <span className="npc-emoji">{npc.icon || "🧑"}</span>
-                )}
+              {/* 정사각형 카드 내부는 절대 배치 컨테이너로 중앙 정렬 */}
+              <div className="npc-card-inner">
+                <div className="npc-icon-wrap">
+                  {tag && (
+                    <span className={`npc-tag-badge tag-${slug(tag)}`} aria-hidden>
+                      {tag}
+                    </span>
+                  )}
+
+                  {isImageUrl(npc.icon) ? (
+                    <img
+                      src={toProxyUrl(npc.icon)}
+                      alt={npc.name}
+                      loading="lazy"
+                      decoding="async"
+                      className="npc-icon-img"
+                    />
+                  ) : (
+                    <span className="npc-emoji">{npc.icon || "🧑"}</span>
+                  )}
+                </div>
+
+                <div className="npc-name">{npc.name}</div>
               </div>
-              <div className="npc-name">{npc.name}</div>
             </div>
           );
         })}
@@ -138,77 +140,76 @@ export default function NpcGrid({
       )}
 
       <style jsx>{`
-        /* 컨테이너 폭에 반응하도록 설정(cqw 사용) */
-        .npc-grid-wrap {
-          width: 100%;
-          container-type: inline-size;
-        }
+        /* 컨테이너 쿼리: 가로폭에 반응 */
+        .npc-grid-wrap { width: 100%; container-type: inline-size; }
 
-        /* ===== 레이아웃 =====
-           - 항상 7열
-           - 트랙을 1fr로 균등 분배 → 빈 공간 최소화
-           - 왼쪽 정렬
-           - 간격/아이콘 크기는 컨테이너 폭에 비례하지만,
-             아이콘은 상한을 둬서 큰 화면에서 더 이상 커지지 않음
+        /* ===== 필수 레이아웃 규칙 =====
+           - 7열 고정, 왼쪽 정렬
+           - 세로 간격 40px 고정
+           - 가로 간격은 화면이 넓어질수록 증가
         */
         .npc-grid {
-          /* 요구사항에 맞춘 스케일:
-             - 아이콘: 작은 화면에선 더 작게(최소 32px), 큰 화면에서도 최대 60px로 제한
-             - 가로 간격: 더 넓게, 화면이 커질수록 증가
-             - 세로 간격: 40px 고정
-          */
-          --icon:  clamp(32px, 4.2cqw, 60px);  /* ⬅ 아이콘 상/하한 조정 */
-          --gap-x: clamp(16px, 2.6cqw, 56px);  /* ⬅ 가로 간격 확대/가변 */
-          --name:  clamp(12px, 1.4cqw, 18px);  /* 이름 폰트 약한 스케일 */
+          --icon:  clamp(32px, 4.2cqw, 60px);  /* 아이콘(정사각) 크기 */
+          --gap-x: clamp(18px, 2.8cqw, 56px);  /* 가로 간격(가변) */
+          --name:  clamp(12px, 1.4cqw, 18px);  /* 이름 글씨 크기 */
 
           display: grid;
           grid-template-columns: repeat(7, 1fr);
           justify-content: start;
           column-gap: var(--gap-x);
-          row-gap: 40px;                        /* ⬅ 세로 간격 고정 */
+          row-gap: 40px;                       /* 요구사항: 고정 40px */
           margin: 20px 0;
         }
 
-        /* 카드 너비는 트랙 너비(1fr)를 사용 → 그리드 영역을 가득 채움 */
+        /* ===== 카드(그리드 아이콘) 자체를 정사각형으로 =====
+           - 가로 트랙 너비에 맞춰 세로가 자동으로 같아짐
+           - 내부 콘텐츠는 카드 크기에 영향 X (absolute)
+        */
         .npc-card {
           width: 100%;
-          min-height: calc(var(--icon) + 44px);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
+          aspect-ratio: 1 / 1;                 /* ✅ 정사각형 */
+          position: relative;
           border: 1.5px solid #e5e7eb;
           border-radius: 12px;
           background: #fff;
           box-shadow: 0 2px 6px rgba(0,0,0,0.04);
           cursor: pointer;
-          position: relative;
-          outline: none;
-          overflow: visible;
-          padding: 8px;
+          overflow: hidden;                     /* 내부가 밖으로 튀어나오지 않게 */
         }
         .npc-card.is-selected { background: #e7f6ff; }
 
-        /* 아이콘: 정사각형 유지(가로 증가 금지) */
-        .npc-icon-wrap {
-          position: relative;
-          width: var(--icon);
-          height: var(--icon);
+        /* 카드 내부: 중앙 정렬 + 일정 안쪽 여백(inset) */
+        .npc-card-inner {
+          position: absolute;
+          inset: clamp(6px, 0.8cqw, 10px);     /* 카드 안쪽 패딩 느낌 */
           display: flex;
+          flex-direction: column;
           align-items: center;
           justify-content: center;
+          gap: clamp(6px, 0.9cqw, 10px);
         }
-        .npc-icon-img {
+
+        /* ==== 아이콘(정사각형 보장) ==== */
+        .npc-icon-wrap {
+          position: relative;                   /* 뱃지 기준점 */
           width: var(--icon);
           height: var(--icon);
-          border-radius: 10px;
-          object-fit: cover;
-          background: #fff;
+          display: grid;
+          place-items: center;
+          flex-shrink: 0;
+        }
+        .npc-icon-img {
+          width: 100%;
+          height: 100%;
           display: block;
+          object-fit: cover;
+          border-radius: 10px;
+          background: #fff;
         }
         .npc-emoji {
           font-size: calc(var(--icon) * 0.68);
           line-height: 1;
+          display: block;
         }
 
         .npc-name {
@@ -219,13 +220,21 @@ export default function NpcGrid({
           letter-spacing: 0.3px;
           text-shadow: 0 1.2px 0 #fff, 1.2px 0 0 #fff, 0 -1.2px 0 #fff, -1.2px 0 0 #fff;
           font-family: var(--wiki-round-font, 'Jua'), Pretendard, Malgun Gothic, sans-serif;
+          /* 이름 길어도 줄바꿈 없이 카드 높이에 영향 없도록 */
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          max-width: 90%;
         }
 
-        /* 태그 뱃지 위치/크기도 아이콘에 종속 */
+        /* ==== 뱃지: 아이콘 우상단에 항상 걸치도록 ====
+           - 아이콘 크기에 종속(top/right/transform)
+           - 아이콘이 커지거나 작아져도 동일한 비율로 위치
+        */
         .npc-tag-badge {
           position: absolute;
-          top: calc(var(--icon) * -0.32);
-          right: calc(var(--icon) * -0.65);
+          top: 0; right: 0;                    /* 아이콘 우상단 모서리 기준 */
+          transform: translate(35%, -35%);     /* 살짝 바깥으로 걸침 */
           font-family: var(--wiki-round-font, 'Jua'), Pretendard, Malgun Gothic, sans-serif;
           font-size: clamp(10px, 1.1cqw, 13px);
           font-weight: 800;
