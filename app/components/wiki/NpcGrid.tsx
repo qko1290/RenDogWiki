@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
 import { toProxyUrl } from "@lib/cdn";
 
 const ALLOWED_TAGS = [
@@ -21,84 +21,168 @@ type Props = {
   npcs: Npc[];
   onClick?: (npc: Npc) => void;
   selectedNpcId?: number | null;
+
+  /** 0부터 시작하는 페이지 인덱스(제어 컴포넌트로 쓰려면 사용) */
+  page?: number;
+  /** 페이지 변경 콜백(제어 컴포넌트로 쓰려면 함께 제공) */
+  onPageChange?: (nextPage: number) => void;
+  /** 페이지당 아이템 수(기본 21 = 7×3) */
+  pageSize?: number;
+  /** 하단 페이저 표시 여부(기본 true) */
+  showPager?: boolean;
 };
+
+const COLS = 7;
+const ROWS = 3;
+const DEFAULT_PAGE_SIZE = COLS * ROWS; // 21
 
 const isImageUrl = (v?: string | null) =>
   typeof v === "string" && v.startsWith("http");
 const slug = (t: string) => t.replace(/\s+/g, "-");
 
-export default function NpcGrid({ npcs, onClick, selectedNpcId }: Props) {
+export default function NpcGrid({
+  npcs,
+  onClick,
+  selectedNpcId,
+  page,
+  onPageChange,
+  pageSize = DEFAULT_PAGE_SIZE,
+  showPager = true,
+}: Props) {
+  // 내부 페이지 상태 (제어 props 미지정 시 사용)
+  const [innerPage, setInnerPage] = useState(0);
+  const curPage = typeof page === "number" ? page : innerPage;
+
+  // 총 페이지
+  const pageCount = Math.max(1, Math.ceil(npcs.length / pageSize));
+
+  // 현재 페이지에 해당하는 21개(또는 pageSize) 슬라이스
+  const view = useMemo(() => {
+    const start = curPage * pageSize;
+    return npcs.slice(start, start + pageSize);
+  }, [npcs, curPage, pageSize]);
+
+  const goPage = (p: number) => {
+    const next = Math.min(Math.max(0, p), pageCount - 1);
+    if (typeof page === "number" && onPageChange) {
+      onPageChange(next);
+    } else {
+      setInnerPage(next);
+    }
+  };
+
   return (
-    <div role="grid" aria-label="NPC 목록" className="npc-grid">
-      {npcs.map((npc) => {
-        const selected = selectedNpcId === npc.id;
-        const handleActivate = () => onClick?.(npc);
+    <div className="npc-grid-wrap">
+      <div role="grid" aria-label="NPC 목록" className="npc-grid">
+        {view.map((npc) => {
+          const selected = selectedNpcId === npc.id;
+          const handleActivate = () => onClick?.(npc);
 
-        const tag = (ALLOWED_TAGS as readonly string[]).includes(
-          (npc.tag ?? "") as string
-        )
-          ? (npc.tag as TagKey)
-          : null;
+          const tag = (ALLOWED_TAGS as readonly string[]).includes(
+            (npc.tag ?? "") as string
+          )
+            ? (npc.tag as TagKey)
+            : null;
 
-        return (
-          <div
-            key={npc.id}
-            role="button"
-            tabIndex={0}
-            aria-pressed={selected}
-            aria-label={`${npc.name}`}
-            title={`${npc.name} · (${npc.location_x}, ${npc.location_y}, ${npc.location_z})`}
-            onClick={handleActivate}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                handleActivate();
-              }
-            }}
-            className={`npc-card${selected ? " is-selected" : ""}`}
-          >
-            <div className="npc-icon-wrap">
-              {/* 아이콘 우상단 ‘걸침’ 뱃지 */}
-              {tag && (
-                <span className={`npc-tag-badge tag-${slug(tag)}`} aria-hidden>
-                  {tag}
-                </span>
-              )}
+          return (
+            <div
+              key={npc.id}
+              role="button"
+              tabIndex={0}
+              aria-pressed={selected}
+              aria-label={`${npc.name}`}
+              title={`${npc.name} · (${npc.location_x}, ${npc.location_y}, ${npc.location_z})`}
+              onClick={handleActivate}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleActivate();
+                }
+              }}
+              className={`npc-card${selected ? " is-selected" : ""}`}
+            >
+              <div className="npc-icon-wrap">
+                {tag && (
+                  <span
+                    className={`npc-tag-badge tag-${slug(tag)}`}
+                    aria-hidden
+                  >
+                    {tag}
+                  </span>
+                )}
 
-              {isImageUrl(npc.icon) ? (
-                <img
-                  src={toProxyUrl(npc.icon)}
-                  alt={npc.name}
-                  loading="lazy"
-                  decoding="async"
-                  className="npc-icon-img"
-                />
-              ) : (
-                <span className="npc-emoji">{npc.icon || "🧑"}</span>
-              )}
+                {isImageUrl(npc.icon) ? (
+                  <img
+                    src={toProxyUrl(npc.icon)}
+                    alt={npc.name}
+                    loading="lazy"
+                    decoding="async"
+                    className="npc-icon-img"
+                  />
+                ) : (
+                  <span className="npc-emoji">{npc.icon || "🧑"}</span>
+                )}
+              </div>
+
+              <div className="npc-name">{npc.name}</div>
             </div>
+          );
+        })}
+      </div>
 
-            <div className="npc-name">{npc.name}</div>
-          </div>
-        );
-      })}
+      {showPager && pageCount > 1 && (
+        <div className="npc-pager" role="navigation" aria-label="NPC 페이지">
+          <button
+            type="button"
+            className="npc-pg-btn"
+            onClick={() => goPage(curPage - 1)}
+            disabled={curPage === 0}
+            aria-label="이전 페이지"
+          >
+            ◀
+          </button>
+          <span className="npc-pg-text">
+            {curPage + 1} / {pageCount}
+          </span>
+          <button
+            type="button"
+            className="npc-pg-btn"
+            onClick={() => goPage(curPage + 1)}
+            disabled={curPage >= pageCount - 1}
+            aria-label="다음 페이지"
+          >
+            ▶
+          </button>
+        </div>
+      )}
 
-      {/* ✅ 스타일은 한 군데에만 선언 (styled-jsx 크래시 회피) */}
+      {/* 한 블록으로 통합한 스타일 (styled-jsx 안정성) */}
       <style jsx>{`
-        /* 컨테이너: 고정 카드폭 + 행 단위로 여백 분배 */
+        .npc-grid-wrap {
+          width: 100%;
+        }
+
+        /* ====== 핵심 레이아웃 규칙 ======
+           - 반드시 7열 (repeat(7, ...))
+           - 왼쪽 정렬(여백은 오른쪽에 남김)
+           - 세로는 3줄까지만 표시(21개는 위에서 슬라이스)
+         */
         .npc-grid {
-          --card-w: 140px;      /* 카드 가로폭 (원하면 여기만 조정) */
-          display: flex;
-          flex-wrap: wrap;
-          justify-content: space-evenly;   /* 뷰포트가 넓을수록 좌우 간격이 늘어남 */
-          row-gap: 40px;                   /* 세로 간격은 고정 */
-          column-gap: 0;                   /* 가로 gap은 0으로 두고, 분배는 justify로 */
+          --card-w: 140px;  /* 카드 가로폭(필요시 조정) */
+          --gap-x: 20px;    /* 가로 간격 */
+          --gap-y: 40px;    /* 세로 간격 */
+
+          display: grid;
+          grid-template-columns: repeat(7, var(--card-w)); /* 하드코딩으로 안정화 */
+          justify-content: start;   /* 왼쪽 정렬 */
+          column-gap: var(--gap-x);
+          row-gap: var(--gap-y);
           margin: 20px 0;
         }
 
-        /* 카드: 폭 고정, 크기/비율 유지 */
+        /* 카드: 가로폭 고정, 아이콘도 고정 크기 */
         .npc-card {
-          flex: 0 0 var(--card-w); /* 고정 폭 + 줄바꿈 허용 */
+          width: var(--card-w);
           height: 110px;
           display: flex;
           flex-direction: column;
@@ -111,7 +195,7 @@ export default function NpcGrid({ npcs, onClick, selectedNpcId }: Props) {
           cursor: pointer;
           position: relative;
           outline: none;
-          overflow: visible; /* 뱃지가 밖으로 나와도 보이게 */
+          overflow: visible; /* 뱃지가 삐져나가도 보이게 */
         }
         .npc-card.is-selected {
           background: #e7f6ff;
@@ -144,7 +228,7 @@ export default function NpcGrid({ npcs, onClick, selectedNpcId }: Props) {
           text-align: center;
           color: #111;
           letter-spacing: 0.5px;
-          text-shadow: 0 1.5px 0 #fff, 1.5px 0 0 #fff, 0 -1.5px 0 #fff, -1.5px 0 0 #fff;
+          text-shadow: 0 1.5px 0 #fff, 1.5px 0 0 #fff, 0 -1.5px 0 0 #fff, -1.5px 0 0 #fff;
           font-family: var(--wiki-round-font, 'Jua'), Pretendard, Malgun Gothic, sans-serif;
         }
 
@@ -167,7 +251,6 @@ export default function NpcGrid({ npcs, onClick, selectedNpcId }: Props) {
           pointer-events: none;
           z-index: 2;
         }
-        /* 태그별 테마 컬러 */
         .tag-완정       { --tag-color: #3b82f6; }
         .tag-필수,
         .tag-극난퀘,
@@ -178,9 +261,27 @@ export default function NpcGrid({ npcs, onClick, selectedNpcId }: Props) {
         .tag-혼의-시련,
         .tag-6차        { --tag-color: #0ea5e9; }
 
-        /* 아주 좁은 화면 대응(옵션) */
-        @media (max-width: 380px) {
-          .npc-grid { --card-w: 120px; }
+        /* 페이저 */
+        .npc-pager {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 20px;
+          margin: 10px 0 0;
+        }
+        .npc-pg-btn {
+          font-size: 20px;
+          background: none;
+          border: none;
+          cursor: pointer;
+          transition: opacity .18s ease;
+        }
+        .npc-pg-btn:disabled {
+          opacity: 0.5;
+          cursor: default;
+        }
+        .npc-pg-text {
+          font-size: 16px;
         }
       `}</style>
     </div>
