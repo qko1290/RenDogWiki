@@ -25,9 +25,9 @@ type Props = {
   /** 제어형 페이지(0부터). 미지정 시 내부 상태 사용 */
   page?: number;
   onPageChange?: (nextPage: number) => void;
-  /** 기본 21(7x3) */
+  /** 기본 21(7×3) */
   pageSize?: number;
-  /** 페이저 표시 (기본 true) */
+  /** 페이저 표시 */
   showPager?: boolean;
 };
 
@@ -138,7 +138,7 @@ export default function NpcGrid({
       )}
 
       <style jsx>{`
-        /* 컨테이너 쿼리 활성화: 내부 치수(가로폭)에 반응하는 cqw 단위 사용 */
+        /* 컨테이너 폭에 반응하도록 설정(cqw 사용) */
         .npc-grid-wrap {
           width: 100%;
           container-type: inline-size;
@@ -146,28 +146,33 @@ export default function NpcGrid({
 
         /* ===== 레이아웃 =====
            - 항상 7열
-           - 컨테이너 폭을 균등 분배(1fr) → 남는 공간 없음
+           - 트랙을 1fr로 균등 분배 → 빈 공간 최소화
            - 왼쪽 정렬
+           - 간격/아이콘 크기는 컨테이너 폭에 비례하지만,
+             아이콘은 상한을 둬서 큰 화면에서 더 이상 커지지 않음
         */
         .npc-grid {
-          /* 기본 값 (필요시 아래 clamp 계수만 미세조정) */
-          --gap-x: clamp(10px, 1.2cqw, 24px);  /* 가로 간격: 컨테이너 폭 비례 */
-          --gap-y: clamp(16px, 1.8cqw, 36px);  /* 세로 간격 */
-          --icon:  clamp(40px, 6.8cqw, 78px);  /* 아이콘 정사각형 한 변 */
-          --name:  clamp(14px, 1.6cqw, 20px);  /* 이름 폰트 크기 */
+          /* 요구사항에 맞춘 스케일:
+             - 아이콘: 작은 화면에선 더 작게(최소 32px), 큰 화면에서도 최대 60px로 제한
+             - 가로 간격: 더 넓게, 화면이 커질수록 증가
+             - 세로 간격: 40px 고정
+          */
+          --icon:  clamp(32px, 4.2cqw, 60px);  /* ⬅ 아이콘 상/하한 조정 */
+          --gap-x: clamp(16px, 2.6cqw, 56px);  /* ⬅ 가로 간격 확대/가변 */
+          --name:  clamp(12px, 1.4cqw, 18px);  /* 이름 폰트 약한 스케일 */
 
           display: grid;
-          grid-template-columns: repeat(7, 1fr); /* 7개 트랙을 항상 유지 */
-          justify-content: start;                /* 왼쪽 정렬(트랙은 이미 꽉 찬 상태) */
+          grid-template-columns: repeat(7, 1fr);
+          justify-content: start;
           column-gap: var(--gap-x);
-          row-gap: var(--gap-y);
+          row-gap: 40px;                        /* ⬅ 세로 간격 고정 */
           margin: 20px 0;
         }
 
-        /* 카드: 트랙 너비를 그대로 사용 → 영역을 꽉 채움 */
+        /* 카드 너비는 트랙 너비(1fr)를 사용 → 그리드 영역을 가득 채움 */
         .npc-card {
           width: 100%;
-          min-height: calc(var(--icon) + 44px); /* 아이콘 + 이름 영역 여유 */
+          min-height: calc(var(--icon) + 44px);
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -180,11 +185,11 @@ export default function NpcGrid({
           position: relative;
           outline: none;
           overflow: visible;
-          padding: clamp(6px, 0.8cqw, 10px);
+          padding: 8px;
         }
         .npc-card.is-selected { background: #e7f6ff; }
 
-        /* 아이콘: 정사각형 유지 */
+        /* 아이콘: 정사각형 유지(가로 증가 금지) */
         .npc-icon-wrap {
           position: relative;
           width: var(--icon);
@@ -216,15 +221,15 @@ export default function NpcGrid({
           font-family: var(--wiki-round-font, 'Jua'), Pretendard, Malgun Gothic, sans-serif;
         }
 
-        /* 태그 뱃지(크기도 살짝 스케일) */
+        /* 태그 뱃지 위치/크기도 아이콘에 종속 */
         .npc-tag-badge {
           position: absolute;
           top: calc(var(--icon) * -0.32);
           right: calc(var(--icon) * -0.65);
           font-family: var(--wiki-round-font, 'Jua'), Pretendard, Malgun Gothic, sans-serif;
-          font-size: clamp(11px, 1.2cqw, 14px);
+          font-size: clamp(10px, 1.1cqw, 13px);
           font-weight: 800;
-          padding: clamp(2px, 0.4cqw, 4px) clamp(6px, 0.8cqw, 8px);
+          padding: clamp(2px, 0.35cqw, 4px) clamp(6px, 0.7cqw, 8px);
           line-height: 1.05;
           white-space: nowrap;
           color: var(--tag-color, #111827);
