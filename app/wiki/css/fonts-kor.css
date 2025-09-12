@@ -139,3 +139,20 @@
   src: url('/fonts/kor/NanumSonGeurSsi-MiddleSchool.ttf') format('truetype');
   font-weight: 400; font-style: normal; font-display: swap;
 }
+
+/* ---- Maplestory ---- */
+@font-face {
+  font-family: 'Maplestory';
+  src: url('/fonts/kor/MaplestoryLight.ttf') format('truetype');
+  font-weight: 300; 
+  font-style: normal; 
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Maplestory';
+  src: url('/fonts/kor/MaplestoryBold.ttf') format('truetype');
+  font-weight: 700; 
+  font-style: normal; 
+  font-display: swap;
+}

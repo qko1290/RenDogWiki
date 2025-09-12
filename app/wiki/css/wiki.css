@@ -7,7 +7,7 @@
   min-height: 100vh;
   background: #fff;
   color: #333;
-  font-family: "Inter", "Inter Fallback", system-ui, arial;
+  font-family: 'Maplestory', "Inter", "Inter Fallback", system-ui, arial;
 }
 .wiki-layout {
   display: flex;
