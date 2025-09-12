@@ -143,10 +143,10 @@ export default function NpcGrid({
 
         .npc-grid {
           /* 🔧 조절 포인트 */
-          --icon:  clamp(50px, 4cqw, 60px);    /* 아이콘(이미지) 정사각 크기 */
+          --icon:  clamp(50px, 4cqw, 80px);    /* 아이콘(이미지) 정사각 크기 */
           --gap-x: clamp(18px, 3cqw, 56px);    /* 카드 가로 간격 */
-          --name:  clamp(16px, 1.4cqw, 18px);  /* 이름 폰트 크기 */
-          --pad:   clamp(6px, 0.8cqw, 10px);   /* 카드 내부 여백(inset) */
+          --name:  clamp(16px, 1.4cqw, 24px);  /* 이름 폰트 크기 */
+          --pad:   clamp(6px, 0.8cqw, 8px);   /* 카드 내부 여백(inset) */
           --badge-out: 34%;                    /* 뱃지 걸침 정도(+)이면 바깥으로 더 나감 */
 
           display: grid;
