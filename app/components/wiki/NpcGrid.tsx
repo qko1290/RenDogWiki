@@ -1,9 +1,9 @@
-// app/components/wiki/NpcGrid.tsx  (전체 코드)
+// app/components/wiki/NpcGrid.tsx
 import React, { useMemo, useState } from "react";
 import { toProxyUrl } from "@lib/cdn";
 
 const ALLOWED_TAGS = [
-  "추천","필수","완정","보스","타임어택","기사단","극난퀘","혼의 시련","6차",
+  "추천", "필수", "완정", "보스", "타임어택", "기사단", "극난퀘", "혼의 시련", "6차",
 ] as const;
 type TagKey = (typeof ALLOWED_TAGS)[number];
 
@@ -86,7 +86,7 @@ export default function NpcGrid({
               }}
               className={`npc-card${selected ? " is-selected" : ""}`}
             >
-              {/* 뱃지: 카드(npc-card) 기준 우상단 ‘걸침’ */}
+              {/* 뱃지: 카드 기준 우상단 ‘걸침’ */}
               {tag && (
                 <span className={`npc-tag-badge tag-${slug(tag)}`} aria-hidden>
                   {tag}
@@ -139,36 +139,48 @@ export default function NpcGrid({
       )}
 
       <style jsx>{`
+        /* 컨테이너 쿼리 안전 적용 */
         .npc-grid-wrap { width: 100%; container-type: inline-size; }
+        .npc-grid { container-type: inline-size; }
 
+        /* 폴백(구형 브라우저): vw 기반 */
         .npc-grid {
-          /* 🔧 조절 포인트 */
-          --icon:  clamp(50px, 4cqw, 80px);    /* 아이콘(이미지) 정사각 크기 */
-          --gap-x: clamp(18px, 3cqw, 56px);    /* 카드 가로 간격 */
-          --name:  clamp(16px, 1.4cqw, 24px);  /* 이름 폰트 크기 */
-          --pad:   clamp(6px, 0.8cqw, 8px);   /* 카드 내부 여백(inset) */
-          --badge-out: 34%;                    /* 뱃지 걸침 정도(+)이면 바깥으로 더 나감 */
+          --icon:  clamp(50px, 4vw, 80px);   /* 아이콘 정사각 크기 */
+          --gap-x: clamp(18px, 3vw, 56px);   /* 카드 가로 간격 */
+          --name:  clamp(16px, 1.4vw, 24px); /* 이름 폰트 크기 */
+          --pad:   clamp(6px, 0.8vw, 8px);   /* 카드 내부 여백 */
+          --badge-out: 34%;
 
           display: grid;
           grid-template-columns: repeat(7, 1fr);
           justify-content: start;
           column-gap: var(--gap-x);
-          row-gap: 40px;                       /* 세로 간격 고정 */
+          row-gap: 40px;                     /* 세로 간격 고정 */
           margin: 20px 0;
+        }
+
+        /* 최신 브라우저: cqw(컨테이너 기준)로 재정의 */
+        @supports (width: 1cqw) {
+          .npc-grid {
+            --icon:  clamp(50px, 4cqw, 80px);
+            --gap-x: clamp(18px, 3cqw, 56px);
+            --name:  clamp(16px, 1.4cqw, 24px);
+            --pad:   clamp(6px, 0.8cqw, 8px);
+          }
         }
 
         .npc-card {
           width: 100%;
-          aspect-ratio: 1 / 1;                 /* 컨테이너 정사각형 */
+          aspect-ratio: 1 / 1;               /* 카드 정사각형 */
           position: relative;
           border: 1.5px solid #e5e7eb;
           border-radius: 12px;
           background: #fff;
           box-shadow: 0 2px 6px rgba(0,0,0,0.04);
           cursor: pointer;
-          /* 뱃지가 카드 밖으로 ‘걸치게’ 보이도록 */
-          overflow: visible;
+          overflow: visible;                  /* 뱃지가 밖으로 나와도 보이게 */
           padding: 0;
+          isolation: isolate;                 /* z-index 맥락 분리(뱃지 상단 보장) */
         }
         .npc-card.is-selected { background: #e7f6ff; }
 
@@ -216,88 +228,64 @@ export default function NpcGrid({
           max-width: 90%;
         }
 
-        /* 🏷️ 뱃지: 카드 기준 우상단 + 걸침(transform)
-           - top/right 모서리를 기준으로 대각선으로 바깥쪽으로 살짝 이동
-           - 걸침 강도는 --badge-out 로 쉽게 조절
-        */
-        /* ================================
-        CLEAN BADGE (flat chip style)
-        - 코너 걸침 위치 그대로 유지
-        - 유광/진한 그라데이션 제거
-        - 얕은 그림자만 사용
-        ================================ */
+        /* 뱃지(깔끔한 칩 스타일) */
+        .npc-tag-badge{
+          --badge-out: clamp(6px, 0.8cqw, 10px);
+          --badge-h:   clamp(22px, 2cqw, 28px);
+          --badge-px:  clamp(8px, 1.2cqw, 12px);
+          --r: 999px;
+          --elev: 10px;
 
-      .npc-card { position: relative; isolation: isolate; }
+          /* 태그별로 --c만 바뀜 */
+          --c: #0f172a;
+          --fg: color-mix(in oklab, var(--c) 88%, black 0%);
+          --bd: color-mix(in oklab, var(--c) 55%, #ffffff);
+          --bg: #fff;
 
-      /* 기본 토큰(크기/여백) */
-      .npc-tag-badge{
-        --badge-out: clamp(6px, 0.8cqw, 10px); /* 카드 코너 밖으로 나가는 정도 */
-        --badge-h:   clamp(22px, 2cqw, 28px);  /* 뱃지 높이 */
-        --badge-px:  clamp(8px, 1.2cqw, 12px); /* 좌우 패딩 */
-        --r: 999px;                             /* 알약 반경 */
-        --elev: 10px;                           /* 그림자 번짐 기본값 */
+          position: absolute;
+          top: 0; right: 0;
+          transform: translate(var(--badge-out), calc(var(--badge-out) * -1));
 
-        /* 색 토큰(태그별 클래스에서 --c만 덮어씀) */
-        --c: #0f172a;                           /* 주 색상 (기본) */
-        --fg: color-mix(in oklab, var(--c) 88%, black 0%); /* 글자색 */
-        --bd: color-mix(in oklab, var(--c) 55%, #ffffff);  /* 보더 */
-        --bg: #fff;                             /* 배경: 완전 솔리드 */
+          display: inline-flex;
+          align-items: center;
+          height: var(--badge-h);
+          padding: 0 var(--badge-px);
+          border-radius: var(--r);
+          border: 1.5px solid var(--bd);
+          background: var(--bg);
+          color: var(--fg);
+          font-weight: 800;
+          letter-spacing: .2px;
+          font-size: clamp(12px, 1.2cqw, 14px);
+          white-space: nowrap;
 
-        position: absolute;
-        top: 0; right: 0;
-        transform: translate(var(--badge-out), calc(var(--badge-out) * -1));
+          box-shadow:
+            0 2px 6px rgba(0,0,0,.06),
+            0 6px var(--elev) color-mix(in oklab, var(--c) 22%, transparent);
 
-        display: inline-flex;
-        align-items: center;
-        height: var(--badge-h);
-        padding: 0 var(--badge-px);
-        border-radius: var(--r);
-        border: 1.5px solid var(--bd);
-        background: var(--bg);
-        color: var(--fg);
-        font-weight: 800;
-        letter-spacing: .2px;
-        font-size: clamp(12px, 1.2cqw, 14px);
-        white-space: nowrap;
+          z-index: 3; /* 아이콘/이름 위로 */
+        }
 
-        /* 아주 얕은 고도감 — 칩이 살짝 떠있는 느낌 */
-        box-shadow:
-          0 2px 6px rgba(0,0,0,.06),
-          0 6px var(--elev) color-mix(in oklab, var(--c) 22%, transparent);
+        /* 태그 팔레트 */
+        .tag-추천      { --c: #10b981; }
+        .tag-필수      { --c: #ef4444; }
+        .tag-완정      { --c: #3b82f6; }
+        .tag-타임어택  { --c: #f97316; }
+        .tag-기사단    { --c: #8b5cf6; }
+        .tag-극난퀘,
+        .tag-보스      { --c: #dc2626; }
+        .tag-혼의-시련,
+        .tag-6차       { --c: #0ea5e9; }
 
-        z-index: 2;
-      }
-
-      /* ▶ “엣지”를 더 줄이고 싶으면 아래 한 줄만 남겨도 충분
-      .npc-tag-badge{ box-shadow: 0 2px 6px rgba(0,0,0,.06); }
-      */
-
-      /* ===========================
-        TAG 팔레트: 색상 하나만 지정
-        (보더/텍스트/그림자는 위에서 자동 계산)
-        =========================== */
-      .tag-추천      { --c: #10b981; } /* 그린 */
-      .tag-필수      { --c: #ef4444; } /* 레드 */
-      .tag-완정      { --c: #3b82f6; } /* 블루 */
-      .tag-타임어택  { --c: #f97316; } /* 오렌지 */
-      .tag-기사단    { --c: #8b5cf6; } /* 퍼플 */
-      .tag-극난퀘,
-      .tag-보스      { --c: #dc2626; } /* 강한 레드 */
-      .tag-혼의-시련,
-      .tag-6차       { --c: #0ea5e9; } /* 스카이블루 */
-
-      /* ===========================
-        (옵션) “필드형”으로 살짝 채워진 버전
-        — 더 눈에 띄게 하고 싶을 때 .filled 추가
-        =========================== */
-      .npc-tag-badge.filled{
-        --bg: color-mix(in oklab, var(--c) 12%, #ffffff);
-        --bd: color-mix(in oklab, var(--c) 60%, #ffffff);
-        box-shadow:
-          0 2px 6px rgba(0,0,0,.06),
-          0 6px var(--elev) color-mix(in oklab, var(--c) 26%, transparent),
-          inset 0 0 0 1px color-mix(in oklab, var(--c) 18%, transparent); /* 미세 인셋 */
-      }
+        /* 더 강조하고 싶으면 .filled 추가 */
+        .npc-tag-badge.filled{
+          --bg: color-mix(in oklab, var(--c) 12%, #ffffff);
+          --bd: color-mix(in oklab, var(--c) 60%, #ffffff);
+          box-shadow:
+            0 2px 6px rgba(0,0,0,.06),
+            0 6px var(--elev) color-mix(in oklab, var(--c) 26%, transparent),
+            inset 0 0 0 1px color-mix(in oklab, var(--c) 18%, transparent);
+        }
 
         .npc-pager {
           display: flex;
