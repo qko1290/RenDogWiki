@@ -347,7 +347,10 @@ export default function CategoryManager() {
 
   const fetchCategories = async () => {
     try {
-      const res = await fetch('/api/categories');
+      // CHANGED: 캐시 무효화(캐시 우회 + no-store)
+      const res = await fetch(`/api/categories?ts=${Date.now()}`, {
+        cache: 'no-store',
+      });
       if (!res.ok) throw new Error();
       const flat: Category[] = await res.json();
       const built = buildTree(flat);
@@ -471,7 +474,10 @@ export default function CategoryManager() {
 
   async function refreshDocuments() {
     try {
-      const res = await fetch('/api/documents?all=1');
+      // CHANGED: 캐시 무효화(캐시 우회 + no-store)
+      const res = await fetch(`/api/documents?all=1&ts=${Date.now()}`, {
+        cache: 'no-store',
+      });
       const data = await res.json();
       if (!Array.isArray(data)) { setAllDocuments([]); return; }
       if (Object.keys(categoryIdToPathMap).length === 0) {
@@ -550,7 +556,15 @@ export default function CategoryManager() {
       });
       setNewCatOpen(false);
       setNewCatName('');
+
       await fetchCategories();
+
+      // CHANGED: 생성 직후 부모를 강제로 펼쳐서 새 하위가 즉시 보이게
+      setOpen(prev => {
+        const s = new Set(prev);
+        if (selected) s.add(selected.id);
+        return s;
+      });
     } finally {
       setLoadingCreate(false);
     }
@@ -1047,7 +1061,7 @@ export default function CategoryManager() {
         <div className="rd-card" role="dialog" aria-labelledby="rd-deldoc-title">
           <button className="rd-exit-btn" onClick={() => setDocDeleteOpen(false)} aria-label="닫기">
             <svg height="20" viewBox="0 0 384 512">
-              <path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 0 45.3L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z" />
+              <path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 0 45.3L237.3 256 342.6 150.6z" />
             </svg>
           </button>
           <div className="rd-card-content">
@@ -1070,7 +1084,7 @@ export default function CategoryManager() {
         <div className="rd-card" role="dialog" aria-labelledby="rd-delcat-title">
           <button className="rd-exit-btn" onClick={() => setCatDeleteOpen(false)} aria-label="닫기">
             <svg height="20" viewBox="0 0 384 512">
-              <path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 0 45.3L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z" />
+              <path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c12.5 12.5 12.5 32.8 0 45.3s32.8 12.5 0 45.3L237.3 256 342.6 150.6z" />
             </svg>
           </button>
           <div className="rd-card-content">
