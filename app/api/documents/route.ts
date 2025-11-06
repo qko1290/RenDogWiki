@@ -1,3 +1,5 @@
+// C:\next\rdwiki\app\api\documents\route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
 import { logActivity, resolveCategoryName } from '@wiki/lib/activity';
@@ -5,6 +7,8 @@ import { getAuthUser } from '@/wiki/lib/auth';
 import { cached, cacheKey, invalidate } from '@/wiki/lib/cache';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 const docTag = (id: number) => `doc:${id}`;
 const listTag = (p: string | number) => `doclist:${String(p)}`;
@@ -107,7 +111,7 @@ export async function GET(req: NextRequest) {
       );
 
       return NextResponse.json(data, {
-        headers: { 'Cache-Control': 's-maxage=300, stale-while-revalidate=60' },
+        headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' },
       });
     } catch (e) {
       console.error('문서 경로별 목록 실패:', e);
@@ -132,7 +136,7 @@ export async function GET(req: NextRequest) {
       if (!data) return new NextResponse(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
 
       return NextResponse.json(data, {
-        headers: { 'Cache-Control': 's-maxage=1800, stale-while-revalidate=60' },
+        headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' },
       });
     } catch (e) {
       console.error(e);
@@ -190,7 +194,7 @@ export async function GET(req: NextRequest) {
     const data = await getDocByIdCached(Number(row.id));
 
     return NextResponse.json(data, {
-      headers: { 'Cache-Control': 's-maxage=1800, stale-while-revalidate=60' },
+      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' },
     });
   } catch (e) {
     console.error(e);

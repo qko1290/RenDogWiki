@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
     );
 
     return NextResponse.json(rows, {
-      headers: { 'Cache-Control': 's-maxage=600, stale-while-revalidate=60' },
+      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' },
     });
   } catch (err) {
     console.error('[modes GET] unexpected error:', err);

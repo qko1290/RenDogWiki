@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
         async () => sql`SELECT * FROM categories ORDER BY parent_id, "order"`
       );
       return NextResponse.json(rows, {
-        headers: { 'Cache-Control': 's-maxage=600, stale-while-revalidate=60' },
+        headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' },
       });
     }
 
@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
     );
 
     return NextResponse.json(rows, {
-      headers: { 'Cache-Control': 's-maxage=600, stale-while-revalidate=60' },
+      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' },
     });
   } catch (err) {
     console.error('[categories GET] unexpected error:', err);

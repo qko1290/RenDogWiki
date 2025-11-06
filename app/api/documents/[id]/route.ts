@@ -1,4 +1,5 @@
 /**
+ * C:\next\rdwiki\app\api\documents\[id]\route.ts
  * 문서 단건 관련 API
  * - POST: 부분 업데이트(주로 order 재정렬용)
  * - PUT : 경로(path) 이동(Shift 드롭)
@@ -11,6 +12,8 @@ import { logActivity, resolveCategoryName } from '@wiki/lib/activity';
 import { invalidate } from '@/wiki/lib/cache';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 const docTag = (id: number) => `doc:${id}`;
 const listTag = (p: string | number) => `doclist:${String(p)}`;
