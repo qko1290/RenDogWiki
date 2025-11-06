@@ -610,7 +610,7 @@ export default function WikiPageInner({ user }: Props) {
       }
       return null;
     };
-
+ 
     (async () => {
       if (meta.kind === 'head') {
         setHeadLoading(true); setHeadList([]); setHeadPage(0);
