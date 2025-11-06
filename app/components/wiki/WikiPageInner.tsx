@@ -539,7 +539,8 @@ export default function WikiPageInner({ user }: Props) {
       const data = await r.json();
       if (!mountedRef.current || reqId !== docReqIdRef.current) return;
 
-      const content: Descendant[] = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
+      const content: Descendant[] =
+        typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
       setDocContent(content);
       setTableOfContents(extractHeadings(content));
 
@@ -547,14 +548,26 @@ export default function WikiPageInner({ user }: Props) {
       const special = data.special ?? docInList?.special ?? null;
       const meta = parseSpecial(special);
       setSpecialMeta(meta);
-
       if (meta?.kind === 'faq') { setFaqQuery(meta.q ?? ''); setFaqTags(meta.tags ?? []); }
       else { setFaqQuery(''); setFaqTags([]); }
 
       setSelectedDocTitle(data.title ?? null);
-      setSelectedDocPath(docInList?.fullPath ?? (Number(data.path) === 0 ? [] : []));
-      setHideDocChrome(!!opts?.hideChrome);
 
+      // ★★★ 경로 계산 고정
+      let nextPath: number[] = [];
+      if (docInList?.fullPath) {
+        nextPath = docInList.fullPath;
+      } else {
+        const rawPath = data.path;
+        if (Number(rawPath) === 0) nextPath = [];
+        else if (/^\d+$/.test(String(rawPath))) {
+          const cid = Number(rawPath);
+          nextPath = categoryIdToPathMap[cid] ?? (Number.isFinite(cid) ? [cid] : []);
+        }
+      }
+      setSelectedDocPath(nextPath);
+
+      setHideDocChrome(!!opts?.hideChrome);
       setLoadingDoc(false);
     } catch {
       if (!mountedRef.current || reqId !== docReqIdRef.current) return;

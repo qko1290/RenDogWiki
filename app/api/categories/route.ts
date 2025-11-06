@@ -13,7 +13,7 @@ import { sql } from '@/wiki/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { logActivity, resolveCategoryName } from '@wiki/lib/activity';
 import { getAuthUser } from '@/wiki/lib/auth';
-import { cached, cacheKey, invalidate } from '@/wiki/lib/cache';
+import { cached, cacheKey, invalidate } from '@wiki/lib/cache';
 
 export const runtime = 'nodejs';
 

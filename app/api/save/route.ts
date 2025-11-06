@@ -3,10 +3,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
 import { getAuthUser } from '@/wiki/lib/auth';
 import { logActivity, resolveCategoryName } from '@wiki/lib/activity';
+import { invalidate } from '@wiki/lib/cache';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+const docTag = (id: number) => `doc:${id}`;
+const listTag = (p: string | number) => `doclist:${String(p)}`;
 
 function normalizeContent(v: unknown): any {
   if (v == null) return [];
@@ -121,6 +125,12 @@ export async function POST(req: NextRequest) {
     else {
       documentId = Number(idNum);
 
+      // 기존 path 확보(경로 변경 시 이전 리스트도 무효화하기 위함)
+      const prev = await sql/*sql*/`
+        SELECT path FROM documents WHERE id = ${documentId} LIMIT 1
+      `;
+      const oldPath = prev?.[0]?.path;
+
       const conflict = await sql/*sql*/`
         SELECT 1 FROM documents
         WHERE path = ${pathVal} AND title = ${title} AND id <> ${documentId}
@@ -185,7 +195,15 @@ export async function POST(req: NextRequest) {
           `;
         }
       }
+
+      // 이전 경로도 함께 무효화
+      if (oldPath !== undefined && oldPath !== null && String(oldPath) !== String(pathVal)) {
+        invalidate(listTag(oldPath));
+      }
     }
+
+    // ★ 본문 저장 후 updated_at 최신화(정렬 반영)
+    await sql/*sql*/`UPDATE documents SET updated_at = NOW() WHERE id = ${documentId}`;
 
     const categoryLabel = await resolveCategoryName(
       Number.isFinite(Number(pathVal)) ? Number(pathVal) : null
@@ -200,6 +218,9 @@ export async function POST(req: NextRequest) {
       targetPath: categoryLabel,
       meta: { tags: tagsArr, icon, created },
     });
+
+    // ★ 캐시 무효화: 단건 + 전체목록 + 경로별 목록
+    invalidate(docTag(documentId), 'doc:list', listTag(pathVal));
 
     return NextResponse.json(
       { success: true, id: documentId },

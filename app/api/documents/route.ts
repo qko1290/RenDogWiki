@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
 import { logActivity, resolveCategoryName } from '@wiki/lib/activity';
 import { getAuthUser } from '@/wiki/lib/auth';
-import { cached, cacheKey, invalidate } from '@/wiki/lib/cache';
+import { cached, cacheKey, invalidate } from '@wiki/lib/cache';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,7 +29,7 @@ function toContentArray(raw: unknown): any[] {
 async function getDocByIdCached(id: number) {
   return cached(
     cacheKey('doc', id),
-    { ttlSec: 1800, tags: [docTag(id)] },
+    { ttlSec: 0, tags: [docTag(id)] }, // ★ 단건은 항상 최신
     async () => {
       const rows = await sql/*sql*/`
         SELECT id, title, path, icon, tags, created_at, updated_at, special, "order"
@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
 
       const data = await cached(
         cacheKey('doclist', pathNorm),
-        { ttlSec: 300, tags: ['doc:list', listTag(pathNorm)] },
+        { ttlSec: 0, tags: ['doc:list', listTag(pathNorm)] }, // ★ 즉시 반영
         async () => {
           let mainDocId: number | null = null;
           try {
@@ -149,7 +149,7 @@ export async function GET(req: NextRequest) {
     try {
       const result = await cached(
         'doc:all',
-        { ttlSec: 300, tags: ['doc:list'] },
+        { ttlSec: 0, tags: ['doc:list'] }, // ★ 즉시 반영
         async () => {
           const rows = await sql/*sql*/`
             SELECT id, title, path, icon, tags, created_at, updated_at, is_featured, special, "order"
@@ -166,7 +166,7 @@ export async function GET(req: NextRequest) {
       );
 
       return NextResponse.json(result, {
-        headers: { 'Cache-Control': 's-maxage=300, stale-while-revalidate=60' },
+        headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' }, // ★ 실시간
       });
     } catch (e) {
       console.error(e);
