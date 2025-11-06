@@ -603,7 +603,7 @@ export default function WikiPageInner({ user }: Props) {
     let cancelled = false;
     const findVillage = async (names: string[]) => {
       for (const name of names) {
-        const r = await fetch(`/api/villages?name=${encodeURIComponent(name)}`);
+        const r = await fetch(`/api/villages?name=${encodeURIComponent(name)}&ts=${Date.now()}`, { cache: 'no-store' }); // CHANGED
         if (!r.ok) continue;
         const v = await r.json();
         if (v && v.id) return v;
@@ -616,7 +616,7 @@ export default function WikiPageInner({ user }: Props) {
         setHeadLoading(true); setHeadList([]); setHeadPage(0);
         const v = await findVillage([meta.village, selectedDocTitle].filter(Boolean) as string[]);
         if (!v) { setHeadLoading(false); return; }
-        const res = await fetch(`/api/head?village_id=${v.id}`);
+        const res = await fetch(`/api/head?village_id=${v.id}&ts=${Date.now()}`, { cache: 'no-store' }); // CHANGED
         const heads = res.ok ? await res.json() : [];
         if (cancelled) return;
         setHeadList(Array.isArray(heads) ? (heads as HeadRow[]) : []); setHeadLoading(false);
@@ -628,7 +628,7 @@ export default function WikiPageInner({ user }: Props) {
       const v = await findVillage([meta.village, selectedDocTitle].filter(Boolean) as string[]);
       if (!v) { setNpcLoading(false); return; }
       const npcType = meta.kind === 'quest' ? 'quest' : 'normal';
-      const res = await fetch(`/api/npcs?village_id=${v.id}&npc_type=${npcType}`);
+      const res = await fetch(`/api/npcs?village_id=${v.id}&npc_type=${npcType}&ts=${Date.now()}`, { cache: 'no-store' }); // CHANGED
       const npcs = res.ok ? await res.json() : [];
       if (cancelled) return;
       setNpcList(Array.isArray(npcs) ? (npcs as NpcRow[]) : []); setNpcLoading(false);
