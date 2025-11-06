@@ -367,7 +367,7 @@ const CategoryTree: React.FC<Props> = ({
                   let title = repFromList?.title;
                   if (!title) {
                     try {
-                      const r = await fetch(`/api/documents?id=${repId}`, { cache: "no-store" }); // already no-store
+                      const r = await fetch(`/api/documents?id=${repId}&_ts=${Date.now()}`, { cache: "no-store" });
                       if (r.ok) {
                         const data = await r.json();
                         title = data?.title || "";

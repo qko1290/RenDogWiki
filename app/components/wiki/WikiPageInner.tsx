@@ -83,6 +83,10 @@ function getInitialMode(): string | null {
   return v && MODE_WHITELIST.has(v) ? v : null;
 }
 
+// no-cache 유틸
+const withTs = (url: string) => url + (url.includes('?') ? '&' : '?') + '_ts=' + Date.now();
+const NC: RequestInit = { cache: 'no-store' };
+
 // ---- 권한 체크(Writer+)
 function useCanWrite(user: Props['user']) {
   const [can, setCan] = useState(false);
@@ -248,7 +252,7 @@ export default function WikiPageInner({ user }: Props) {
     (async () => {
       try {
         const url = '/api/bootstrap' + (mode ? `?m=${encodeURIComponent(mode)}` : '');
-        const r = await fetch(url, { cache: 'force-cache' });
+        const r = await fetch(withTs(url), NC);
         const { categories: catData, documents: docsRaw, featured } = await r.json();
 
         // 카테고리 트리 구성
@@ -492,7 +496,10 @@ export default function WikiPageInner({ user }: Props) {
     setLoadingDoc(true);  
 
     const pathParam = isRoot ? '0' : String(categoryPath.at(-1));
-    fetch(`/api/documents?path=${pathParam}&title=${encodeURIComponent(docTitle)}`)
+    fetch(
+      withTs(`/api/documents?path=${pathParam}&title=${encodeURIComponent(docTitle)}`),
+      NC
+    )
       .then(res => { if (!res.ok) throw new Error('문서를 찾을 수 없습니다.'); return res.json(); })
       .then(data => {
         if (!mountedRef.current || reqId !== docReqIdRef.current) return;
@@ -527,7 +534,7 @@ export default function WikiPageInner({ user }: Props) {
     const reqId = ++docReqIdRef.current;
     setLoadingDoc(true);
     try {
-      const r = await fetch(`/api/documents?id=${docId}`);
+      const r = await fetch(withTs(`/api/documents?id=${docId}`), NC);
       if (!r.ok) throw 0;
       const data = await r.json();
       if (!mountedRef.current || reqId !== docReqIdRef.current) return;
@@ -603,7 +610,7 @@ export default function WikiPageInner({ user }: Props) {
     let cancelled = false;
     const findVillage = async (names: string[]) => {
       for (const name of names) {
-        const r = await fetch(`/api/villages?name=${encodeURIComponent(name)}&ts=${Date.now()}`, { cache: 'no-store' }); // CHANGED
+        const r = await fetch(withTs(`/api/villages?name=${encodeURIComponent(name)}`), NC);
         if (!r.ok) continue;
         const v = await r.json();
         if (v && v.id) return v;
@@ -616,7 +623,7 @@ export default function WikiPageInner({ user }: Props) {
         setHeadLoading(true); setHeadList([]); setHeadPage(0);
         const v = await findVillage([meta.village, selectedDocTitle].filter(Boolean) as string[]);
         if (!v) { setHeadLoading(false); return; }
-        const res = await fetch(`/api/head?village_id=${v.id}&ts=${Date.now()}`, { cache: 'no-store' }); // CHANGED
+        const res = await fetch(withTs(`/api/head?village_id=${v.id}`), NC);
         const heads = res.ok ? await res.json() : [];
         if (cancelled) return;
         setHeadList(Array.isArray(heads) ? (heads as HeadRow[]) : []); setHeadLoading(false);
@@ -628,7 +635,7 @@ export default function WikiPageInner({ user }: Props) {
       const v = await findVillage([meta.village, selectedDocTitle].filter(Boolean) as string[]);
       if (!v) { setNpcLoading(false); return; }
       const npcType = meta.kind === 'quest' ? 'quest' : 'normal';
-      const res = await fetch(`/api/npcs?village_id=${v.id}&npc_type=${npcType}&ts=${Date.now()}`, { cache: 'no-store' }); // CHANGED
+      const res = await fetch(withTs(`/api/npcs?village_id=${v.id}&npc_type=${npcType}`), NC);
       const npcs = res.ok ? await res.json() : [];
       if (cancelled) return;
       setNpcList(Array.isArray(npcs) ? (npcs as NpcRow[]) : []); setNpcLoading(false);

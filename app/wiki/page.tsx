@@ -21,7 +21,7 @@ export default function WikiPage() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    fetch('/api/auth/me')
+    fetch(`/api/auth/me?_ts=${Date.now()}`, { cache: 'no-store' })
       .then(res => res.ok ? res.json() : null)
       .then(data => setUser(data?.user ?? null));
   }, []);
