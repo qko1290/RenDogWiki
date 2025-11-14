@@ -737,7 +737,7 @@ export default function WikiPageInner({ user }: Props) {
     <div className="wiki-container">
       <WikiHeader user={user} />
       <div className="wiki-layout">
-        <div className="wiki-main-scrollable">
+        <div className="wiki-main-scrollable" id="wiki-scroll-root">
           <aside className="wiki-sidebar">
             <CategoryTree
               categories={categories}
@@ -867,7 +867,10 @@ export default function WikiPageInner({ user }: Props) {
         </div>
 
         <aside className="wiki-toc-sidebar">
-          <TableOfContents headings={tableOfContents} />
+          <TableOfContents
+            headings={tableOfContents}
+            scrollRootSelector="#wiki-scroll-root"
+          />
         </aside>
       </div>
 
