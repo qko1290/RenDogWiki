@@ -1,4 +1,21 @@
 :root { --header-h: 64px; }
+/* === GLOBAL: 모든 이미지 픽셀 보존 & 필터 해제 === */
+:where(img) {
+  /* 픽셀 아트/도트 이미지가 리사이즈될 때 또렷하게 */
+  image-rendering: pixelated;         /* Chrome/Edge/Firefox */
+  image-rendering: crisp-edges;       /* Safari/일부 브라우저 */
+  image-rendering: -moz-crisp-edges;  /* 구형 Firefox 호환 */
+  -ms-interpolation-mode: nearest-neighbor; /* 구형 IE 호환 */
+
+  /* 혹시 전역/상속 필터가 걸려 있으면 제거 */
+  filter: none !important;
+}
+
+/* === 예외: 부드럽게 보고 싶은 이미지에 class="smooth" 지정 === */
+:where(img.smooth) {
+  image-rendering: auto !important;
+  filter: initial !important;
+}
 
 /* 페이지 전체는 스크롤 금지, 내부 영역만 스크롤 */
 .wiki-container { height: 100vh; overflow: hidden; background: #f9f9f9; }
