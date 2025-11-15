@@ -320,6 +320,403 @@ const HANDWRITING_SCALE: Record<string, number> = {
   NanumHandwritingMiddleSchool: 1.14,   // 나눔손글씨 중학생
 };
 
+/** 무기 타입 */
+type WeaponType =
+  | 'epic'
+  | 'unique'
+  | 'legendary'
+  | 'divine'
+  | 'superior'
+  | 'class'
+  | 'block'
+  | 'hidden'
+  | 'limited'
+  | 'ancient';
+
+// 무기 희귀도(유형)별 메타 정보 (Editor와 동일 + BLOCK/디바인 색상 반영)
+const WEAPON_TYPES_META: Record<
+  WeaponType,
+  { label: string; headerBg: string; border: string; badgeBg: string }
+> = {
+  epic: {
+    label: 'EPIC',
+    headerBg: '#7c3aed',
+    border: '#a855f7',
+    badgeBg: '#5b21b6',
+  },
+  unique: {
+    label: 'UNIQUE',
+    headerBg: '#0ea5e9',
+    border: '#38bdf8',
+    badgeBg: '#0369a1',
+  },
+  legendary: {
+    label: 'LEGEND',
+    headerBg: '#f97373',
+    border: '#fb7185',
+    badgeBg: '#b91c1c',
+  },
+  // 디바인 조금 더 진하게
+  divine: {
+    label: 'DIVINE',
+    headerBg: '#15803d',
+    border: '#22c55e',
+    badgeBg: '#14532d',
+  },
+  superior: {
+    label: 'SUPERIOR',
+    headerBg: '#eab308',
+    border: '#facc15',
+    badgeBg: '#92400e',
+  },
+  class: {
+    label: 'CLASS',
+    headerBg: '#6366f1',
+    border: '#818cf8',
+    badgeBg: '#312e81',
+  },
+  // BLOCK 타입 (연두)
+  block: {
+    label: 'BLOCK',
+    headerBg: '#4ade80',
+    border: '#a3e635',
+    badgeBg: '#166534',
+  },
+  hidden: {
+    label: 'HIDDEN',
+    headerBg: '#0f766e',
+    border: '#14b8a6',
+    badgeBg: '#134e4a',
+  },
+  limited: {
+    label: 'LIMITED',
+    headerBg: '#f97316',
+    border: '#fdba74',
+    badgeBg: '#c2410c',
+  },
+  ancient: {
+    label: 'ANCIENT',
+    headerBg: '#6b7280',
+    border: '#9ca3af',
+    badgeBg: '#374151',
+  },
+};
+
+// 공격 영상 모달 (문서 보기에서도 사용)
+type WeaponVideoModalProps = {
+  open: boolean;
+  url: string;
+  onClose: () => void;
+};
+
+function WeaponVideoModal({ open, url, onClose }: WeaponVideoModalProps) {
+  if (!open) return null;
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,.75)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 2100,
+      }}
+      onMouseDown={onClose}
+    >
+      <div
+        onMouseDown={(e) => e.stopPropagation()}
+        style={{
+          width: 'min(960px, 90vw)',
+          maxHeight: '80vh',
+          background: '#020617',
+          borderRadius: 14,
+          boxShadow: '0 20px 50px rgba(0,0,0,.75)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            padding: '8px 12px',
+            borderBottom: '1px solid #111827',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            color: '#e5e7eb',
+            fontSize: 14,
+          }}
+        >
+          <span>공격 영상</span>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              borderRadius: 999,
+              border: '1px solid #4b5563',
+              padding: '3px 10px',
+              background: '#020617',
+              color: '#e5e7eb',
+              fontSize: 12,
+              cursor: 'pointer',
+            }}
+          >
+            닫기
+          </button>
+        </div>
+
+        {/* 모달 크기에 맞춰 영상이 잘리지 않도록 contain */}
+        <div
+          style={{
+            flex: 1,
+            minHeight: 0,
+            background: '#000',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 8,
+          }}
+        >
+          <video
+            src={url}
+            controls
+            controlsList="nodownload"
+            playsInline
+            style={{
+              maxWidth: '100%',
+              maxHeight: '100%',
+              width: 'auto',
+              height: 'auto',
+              objectFit: 'contain',
+              background: '#000',
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 무기 카드 한 블럭 렌더러 (읽기 전용)
+function WeaponCardView({ node, keyProp }: { node: any; keyProp: React.Key }) {
+  const weaponType: WeaponType = node.weaponType || 'epic';
+  const meta = WEAPON_TYPES_META[weaponType] ?? WEAPON_TYPES_META.epic;
+
+  const stats: any[] = Array.isArray(node.stats) ? node.stats : [];
+  const visibleStats = stats.filter((s) => s && s.enabled !== false);
+
+  const [videoOpen, setVideoOpen] = useState(false);
+
+  const cardWidth = 260;
+
+  const versionBase =
+    (node.updatedAt ?? node.version ?? node.imageVersion ?? node.videoVersion) as
+      | string
+      | number
+      | undefined;
+
+  const rawImage = node.imageUrl || node.image || '';
+  const imageSrc = rawImage ? withVersion(cdn(rawImage), versionBase) : '';
+
+  const rawVideo = node.videoUrl || '';
+  const videoSrc = rawVideo ? withVersion(cdn(rawVideo), versionBase) : '';
+
+  const name = node.name || '새 무기 이름';
+
+  return (
+    <div key={keyProp} style={{ margin: '14px 0' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'flex-start',
+        }}
+      >
+        <div
+          style={{
+            width: cardWidth,
+            borderRadius: 18,
+            overflow: 'hidden',
+            background: '#020617',
+            border: `1.5px solid ${meta.border}`,
+            boxShadow: '0 18px 45px rgba(0,0,0,.45)',
+            fontFamily: 'inherit',
+          }}
+        >
+          {/* 상단 타입 바 */}
+          <div
+            style={{
+              width: '100%',
+              background: meta.headerBg,
+              color: '#f9fafb',
+              padding: '8px 0',
+              fontSize: 13,
+              fontWeight: 700,
+              letterSpacing: 1.5,
+              textAlign: 'center',
+            }}
+          >
+            {meta.label}
+          </div>
+
+          {/* 무기 이름 */}
+          <div
+            style={{
+              padding: '10px 14px',
+              background: '#020617',
+              color: '#e5e7eb',
+              fontSize: 18,
+              fontWeight: 700,
+              textAlign: 'center',
+              borderBottom: '1px solid #111827',
+            }}
+          >
+            {name}
+          </div>
+
+          {/* 이미지 */}
+          <div
+            style={{
+              background:
+                'radial-gradient(circle at top, #1f2937 0, #020617 55%)',
+              height: 140,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {imageSrc ? (
+              <SmartImage
+                src={imageSrc}
+                alt=""
+                width={160}
+                height={96}
+                sizes="(max-width: 768px) 80vw, 260px"
+                rounded={10}
+                style={{
+                  maxWidth: '80%',
+                  maxHeight: '80%',
+                  objectFit: 'contain',
+                  boxShadow: '0 12px 18px rgba(0,0,0,.55)',
+                  background: '#fff',
+                }}
+              />
+            ) : (
+              <span
+                style={{
+                  color: '#6b7280',
+                  fontSize: 14,
+                }}
+              >
+                이미지 없음
+              </span>
+            )}
+          </div>
+
+          {/* 정보 리스트 */}
+          <div
+            style={{
+              padding: '8px 10px 8px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+            }}
+          >
+            {visibleStats.length === 0 && (
+              <div
+                style={{
+                  fontSize: 12,
+                  color: '#6b7280',
+                  padding: '6px 8px',
+                  borderRadius: 10,
+                  background: 'rgba(15,23,42,.75)',
+                }}
+              >
+                표시할 정보가 없습니다.
+              </div>
+            )}
+
+            {visibleStats.map((stat: any) => (
+              <div
+                key={stat.key}
+                style={{
+                  borderRadius: 10,
+                  padding: '6px 8px',
+                  border: '1px solid #111827',
+                  background:
+                    'linear-gradient(90deg, rgba(15,23,42,.95), rgba(15,23,42,.85))',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 12,
+                    color: '#9ca3af',
+                    fontWeight: 500,
+                  }}
+                >
+                  {stat.label}
+                </span>
+                <span
+                  style={{
+                    fontSize: 13,
+                    color: '#e5e7eb',
+                    fontWeight: 600,
+                  }}
+                >
+                  {stat.summary || '-'}
+                  {stat.unit ? ` ${stat.unit}` : ''}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* 하단 공격 영상 버튼 */}
+          <div
+            style={{
+              padding: '8px 10px 10px',
+              display: 'flex',
+              justifyContent: 'center',
+            }}
+          >
+            <button
+              type="button"
+              disabled={!videoSrc}
+              onClick={() => videoSrc && setVideoOpen(true)}
+              style={{
+                padding: '8px 10px',
+                borderRadius: 999,
+                border: 'none',
+                fontSize: 13,
+                fontWeight: 600,
+                background: videoSrc
+                  ? 'linear-gradient(90deg,#1d4ed8,#3b82f6)'
+                  : '#111827',
+                color: videoSrc ? '#f9fafb' : '#6b7280',
+                cursor: videoSrc ? 'pointer' : 'default',
+                minWidth: 160,
+                textAlign: 'center',
+              }}
+            >
+              공격 영상 보기
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <WeaponVideoModal
+        open={videoOpen && !!videoSrc}
+        url={videoSrc}
+        onClose={() => setVideoOpen(false)}
+      />
+    </div>
+  );
+}
+
 // 메인 렌더 컴포넌트
 export default function WikiReadRenderer({ content }: { content: Descendant[] }) {
   return <>{content.map((node, idx) => renderNode(node, idx))}</>;
@@ -935,7 +1332,7 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
       );
     }
 
-    // ⬇️ 영상 블록: 이미지와 동일한 정렬(textAlign) + CDN/버전 적용
+    // 영상 블록: 이미지와 동일한 정렬(textAlign) + CDN/버전 적용
     case "video": {
       let justify: 'flex-start' | 'center' | 'flex-end' = 'center';
       if (node.textAlign === 'left') justify = 'flex-start';
@@ -1023,7 +1420,12 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
       return <PriceTableCardBlock node={node} keyProp={key ?? ''} />;
     }
 
-        case 'table': {
+    // 무기 카드 블록 (문서 보기용)
+    case "weapon-card": {
+      return <WeaponCardView node={node} keyProp={key ?? ''} />;
+    }
+
+    case 'table': {
       const widthPx =
         typeof node.maxWidth === 'number' ? node.maxWidth : undefined;
       const align = node.align || 'left';
@@ -1111,7 +1513,6 @@ function stripFontSizeFromDescendants(node: any): any {
 
 // React Node의 텍스트만 추출
 function stripReact(node: React.ReactNode): string {
-  // 기존 stripReact 구현 그대로 유지
   if (typeof node === "string" || typeof node === "number") return String(node);
   if (Array.isArray(node)) return node.map(stripReact).join("");
   if (React.isValidElement(node)) return stripReact(node.props.children);

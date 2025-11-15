@@ -136,7 +136,7 @@ const WEAPON_TYPES_META: Record<
   epic:      { label: 'EPIC',      headerBg: '#7c3aed', border: '#a855f7', badgeBg: '#5b21b6' },
   unique:    { label: 'UNIQUE',    headerBg: '#0ea5e9', border: '#38bdf8', badgeBg: '#0369a1' },
   legendary: { label: 'LEGEND',    headerBg: '#f97373', border: '#fb7185', badgeBg: '#b91c1c' },
-  divine:    { label: 'DIVINE',    headerBg: '#22c55e', border: '#4ade80', badgeBg: '#15803d' },
+  divine:    { label: 'DIVINE',    headerBg: '#15803d', border: '#22c55e', badgeBg: '#14532d' },
   superior:  { label: 'SUPERIOR',  headerBg: '#eab308', border: '#facc15', badgeBg: '#92400e' },
   class:     { label: 'CLASS',     headerBg: '#6366f1', border: '#818cf8', badgeBg: '#312e81' },
   hidden:    { label: 'HIDDEN',    headerBg: '#0f766e', border: '#14b8a6', badgeBg: '#134e4a' },
