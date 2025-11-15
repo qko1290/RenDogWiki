@@ -1838,8 +1838,11 @@ const Element: React.FC<ElementProps> = ({
               <div
                 onClick={() => !isReadOnly && setImageModalOpen(true)}
                 style={{
+                  // 렌더러 쪽 느낌으로 통일된 배경
                   background:
-                    'radial-gradient(circle at top, #1f2937 0, #020617 55%)',
+                    'radial-gradient(circle at 20% 0%, rgba(56,189,248,0.18), transparent 55%), ' +
+                    'radial-gradient(circle at 100% 0%, rgba(129,140,248,0.22), transparent 55%), ' +
+                    '#020617',
                   height: 140,
                   display: 'flex',
                   alignItems: 'center',
@@ -1968,6 +1971,10 @@ const Element: React.FC<ElementProps> = ({
                     flex: showConfigButtons ? 1 : undefined,
                     minWidth: showConfigButtons ? undefined : 160,
                     textAlign: 'center',
+                    // 렌더러 느낌의 블루 글로우
+                    boxShadow: videoSrc
+                      ? '0 12px 30px rgba(37,99,235,0.7)'
+                      : 'none',
                   }}
                 >
                   공격 영상 보기

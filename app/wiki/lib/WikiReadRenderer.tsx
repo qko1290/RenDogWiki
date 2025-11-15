@@ -1422,22 +1422,22 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
   const stats: any[] = Array.isArray(node.stats) ? node.stats : [];
   const enabledStats = stats.filter((s) => s && s.enabled);
 
-  // 🔹 levels 는 "첫 번째로 levels 가 있는 스탯" 기준으로 통일
+  // 🔹 levels 는 "첫 번째로 levels 가 있는 스탯" 기준
   const baseStatWithLevels = enabledStats.find(
     (s) => Array.isArray(s.levels) && s.levels.length > 0
   );
   const levelLabels: string[] = baseStatWithLevels
     ? baseStatWithLevels.levels
-        .map((lv: any) => String(lv.levelLabel ?? "").trim())
+        .map((lv: any) => String(lv.levelLabel ?? '').trim())
         .filter(Boolean)
     : [];
 
-  // 기본 선택: MAX 가 있으면 MAX, 아니면 마지막 단계
+  // 기본 선택: MAX 있으면 MAX, 없으면 마지막 단계
   const [selectedLevelIndex, setSelectedLevelIndex] = useState<number | null>(
     () => {
       if (!levelLabels.length) return null;
       const idxMax = levelLabels.findIndex(
-        (x) => x.toUpperCase() === "MAX" || x.toUpperCase() === "M"
+        (x) => x.toUpperCase() === 'MAX' || x.toUpperCase() === 'M'
       );
       return idxMax >= 0 ? idxMax : levelLabels.length - 1;
     }
@@ -1445,257 +1445,241 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
 
   const [showVideo, setShowVideo] = useState(false);
 
-  const weaponTypeKey = String(node.weaponType ?? "")
-    .trim()
-    .toUpperCase();
-  const preset =
-    WEAPON_TYPE_PRESETS[weaponTypeKey] ?? DEFAULT_WEAPON_PRESET;
+  // 🔹 Element 쪽과 같은 메타 사용
+  const weaponType: WeaponType = (node.weaponType as WeaponType) || 'epic';
+  const meta = WEAPON_TYPES_META[weaponType] ?? WEAPON_TYPES_META.epic;
 
-  const name = (node.name ?? "").trim() || "무기 이름 없음";
+  const name = (node.name ?? '').trim() || '무기 이름 없음';
 
-  const imgVersion =
-    (node.imageUpdatedAt || node.imageVersion || node.updatedAt || node.version) ??
-    undefined;
-  const imgSrc = node.imageUrl ? withVersion(cdn(node.imageUrl), imgVersion) : "";
+  // 공용 버전 파라미터
+  const versionBase =
+    node.imageUpdatedAt ||
+    node.imageVersion ||
+    node.videoUpdatedAt ||
+    node.videoVersion ||
+    node.updatedAt ||
+    node.version;
 
-  const videoVersion =
-    (node.videoUpdatedAt || node.videoVersion || node.updatedAt || node.version) ??
-    undefined;
-  const videoSrc = node.videoUrl
-    ? withVersion(cdn(node.videoUrl), videoVersion)
-    : "";
+  const rawImage = node.imageUrl || node.image || '';
+  const imageSrc = rawImage ? withVersion(cdn(rawImage), versionBase) : '';
+
+  const rawVideo = node.videoUrl || '';
+  const videoSrc = rawVideo ? withVersion(cdn(rawVideo), versionBase) : '';
 
   const getStatDisplay = (stat: any): { value: string; unit?: string } => {
-    const unit = stat.unit || "";
+    const unit = stat.unit || '';
     if (
       selectedLevelIndex == null ||
       !Array.isArray(stat.levels) ||
       !stat.levels.length
     ) {
-      return { value: String(stat.summary ?? ""), unit };
+      return { value: String(stat.summary ?? ''), unit };
     }
     const lv = stat.levels[selectedLevelIndex];
     const v =
-      (lv && lv.value != null && lv.value !== "")
+      lv && lv.value != null && lv.value !== ''
         ? String(lv.value)
-        : String(stat.summary ?? "");
+        : String(stat.summary ?? '');
     return { value: v, unit };
   };
 
-  const openVideo = () => {
-    if (!videoSrc) return;
-    setShowVideo(true);
-  };
-
-  const closeVideo = () => setShowVideo(false);
+  const cardWidth = 260; // 🔹 Element 와 동일
 
   return (
-    <div
-      key={keyProp}
-      style={{
-        width: "100%",
-        display: "flex",
-        justifyContent: "center",
-        margin: "28px 0",
-      }}
-    >
+    <div key={keyProp} style={{ margin: '14px 0' }}>
       <div
         style={{
-          display: "inline-flex",
-          alignItems: "flex-start",
-          gap: 16,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'flex-start',
+          gap: 10,
         }}
       >
-        {/* 카드 본체 */}
+        {/* 카드 본체 – Element 와 거의 동일한 스타일 */}
         <div
           style={{
-            width: 320,
-            borderRadius: 26,
-            overflow: "hidden",
-            background:
-              "radial-gradient(circle at 10% -10%, #0f172a 0, #020617 45%, #000 100%)",
-            boxShadow: "0 30px 60px rgba(15,23,42,0.78)",
-            border: `1px solid ${preset.border}`,
+            width: cardWidth,
+            borderRadius: 18,
+            overflow: 'hidden',
+            background: '#020617',
+            border: `1.5px solid ${meta.border}`,
+            boxShadow: '0 18px 45px rgba(0,0,0,.45)',
+            fontFamily: 'inherit',
           }}
         >
-          {/* 상단 무기 유형 */}
+          {/* 상단 타입 바 */}
           <div
             style={{
-              height: 52,
-              background: preset.headerBg,
-              color: preset.headerText,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontWeight: 800,
-              letterSpacing: "0.16em",
-              fontSize: 12,
+              width: '100%',
+              background: meta.headerBg,
+              color: '#f9fafb',
+              padding: '8px 0',
+              fontSize: 13,
+              fontWeight: 700,
+              letterSpacing: 1.5,
+              textAlign: 'center',
             }}
           >
-            {preset.label}
+            {meta.label}
           </div>
 
-          {/* 내부 내용 */}
+          {/* 무기 이름 */}
           <div
             style={{
-              padding: "20px 22px 22px",
-              background:
-                "radial-gradient(circle at 20% 0%, rgba(56,189,248,0.18), transparent 55%), radial-gradient(circle at 100% 0%, rgba(129,140,248,0.22), transparent 55%), #020617",
+              padding: '10px 14px',
+              background: '#020617',
+              color: '#e5e7eb',
+              fontSize: 18,
+              fontWeight: 700,
+              textAlign: 'center',
+              borderBottom: '1px solid #111827',
             }}
           >
-            {/* 무기 이름 */}
-            <div
-              style={{
-                textAlign: "center",
-                color: "#f9fafb",
-                fontSize: 22,
-                fontWeight: 800,
-                marginBottom: 14,
-                textShadow: "0 2px 10px rgba(15,23,42,0.9)",
-              }}
-            >
-              {name}
-            </div>
+            {name}
+          </div>
 
-            {/* 이미지 영역 – 배경 하얀색 제거 (투명) */}
-            <div
-              style={{
-                borderRadius: 18,
-                padding: "18px 0",
-                marginBottom: 18,
-                background:
-                  "radial-gradient(circle at 50% 0%, rgba(56,189,248,0.25), transparent 60%)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                minHeight: 140,
-              }}
-            >
-              {imgSrc ? (
-                <SmartImage
-                  src={imgSrc}
-                  alt={name}
-                  width={120}
-                  height={120}
-                  rounded={0}
-                  style={{
-                    imageRendering: "pixelated",
-                    objectFit: "contain",
-                    background: "transparent",
-                    display: "block",
-                  }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: 96,
-                    height: 96,
-                    borderRadius: 14,
-                    border: "1px dashed rgba(148,163,184,0.7)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 12,
-                    color: "#94a3b8",
-                  }}
-                >
-                  이미지 없음
-                </div>
-              )}
-            </div>
-
-            {/* 스탯 카드들 */}
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 8,
-                marginBottom: 14,
-              }}
-            >
-              {enabledStats.map((stat) => {
-                const { value, unit } = getStatDisplay(stat);
-                const hasUnit = !!unit;
-                return (
-                  <div
-                    key={stat.key || stat.label}
-                    style={{
-                      borderRadius: 12,
-                      background:
-                        "linear-gradient(135deg, #020617, #020617 60%, #020617)",
-                      border: "1px solid #020617",
-                      boxShadow: "0 4px 18px rgba(15,23,42,0.6)",
-                      padding: "7px 11px",
-                      display: "flex",
-                      alignItems: "center",
-                      color: "#e5e7eb",
-                      fontSize: 13,
-                    }}
-                  >
-                    <span
-                      style={{
-                        color: "#cbd5f5",
-                        fontSize: 13,
-                      }}
-                    >
-                      {stat.label}
-                    </span>
-                    <span
-                      style={{
-                        marginLeft: "auto",
-                        display: "flex",
-                        alignItems: "baseline",
-                        gap: 4,
-                        fontWeight: 800,
-                        letterSpacing: "0.03em",
-                      }}
-                    >
-                      <span style={{ fontSize: 16 }}>
-                        {value !== "" ? value : "-"}
-                      </span>
-                      {hasUnit && (
-                        <span
-                          style={{
-                            fontSize: 12,
-                            opacity: 0.8,
-                          }}
-                        >
-                          {unit}
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* 공격 영상 보기 버튼 */}
-            {videoSrc && (
-              <button
-                type="button"
-                onClick={openVideo}
+          {/* 이미지 영역 – 렌더러 느낌의 배경을 Element 와 공유 */}
+          <div
+            style={{
+              background:
+                'radial-gradient(circle at 20% 0%, rgba(56,189,248,0.18), transparent 55%), ' +
+                'radial-gradient(circle at 100% 0%, rgba(129,140,248,0.22), transparent 55%), ' +
+                '#020617',
+              height: 140,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {imageSrc ? (
+              <SmartImage
+                src={imageSrc}
+                alt={name}
+                width={160}
+                height={96}
+                sizes="(max-width: 768px) 80vw, 260px"
+                rounded={10}
                 style={{
-                  width: "100%",
-                  border: "none",
-                  outline: "none",
-                  cursor: "pointer",
-                  borderRadius: 999,
-                  padding: "9px 0",
-                  background:
-                    "linear-gradient(135deg, #2563eb, #1d4ed8, #1d4ed8)",
-                  color: "#f9fafb",
-                  fontWeight: 700,
-                  fontSize: 15,
-                  boxShadow: "0 12px 30px rgba(37,99,235,0.7)",
+                  maxWidth: '80%',
+                  maxHeight: '80%',
+                  objectFit: 'contain',
+                  boxShadow: '0 12px 18px rgba(0,0,0,.55)',
+                  background: 'transparent',
+                  imageRendering: 'pixelated',
+                  display: 'block',
+                }}
+              />
+            ) : (
+              <span
+                style={{
+                  color: '#6b7280',
+                  fontSize: 14,
                 }}
               >
-                공격 영상 보기
-              </button>
+                이미지 없음
+              </span>
             )}
+          </div>
+
+          {/* 스탯 리스트 – Element 의 디자인 그대로, 클릭 불가 버전 */}
+          <div
+            style={{
+              padding: '8px 10px 8px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+            }}
+          >
+            {enabledStats.length === 0 && (
+              <div
+                style={{
+                  fontSize: 12,
+                  color: '#6b7280',
+                  padding: '6px 8px',
+                  borderRadius: 10,
+                  background: 'rgba(15,23,42,.75)',
+                }}
+              >
+                표시할 정보가 없습니다.
+              </div>
+            )}
+
+            {enabledStats.map((stat) => {
+              const { value, unit } = getStatDisplay(stat);
+              return (
+                <div
+                  key={stat.key || stat.label}
+                  style={{
+                    borderRadius: 10,
+                    padding: '6px 8px',
+                    border: '1px solid #111827',
+                    background:
+                      'linear-gradient(90deg, rgba(15,23,42,.95), rgba(15,23,42,.85))',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 12,
+                      color: '#9ca3af',
+                      fontWeight: 500,
+                    }}
+                  >
+                    {stat.label}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 13,
+                      color: '#e5e7eb',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {value || '-'}
+                    {unit ? ` ${unit}` : ''}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* 하단 공격 영상 버튼 – Element 스타일 + 렌더러 그림자 */}
+          <div
+            style={{
+              padding: '8px 10px 10px',
+              display: 'flex',
+              justifyContent: 'center',
+            }}
+          >
+            <button
+              type="button"
+              disabled={!videoSrc}
+              onClick={() => videoSrc && setShowVideo(true)}
+              style={{
+                padding: '8px 10px',
+                borderRadius: 999,
+                border: 'none',
+                fontSize: 13,
+                fontWeight: 600,
+                background: videoSrc
+                  ? 'linear-gradient(90deg,#1d4ed8,#3b82f6)'
+                  : '#111827',
+                color: videoSrc ? '#f9fafb' : '#6b7280',
+                cursor: videoSrc ? 'pointer' : 'default',
+                minWidth: 160,
+                textAlign: 'center',
+                boxShadow: videoSrc
+                  ? '0 12px 30px rgba(37,99,235,0.7)'
+                  : 'none',
+              }}
+            >
+              공격 영상 보기
+            </button>
           </div>
         </div>
 
-        {/* 카드 오른쪽의 강수 선택 드롭다운 */}
+        {/* 오른쪽 강수 선택 버튼 – 기존 WeaponLevelSelector 유지 */}
         {levelLabels.length > 0 && (
           <WeaponLevelSelector
             levelLabels={levelLabels}
@@ -1705,76 +1689,13 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
         )}
       </div>
 
-      {/* 간단 모달 – 영상 크기 카드/화면에 맞게 표시 */}
-      {videoSrc && showVideo && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(15,23,42,0.78)",
-            zIndex: 80,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-          onClick={closeVideo}
-        >
-          <div
-            style={{
-              background: "#020617",
-              borderRadius: 18,
-              padding: 16,
-              border: "1px solid rgba(148,163,184,0.8)",
-              maxWidth: "min(720px, 92vw)",
-              width: "100%",
-              boxShadow: "0 26px 70px rgba(15,23,42,0.95)",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 8,
-                color: "#e5e7eb",
-                fontSize: 14,
-                fontWeight: 600,
-              }}
-            >
-              <span>{name} - 공격 영상</span>
-              <button
-                type="button"
-                onClick={closeVideo}
-                style={{
-                  border: "none",
-                  background: "transparent",
-                  color: "#e5e7eb",
-                  cursor: "pointer",
-                  fontSize: 20,
-                  lineHeight: 1,
-                }}
-              >
-                ×
-              </button>
-            </div>
-            <video
-              src={videoSrc}
-              controls
-              autoPlay
-              playsInline
-              preload="metadata"
-              style={{
-                width: "100%",
-                height: "auto",
-                maxHeight: "min(420px, 60vh)",
-                borderRadius: 14,
-                background: "#000",
-                display: "block",
-              }}
-            />
-          </div>
-        </div>
+      {/* 영상 모달 – 이미 위에서 정의해둔 WeaponVideoModal 재사용 */}
+      {videoSrc && (
+        <WeaponVideoModal
+          open={showVideo}
+          url={videoSrc}
+          onClose={() => setShowVideo(false)}
+        />
       )}
     </div>
   );
