@@ -1,6 +1,6 @@
 /**
  * C:\next\rdwiki\app\components\editor\helpers\tableOps.ts
- * 표 조작 유틸(병합/분할/행·열/삭제/너비맞춤/비우기)
+ * 표 조작 유틸(병합/분할/행·열/삭제/너비맞춤/비우기 + 정렬/최대 너비)
  * - 스키마: table > table-row[] > table-cell{rowspan?:number, colspan?:number} > paragraph > text
  */
 
@@ -8,6 +8,8 @@ import { Editor, Element as SlateElement, Node, Path, Transforms, Point } from '
 import type { TableCellElement } from '@/types/slate';
 
 export type CellPos = { r: number; c: number };
+export type TableAlign = 'left' | 'center' | 'right';
+
 const isTable = (n: any) => SlateElement.isElement(n) && n.type === 'table';
 const isRow   = (n: any) => SlateElement.isElement(n) && n.type === 'table-row';
 const isCell  = (n: any) => SlateElement.isElement(n) && n.type === 'table-cell';
@@ -134,12 +136,32 @@ export function splitCellByCol(editor: Editor, cellPath: Path) {
   });
 }
 
-/** 표 너비 맞춤 토글 */
+/** 기존 fullWidth 토글 (호환용) + maxWidth 연동 */
 export function toggleTableFullWidth(editor: Editor, tablePath: Path) {
   try {
     const table = Node.get(editor, tablePath) as any;
     const next = !table.fullWidth;
-    Transforms.setNodes(editor, { fullWidth: next } as any, { at: tablePath });
+    const patch: any = { fullWidth: next };
+    if (next) patch.maxWidth = null; // 전체 너비
+    Transforms.setNodes(editor, patch, { at: tablePath });
+  } catch {}
+}
+
+/** 표 정렬 설정 (left/center/right) */
+export function setTableAlignment(editor: Editor, tablePath: Path, align: TableAlign) {
+  try {
+    Transforms.setNodes(editor, { align } as any, { at: tablePath });
+  } catch {}
+}
+
+/** 표 최대 너비(px 또는 null=100%) 설정 */
+export function setTableMaxWidth(editor: Editor, tablePath: Path, maxWidth: number | null) {
+  try {
+    const normalized =
+      typeof maxWidth === 'number' ? Math.max(240, maxWidth) : null;
+    // fullWidth 플래그도 함께 정리
+    const patch: any = { maxWidth: normalized, fullWidth: normalized == null };
+    Transforms.setNodes(editor, patch, { at: tablePath });
   } catch {}
 }
 

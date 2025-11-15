@@ -1,9 +1,9 @@
+// C:\next\rdwiki\app\components\editor\TablePicker.tsx
 // =============================================
-// File: app/components/editor/TablePicker.tsx
+// 10x10(기본) 테이블 그리드 선택 팝오버
+// - maxRows / maxCols 로 조절 가능
+// - body 포탈, 화면 가장자리 자동 뒤집기 + 클램프
 // =============================================
-/**
- * 6x6 고정 테이블 그리드 선택 팝오버 (body 포탈, 화면 가장자리 자동 뒤집기 + 클램프)
- */
 
 'use client';
 
@@ -15,11 +15,20 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onPick: (rows: number, cols: number) => void;
+  /** 선택 가능한 최대 행 수 (기본 10) */
+  maxRows?: number;
+  /** 선택 가능한 최대 열 수 (기본 10) */
+  maxCols?: number;
 };
 
-const MAX = 6;
-
-export default function TablePicker({ anchor, open, onClose, onPick }: Props) {
+export default function TablePicker({
+  anchor,
+  open,
+  onClose,
+  onPick,
+  maxRows = 10,
+  maxCols = 10,
+}: Props) {
   const [hover, setHover] = useState<[number, number] | null>(null);
   const popRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
@@ -30,8 +39,8 @@ export default function TablePicker({ anchor, open, onClose, onPick }: Props) {
     const rect = anchor.getBoundingClientRect();
     const CELL = 24; // px
     const PAD = 14;
-    const width = PAD * 2 + CELL * MAX;
-    const height = PAD * 2 + CELL * MAX + 20; // caption
+    const width = PAD * 2 + CELL * maxCols;
+    const height = PAD * 2 + CELL * maxRows + 20; // caption
 
     let left = rect.left;
     let top = rect.bottom + 6;
@@ -49,11 +58,15 @@ export default function TablePicker({ anchor, open, onClose, onPick }: Props) {
       if (!box) return;
       let finalLeft = left;
       let finalTop = top;
-      if (finalLeft + box.width > window.innerWidth - 8) finalLeft = Math.max(8, window.innerWidth - 8 - box.width);
-      if (finalTop + box.height > window.innerHeight - 8) finalTop = Math.max(8, window.innerHeight - 8 - box.height);
+      if (finalLeft + box.width > window.innerWidth - 8) {
+        finalLeft = Math.max(8, window.innerWidth - 8 - box.width);
+      }
+      if (finalTop + box.height > window.innerHeight - 8) {
+        finalTop = Math.max(8, window.innerHeight - 8 - box.height);
+      }
       if (finalLeft !== left || finalTop !== top) setPos({ top: finalTop, left: finalLeft });
     });
-  }, [open, anchor]);
+  }, [open, anchor, maxRows, maxCols]);
 
   // 외부 클릭/ESC로 닫기
   useEffect(() => {
@@ -71,8 +84,11 @@ export default function TablePicker({ anchor, open, onClose, onPick }: Props) {
   }, [open, anchor, onClose]);
 
   const grid = useMemo(
-    () => Array.from({ length: MAX }, (_, r) => Array.from({ length: MAX }, (_, c) => [r + 1, c + 1] as [number, number])),
-    []
+    () =>
+      Array.from({ length: maxRows }, (_, r) =>
+        Array.from({ length: maxCols }, (_, c) => [r + 1, c + 1] as [number, number])
+      ),
+    [maxRows, maxCols]
   );
 
   if (!open) return null;

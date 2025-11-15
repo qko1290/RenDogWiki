@@ -151,6 +151,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
 
   const [showPriceTableInsertModal, setShowPriceTableInsertModal] = useState(false);
 
+  const [tablePickerOpen, setTablePickerOpen] = useState(false);
+  const tableBtnRef = useRef<HTMLButtonElement | null>(null);
+
   // ===== 유틸: 모두 닫기 =====
   const closeAllDropdowns = () => {
     setOpenDropdown(null);
@@ -655,6 +658,43 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
           Transforms.insertNodes(editor, element as any);
           Transforms.insertNodes(editor, { type: 'paragraph', children: [{ text: '' }] });
           setShowPriceTableInsertModal(false);
+        }}
+      />
+
+      {/* ★ 표 삽입 버튼 + TablePicker */}
+      <button
+        className="editor-toolbar-btn"
+        ref={tableBtnRef}
+        title="표 삽입"
+        onMouseDown={(e) => {
+          e.preventDefault();
+          closeAllDropdowns();
+          // 현재 selection 기억 → 선택 위치에 표 삽입
+          selectionRef.current = editor.selection ?? null;
+          setTablePickerOpen(true);
+        }}
+      >
+        <FontAwesomeIcon icon={faTable} />
+      </button>
+
+      <TablePicker
+        anchor={tableBtnRef.current}
+        open={tablePickerOpen}
+        onClose={() => setTablePickerOpen(false)}
+        maxRows={10}
+        maxCols={10}
+        onPick={(rows, cols) => {
+          setTablePickerOpen(false);
+          // 표 삽입 전에 저장된 selection 복원
+          if (selectionRef.current) {
+            try { Transforms.select(editor, selectionRef.current); } catch {}
+          }
+          insertTable(editor, {
+            rows,
+            cols,
+            align: 'left',   // 기본 정렬
+            maxWidth: 800,   // 기본 최대 너비(px)
+          });
         }}
       />
     </div>
