@@ -45,7 +45,7 @@
 
 /* ===== [2] 사이드바(카테고리) ===== */
 .wiki-sidebar {
-  width: 300px;
+  width: 320px;
   background: #ffffff;
   font-size: 14px;
   font-weight: 600;
@@ -218,7 +218,7 @@
 /* ===== [6] 목차(TOC) ===== */
 .wiki-toc,
 .wiki-toc-sidebar {
-  width: 220px;
+  width: 260px;
   padding: 1rem;
   flex-shrink: 0;
   border-left: 1px solid #eee;

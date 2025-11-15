@@ -17,7 +17,7 @@ import ImageSelectModal from '@/components/image/ImageSelectModal';
 import { insertImage } from './helpers/insertImage';
 import { insertMedia } from './helpers/insertMedia';
 import { setImageAlignment } from './helpers/setImageAlignment';
-import { InlineMarkElement } from '@/types/slate';
+import { InlineMarkElement, TableElement } from '@/types/slate';
 import LinkInputModal from './LinkInputModal';
 import WikiLinkModal from './WikiLinkModal';
 import CustomColorDropdown from "./CustomColorDropdown";
@@ -262,15 +262,53 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
   const setAlignment = (alignment: 'left' | 'center' | 'right' | 'justify') => {
     const { selection } = editor;
     if (!selection) return;
-    const blocks = Editor.nodes(editor, {
-      at: selection,
-      match: n =>
-        SlateElement.isElement(n) &&
-        Editor.isBlock(editor, n) &&
-        ['paragraph', 'heading-one', 'heading-two', 'heading-three'].includes((n as any).type),
-    });
-    for (const [, path] of blocks) {
-      Transforms.setNodes(editor, { textAlign: alignment } as any, { at: path });
+
+    // 1) 문단/헤딩 정렬 - 먼저 모든 대상 path를 수집
+    const blockEntries = Array.from(
+      Editor.nodes(editor, {
+        at: selection,
+        match: n =>
+          SlateElement.isElement(n) &&
+          Editor.isBlock(editor, n) &&
+          ['paragraph', 'heading-one', 'heading-two', 'heading-three'].includes(
+            (n as any).type,
+          ),
+      }),
+    );
+
+    for (const [, path] of blockEntries) {
+      Transforms.setNodes(
+        editor,
+        { textAlign: alignment } as any,
+        { at: path },
+      );
+    }
+
+    // 2) selection 안에 포함된 표(table)에도 정렬 적용
+    //    - 셀 안에 커서가 있어도 table 조상이 selection 범위에 들어오기 때문에 탐색 가능
+    const tableEntries = Array.from(
+      Editor.nodes(editor, {
+        at: selection,
+        match: n => SlateElement.isElement(n) && (n as any).type === 'table',
+      }),
+    );
+
+    if (tableEntries.length > 0) {
+      // 표는 양쪽 정렬(justify) 개념이 없으니 left 로 매핑
+      const tableAlign: TableElement['align'] =
+        alignment === 'center'
+          ? 'center'
+          : alignment === 'right'
+          ? 'right'
+          : 'left';
+
+      for (const [, tPath] of tableEntries) {
+        Transforms.setNodes<TableElement>(
+          editor,
+          { align: tableAlign } as Partial<TableElement>,
+          { at: tPath },
+        );
+      }
     }
   };
 

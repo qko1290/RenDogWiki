@@ -1223,7 +1223,7 @@ const Element: React.FC<ElementProps> = ({
         const parentRect = wrap.parentElement?.getBoundingClientRect();
         const containerWidth = parentRect?.width ?? window.innerWidth;
 
-        const MIN = 120;
+        const MIN = 400;
         const MAX = Math.max(MIN, containerWidth - 16);
         let latest = startWidth;
 
@@ -1272,11 +1272,28 @@ const Element: React.FC<ElementProps> = ({
       };
 
       const wrapWidth = liveWidth ?? widthFromNode;
+      const tableAlign = table.align ?? 'left';
+
       const wrapStyle: React.CSSProperties = {
         position: 'relative',
         width: wrapWidth ? `${wrapWidth}px` : table.fullWidth ? '100%' : undefined,
         maxWidth: '100%',
       };
+
+      // fullWidth(100%)가 아닌 경우에만 정렬 적용
+      if (!table.fullWidth) {
+        if (tableAlign === 'center') {
+          wrapStyle.marginLeft = 'auto';
+          wrapStyle.marginRight = 'auto';
+        } else if (tableAlign === 'right') {
+          wrapStyle.marginLeft = 'auto';
+          wrapStyle.marginRight = 0;
+        } else {
+          // left
+          wrapStyle.marginLeft = 0;
+          wrapStyle.marginRight = 'auto';
+        }
+      }
 
       return (
         <div
@@ -1451,7 +1468,7 @@ const Element: React.FC<ElementProps> = ({
           style={{
             border: '1px solid #e5e7eb',
             background: '#ffffff',
-            padding: 6,
+            padding: '4px 6px',
             verticalAlign: 'top',
           }}
         >

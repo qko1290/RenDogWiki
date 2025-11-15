@@ -28,7 +28,7 @@ export default function TableOfContents({
   headerOffset = 72,
   right = 20,
   top = 100,
-  width = 190,
+  width = 240,
   title = '목차',
   scrollRootSelector,
 }: Props) {
