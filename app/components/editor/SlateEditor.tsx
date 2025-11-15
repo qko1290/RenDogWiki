@@ -50,7 +50,72 @@ type PriceTableEditState = {
 };
 
 // 커서 진입 불가 블럭
-const VOID_BLOCK_TYPES = new Set(['link-block', 'image', 'divider', 'price-table-card']);
+const VOID_BLOCK_TYPES = new Set([
+  'link-block',
+  'image',
+  'divider',
+  'price-table-card',
+  'weapon-card',
+]);
+
+// weapon-card / price-table-card 내부에서 Enter 눌렀을 때
+// 블럭이 복사되지 않고, 블럭 뒤에 새 paragraph 를 만들도록 하는 플러그인
+function withWeaponBlocks(editor: Editor): Editor {
+  const e = editor;
+  const { insertBreak } = e;
+
+  e.insertBreak = () => {
+    const { selection } = e;
+
+    // 선택이 없거나 드래그 선택이면 기존 동작 그대로
+    if (!selection || !Range.isCollapsed(selection)) {
+      return insertBreak();
+    }
+
+    // 커서가 weapon-card / price-table-card 안에 있는지 확인
+    const [match] = Editor.nodes(e, {
+      match: (n) =>
+        SlateElement.isElement(n) &&
+        ((n as any).type === 'weapon-card' ||
+          (n as any).type === 'price-table-card'),
+    });
+
+    if (match) {
+      const [, path] = match;
+
+      // 카드 바로 뒤 위치
+      const insertPath = Path.next(path);
+
+      // 새 paragraph 블럭 하나 삽입
+      const paragraph: Node = {
+        type: 'paragraph',
+        children: [{ text: '' }],
+      } as any;
+
+      Transforms.insertNodes(e, paragraph, { at: insertPath });
+
+      // 커서를 새 paragraph 의 첫 텍스트로 이동
+      const textPath = [...insertPath, 0];
+      Transforms.select(e, {
+        anchor: { path: textPath, offset: 0 },
+        focus: { path: textPath, offset: 0 },
+      });
+
+      try {
+        ReactEditor.focus(e as any);
+      } catch {
+        /* ignore */
+      }
+
+      return;
+    }
+
+    // 나머지는 원래 Enter 동작
+    return insertBreak();
+  };
+
+  return e;
+}
 
 export default function SlateEditor({ initialDoc, isMain = false }: Props) {
   if (!initialDoc) return <div>잘못된 접근입니다.</div>;
@@ -103,6 +168,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
 
   const editor = useMemo(() => {
     const e = withCustomInline(withHistory(withReact(createEditor())));
+
     const { normalizeNode } = e;
     e.normalizeNode = ([node, path]) => {
       if (SlateElement.isElement(node) && node.type === 'info-box') {
@@ -435,7 +501,10 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     const HOTKEYS: Record<string, string> = {
-      'mod+b': 'bold', 'mod+i': 'italic', 'mod+u': 'underline', 'mod+shift+x': 'strikethrough',
+      'mod+b': 'bold',
+      'mod+i': 'italic',
+      'mod+u': 'underline',
+      'mod+shift+x': 'strikethrough',
     };
     for (const hotkey in HOTKEYS) {
       if (isHotkey(hotkey, event)) {
@@ -447,27 +516,93 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       }
     }
 
+    // heading에서 Enter → 아래에 paragraph (기존)
     if (event.key === 'Enter') {
       const [matchH] = Editor.nodes(editor, {
-        match: n => SlateElement.isElement(n) && ['heading-one', 'heading-two', 'heading-three'].includes(n.type),
+        match: n =>
+          SlateElement.isElement(n) &&
+          ['heading-one', 'heading-two', 'heading-three'].includes(n.type),
       });
       if (matchH) {
         event.preventDefault();
-        Transforms.insertNodes(editor, { type: 'paragraph', children: [{ text: '' }] });
+        Transforms.insertNodes(
+          editor,
+          { type: 'paragraph', children: [{ text: '' }] } as any,
+        );
         return;
       }
     }
 
+    // info-box 안에서는 Enter 막기 (기존)
     if (event.key === 'Enter') {
-      const [ib] = Editor.nodes(editor, { match: n => SlateElement.isElement(n) && n.type === 'info-box' });
-      if (ib) { event.preventDefault(); return; }
+      const [ib] = Editor.nodes(editor, {
+        match: n => SlateElement.isElement(n) && n.type === 'info-box',
+      });
+      if (ib) {
+        event.preventDefault();
+        return;
+      }
+    }
+
+    // ⭐ 무기 카드 / 시세표 카드 뒤 "빈 단락"에서 Enter 처리
+    //    → 카드 복사하지 않고, 그 아래에 새 paragraph 하나 추가
+    if (event.key === 'Enter' && !event.shiftKey) {
+      const { selection } = editor;
+      if (selection && Range.isCollapsed(selection)) {
+        try {
+          const [block, blockPath] = Editor.node(editor, selection, {
+            depth: 1,
+          });
+
+          const isEmptyParagraph =
+            SlateElement.isElement(block) &&
+            (block as any).type === 'paragraph' &&
+            Node.string(block) === '';
+
+          if (isEmptyParagraph && blockPath[0] > 0) {
+            const prevPath: Path = [blockPath[0] - 1];
+
+            let prevNode: Node | null = null;
+            try {
+              prevNode = Node.get(editor, prevPath);
+            } catch {
+              prevNode = null;
+            }
+
+            if (
+              prevNode &&
+              SlateElement.isElement(prevNode) &&
+              ['weapon-card', 'price-table-card'].includes(
+                (prevNode as any).type,
+              )
+            ) {
+              event.preventDefault();
+
+              const insertPath = Path.next(blockPath);
+              const paragraph: any = {
+                type: 'paragraph',
+                children: [{ text: '' }],
+              };
+
+              Transforms.insertNodes(editor, paragraph, { at: insertPath });
+              Transforms.select(editor, Editor.start(editor, insertPath));
+              ReactEditor.focus(editor);
+              return;
+            }
+          }
+        } catch {
+          // 실패 시엔 그냥 기본 동작으로 넘어가도록 둠
+        }
+      }
     }
 
     if (event.key === 'Backspace') {
       const { selection } = editor;
       if (selection && Range.isCollapsed(selection)) {
         const [match] = Editor.nodes(editor, {
-          match: n => SlateElement.isElement(n) && ['heading-one', 'heading-two', 'heading-three'].includes(n.type),
+          match: n =>
+            SlateElement.isElement(n) &&
+            ['heading-one', 'heading-two', 'heading-three'].includes(n.type),
         });
         if (match) {
           const [, path] = match;
@@ -475,7 +610,10 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
           if (Point.equals(selection.anchor, start)) {
             event.preventDefault();
             Transforms.removeNodes(editor, { at: path });
-            Transforms.insertNodes(editor, { type: 'paragraph', children: [{ text: '' }] });
+            Transforms.insertNodes(
+              editor,
+              { type: 'paragraph', children: [{ text: '' }] } as any,
+            );
             const point = Editor.start(editor, [0]);
             Transforms.select(editor, point);
           }
@@ -486,15 +624,22 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     if (event.key === 'Backspace') {
       const { selection } = editor;
       if (selection && Range.isCollapsed(selection)) {
-        const [currentBlock] = Editor.nodes(editor, { match: n => SlateElement.isElement(n) && Editor.isBlock(editor, n) });
+        const [currentBlock] = Editor.nodes(editor, {
+          match: n =>
+            SlateElement.isElement(n) && Editor.isBlock(editor, n),
+        });
         if (!currentBlock) return;
         const [, currentPath] = currentBlock;
         if (currentPath[0] === 0) return;
         const prevPath = Path.previous(currentPath);
         try {
           const prevNode = Node.get(editor, prevPath);
-          if (SlateElement.isElement(prevNode) && prevNode.type === 'info-box') {
-            const isEmpty = Node.string(currentBlock[0]).length === 0;
+          if (
+            SlateElement.isElement(prevNode) &&
+            prevNode.type === 'info-box'
+          ) {
+            const isEmpty =
+              Node.string(currentBlock[0]).length === 0;
             if (isEmpty) {
               event.preventDefault();
               Transforms.removeNodes(editor, { at: currentPath });
@@ -513,12 +658,20 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     if (event.key === 'Backspace') {
       const { selection } = editor;
       if (selection && Range.isCollapsed(selection)) {
-        const [node, path] = Editor.node(editor, selection, { depth: 1 });
-        const isEmpty = SlateElement.isElement(node) && node.type === 'paragraph' && Node.string(node) === '';
+        const [node, path] = Editor.node(editor, selection, {
+          depth: 1,
+        });
+        const isEmpty =
+          SlateElement.isElement(node) &&
+          node.type === 'paragraph' &&
+          Node.string(node) === '';
         if (isEmpty && path[0] > 0) {
           const prevPath = [path[0] - 1];
           const prevNode = Node.get(editor, prevPath);
-          if (SlateElement.isElement(prevNode) && prevNode.type === 'price-table-card') {
+          if (
+            SlateElement.isElement(prevNode) &&
+            prevNode.type === 'price-table-card'
+          ) {
             event.preventDefault();
             return;
           }
@@ -530,35 +683,52 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       event.preventDefault();
       Transforms.splitNodes(editor, { always: true });
       const marks = Editor.marks(editor) || {};
-      Object.keys(marks).forEach(m => Editor.removeMark(editor, m as any));
+      Object.keys(marks).forEach(m =>
+        Editor.removeMark(editor, m as any),
+      );
       const { selection } = editor;
       if (selection) {
-        const [block, path] = Editor.node(editor, selection, { depth: 1 });
+        const [block, path] = Editor.node(editor, selection, {
+          depth: 1,
+        });
         if (SlateElement.isElement(block)) {
           const patch: any = {};
           if ('indentLine' in block) patch.indentLine = false;
           if ('textAlign' in block) patch.textAlign = undefined;
-          if (Object.keys(patch).length > 0) Transforms.setNodes(editor, patch, { at: path });
+          if (Object.keys(patch).length > 0)
+            Transforms.setNodes(editor, patch, { at: path });
         }
       }
       return;
     }
 
     const { selection } = editor;
-    if (selection && Range.isCollapsed(selection) && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
-      const backward = event.key === 'ArrowLeft' || event.key === 'ArrowUp';
-      const neighborPoint = backward ? Editor.before(editor, selection, { unit: 'block' }) : Editor.after(editor, selection, { unit: 'block' });
+    if (
+      selection &&
+      Range.isCollapsed(selection) &&
+      ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(
+        event.key,
+      )
+    ) {
+      const backward =
+        event.key === 'ArrowLeft' || event.key === 'ArrowUp';
+      const neighborPoint = backward
+        ? Editor.before(editor, selection, { unit: 'block' })
+        : Editor.after(editor, selection, { unit: 'block' });
       if (neighborPoint) {
         const entry = Editor.above(editor, {
           at: neighborPoint,
-          match: n => SlateElement.isElement(n) && Editor.isBlock(editor, n),
+          match: n =>
+            SlateElement.isElement(n) && Editor.isBlock(editor, n),
         });
         if (entry) {
           const [node, path] = entry;
           const type = (node as any).type;
           if (type === 'link-block-row' || VOID_BLOCK_TYPES.has(type)) {
             event.preventDefault();
-            const target = backward ? Editor.before(editor, path) : Editor.after(editor, path);
+            const target = backward
+              ? Editor.before(editor, path)
+              : Editor.after(editor, path);
             if (target) {
               Transforms.select(editor, target);
               ReactEditor.focus(editor);
