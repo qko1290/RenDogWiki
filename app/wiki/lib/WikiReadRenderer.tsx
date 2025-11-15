@@ -333,7 +333,7 @@ type WeaponType =
   | 'limited'
   | 'ancient';
 
-// 무기 희귀도(유형)별 메타 정보 (Editor와 동일 + BLOCK/디바인 색상 반영)
+// 무기 희귀도(유형)별 메타 정보 (BLOCK/디바인 색상 포함)
 const WEAPON_TYPES_META: Record<
   WeaponType,
   { label: string; headerBg: string; border: string; badgeBg: string }
@@ -401,6 +401,45 @@ const WEAPON_TYPES_META: Record<
     badgeBg: '#374151',
   },
 };
+
+// 강수 라벨: 3강 → "3", MAX → "M"
+function levelButtonLabel(levelKey: string): string {
+  const upper = (levelKey || '').toString().trim().toUpperCase();
+  if (!upper) return '?';
+  if (upper === 'MAX' || upper === 'M') return 'M';
+  const m = upper.match(/\d+/);
+  if (m) return String(Number(m[0]));
+  return upper.charAt(0);
+}
+
+// 단계별 스탯 표시용 유틸
+function getStatDisplayValue(
+  stat: any,
+  levelIdx: number,
+  levelKeys: string[]
+): string {
+  const safeIdx = Math.max(0, Math.min(levelIdx, levelKeys.length - 1));
+  const levelKey = levelKeys[safeIdx] ?? levelKeys[0];
+
+  // 1) values: ['...', '...', ...] (index 기반)
+  if (Array.isArray(stat.values) && stat.values.length) {
+    const v = stat.values[safeIdx] ?? stat.values[0];
+    if (v !== undefined && v !== null && v !== '') return String(v);
+  }
+
+  // 2) byLevel: { "1": "...", "MAX": "..." }
+  if (stat.byLevel && typeof stat.byLevel === 'object') {
+    const v = stat.byLevel[levelKey];
+    if (v !== undefined && v !== null && v !== '') return String(v);
+  }
+
+  // 3) fallback: summary
+  if (stat.summary !== undefined && stat.summary !== null && stat.summary !== '') {
+    return String(stat.summary);
+  }
+
+  return '-';
+}
 
 // 공격 영상 모달 (문서 보기에서도 사용)
 type WeaponVideoModalProps = {
@@ -507,7 +546,27 @@ function WeaponCardView({ node, keyProp }: { node: any; keyProp: React.Key }) {
   const stats: any[] = Array.isArray(node.stats) ? node.stats : [];
   const visibleStats = stats.filter((s) => s && s.enabled !== false);
 
+  // 강수(강화 단계) 리스트
+  const levelKeys: string[] =
+    Array.isArray(node.levels) && node.levels.length
+      ? node.levels.map((lv: any) => String(lv))
+      : ['M'];
+
+  const [selectedLevelIdx, setSelectedLevelIdx] = useState<number>(() => {
+    const idx =
+      typeof node.initialLevelIndex === 'number'
+        ? node.initialLevelIndex
+        : 0;
+    if (!Number.isFinite(idx)) return 0;
+    return Math.max(0, Math.min(levelKeys.length - 1, Math.floor(idx)));
+  });
+
+  const [isLevelMenuOpen, setIsLevelMenuOpen] = useState(false);
   const [videoOpen, setVideoOpen] = useState(false);
+
+  const mainLevelLabel = levelButtonLabel(
+    levelKeys[selectedLevelIdx] ?? levelKeys[0]
+  );
 
   const cardWidth = 260;
 
@@ -600,7 +659,8 @@ function WeaponCardView({ node, keyProp }: { node: any; keyProp: React.Key }) {
                   maxHeight: '80%',
                   objectFit: 'contain',
                   boxShadow: '0 12px 18px rgba(0,0,0,.55)',
-                  background: '#fff',
+                  // ⬇️ 배경 제거 (투명 PNG 살리기)
+                  background: 'transparent',
                 }}
               />
             ) : (
@@ -615,7 +675,7 @@ function WeaponCardView({ node, keyProp }: { node: any; keyProp: React.Key }) {
             )}
           </div>
 
-          {/* 정보 리스트 */}
+          {/* 정보 리스트 + 강수 선택 */}
           <div
             style={{
               padding: '8px 10px 8px',
@@ -624,6 +684,129 @@ function WeaponCardView({ node, keyProp }: { node: any; keyProp: React.Key }) {
               gap: 6,
             }}
           >
+            {/* 강수 선택 버튼 (우측 상단) */}
+            {levelKeys.length > 1 && (
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  marginBottom: 4,
+                  position: 'relative',
+                }}
+              >
+                <div style={{ position: 'relative' }}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setIsLevelMenuOpen((prev) => !prev)
+                    }
+                    style={{
+                      borderRadius: 999,
+                      border: '1px solid #1e293b',
+                      padding: '3px 9px',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      background: '#020617',
+                      color: '#e5e7eb',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 16,
+                        height: 16,
+                        borderRadius: 999,
+                        background: meta.badgeBg,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: '#f9fafb',
+                      }}
+                    >
+                      {mainLevelLabel}
+                    </span>
+                    <span
+                      style={{
+                        color: '#9ca3af',
+                        fontWeight: 500,
+                      }}
+                    >
+                      강수 선택
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        color: '#6b7280',
+                      }}
+                    >
+                      {isLevelMenuOpen ? '▲' : '▼'}
+                    </span>
+                  </button>
+
+                  {/* 드롭다운 (모션 + 토글) */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      right: 0,
+                      marginTop: 4,
+                      transformOrigin: 'top right',
+                      transform: isLevelMenuOpen
+                        ? 'scaleY(1)'
+                        : 'scaleY(0.7)',
+                      opacity: isLevelMenuOpen ? 1 : 0,
+                      pointerEvents: isLevelMenuOpen ? 'auto' : 'none',
+                      transition:
+                        'opacity 0.14s ease-out, transform 0.14s ease-out',
+                      background: '#020617',
+                      borderRadius: 10,
+                      border: '1px solid #1f2937',
+                      boxShadow: '0 12px 28px rgba(0,0,0,.6)',
+                      padding: 4,
+                      zIndex: 5,
+                      minWidth: 80,
+                    }}
+                  >
+                    {levelKeys.map((lv, idx) => {
+                      const label = levelButtonLabel(lv);
+                      const isActive = idx === selectedLevelIdx;
+                      return (
+                        <button
+                          key={`${lv}-${idx}`}
+                          type="button"
+                          onClick={() => {
+                            setSelectedLevelIdx(idx);
+                            setIsLevelMenuOpen(false);
+                          }}
+                          style={{
+                            display: 'block',
+                            width: '100%',
+                            border: 'none',
+                            borderRadius: 7,
+                            padding: '4px 10px',
+                            marginBottom: 2,
+                            fontSize: 12,
+                            background: isActive ? '#1d4ed8' : 'transparent',
+                            color: '#e5e7eb',
+                            textAlign: 'left',
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 실제 스탯 렌더 */}
             {visibleStats.length === 0 && (
               <div
                 style={{
@@ -638,41 +821,48 @@ function WeaponCardView({ node, keyProp }: { node: any; keyProp: React.Key }) {
               </div>
             )}
 
-            {visibleStats.map((stat: any) => (
-              <div
-                key={stat.key}
-                style={{
-                  borderRadius: 10,
-                  padding: '6px 8px',
-                  border: '1px solid #111827',
-                  background:
-                    'linear-gradient(90deg, rgba(15,23,42,.95), rgba(15,23,42,.85))',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <span
+            {visibleStats.map((stat: any) => {
+              const displayValue = getStatDisplayValue(
+                stat,
+                selectedLevelIdx,
+                levelKeys
+              );
+              return (
+                <div
+                  key={stat.key}
                   style={{
-                    fontSize: 12,
-                    color: '#9ca3af',
-                    fontWeight: 500,
+                    borderRadius: 10,
+                    padding: '6px 8px',
+                    border: '1px solid #111827',
+                    background:
+                      'linear-gradient(90deg, rgba(15,23,42,.95), rgba(15,23,42,.85))',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
                   }}
                 >
-                  {stat.label}
-                </span>
-                <span
-                  style={{
-                    fontSize: 13,
-                    color: '#e5e7eb',
-                    fontWeight: 600,
-                  }}
-                >
-                  {stat.summary || '-'}
-                  {stat.unit ? ` ${stat.unit}` : ''}
-                </span>
-              </div>
-            ))}
+                  <span
+                    style={{
+                      fontSize: 12,
+                      color: '#9ca3af',
+                      fontWeight: 500,
+                    }}
+                  >
+                    {stat.label}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 13,
+                      color: '#e5e7eb',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {displayValue}
+                    {stat.unit ? ` ${stat.unit}` : ''}
+                  </span>
+                </div>
+              );
+            })}
           </div>
 
           {/* 하단 공격 영상 버튼 */}
