@@ -26,7 +26,7 @@ export default function TableContextMenu({ editor }: Props) {
   const [cellPath, setCellPath] = useState<Path | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
 
-  // 외부에서 열기 이벤트 (Element.tsx → window.dispatchEvent('editor:table-menu'))
+  // Element.tsx 에서 쏘는 'editor:table-menu' 이벤트로 열기
   useEffect(() => {
     const onOpen = (e: Event) => {
       const { x, y, cellPath } = (e as CustomEvent).detail || {};
@@ -85,7 +85,7 @@ export default function TableContextMenu({ editor }: Props) {
   // 현재 셀이 속한 표 path
   const tablePath = findTablePath(editor, cellPath);
 
-  // 현재 표 정렬 상태 (표 블록의 align만 읽어온다)
+  // 현재 표 정렬 상태 (TableElement.align 만 사용)
   let align: TableElement['align'] = 'left';
   try {
     const tbl = SlateNode.get(editor, tablePath) as TableElement;
@@ -191,6 +191,17 @@ export default function TableContextMenu({ editor }: Props) {
           : canDeleteCol
           ? '열 삭제'
           : '삭제(행/열 전체 선택 시)'}
+      </MenuItem>
+
+      {/* ✅ 표 전체 삭제 */}
+      <MenuDivider />
+      <MenuItem
+        danger
+        onClick={act(() => {
+          Transforms.removeNodes(editor, { at: tablePath });
+        })}
+      >
+        표 삭제
       </MenuItem>
     </div>
   );

@@ -263,53 +263,35 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
     const { selection } = editor;
     if (!selection) return;
 
-    // 1) selection 안의 문단/헤딩 노드를 모두 수집
-    const blockEntries = Array.from(
+    const blocks = Array.from(
       Editor.nodes(editor, {
         at: selection,
-        match: n =>
-          SlateElement.isElement(n) &&
-          Editor.isBlock(editor, n) &&
-          ['paragraph', 'heading-one', 'heading-two', 'heading-three'].includes(
-            (n as any).type,
-          ),
+        match: (n) => {
+          if (!SlateElement.isElement(n) || !Editor.isBlock(editor, n)) return false;
+
+          const t = (n as any).type;
+
+          // ✅ 표 자체 / 행 / 셀은 무조건 제외해서
+          // 툴바 정렬이 표 레이아웃에 영향을 안 주도록 막는다.
+          if (t === 'table' || t === 'table-row' || t === 'table-cell') return false;
+
+          // 텍스트 블록만 정렬
+          return (
+            t === 'paragraph' ||
+            t === 'heading-one' ||
+            t === 'heading-two' ||
+            t === 'heading-three'
+          );
+        },
       }),
     );
 
-    // 2) 각 block 노드에 textAlign만 설정 (표는 건드리지 않음)
-    for (const [, path] of blockEntries) {
+    for (const [, path] of blocks) {
       Transforms.setNodes(
         editor,
         { textAlign: alignment } as any,
         { at: path },
       );
-    }
-
-    // 2) selection 안에 포함된 표(table)에도 정렬 적용
-    //    - 셀 안에 커서가 있어도 table 조상이 selection 범위에 들어오기 때문에 탐색 가능
-    const tableEntries = Array.from(
-      Editor.nodes(editor, {
-        at: selection,
-        match: n => SlateElement.isElement(n) && (n as any).type === 'table',
-      }),
-    );
-
-    if (tableEntries.length > 0) {
-      // 표는 양쪽 정렬(justify) 개념이 없으니 left 로 매핑
-      const tableAlign: TableElement['align'] =
-        alignment === 'center'
-          ? 'center'
-          : alignment === 'right'
-          ? 'right'
-          : 'left';
-
-      for (const [, tPath] of tableEntries) {
-        Transforms.setNodes<TableElement>(
-          editor,
-          { align: tableAlign } as Partial<TableElement>,
-          { at: tPath },
-        );
-      }
     }
   };
 
