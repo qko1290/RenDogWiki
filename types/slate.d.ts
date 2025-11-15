@@ -184,6 +184,7 @@ export type VideoElement = {
 // ===== Weapon Card (무기 정보 박스) =====
 
 export type WeaponType =
+  | 'block'
   | 'epic'
   | 'unique'
   | 'legendary'

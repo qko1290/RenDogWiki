@@ -132,6 +132,7 @@ const WEAPON_TYPES_META: Record<
   WeaponType,
   { label: string; headerBg: string; border: string; badgeBg: string }
 > = {
+  block:     { label: 'BLOCK',     headerBg: '#4ade80', border: '#a3e635', badgeBg: '#166534' },
   epic:      { label: 'EPIC',      headerBg: '#7c3aed', border: '#a855f7', badgeBg: '#5b21b6' },
   unique:    { label: 'UNIQUE',    headerBg: '#0ea5e9', border: '#38bdf8', badgeBg: '#0369a1' },
   legendary: { label: 'LEGEND',    headerBg: '#f97373', border: '#fb7185', badgeBg: '#b91c1c' },
@@ -178,6 +179,7 @@ export function getWeaponLevelLabels(type: WeaponType): string[] {
     case 'class':
       return ['1강', '2강', '3강', '4강', '5강', '6강', '7강', '8강', 'MAX'];
     // 나머지는 단일 단계
+    case 'block':
     case 'hidden':
     case 'limited':
     case 'ancient':
@@ -1684,8 +1686,7 @@ const Element: React.FC<ElementProps> = ({
       );
     }
 
-        // -------------------- Weapon Card (무기 정보 박스) --------------------
-        // -------------------- Weapon Card (무기 정보 박스) --------------------
+            // -------------------- Weapon Card (무기 정보 박스) --------------------
     case 'weapon-card': {
       const el = element as WeaponCardElement;
       const path = ReactEditor.findPath(editor, element);
@@ -1703,6 +1704,9 @@ const Element: React.FC<ElementProps> = ({
       const [videoModalOpen, setVideoModalOpen] = React.useState(false);
       const [statEditKey, setStatEditKey] = React.useState<WeaponStatKey | null>(null);
       const [statSelectOpen, setStatSelectOpen] = React.useState(false);
+
+      // ✅ 우클릭 삭제 메뉴 위치
+      const [contextMenuPos, setContextMenuPos] = React.useState<{ x: number; y: number } | null>(null);
 
       const updateElement = (patch: Partial<WeaponCardElement>) => {
         Transforms.setNodes<WeaponCardElement>(
@@ -1770,6 +1774,13 @@ const Element: React.FC<ElementProps> = ({
               justifyContent: 'center',
               alignItems: 'flex-start',
               gap: 10,
+            }}
+            onContextMenu={(e) => {
+              // ✅ 읽기 전용이 아닐 때만 삭제 컨텍스트 메뉴
+              if (isReadOnly) return;
+              e.preventDefault();
+              e.stopPropagation();
+              setContextMenuPos({ x: e.clientX, y: e.clientY });
             }}
           >
             {/* 카드 본체 */}
@@ -2010,8 +2021,61 @@ const Element: React.FC<ElementProps> = ({
 
           {children}
 
-          {/* 이하 모달 구성은 그대로 유지 */}
+          {/* ✅ 우클릭 삭제 컨텍스트 메뉴 (에디터에서만) */}
+          {!isReadOnly && contextMenuPos && (
+            <div
+              style={{
+                position: 'fixed',
+                inset: 0,
+                zIndex: 2050,
+                background: 'transparent',
+              }}
+              onMouseDown={() => setContextMenuPos(null)}
+            >
+              <div
+                onMouseDown={(e) => e.stopPropagation()}
+                style={{
+                  position: 'absolute',
+                  left: contextMenuPos.x,
+                  top: contextMenuPos.y,
+                }}
+              >
+                <div
+                  style={{
+                    minWidth: 150,
+                    padding: '4px 0',
+                    borderRadius: 8,
+                    background: '#020617',
+                    border: '1px solid #4b5563',
+                    boxShadow: '0 8px 24px rgba(0,0,0,.6)',
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      Transforms.removeNodes(editor, { at: path });
+                      setContextMenuPos(null);
+                    }}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '6px 12px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: '#fca5a5',
+                      fontSize: 13,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    무기 카드 삭제
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
+          {/* 모달들 (기존 로직 유지) */}
           <WeaponTypeSelectModal
             open={typeModalOpen && !isReadOnly}
             currentType={weaponType}
@@ -2113,6 +2177,7 @@ const WeaponTypeSelectModal: React.FC<WeaponTypeSelectModalProps> = ({
   if (!open) return null;
 
   const types: WeaponType[] = [
+    'block',
     'epic',
     'unique',
     'legendary',
@@ -2753,7 +2818,7 @@ const WeaponVideoModal: React.FC<WeaponVideoModalProps> = ({
         onMouseDown={(e) => e.stopPropagation()}
         style={{
           width: 'min(960px, 90vw)',
-          height: 'min(540px, 60vh)',
+          maxHeight: '80vh',
           background: '#020617',
           borderRadius: 14,
           boxShadow: '0 20px 50px rgba(0,0,0,.75)',
@@ -2790,13 +2855,17 @@ const WeaponVideoModal: React.FC<WeaponVideoModalProps> = ({
             닫기
           </button>
         </div>
+
+        {/* ✅ 영상이 모달 안에 꽉 차되, 잘리지 않도록 contain + maxWidth/maxHeight */}
         <div
           style={{
             flex: 1,
+            minHeight: 0,
             background: '#000',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            padding: 8,
           }}
         >
           <video
@@ -2805,8 +2874,10 @@ const WeaponVideoModal: React.FC<WeaponVideoModalProps> = ({
             controlsList="nodownload"
             playsInline
             style={{
-              width: '100%',
-              height: '100%',
+              maxWidth: '100%',
+              maxHeight: '100%',
+              width: 'auto',
+              height: 'auto',
               objectFit: 'contain',
               background: '#000',
             }}
