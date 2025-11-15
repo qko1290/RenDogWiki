@@ -685,7 +685,7 @@ function WeaponCardView({ node, keyProp }: { node: any; keyProp: React.Key }) {
             }}
           >
             {/* 강수 선택 버튼 (우측 상단) */}
-            {levelKeys.length > 1 && (
+            {levelKeys.length >= 1 && (
               <div
                 style={{
                   display: 'flex',
