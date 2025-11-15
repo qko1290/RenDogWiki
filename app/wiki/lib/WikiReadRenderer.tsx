@@ -1023,6 +1023,72 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
       return <PriceTableCardBlock node={node} keyProp={key ?? ''} />;
     }
 
+        case 'table': {
+      const widthPx =
+        typeof node.maxWidth === 'number' ? node.maxWidth : undefined;
+      const align = node.align || 'left';
+      const justify =
+        align === 'center'
+          ? 'center'
+          : align === 'right'
+          ? 'flex-end'
+          : 'flex-start';
+
+      const tableWidth = widthPx
+        ? `${widthPx}px`
+        : node.fullWidth
+        ? '100%'
+        : 'auto';
+
+      return (
+        <div
+          key={key}
+          style={{
+            margin: '12px 0',
+            display: 'flex',
+            justifyContent: justify,
+          }}
+        >
+          <table
+            className="wiki-table"
+            style={{
+              borderCollapse: 'collapse',
+              tableLayout: 'fixed',
+              width: tableWidth,
+              maxWidth: '100%',
+            }}
+          >
+            <tbody>{children}</tbody>
+          </table>
+        </div>
+      );
+    }
+
+    case 'table-row': {
+      return <tr key={key}>{children}</tr>;
+    }
+
+    case 'table-cell': {
+      const colSpan = Math.max(1, Number(node.colspan) || 1);
+      const rowSpan = Math.max(1, Number(node.rowspan) || 1);
+
+      return (
+        <td
+          key={key}
+          colSpan={colSpan}
+          rowSpan={rowSpan}
+          style={{
+            border: '1px solid #e5e7eb',
+            padding: '6px 8px',
+            verticalAlign: 'top',
+            background: '#ffffff',
+          }}
+        >
+          {children}
+        </td>
+      );
+    }
+
     default:
       return <div key={key}>{children}</div>;
   }

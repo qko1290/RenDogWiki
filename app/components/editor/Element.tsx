@@ -24,6 +24,7 @@ import type {
   HeadingTwoElement,
   HeadingThreeElement,
   ParagraphElement,
+  TableElement,
   VideoElement,
 } from '@/types/slate';
 import { tablePathKey, useDragRect, beginDrag, hoverCell, selectRectDirect, isDragPrimedOrActive } from './helpers/tableDrag';
@@ -1093,7 +1094,7 @@ const Element: React.FC<ElementProps> = ({
 
     // -------------------- 표(Table) --------------------
     case 'table': {
-      const table = element as any;
+      const table = element as TableElement;
 
       // 이 테이블의 고유 키
       const tablePath = ReactEditor.findPath(editor, element);
@@ -1102,39 +1103,62 @@ const Element: React.FC<ElementProps> = ({
       // 드래그 사각형 상태
       const rect = useDragRect(tkey);
 
-      // 오버레이/레일 위치 계산용 ref
+      // 오버레이/레일/폭 조절용 ref & 상태
       const wrapRef = React.useRef<HTMLDivElement | null>(null);
       const ovRef = React.useRef<HTMLDivElement | null>(null);
 
+      // 노드에 저장된 폭(px)
+      const widthFromNode =
+        typeof table.maxWidth === 'number' ? table.maxWidth : null;
+      const [liveWidth, setLiveWidth] = React.useState<number | null>(
+        widthFromNode,
+      );
+
+      React.useEffect(() => {
+        setLiveWidth(widthFromNode);
+      }, [widthFromNode]);
+
       // 오버레이 위치 맞추기
       const positionOverlay = React.useCallback(() => {
-        const wrap = wrapRef.current, ov = ovRef.current;
-        if (!wrap || !ov || !rect) { if (ov) ov.style.display = 'none'; return; }
+        const wrap = wrapRef.current,
+          ov = ovRef.current;
+        if (!wrap || !ov || !rect) {
+          if (ov) ov.style.display = 'none';
+          return;
+        }
 
         const q = (r: number, c: number) =>
-          wrap.querySelector(`td.slate-table__cell[data-tkey="${tkey}"][data-r="${r}"][data-c="${c}"]`) as HTMLElement | null;
+          wrap.querySelector(
+            `td.slate-table__cell[data-tkey="${tkey}"][data-r="${r}"][data-c="${c}"]`,
+          ) as HTMLElement | null;
 
         const a = q(rect.r0, rect.c0);
         const b = q(rect.r1, rect.c1);
-        if (!a || !b) { ov.style.display = 'none'; return; }
+        if (!a || !b) {
+          ov.style.display = 'none';
+          return;
+        }
 
         const ra = a.getBoundingClientRect();
         const rb = b.getBoundingClientRect();
         const base = wrap.getBoundingClientRect();
 
         const left = Math.round(ra.left - base.left);
-        const top  = Math.round(ra.top  - base.top);
-        const right  = Math.round(rb.right  - base.left);
+        const top = Math.round(ra.top - base.top);
+        const right = Math.round(rb.right - base.left);
         const bottom = Math.round(rb.bottom - base.top);
 
         ov.style.display = 'block';
-        ov.style.left   = left + 'px';
-        ov.style.top    = top + 'px';
-        ov.style.width  = Math.max(0, right - left - 1) + 'px';
+        ov.style.left = left + 'px';
+        ov.style.top = top + 'px';
+        ov.style.width = Math.max(0, right - left - 1) + 'px';
         ov.style.height = Math.max(0, bottom - top - 1) + 'px';
       }, [rect, tkey]);
 
-      React.useLayoutEffect(() => { positionOverlay(); }, [positionOverlay]);
+      React.useLayoutEffect(() => {
+        positionOverlay();
+      }, [positionOverlay]);
+
       React.useEffect(() => {
         if (!wrapRef.current) return;
         const ro = new ResizeObserver(() => positionOverlay());
@@ -1144,31 +1168,114 @@ const Element: React.FC<ElementProps> = ({
 
       // 좌 레일 클릭 → 행 전체 선택
       const onRailLeft = (e: React.MouseEvent<HTMLDivElement>) => {
-        const wrap = wrapRef.current; if (!wrap) return;
-        const trs = Array.from(wrap.querySelectorAll('tr')) as HTMLElement[];
+        const wrap = wrapRef.current;
+        if (!wrap) return;
+        const trs = Array.from(
+          wrap.querySelectorAll('tr'),
+        ) as HTMLElement[];
         const y = e.clientY;
         let row = 0;
         for (let i = 0; i < trs.length; i++) {
           const r = trs[i].getBoundingClientRect();
-          if (y >= r.top && y <= r.bottom) { row = i; break; }
+          if (y >= r.top && y <= r.bottom) {
+            row = i;
+            break;
+          }
         }
-        const cols = (trs[0]?.querySelectorAll('td.slate-table__cell')?.length ?? 1) - 1;
+        const cols =
+          (trs[0]?.querySelectorAll('td.slate-table__cell')?.length ?? 1) - 1;
         selectRectDirect(editor, tablePath, tkey, row, 0, row, Math.max(0, cols));
       };
 
       // 상 레일 클릭 → 열 전체 선택
       const onRailTop = (e: React.MouseEvent<HTMLDivElement>) => {
-        const wrap = wrapRef.current; if (!wrap) return;
-        const firstRow = wrap.querySelector('tr'); if (!firstRow) return;
-        const tds = Array.from(firstRow.querySelectorAll('td.slate-table__cell')) as HTMLElement[];
+        const wrap = wrapRef.current;
+        if (!wrap) return;
+        const firstRow = wrap.querySelector('tr');
+        if (!firstRow) return;
+        const tds = Array.from(
+          firstRow.querySelectorAll('td.slate-table__cell'),
+        ) as HTMLElement[];
         const x = e.clientX;
         let col = 0;
         for (let i = 0; i < tds.length; i++) {
           const r = tds[i].getBoundingClientRect();
-          if (x >= r.left && x <= r.right) { col = i; break; }
+          if (x >= r.left && x <= r.right) {
+            col = i;
+            break;
+          }
         }
         const rows = wrap.querySelectorAll('tr').length - 1;
         selectRectDirect(editor, tablePath, tkey, 0, col, Math.max(0, rows), col);
+      };
+
+      // 폭 조절 핸들 드래그
+      const onResizeMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const wrap = wrapRef.current;
+        if (!wrap) return;
+
+        const startX = e.clientX;
+        const rect = wrap.getBoundingClientRect();
+        const startWidth = liveWidth ?? rect.width;
+        const parentRect = wrap.parentElement?.getBoundingClientRect();
+        const containerWidth = parentRect?.width ?? window.innerWidth;
+
+        const MIN = 120;
+        const MAX = Math.max(MIN, containerWidth - 16);
+        let latest = startWidth;
+
+        const onMove = (ev: MouseEvent) => {
+          ev.preventDefault();
+          const dx = ev.clientX - startX;
+          let next = startWidth + dx;
+          if (!Number.isFinite(next)) next = startWidth;
+          next = Math.max(MIN, Math.min(next, MAX));
+          latest = next;
+          setLiveWidth(next);
+        };
+
+        const onUp = (ev: MouseEvent) => {
+          ev.preventDefault();
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+
+          if (!Number.isFinite(latest)) return;
+
+          const fullThreshold = containerWidth - 12;
+          if (latest >= fullThreshold) {
+            // 거의 전체 폭이면 100% 모드
+            Transforms.setNodes<TableElement>(
+              editor,
+              {
+                maxWidth: null,
+                fullWidth: true,
+              },
+              { at: tablePath },
+            );
+          } else {
+            Transforms.setNodes<TableElement>(
+              editor,
+              {
+                maxWidth: Math.round(latest),
+                fullWidth: false,
+              },
+              { at: tablePath },
+            );
+          }
+        };
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      };
+
+      const wrapWidth = liveWidth ?? widthFromNode;
+      const wrapStyle: React.CSSProperties = {
+        position: 'relative',
+        width: wrapWidth ? `${wrapWidth}px` : table.fullWidth ? '100%' : undefined,
+        maxWidth: '100%',
       };
 
       return (
@@ -1176,30 +1283,43 @@ const Element: React.FC<ElementProps> = ({
           {...attributes}
           ref={wrapRef}
           data-tkey={tkey}
-          style={{ position: 'relative' }}
+          style={wrapStyle}
           onMouseMoveCapture={(e) => {
-            if (isDragPrimedOrActive()) { e.preventDefault(); e.stopPropagation(); }
+            if (isDragPrimedOrActive()) {
+              e.preventDefault();
+              e.stopPropagation();
+            }
           }}
           onMouseUpCapture={(e) => {
-            if (isDragPrimedOrActive()) { e.preventDefault(); e.stopPropagation(); }
+            if (isDragPrimedOrActive()) {
+              e.preventDefault();
+              e.stopPropagation();
+            }
           }}
         >
           <table
             className="slate-table"
             onDragStart={(e) => e.preventDefault()}
-            style={{ borderCollapse: 'collapse', tableLayout: 'fixed', width: table.fullWidth ? '100%' : undefined }}
+            style={{
+              borderCollapse: 'collapse',
+              tableLayout: 'fixed',
+              width: '100%',
+            }}
           >
             <tbody>{children}</tbody>
           </table>
 
-          {/* ✅ 드래그 오버레이: 반드시 contentEditable={false} */}
+          {/* 드래그 선택 오버레이 */}
           <div
             ref={ovRef}
             contentEditable={false}
             aria-hidden
             style={{
               position: 'absolute',
-              left: 0, top: 0, width: 0, height: 0,
+              left: 0,
+              top: 0,
+              width: 0,
+              height: 0,
               border: '2px solid #2a9d6f',
               borderRadius: 6,
               boxSizing: 'border-box',
@@ -1209,25 +1329,76 @@ const Element: React.FC<ElementProps> = ({
             }}
           />
 
-          {/* ✅ 좌/상단 레일: 반드시 contentEditable={false} + 버블 차단 */}
+          {/* 좌/상단 레일 */}
           <div
             contentEditable={false}
             aria-hidden
-            onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onRailLeft(e); }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onRailLeft(e);
+            }}
             style={{
-              position: 'absolute', left: -14, top: 0, width: 14, height: '100%',
-              background: '#eceff3', borderRadius: 6, userSelect: 'none', cursor: 'default'
+              position: 'absolute',
+              left: -14,
+              top: 0,
+              width: 14,
+              height: '100%',
+              background: '#eceff3',
+              borderRadius: 6,
+              userSelect: 'none',
+              cursor: 'default',
             }}
           />
           <div
             contentEditable={false}
             aria-hidden
-            onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onRailTop(e); }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onRailTop(e);
+            }}
             style={{
-              position: 'absolute', left: 0, top: -14, height: 14, width: '100%',
-              background: '#eceff3', borderRadius: 6, userSelect: 'none', cursor: 'default'
+              position: 'absolute',
+              left: 0,
+              top: -14,
+              height: 14,
+              width: '100%',
+              background: '#eceff3',
+              borderRadius: 6,
+              userSelect: 'none',
+              cursor: 'default',
             }}
           />
+
+          {/* 폭 조절 핸들 */}
+          <div
+            contentEditable={false}
+            aria-hidden
+            onMouseDown={onResizeMouseDown}
+            style={{
+              position: 'absolute',
+              right: -6,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              width: 12,
+              height: 40,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'col-resize',
+              zIndex: 4,
+            }}
+          >
+            <div
+              style={{
+                width: 3,
+                height: '70%',
+                borderRadius: 999,
+                background: '#cbd5e1',
+              }}
+            />
+          </div>
         </div>
       );
     }

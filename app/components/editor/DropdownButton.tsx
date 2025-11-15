@@ -1,6 +1,6 @@
-// =============================================
-// File: app/components/editor/DropdownButton.tsx
-// =============================================
+// C:\next\rdwiki\app\components\editor\DropdownButton.tsx
+'use client';
+
 /**
  * 에디터 툴바 드롭다운 버튼
  * - label(표시명) + items(옵션 문자열 배열) 렌더링
@@ -11,9 +11,7 @@
  * - ✅ 드롭다운이 오른쪽/컨테이너에 의해 잘리지 않도록 필요 시 position:fixed 로 전환
  */
 
-'use client';
-
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useSlate, ReactEditor } from 'slate-react';
 import { Editor, Range, Transforms } from 'slate';
 
@@ -28,41 +26,58 @@ type DropdownButtonProps = {
   dropdownId: string;
   openDropdown: string | null;
   setOpenDropdown: (id: string | null) => void;
+  /** 이 드롭다운 메뉴의 최소 너비(px) – 표 생성 메뉴만 260~280 정도로 키워서 사용 */
+  menuMinWidth?: number;
 };
 
-const MENU_EST_WIDTH = 260; // 대략 메뉴 가로폭(오른쪽 오버플로우 감지용)
+const DEFAULT_MENU_EST_WIDTH = 260; // 오른쪽 오버플로우 감지용 기본 값
 
 const DropdownButton = ({
-  label, items, itemsMap, onSelect, selectionRef,
-  dropdownId, openDropdown, setOpenDropdown
+  label,
+  items,
+  itemsMap,
+  onSelect,
+  selectionRef,
+  dropdownId,
+  openDropdown,
+  setOpenDropdown,
+  menuMinWidth,
 }: DropdownButtonProps) => {
   const editor = useSlate();
   const isOpen = openDropdown === dropdownId;
 
-  // 버튼 위치로 고정 배치가 필요한지 판단
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLUListElement>(null);
-  const [fixedPos, setFixedPos] = useState<null | { top: number; left: number; alignRight: boolean }>(null);
+  const [fixedPos, setFixedPos] =
+    useState<null | { top: number; left: number; alignRight: boolean }>(null);
+
+  const menuWidth = menuMinWidth ?? 180;
+  const estWidth = menuMinWidth ?? DEFAULT_MENU_EST_WIDTH;
 
   // 열릴 때 selection 저장 + 메뉴 위치 계산
   const openMenu = useCallback(() => {
     selectionRef.current = editor.selection ?? null;
     setOpenDropdown(dropdownId);
 
-    // 버튼 화면 좌표 → 오른쪽 여백 부족하면 fixed + 오른쪽 정렬
     requestAnimationFrame(() => {
       const r = btnRef.current?.getBoundingClientRect();
-      if (!r) { setFixedPos(null); return; }
+      if (!r) {
+        setFixedPos(null);
+        return;
+      }
       const rightSpace = window.innerWidth - r.left;
-      const needFixed = rightSpace < MENU_EST_WIDTH + 16;
-      if (!needFixed) { setFixedPos(null); return; }
+      const needFixed = rightSpace < estWidth + 16;
+      if (!needFixed) {
+        setFixedPos(null);
+        return;
+      }
       setFixedPos({
         top: Math.round(r.bottom + 6),
-        left: Math.round(r.right), // 기본은 왼→오 표시
-        alignRight: true,          // alignRight 시 translateX(-100%)
+        left: Math.round(r.right),
+        alignRight: true,
       });
     });
-  }, [dropdownId, editor.selection, selectionRef, setOpenDropdown]);
+  }, [dropdownId, editor.selection, estWidth, selectionRef, setOpenDropdown]);
 
   const closeMenu = useCallback(() => {
     setOpenDropdown(null);
@@ -88,10 +103,10 @@ const DropdownButton = ({
     const recalc = () => {
       const r = btnRef.current?.getBoundingClientRect();
       if (!r) return;
-      setFixedPos(prev =>
+      setFixedPos((prev) =>
         prev
           ? { top: Math.round(r.bottom + 6), left: Math.round(r.right), alignRight: true }
-          : null
+          : null,
       );
     };
     window.addEventListener('scroll', recalc, true);
@@ -115,7 +130,6 @@ const DropdownButton = ({
           if (onSelect) {
             onSelect(applied);
           } else {
-            // 기본 동작: 마크 추가(dropdownId 키로)
             Editor.addMark(editor, dropdownId, applied);
           }
         } catch {
@@ -125,7 +139,7 @@ const DropdownButton = ({
 
       closeMenu();
     },
-    [dropdownId, editor, itemsMap, onSelect, selectionRef, closeMenu]
+    [dropdownId, editor, itemsMap, onSelect, selectionRef, closeMenu],
   );
 
   const onItemKeyDown: React.KeyboardEventHandler<HTMLLIElement> = (e) => {
@@ -149,7 +163,10 @@ const DropdownButton = ({
       <button
         ref={btnRef}
         type="button"
-        onMouseDown={e => { e.preventDefault(); isOpen ? closeMenu() : openMenu(); }}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          isOpen ? closeMenu() : openMenu();
+        }}
         className="editor-toolbar-btn"
         aria-haspopup="menu"
         aria-expanded={isOpen}
@@ -171,13 +188,13 @@ const DropdownButton = ({
             position: 'absolute',
             top: 'calc(100% + 6px)',
             left: 0,
-            minWidth: 180,
+            minWidth: menuWidth,
             background: '#fff',
             border: '1px solid #e5e7eb',
             borderRadius: 10,
             boxShadow: '0 8px 28px rgba(0,0,0,.12)',
             padding: 6,
-            zIndex: 1000
+            zIndex: 1000,
           }}
         >
           {items.map((itemLabel, idx) => (
@@ -189,8 +206,8 @@ const DropdownButton = ({
               onMouseDown={() => handleSelect(itemLabel)}
               onKeyDown={onItemKeyDown}
               style={{ padding: '8px 12px', borderRadius: 8, cursor: 'pointer' }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#f3f4f6')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              onMouseEnter={(e) => (e.currentTarget.style.background = '#f3f4f6')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >
               {itemLabel}
             </li>
@@ -212,13 +229,13 @@ const DropdownButton = ({
             top: fixedPos.top,
             left: fixedPos.left,
             transform: fixedPos.alignRight ? 'translateX(-100%)' : undefined,
-            minWidth: 180,
+            minWidth: menuWidth,
             background: '#fff',
             border: '1px solid #e5e7eb',
             borderRadius: 10,
             boxShadow: '0 8px 28px rgba(0,0,0,.12)',
             padding: 6,
-            zIndex: 10000
+            zIndex: 10000,
           }}
         >
           {items.map((itemLabel, idx) => (
@@ -230,8 +247,8 @@ const DropdownButton = ({
               onMouseDown={() => handleSelect(itemLabel)}
               onKeyDown={onItemKeyDown}
               style={{ padding: '8px 12px', borderRadius: 8, cursor: 'pointer' }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#f3f4f6')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              onMouseEnter={(e) => (e.currentTarget.style.background = '#f3f4f6')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >
               {itemLabel}
             </li>

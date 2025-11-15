@@ -166,7 +166,9 @@ export type TableRowElement = {
 
 export type TableElement = {
   type: 'table';
-  fullWidth?: boolean;
+  align?: 'left' | 'center' | 'right'; 
+  maxWidth?: number | null;
+  fullWidth?: boolean;           
   children: TableRowElement[];
 };
 

@@ -685,15 +685,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
         maxCols={10}
         onPick={(rows, cols) => {
           setTablePickerOpen(false);
-          // 표 삽입 전에 저장된 selection 복원
           if (selectionRef.current) {
-            try { Transforms.select(editor, selectionRef.current); } catch {}
+            try {
+              Transforms.select(editor, selectionRef.current);
+            } catch {}
           }
           insertTable(editor, {
             rows,
             cols,
-            align: 'left',   // 기본 정렬
-            maxWidth: 800,   // 기본 최대 너비(px)
+            align: 'left',
+            maxWidth: 800,
           });
         }}
       />

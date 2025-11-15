@@ -1,95 +1,108 @@
-// C:\next\rdwiki\app\components\editor\helpers\insertTable.ts
-/**
- * 심플 표 삽입 헬퍼
- * - rows × cols 크기의 기본 표 삽입
- * - 표 정렬(align)과 최대 너비(maxWidth) 메타 정보 포함
- * - 삽입 직후 커서를 "첫 번째 셀의 단락 텍스트"로 이동
- */
+// File: app/components/editor/helpers/insertTable.ts
+// =============================================
+// 목적: 에디터에 표(table) 블록을 삽입하고,
+//       그 뒤에 바로 이어 쓸 수 있도록 빈 단락(paragraph)을 함께 삽입한다.
+// 사용처: 툴바 "표 삽입" 버튼 / 단축키 등
+// - 선택 영역이 없을 때도 문서 끝에 안전하게 삽입
+// - withoutNormalizing 으로 표 + 단락을 한 번에 삽입
+// =============================================
 
 import { Editor, Transforms } from 'slate';
-import { ReactEditor } from 'slate-react';
-import type { TableCellElement, TableElement } from '@/types/slate';
-
-export type TableAlign = 'left' | 'center' | 'right';
+import type {
+  TableElement,
+  TableRowElement,
+  TableCellElement,
+  ParagraphElement,
+} from '@/types/slate';
 
 export type InsertTableOptions = {
-  rows: number;
-  cols: number;
-  /** 표 정렬 (기본: left) */
-  align?: TableAlign;
-  /**
-   * 표 최대 너비(px)
-   * - null/undefined 이면 100% (가로 전체)
-   * - 기본값: 800px
-   */
-  maxWidth?: number | null;
+  rows?: number;
+  cols?: number;
+  align?: TableElement['align'];
+  maxWidth?: number;
 };
 
-const MAX_ROWS = 20;
-const MAX_COLS = 20;
-
-/** 빈 셀 생성 유틸 */
-const makeCell = (): TableCellElement => ({
-  type: 'table-cell',
-  rowspan: 1,
-  colspan: 1,
-  children: [{ type: 'paragraph', children: [{ text: '' }] }],
-});
-
 /**
- * rows × cols 표 삽입
- * - align / maxWidth 옵션 포함
+ * insertTable
+ * 1) rows x cols 크기의 표를 만들고
+ * 2) 그 뒤에 빈 단락을 붙여서 삽입한다.
+ *
+ * - insertTable(editor, 3, 4)
+ * - insertTable(editor, { rows: 3, cols: 4, maxWidth: 800 })
+ * 둘 다 지원.
  */
-export function insertTable(editor: Editor, opts: InsertTableOptions) {
-  const rawRows = opts.rows | 0;
-  const rawCols = opts.cols | 0;
+export function insertTable(
+  editor: Editor,
+  rows: number,
+  cols: number,
+): void;
+export function insertTable(
+  editor: Editor,
+  options?: InsertTableOptions,
+): void;
+export function insertTable(
+  editor: Editor,
+  rowsOrOptions?: number | InsertTableOptions,
+  maybeCols?: number,
+): void {
+  // ---- 옵션 파싱 ----
+  let rows = 3;
+  let cols = 3;
+  let align: TableElement['align'] | undefined;
+  let maxWidth: number | undefined;
 
-  const rows = Math.max(1, Math.min(MAX_ROWS, rawRows));
-  const cols = Math.max(1, Math.min(MAX_COLS, rawCols));
+  if (typeof rowsOrOptions === 'number') {
+    rows = rowsOrOptions;
+    cols = typeof maybeCols === 'number' ? maybeCols : cols;
+  } else if (rowsOrOptions && typeof rowsOrOptions === 'object') {
+    rows = rowsOrOptions.rows ?? rows;
+    cols = rowsOrOptions.cols ?? cols;
+    align = rowsOrOptions.align;
+    maxWidth = rowsOrOptions.maxWidth;
+  }
 
-  const align: TableAlign = opts.align ?? 'left';
-  const maxWidth =
-    typeof opts.maxWidth === 'number'
-      ? Math.max(240, opts.maxWidth) // 너무 작은 값 방지
-      : opts.maxWidth ?? 800; // 기본 800px
+  const safeRows = Math.max(1, rows | 0);
+  const safeCols = Math.max(1, cols | 0);
 
-  type TableWithLayout = TableElement & {
-    align?: TableAlign;
-    maxWidth?: number | null;
-    fullWidth?: boolean;
-  };
-
-  const table: TableWithLayout = {
+  // ---- 1) 표 노드 생성 ----
+  const table: TableElement = {
     type: 'table',
     align,
-    maxWidth,
-    // 기존 fullWidth 필드를 쓰고 있다면 호환용으로 유지
-    fullWidth: maxWidth == null,
-    children: Array.from({ length: rows }, () => ({
-      type: 'table-row',
-      children: Array.from({ length: cols }, makeCell),
-    })),
+    maxWidth: maxWidth ?? undefined,
+    fullWidth: false,
+    children: Array.from({ length: safeRows }, () => {
+      const row: TableRowElement = {
+        type: 'table-row',
+        children: Array.from({ length: safeCols }, () => {
+          const cell: TableCellElement = {
+            type: 'table-cell',
+            rowspan: 1,
+            colspan: 1,
+            children: [
+              {
+                type: 'paragraph',
+                children: [{ text: '' }],
+              } as ParagraphElement,
+            ],
+          };
+          return cell;
+        }),
+      };
+      return row;
+    }),
   };
 
-  // 표 삽입
-  Transforms.insertNodes(editor, table as any, { select: false });
+  // ---- 2) 뒤따를 빈 단락 ----
+  const paragraph: ParagraphElement = {
+    type: 'paragraph',
+    children: [{ text: '' }],
+  };
 
-  // 삽입된 "마지막 표"의 첫 leaf로 이동
-  try {
-    const allTables = Array.from(
-      Editor.nodes(editor, {
-        at: [],
-        match: n => (n as any).type === 'table',
-      })
-    );
-    const last = allTables.at(-1);
-    if (last) {
-      const [, tablePath] = last;
-      const start = Editor.start(editor, tablePath);
-      Transforms.select(editor, start);
-      ReactEditor.focus(editor as any);
-    }
-  } catch {
-    // 포커스 이동 실패해도 에러 무시
-  }
+  // ---- 3) 삽입 위치: selection 없으면 문서 끝 ----
+  const at = editor.selection ?? Editor.end(editor, []);
+
+  // ---- 4) 표 + 단락을 한 번에 삽입 ----
+  Editor.withoutNormalizing(editor, () => {
+    Transforms.insertNodes(editor, [table, paragraph], { at });
+  });
 }
