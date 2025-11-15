@@ -8,7 +8,13 @@
 // - setNodes/insertNodes 제네릭 명시로 타입 오류 방지
 // =============================================
 
-import { Editor, Transforms, Path, Element as SlateElement } from 'slate';
+import {
+  Editor,
+  Transforms,
+  Path,
+  Element as SlateElement,
+  Text,               // ⬅ 추가
+} from 'slate';
 import type { ParagraphElement, CustomText } from '@/types/slate';
 
 // HeadingElement 타입 선언
@@ -52,6 +58,19 @@ export const insertHeading = (
       { type: heading, icon } as Partial<HeadingElement>,
       { match: n => SlateElement.isElement(n) }
     );
+
+    // ⬇⬇ 추가: heading 블록 안의 텍스트에서 fontSize 마크 제거
+    const textEntries = Array.from(
+      Editor.nodes(editor, {
+        at: blockPath,
+        match: n => Text.isText(n) && (n as any).fontSize != null,
+      })
+    );
+
+    for (const [, textPath] of textEntries) {
+      Transforms.unsetNodes(editor, 'fontSize', { at: textPath });
+    }
+    // (원한다면 fontFamily 도 막고 싶을 때는 위와 같은 방식으로 'fontFamily' 도 unset 가능)
 
     // 변환한 블록 "다음 경로"에 빈 단락 삽입
     const insertPath = Path.next(blockPath);

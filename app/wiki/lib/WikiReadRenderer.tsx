@@ -691,6 +691,8 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
     case "heading-two":
     case "heading-three": {
       const el = node;
+
+      // 아이콘 처리 (기존 그대로)
       let iconHtml: React.ReactNode = null;
       if (el.icon) {
         if (typeof el.icon === "string" && el.icon.startsWith("http")) {
@@ -713,11 +715,29 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
           );
         } else {
           iconHtml = (
-            <span style={{ fontSize: "1.5em", fontWeight: "600" , marginRight: 6, display: "inline-block" }}>{el.icon}</span>
+            <span
+              style={{
+                fontSize: "1.5em",
+                fontWeight: "600",
+                marginRight: 6,
+                display: "inline-block"
+              }}
+            >
+              {el.icon}
+            </span>
           );
         }
       }
-      const textContent = stripReact(children).trim();
+
+      // ⬇⬇ heading 자식에서 fontSize 마크 제거한 뒤 렌더링
+      const safeChildren = (el.children ?? []).map((child: any, i: number) =>
+        renderNode(
+          stripFontSizeFromDescendants(child),
+          key ? `${key}-${i}` : i
+        )
+      );
+
+      const textContent = stripReact(safeChildren).trim();
       const id = toHeadingIdFromText(textContent);
       const level = node.type === "heading-one" ? 1 : node.type === "heading-two" ? 2 : 3;
       const fontSize = level === 1 ? "28px" : node.type === "heading-two" ? "22px" : "18px";
@@ -742,7 +762,7 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
           }}
         >
           {iconHtml}
-          <span style={{ display: "inline" }}>{children}</span>
+          <span style={{ display: "inline" }}>{safeChildren}</span>
         </Tag>
       );
     }
@@ -997,8 +1017,24 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
   }
 }
 
+// 텍스트 노드에서 fontSize만 제거하면서 자식 전체를 재귀적으로 복제
+function stripFontSizeFromDescendants(node: any): any {
+  if (Text.isText(node)) {
+    const { fontSize, ...rest } = node;
+    return rest;
+  }
+  if (node && Array.isArray(node.children)) {
+    return {
+      ...node,
+      children: node.children.map(stripFontSizeFromDescendants),
+    };
+  }
+  return node;
+}
+
 // React Node의 텍스트만 추출
 function stripReact(node: React.ReactNode): string {
+  // 기존 stripReact 구현 그대로 유지
   if (typeof node === "string" || typeof node === "number") return String(node);
   if (Array.isArray(node)) return node.map(stripReact).join("");
   if (React.isValidElement(node)) return stripReact(node.props.children);
