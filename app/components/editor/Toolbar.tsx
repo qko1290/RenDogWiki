@@ -26,12 +26,13 @@ import {
   faHeading, faFillDrip, faPalette, faTextHeight, faLink,
   faImage, faBookOpen, faDollarSign, faFont, faTable,
   faAlignLeft, faMinus, faBold, faItalic, faUnderline, faStrikethrough,
-  faGripLinesVertical, faIcons, faPhotoFilm
+  faGripLinesVertical, faIcons, faPhotoFilm, 
 } from '@fortawesome/free-solid-svg-icons';
 import HeadingIconSelectModal from './HeadingIconSelectModal';
 import { insertInlineImage } from './helpers/insertInlineImage';
 import ImageUrlInputModal from './ImageUrlInputModal';
 import PriceTableInsertModal from './PriceTableInsertModal';
+import { insertWeaponInfo } from './helpers/insertWeaponInfo';
 
 import TablePicker from './TablePicker';
 import { insertTable } from './helpers/insertTable';
@@ -696,6 +697,18 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
         }}
       >
         <FontAwesomeIcon icon={faTable} />
+      </button>
+
+      {/* 무기 정보 박스 삽입 */}
+      <button
+        className="editor-toolbar-btn"
+        title="무기 정보 박스 삽입"
+        onMouseDown={(e) => {
+          e.preventDefault();
+          insertWeaponInfo(editor);
+        }}
+      >
+        <FontAwesomeIcon icon={faFont} />
       </button>
 
       <TablePicker

@@ -181,6 +181,40 @@ export type VideoElement = {
   children: [{ text: '' }];
 };
 
+// ===== 무기 정보 박스 =====
+
+// 희귀도(카드 색상 분기용)
+export type WeaponRarity = 'normal' | 'rare' | 'epic' | 'unique' | 'legendary';
+
+// 강화 단계별 상세 값
+export type WeaponStatUpgrade = {
+  level: string;   // 예: "+0", "1강", "5강"
+  value: string;   // 예: "120", "120 x 3", "0.6초"
+};
+
+// 개별 정보(데미지 / 쿨타임 / 타수 / 범위 / 지속시간 / 기타)
+export type WeaponStat = {
+  id: string;           // React key 용(uuid 같은 랜덤 문자열)
+  key: string;          // "damage" | "cooldown" | "hits" | "range" ... 자유
+  label: string;        // 표시 이름: "데미지", "쿨타임", "타수", "범위" 등
+  value: string;        // 카드에 한 줄로 보이는 요약 값 (ex "120", "0.6초", "3타")
+  unit?: string;        // 필요하면 "초", "타", "칸" 등
+  upgrades?: WeaponStatUpgrade[];  // 강화별 상세 값(없으면 단순 정보)
+};
+
+// 무기 정보 박스 Element
+export type WeaponInfoElement = {
+  type: 'weapon-info';
+  rarity: WeaponRarity;
+  name: string;              // 무기 이름
+  code?: string;             // 아이템 코드 / #번호 등
+  weaponType?: string;       // 근접 무기, 원거리 무기 등
+  image?: string | null;     // 무기 이미지 URL
+  video?: string | null;     // 공격 영상 URL
+  stats: WeaponStat[];       // 정보 리스트(데미지/쿨타임/타수/범위/지속시간 등)
+  children: [{ text: '' }];  // void 비슷하게 쓰기 위한 dummy 텍스트
+};
+
 // ===== 모든 Element 통합 =====
 export type CustomElement =
   | ParagraphElement
@@ -199,7 +233,8 @@ export type CustomElement =
   | TableElement
   | TableRowElement
   | TableCellElement
-  | VideoElement;
+  | VideoElement
+  | WeaponInfoElement;
 
 // Slate 타입 오버라이드
 declare module 'slate' {

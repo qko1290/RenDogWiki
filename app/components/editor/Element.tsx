@@ -26,6 +26,8 @@ import type {
   ParagraphElement,
   TableElement,
   VideoElement,
+  WeaponInfoElement,
+  WeaponStat,
 } from '@/types/slate';
 import { tablePathKey, useDragRect, beginDrag, hoverCell, selectRectDirect, isDragPrimedOrActive } from './helpers/tableDrag';
 
@@ -116,6 +118,328 @@ function nameFontSize(name?: string) {
   if (n.length >= 9) return 18;
   return 20;
 }
+
+const isProbablyVideo = (url: string, mime?: string | null) => {
+  if (mime && mime.startsWith('video/')) return true;
+  const clean = url.split('?')[0].split('#')[0];
+  const ext = clean.substring(clean.lastIndexOf('.') + 1).toLowerCase();
+  return ['mp4', 'webm', 'ogg', 'mov', 'm4v', 'avi', 'mkv'].includes(ext);
+};
+
+// 희귀도별 색상
+function weaponRarityStyle(rarity: WeaponInfoElement['rarity']) {
+  switch (rarity) {
+    case 'epic':
+      return { border: '#a855f7', header: '#4c1d95', bg: '#0b1020' };
+    case 'unique':
+      return { border: '#38bdf8', header: '#0f172a', bg: '#04121e' };
+    case 'legendary':
+      return { border: '#f97373', header: '#7f1d1d', bg: '#1b0b0b' };
+    case 'rare':
+      return { border: '#60a5fa', header: '#1d4ed8', bg: '#020617' };
+    case 'normal':
+    default:
+      return { border: '#9ca3af', header: '#374151', bg: '#020617' };
+  }
+}
+
+// ==================== WeaponStatModal (상세/편집 공용) ====================
+type WeaponStatModalProps = {
+  open: boolean;
+  readOnly: boolean;
+  stat: WeaponStat | null;
+  onClose: () => void;
+  onSave?: (next: WeaponStat) => void;
+};
+
+const WeaponStatModal: React.FC<WeaponStatModalProps> = ({
+  open,
+  readOnly,
+  stat,
+  onClose,
+  onSave,
+}) => {
+  const [local, setLocal] = React.useState<WeaponStat | null>(stat ?? null);
+
+  React.useEffect(() => {
+    setLocal(stat ?? null);
+  }, [stat]);
+
+  if (!open || !local) return null;
+
+  const handleChange = <K extends keyof WeaponStat>(key: K, value: WeaponStat[K]) => {
+    setLocal(prev => (prev ? { ...prev, [key]: value } : prev));
+  };
+
+  const handleUpgradeChange = (idx: number, field: 'level' | 'value', value: string) => {
+    setLocal(prev => {
+      if (!prev) return prev;
+      const upgrades = [...(prev.upgrades ?? [])];
+      upgrades[idx] = { ...(upgrades[idx] ?? { level: '', value: '' }), [field]: value };
+      return { ...prev, upgrades };
+    });
+  };
+
+  const handleAddUpgrade = () => {
+    setLocal(prev => {
+      if (!prev) return prev;
+      const upgrades = [...(prev.upgrades ?? []), { level: '', value: '' }];
+      return { ...prev, upgrades };
+    });
+  };
+
+  const handleRemoveUpgrade = (idx: number) => {
+    setLocal(prev => {
+      if (!prev) return prev;
+      const upgrades = [...(prev.upgrades ?? [])];
+      upgrades.splice(idx, 1);
+      return { ...prev, upgrades };
+    });
+  };
+
+  const handleSave = () => {
+    if (readOnly || !onSave || !local) {
+      onClose();
+      return;
+    }
+    onSave(local);
+    onClose();
+  };
+
+  return (
+    <div
+      contentEditable={false}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(15,23,42,0.55)',
+        zIndex: 99999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+      onClick={onClose}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: 420,
+          maxWidth: '90vw',
+          maxHeight: '80vh',
+          overflowY: 'auto',
+          background: '#0f172a',
+          borderRadius: 10,
+          padding: 16,
+          color: '#e5e7eb',
+          boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+        }}
+      >
+        <h3 style={{ marginTop: 0, marginBottom: 10, fontSize: 16 }}>
+          {readOnly ? '상세 정보' : '무기 정보 편집'}
+        </h3>
+
+        {/* 라벨 / 값 / 단위 */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontSize: 12 }}>표시 이름</label>
+            {readOnly ? (
+              <div style={{ padding: '4px 6px' }}>{local.label}</div>
+            ) : (
+              <input
+                value={local.label}
+                onChange={e => handleChange('label', e.target.value)}
+                style={{ width: '100%' }}
+              />
+            )}
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontSize: 12 }}>요약 값</label>
+            {readOnly ? (
+              <div style={{ padding: '4px 6px' }}>{local.value}</div>
+            ) : (
+              <input
+                value={local.value}
+                onChange={e => handleChange('value', e.target.value)}
+                style={{ width: '100%' }}
+              />
+            )}
+          </div>
+          <div style={{ width: 80 }}>
+            <label style={{ fontSize: 12 }}>단위</label>
+            {readOnly ? (
+              <div style={{ padding: '4px 6px' }}>{local.unit ?? ''}</div>
+            ) : (
+              <input
+                value={local.unit ?? ''}
+                onChange={e => handleChange('unit', e.target.value)}
+                style={{ width: '100%' }}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* 강화별 상세 값 목록 */}
+        <div style={{ marginTop: 6 }}>
+          <div style={{ fontSize: 12, marginBottom: 4 }}>강화별 상세 값</div>
+          {(local.upgrades ?? []).length === 0 && (
+            <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 6 }}>
+              {readOnly ? '등록된 상세 값이 없습니다.' : '아직 추가된 단계가 없습니다.'}
+            </div>
+          )}
+          {(local.upgrades ?? []).map((u, idx) => (
+            <div
+              key={idx}
+              style={{ display: 'flex', gap: 6, marginBottom: 4, alignItems: 'center' }}
+            >
+              {readOnly ? (
+                <>
+                  <div style={{ width: 80, fontSize: 13, color: '#e5e7eb' }}>{u.level}</div>
+                  <div style={{ flex: 1, fontSize: 13 }}>{u.value}</div>
+                </>
+              ) : (
+                <>
+                  <input
+                    style={{ width: 80 }}
+                    placeholder="예: 1강"
+                    value={u.level}
+                    onChange={e => handleUpgradeChange(idx, 'level', e.target.value)}
+                  />
+                  <input
+                    style={{ flex: 1 }}
+                    placeholder="예: 120 x 3"
+                    value={u.value}
+                    onChange={e => handleUpgradeChange(idx, 'value', e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveUpgrade(idx)}
+                    style={{
+                      padding: '2px 6px',
+                      fontSize: 11,
+                      borderRadius: 4,
+                      border: '1px solid #fecaca',
+                      color: '#fecaca',
+                      background: 'transparent',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    삭제
+                  </button>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {!readOnly && (
+          <button
+            type="button"
+            onClick={handleAddUpgrade}
+            style={{
+              marginTop: 4,
+              marginBottom: 10,
+              fontSize: 12,
+              padding: '3px 8px',
+              borderRadius: 4,
+              border: '1px solid #4b5563',
+              background: 'transparent',
+              color: '#e5e7eb',
+              cursor: 'pointer',
+            }}
+          >
+            단계 추가
+          </button>
+        )}
+
+        {/* 버튼 영역 */}
+        <div style={{ marginTop: 10, textAlign: 'right', display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              padding: '5px 10px',
+              borderRadius: 4,
+              border: '1px solid #4b5563',
+              background: 'transparent',
+              color: '#e5e7eb',
+              fontSize: 12,
+              cursor: 'pointer',
+            }}
+          >
+            닫기
+          </button>
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={handleSave}
+              style={{
+                padding: '5px 10px',
+                borderRadius: 4,
+                border: 'none',
+                background: '#2563eb',
+                color: '#fff',
+                fontSize: 12,
+                cursor: 'pointer',
+              }}
+            >
+              저장
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ==================== WeaponVideoModal (영상 보기) ====================
+type WeaponVideoModalProps = {
+  open: boolean;
+  url: string | null | undefined;
+  onClose: () => void;
+};
+
+const WeaponVideoModal: React.FC<WeaponVideoModalProps> = ({ open, url, onClose }) => {
+  if (!open || !url) return null;
+  return (
+    <div
+      contentEditable={false}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(15,23,42,0.7)',
+        zIndex: 99999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+      onClick={onClose}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: 'min(900px, 90vw)',
+          background: '#020617',
+          borderRadius: 10,
+          padding: 12,
+          boxShadow: '0 12px 40px rgba(0,0,0,0.65)',
+        }}
+      >
+        <video
+          src={url}
+          controls
+          playsInline
+          style={{
+            width: '100%',
+            maxHeight: '70vh',
+            borderRadius: 8,
+            background: '#000',
+            display: 'block',
+          }}
+        />
+      </div>
+    </div>
+  );
+};
 
 // -------------------- 타입 --------------------
 type PriceTableEditState = {
@@ -1547,6 +1871,285 @@ const Element: React.FC<ElementProps> = ({
             onSave={handleSaveSize}
             onClose={() => setModalOpen(false)}
           />
+        </div>
+      );
+    }
+
+        // -------------------- 무기 정보 박스 --------------------
+    case 'weapon-info': {
+      const el = element as WeaponInfoElement;
+      const isReadOnly = ReactEditor.isReadOnly(editor);
+      const [videoPickerOpen, setVideoPickerOpen] = React.useState(false);
+      const [videoViewOpen, setVideoViewOpen] = React.useState(false);
+      const [statModalIndex, setStatModalIndex] = React.useState<number | null>(null);
+
+      const style = weaponRarityStyle(el.rarity ?? 'normal');
+
+      const thumbSrc =
+        el.image && el.image.startsWith('http') ? toProxyUrl(el.image) : el.image;
+
+      const cardStyle: React.CSSProperties = {
+        borderRadius: 12,
+        border: `2px solid ${style.border}`,
+        background: style.bg,
+        color: '#e5e7eb',
+        width: 260,
+        boxShadow: '0 4px 20px rgba(0,0,0,0.45)',
+        overflow: 'hidden',
+        fontSize: 13,
+      };
+
+      const headerStyle: React.CSSProperties = {
+        background: style.header,
+        padding: '6px 10px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        fontSize: 12,
+        fontWeight: 600,
+      };
+
+      const nameStyle: React.CSSProperties = {
+        padding: '6px 10px 4px',
+        textAlign: 'center',
+        fontSize: 15,
+        fontWeight: 700,
+      };
+
+      const handleSaveStat = (idx: number, next: WeaponStat) => {
+        const path = ReactEditor.findPath(editor, element);
+        const stats = [...el.stats];
+        stats[idx] = next;
+        Transforms.setNodes(editor, { stats }, { at: path });
+      };
+
+      const handlePickVideo = (url: string, _name?: string, row?: any) => {
+        const raw = row?.url ?? url;
+        const mime = row?.mime_type as string | undefined;
+        if (!isProbablyVideo(raw, mime)) {
+          alert('영상 파일만 선택할 수 있습니다.');
+          return;
+        }
+        const path = ReactEditor.findPath(editor, element);
+        Transforms.setNodes(editor, { video: raw }, { at: path });
+        setVideoPickerOpen(false);
+      };
+
+      return (
+        <div {...attributes}>
+          <div
+            contentEditable={false}
+            style={{ margin: '16px 0', display: 'flex', justifyContent: 'center' }}
+          >
+            <div style={cardStyle}>
+              {/* 상단 헤더 (희귀도/코드) */}
+              <div style={headerStyle}>
+                <span>
+                  {el.rarity === 'epic'
+                    ? '에픽 무기'
+                    : el.rarity === 'unique'
+                    ? '유니크 무기'
+                    : el.rarity === 'legendary'
+                    ? '레전드 무기'
+                    : el.rarity === 'rare'
+                    ? '레어 무기'
+                    : '무기'}
+                </span>
+                {el.code && (
+                  <span style={{ opacity: 0.8, fontSize: 11 }}>#{el.code}</span>
+                )}
+              </div>
+
+              {/* 이름 */}
+              <div style={nameStyle}>{el.name || '이름 없음'}</div>
+
+              {/* 타입 표시 (근접 무기 / 원거리 등) */}
+              {el.weaponType && (
+                <div
+                  style={{
+                    textAlign: 'center',
+                    fontSize: 12,
+                    color: '#cbd5f5',
+                    marginBottom: 4,
+                  }}
+                >
+                  {el.weaponType}
+                </div>
+              )}
+
+              {/* 이미지 영역 */}
+              <div
+                style={{
+                  height: 90,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderTop: '1px solid rgba(148,163,184,0.5)',
+                  borderBottom: '1px solid rgba(148,163,184,0.5)',
+                  background:
+                    'radial-gradient(circle at 20% 0%, rgba(148,163,184,0.18), transparent 60%)',
+                }}
+              >
+                {thumbSrc ? (
+                  <img
+                    src={thumbSrc}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    draggable={false}
+                    style={{
+                      maxWidth: '70%',
+                      maxHeight: '80%',
+                      objectFit: 'contain',
+                      display: 'block',
+                    }}
+                  />
+                ) : (
+                  <span style={{ fontSize: 12, color: '#64748b' }}>
+                    이미지 없음
+                  </span>
+                )}
+              </div>
+
+              {/* 정보 리스트 */}
+              <div
+                style={{
+                  padding: '6px 8px 4px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 4,
+                }}
+              >
+                {el.stats.map((s, idx) => (
+                  <button
+                    key={s.id || idx}
+                    type="button"
+                    onClick={() => setStatModalIndex(idx)}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '3px 6px',
+                      borderRadius: 6,
+                      border: '1px solid rgba(148,163,184,0.4)',
+                      background: 'rgba(15,23,42,0.6)',
+                      color: '#e5e7eb',
+                      cursor: 'pointer',
+                      fontSize: 12,
+                    }}
+                    title={
+                      isReadOnly
+                        ? '상세 정보 보기'
+                        : '클릭해서 상세/강화 정보를 편집합니다'
+                    }
+                  >
+                    <span style={{ opacity: 0.9 }}>{s.label}</span>
+                    <span style={{ fontWeight: 600 }}>
+                      {s.value}
+                      {s.unit && ` ${s.unit}`}
+                      {s.upgrades && s.upgrades.length > 0 && (
+                        <span style={{ fontSize: 11, marginLeft: 4, opacity: 0.8 }}>
+                          (상세)
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                ))}
+                {!el.stats.length && (
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: '#94a3b8',
+                      padding: '4px 2px',
+                    }}
+                  >
+                    표시할 정보가 없습니다. 편집 모달에서 추가해 주세요.
+                  </div>
+                )}
+              </div>
+
+              {/* 공격 모습 보기 / 영상 설정 */}
+              <div
+                style={{
+                  padding: '6px 8px 8px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  gap: 6,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setVideoViewOpen(true)}
+                  disabled={!el.video}
+                  style={{
+                    flex: 1,
+                    padding: '5px 0',
+                    borderRadius: 6,
+                    border: 'none',
+                    background: el.video ? '#22c55e' : '#4b5563',
+                    color: '#fff',
+                    fontSize: 12,
+                    cursor: el.video ? 'pointer' : 'default',
+                    opacity: el.video ? 1 : 0.6,
+                  }}
+                >
+                  공격 영상 보기
+                </button>
+                {!isReadOnly && (
+                  <button
+                    type="button"
+                    onClick={() => setVideoPickerOpen(true)}
+                    style={{
+                      padding: '5px 6px',
+                      borderRadius: 6,
+                      border: '1px solid #64748b',
+                      background: 'transparent',
+                      color: '#cbd5f5',
+                      fontSize: 11,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    영상 설정
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* 영상 보기 모달 */}
+            <WeaponVideoModal
+              open={videoViewOpen}
+              url={el.video}
+              onClose={() => setVideoViewOpen(false)}
+            />
+
+            {/* 스탯 상세/편집 모달 */}
+            <WeaponStatModal
+              open={statModalIndex !== null}
+              readOnly={isReadOnly}
+              stat={
+                statModalIndex !== null ? el.stats[statModalIndex] ?? null : null
+              }
+              onClose={() => setStatModalIndex(null)}
+              onSave={
+                isReadOnly || statModalIndex === null
+                  ? undefined
+                  : next => handleSaveStat(statModalIndex, next)
+              }
+            />
+
+            {/* 에디터에서만: 영상 선택 모달 (업로드 시스템 재사용) */}
+            {!isReadOnly && (
+              <ImageSelectModal
+                open={videoPickerOpen}
+                onClose={() => setVideoPickerOpen(false)}
+                onSelectImage={handlePickVideo}
+              />
+            )}
+          </div>
+
+          {/* dummy 텍스트 노드 렌더링 */}
+          {children}
         </div>
       );
     }
