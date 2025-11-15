@@ -552,19 +552,3 @@
   padding-top: 6px;      /* ⬅️ 이게 위쪽 검은 여백 */
   overflow: hidden;
 }
-
-/* 등급 색깔띠 */
-.weapon-card--renderer .weapon-card-rarity {
-  /* 카드 안에 살짝 들어가게만 두면 됨 */
-  border-radius: 20px 20px 0 0;
-}
-
-/* 🔹 페이지 전체/카드 영역 배경 – 살짝 더 밝게 (일부 코드) */
-.weapon-page,
-body {
-  background: radial-gradient(circle at 0 0,
-    #ffffff 0%,
-    #f6f7fb 45%,
-    #e5e8f1 100%
-  );
-}

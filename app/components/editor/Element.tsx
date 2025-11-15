@@ -1790,9 +1790,9 @@ const Element: React.FC<ElementProps> = ({
                 borderRadius: 18,
                 overflow: 'hidden',
                 background: '#020617',
-                border: `1.5px solid ${meta.border}`,
                 boxShadow: '0 18px 45px rgba(0,0,0,.45)',
                 fontFamily: 'inherit',
+                paddingTop: 4,
               }}
             >
               {/* 상단 타입 바 */}
@@ -1805,8 +1805,8 @@ const Element: React.FC<ElementProps> = ({
                   outline: 'none',
                   background: meta.headerBg,
                   color: '#f9fafb',
-                  padding: '8px 0',
-                  fontSize: 13,
+                  padding: '6px 0',
+                  fontSize: 16,
                   fontWeight: 700,
                   letterSpacing: 1.5,
                   textAlign: 'center',
@@ -1977,7 +1977,7 @@ const Element: React.FC<ElementProps> = ({
                       : 'none',
                   }}
                 >
-                  공격 영상 보기
+                  스킬 사용 영상
                 </button>
 
                 {/* 영상 설정 버튼은 에디터에서만 표시 */}

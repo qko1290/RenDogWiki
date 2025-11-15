@@ -32,9 +32,9 @@ const setWikiDocsAll = (rows: any[]) => {
 // ───────────────────────────────────────────────────────────────
 
 function toHeadingIdFromText(text: string) {
-  const cleaned = text.replace(/^[^\w\s]|[\u{1F300}-\u{1F6FF}]/gu, '').trim();
+  const cleaned = text.replace(/^[^\w\s]|[\u{1F300}-\u{1F6FF}]/gu, "").trim();
   const slug =
-    cleaned.toLowerCase().replace(/\s+/g, '-') ||
+    cleaned.toLowerCase().replace(/\s+/g, "-") ||
     `untitled-${Math.random().toString(36).slice(2, 6)}`;
   return `heading-${slug}`;
 }
@@ -42,7 +42,10 @@ function toHeadingIdFromText(text: string) {
 /** 외부 링크용 인라인 아이콘 (파비콘 네트워크 호출 제거) */
 const ExternalLinkIcon: React.FC<{ size?: number }> = ({ size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable="false">
-    <path d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42 9.3-9.29H14V3zM19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7z" fill="currentColor"/>
+    <path
+      d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42 9.3-9.29H14V3zM19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7z"
+      fill="currentColor"
+    />
   </svg>
 );
 
@@ -52,54 +55,54 @@ function getInfoboxPreset(
 ): {
   container: React.CSSProperties;
   icon: React.CSSProperties & Record<string, any>;
-  role: 'note' | 'alert';
+  role: "note" | "alert";
 } {
   const baseContainer: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
+    display: "flex",
+    alignItems: "center",
     gap: 12,
-    padding: '12px 14px',
+    padding: "12px 14px",
     borderRadius: 12,
-    color: '#1c1d1f',
-    boxShadow: '0 1px 0 rgba(0,0,0,.02)'
+    color: "#1c1d1f",
+    boxShadow: "0 1px 0 rgba(0,0,0,.02)",
   };
 
   const map: Record<
     string,
-    { bg: string; bd: string; accent: string; mask: string; role: 'note' | 'alert' }
+    { bg: string; bd: string; accent: string; mask: string; role: "note" | "alert" }
   > = {
     info: {
-      bg: '#f2f6ff',
-      bd: '#dbeafe',
-      accent: '#2563eb',
+      bg: "#f2f6ff",
+      bd: "#dbeafe",
+      accent: "#2563eb",
       mask:
-        'https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-info.svg?v=2&token=a463935e93',
-      role: 'note'
+        "https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-info.svg?v=2&token=a463935e93",
+      role: "note",
     },
     warning: {
-      bg: '#fff7ea',
-      bd: '#ffe3b3',
-      accent: '#f59e0b',
+      bg: "#fff7ea",
+      bd: "#ffe3b3",
+      accent: "#f59e0b",
       mask:
-        'https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-exclamation.svg?v=2&token=a463935e93',
-      role: 'note'
+        "https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-exclamation.svg?v=2&token=a463935e93",
+      role: "note",
     },
     danger: {
-      bg: '#fff3f3',
-      bd: '#ffd8d8',
-      accent: '#ef4444',
+      bg: "#fff3f3",
+      bd: "#ffd8d8",
+      accent: "#ef4444",
       mask:
-        'https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/triangle-exclamation.svg?v=2&token=a463935e93',
-      role: 'alert'
+        "https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/triangle-exclamation.svg?v=2&token=a463935e93",
+      role: "alert",
     },
     tip: {
-      bg: '#eefdf6',
-      bd: '#c9f1de',
-      accent: '#10b981',
+      bg: "#eefdf6",
+      bd: "#c9f1de",
+      accent: "#10b981",
       mask:
-        'https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-exclamation.svg?v=2&token=a463935e93',
-      role: 'note'
-    }
+        "https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-exclamation.svg?v=2&token=a463935e93",
+      role: "note",
+    },
   };
 
   const sel = map[boxType] ?? map.info;
@@ -107,22 +110,22 @@ function getInfoboxPreset(
   const container: React.CSSProperties = {
     ...baseContainer,
     background: sel.bg,
-    border: `1px solid ${sel.bd}`
+    border: `1px solid ${sel.bd}`,
   };
 
   const icon: React.CSSProperties & Record<string, any> = {
-    flex: '0 0 auto',
+    flex: "0 0 auto",
     width: 18,
     height: 18,
     backgroundColor: sel.accent,
     WebkitMaskImage: `url(${sel.mask})`,
     maskImage: `url(${sel.mask})`,
-    WebkitMaskRepeat: 'no-repeat',
-    maskRepeat: 'no-repeat',
-    WebkitMaskPosition: 'center',
-    maskPosition: 'center',
-    WebkitMaskSize: 'contain',
-    maskSize: 'contain'
+    WebkitMaskRepeat: "no-repeat",
+    maskRepeat: "no-repeat",
+    WebkitMaskPosition: "center",
+    maskPosition: "center",
+    WebkitMaskSize: "contain",
+    maskSize: "contain",
   };
 
   return { container, icon, role: sel.role };
@@ -136,18 +139,18 @@ function LinkBlockView({ node, keyProp }: { node: any; keyProp: React.Key }) {
   if (!node.isWiki && !displaySitename) {
     try {
       const u = new URL(node.url);
-      displaySitename = u.hostname.replace(/^www\./, '');
+      displaySitename = u.hostname.replace(/^www\./, "");
     } catch {}
   }
 
   // 내부 문서 링크: 아이콘 로딩
   const [wikiIcon, setWikiIcon] = useState<string | null>(
-    node.isWiki ? (node.docIcon ?? null) : null
+    node.isWiki ? node.docIcon ?? null : null
   );
 
   useEffect(() => {
     if (!node.isWiki || wikiIcon) return;
-    const key = String(node.wikiPath ?? node.url ?? node.wikiTitle ?? '');
+    const key = String(node.wikiPath ?? node.url ?? node.wikiTitle ?? "");
     if (!key) return;
 
     if (wikiDocIconCache.has(key)) {
@@ -159,7 +162,7 @@ function LinkBlockView({ node, keyProp }: { node: any; keyProp: React.Key }) {
     (async () => {
       try {
         if (!wikiDocsAll) {
-          const res = await fetch('/api/documents?all=1', { cache: 'force-cache' });
+          const res = await fetch("/api/documents?all=1", { cache: "force-cache" });
           const data = await res.json();
           setWikiDocsAll(Array.isArray(data) ? data : []);
         }
@@ -169,7 +172,7 @@ function LinkBlockView({ node, keyProp }: { node: any; keyProp: React.Key }) {
             (node.wikiPath && String(d.path) === String(node.wikiPath)) ||
             (node.wikiTitle && d.title === node.wikiTitle)
         );
-        const icon = (match?.icon ?? '').trim();
+        const icon = (match?.icon ?? "").trim();
         if (!cancelled) {
           if (icon) {
             setWikiIcon(icon);
@@ -188,25 +191,32 @@ function LinkBlockView({ node, keyProp }: { node: any; keyProp: React.Key }) {
     };
   }, [node.isWiki, node.wikiPath, node.wikiTitle, node.url, wikiIcon]);
 
-  const isSmall = node.size === 'small';
+  const isSmall = node.size === "small";
   const flexStyle: React.CSSProperties = isSmall
-    ? { flex: '0 0 calc(50% - 6px)', maxWidth: 'calc(50% - 6px)' }
-    : { flex: '0 0 100%', maxWidth: '100%' };
+    ? { flex: "0 0 calc(50% - 6px)", maxWidth: "calc(50% - 6px)" }
+    : { flex: "0 0 100%", maxWidth: "100%" };
 
   let iconNode: React.ReactNode = null;
   if (node.isWiki) {
     if (wikiIcon) {
-      iconNode = wikiIcon.startsWith('http') ? (
+      iconNode = wikiIcon.startsWith("http") ? (
         <img
           src={cdn(wikiIcon)}
           alt="doc icon"
           loading="lazy"
           decoding="async"
           fetchPriority="low"
-          style={{ width: 24, height: 24, marginRight: 8, objectFit: 'contain' }}
+          style={{
+            width: 24,
+            height: 24,
+            marginRight: 8,
+            objectFit: "contain",
+          }}
         />
       ) : (
-        <span style={{ fontSize: 20, marginRight: 8, lineHeight: 1 }}>{wikiIcon}</span>
+        <span style={{ fontSize: 20, marginRight: 8, lineHeight: 1 }}>
+          {wikiIcon}
+        </span>
       );
     }
   } else {
@@ -214,8 +224,13 @@ function LinkBlockView({ node, keyProp }: { node: any; keyProp: React.Key }) {
     iconNode = (
       <span
         style={{
-          width: 24, height: 24, marginRight: 8,
-          display: 'inline-flex', alignItems:'center', justifyContent:'center', color:'#64748b'
+          width: 24,
+          height: 24,
+          marginRight: 8,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#64748b",
         }}
       >
         <ExternalLinkIcon size={18} />
@@ -224,28 +239,30 @@ function LinkBlockView({ node, keyProp }: { node: any; keyProp: React.Key }) {
   }
 
   return (
-    <div key={keyProp} style={{ position: 'relative', ...flexStyle }}>
+    <div key={keyProp} style={{ position: "relative", ...flexStyle }}>
       <div
         style={{
-          position: 'relative',
-          display: 'flex',
-          alignItems: 'center',
+          position: "relative",
+          display: "flex",
+          alignItems: "center",
           padding: 12,
-          border: '1px solid #ddd',
+          border: "1px solid #ddd",
           borderRadius: 6,
           marginBottom: 8,
-          width: '100%',
-          boxSizing: 'border-box'
+          width: "100%",
+          boxSizing: "border-box",
         }}
       >
         {iconNode}
         <a
           href={node.url}
-          target={node.isWiki ? undefined : '_blank'}
-          rel={node.isWiki ? undefined : 'noopener noreferrer nofollow'}
-          style={{ color: '#0070f3', textDecoration: 'none', flexGrow: 1 }}
+          target={node.isWiki ? undefined : "_blank"}
+          rel={node.isWiki ? undefined : "noopener noreferrer nofollow"}
+          style={{ color: "#0070f3", textDecoration: "none", flexGrow: 1 }}
         >
-          {node.isWiki ? node.wikiTitle || node.sitename || '문서' : displaySitename || node.url}
+          {node.isWiki
+            ? node.wikiTitle || node.sitename || "문서"
+            : displaySitename || node.url}
         </a>
       </div>
     </div>
@@ -254,7 +271,7 @@ function LinkBlockView({ node, keyProp }: { node: any; keyProp: React.Key }) {
 
 /** 길이에 따라 폰트 자동 축소(대략치) */
 function autoFont(base: number, text: string, steps?: Array<[number, number]>) {
-  const len = Array.from(text ?? '').length;
+  const len = Array.from(text ?? "").length;
   const rules: Array<[number, number]> =
     steps ??
     [
@@ -273,20 +290,20 @@ function autoFont(base: number, text: string, steps?: Array<[number, number]>) {
 
 /** 가격 텍스트: 줄바꿈이 필요할 때만 `~` 뒤가 다음 줄로 떨어지도록 */
 function PriceText({ value }: { value: string | number }) {
-  const s = String(value ?? '');
-  if (!s.includes('~')) return <span className="ptc-price-text">{s}</span>;
-  const [left, right] = s.split('~', 2);
+  const s = String(value ?? "");
+  if (!s.includes("~")) return <span className="ptc-price-text">{s}</span>;
+  const [left, right] = s.split("~", 2);
   return (
     <span className="ptc-price-text">
-      <span style={{ whiteSpace: 'nowrap' }}>{left}~</span>
+      <span style={{ whiteSpace: "nowrap" }}>{left}~</span>
       <wbr />
-      <span style={{ whiteSpace: 'nowrap' }}>{right}</span>
+      <span style={{ whiteSpace: "nowrap" }}>{right}</span>
     </span>
   );
 }
 
 function nameFontSize(name?: string) {
-  const n = (name ?? '').trim();
+  const n = (name ?? "").trim();
   if (n.length >= 9) return 16;
   if (n.length >= 7) return 18;
   return 20;
@@ -295,12 +312,12 @@ function nameFontSize(name?: string) {
 /** 숫자/문자 폰트 크기를 정규화: 숫자는 px, 단위가 있으면 그대로 */
 function normalizeFontSize(v: unknown): string | number | undefined {
   if (v == null) return undefined;
-  if (typeof v === 'number') return Math.max(1, v);
-  if (typeof v === 'string') {
+  if (typeof v === "number") return Math.max(1, v);
+  if (typeof v === "string") {
     const s = v.trim();
     if (!s) return undefined;
-    if (/(px|rem|em|%|vh|vw)$/i.test(s)) return s;         // 이미 단위가 있으면 그대로
-    if (/^\d+(\.\d+)?$/.test(s)) return `${s}px`;          // 숫자면 px
+    if (/(px|rem|em|%|vh|vw)$/i.test(s)) return s; // 이미 단위가 있으면 그대로
+    if (/^\d+(\.\d+)?$/.test(s)) return `${s}px`; // 숫자면 px
     return s;
   }
   return undefined;
@@ -309,29 +326,29 @@ function normalizeFontSize(v: unknown): string | number | undefined {
 /** "16px" → 16 추출 (px만 파싱) */
 function toPxNumber(v: string | number | undefined): number | undefined {
   if (v == null) return undefined;
-  if (typeof v === 'number') return v;
+  if (typeof v === "number") return v;
   const m = /^(-?\d+(?:\.\d+)?)px$/i.exec(v);
   return m ? parseFloat(m[1]) : undefined;
 }
 
 /** 손글씨 계열은 기본보다 살짝 크게 보정 */
 const HANDWRITING_SCALE: Record<string, number> = {
-  BareunHippy: 1.18,                    // 나눔손글씨 바른히피
-  NanumHandwritingMiddleSchool: 1.14,   // 나눔손글씨 중학생
+  BareunHippy: 1.18, // 나눔손글씨 바른히피
+  NanumHandwritingMiddleSchool: 1.14, // 나눔손글씨 중학생
 };
 
 /** 무기 타입 */
 type WeaponType =
-  | 'epic'
-  | 'unique'
-  | 'legendary'
-  | 'divine'
-  | 'superior'
-  | 'class'
-  | 'block'
-  | 'hidden'
-  | 'limited'
-  | 'ancient';
+  | "epic"
+  | "unique"
+  | "legendary"
+  | "divine"
+  | "superior"
+  | "class"
+  | "block"
+  | "hidden"
+  | "limited"
+  | "ancient";
 
 // 무기 희귀도(유형)별 메타 정보 (BLOCK/디바인 색상 포함)
 const WEAPON_TYPES_META: Record<
@@ -339,107 +356,68 @@ const WEAPON_TYPES_META: Record<
   { label: string; headerBg: string; border: string; badgeBg: string }
 > = {
   epic: {
-    label: 'EPIC',
-    headerBg: '#7c3aed',
-    border: '#a855f7',
-    badgeBg: '#5b21b6',
+    label: "EPIC",
+    headerBg: "#7c3aed",
+    border: "#a855f7",
+    badgeBg: "#5b21b6",
   },
   unique: {
-    label: 'UNIQUE',
-    headerBg: '#0ea5e9',
-    border: '#38bdf8',
-    badgeBg: '#0369a1',
+    label: "UNIQUE",
+    headerBg: "#0ea5e9",
+    border: "#38bdf8",
+    badgeBg: "#0369a1",
   },
   legendary: {
-    label: 'LEGEND',
-    headerBg: '#f97373',
-    border: '#fb7185',
-    badgeBg: '#b91c1c',
+    label: "LEGEND",
+    headerBg: "#f97373",
+    border: "#fb7185",
+    badgeBg: "#b91c1c",
   },
   // 디바인 조금 더 진하게
   divine: {
-    label: 'DIVINE',
-    headerBg: '#15803d',
-    border: '#22c55e',
-    badgeBg: '#14532d',
+    label: "DIVINE",
+    headerBg: "#15803d",
+    border: "#22c55e",
+    badgeBg: "#14532d",
   },
   superior: {
-    label: 'SUPERIOR',
-    headerBg: '#eab308',
-    border: '#facc15',
-    badgeBg: '#92400e',
+    label: "SUPERIOR",
+    headerBg: "#eab308",
+    border: "#facc15",
+    badgeBg: "#92400e",
   },
   class: {
-    label: 'CLASS',
-    headerBg: '#6366f1',
-    border: '#818cf8',
-    badgeBg: '#312e81',
+    label: "CLASS",
+    headerBg: "#6366f1",
+    border: "#818cf8",
+    badgeBg: "#312e81",
   },
   // BLOCK 타입 (연두)
   block: {
-    label: 'BLOCK',
-    headerBg: '#4ade80',
-    border: '#a3e635',
-    badgeBg: '#166534',
+    label: "BLOCK",
+    headerBg: "#4ade80",
+    border: "#a3e635",
+    badgeBg: "#166534",
   },
   hidden: {
-    label: 'HIDDEN',
-    headerBg: '#0f766e',
-    border: '#14b8a6',
-    badgeBg: '#134e4a',
+    label: "HIDDEN",
+    headerBg: "#0f766e",
+    border: "#14b8a6",
+    badgeBg: "#134e4a",
   },
   limited: {
-    label: 'LIMITED',
-    headerBg: '#f97316',
-    border: '#fdba74',
-    badgeBg: '#c2410c',
+    label: "LIMITED",
+    headerBg: "#f97316",
+    border: "#fdba74",
+    badgeBg: "#c2410c",
   },
   ancient: {
-    label: 'ANCIENT',
-    headerBg: '#6b7280',
-    border: '#9ca3af',
-    badgeBg: '#374151',
+    label: "ANCIENT",
+    headerBg: "#6b7280",
+    border: "#9ca3af",
+    badgeBg: "#374151",
   },
 };
-
-// 강수 라벨: 3강 → "3", MAX → "M"
-function levelButtonLabel(levelKey: string): string {
-  const upper = (levelKey || '').toString().trim().toUpperCase();
-  if (!upper) return '?';
-  if (upper === 'MAX' || upper === 'M') return 'M';
-  const m = upper.match(/\d+/);
-  if (m) return String(Number(m[0]));
-  return upper.charAt(0);
-}
-
-// 단계별 스탯 표시용 유틸
-function getStatDisplayValue(
-  stat: any,
-  levelIdx: number,
-  levelKeys: string[]
-): string {
-  const safeIdx = Math.max(0, Math.min(levelIdx, levelKeys.length - 1));
-  const levelKey = levelKeys[safeIdx] ?? levelKeys[0];
-
-  // 1) values: ['...', '...', ...] (index 기반)
-  if (Array.isArray(stat.values) && stat.values.length) {
-    const v = stat.values[safeIdx] ?? stat.values[0];
-    if (v !== undefined && v !== null && v !== '') return String(v);
-  }
-
-  // 2) byLevel: { "1": "...", "MAX": "..." }
-  if (stat.byLevel && typeof stat.byLevel === 'object') {
-    const v = stat.byLevel[levelKey];
-    if (v !== undefined && v !== null && v !== '') return String(v);
-  }
-
-  // 3) fallback: summary
-  if (stat.summary !== undefined && stat.summary !== null && stat.summary !== '') {
-    return String(stat.summary);
-  }
-
-  return '-';
-}
 
 // 공격 영상 모달 (문서 보기에서도 사용)
 type WeaponVideoModalProps = {
@@ -454,12 +432,12 @@ function WeaponVideoModal({ open, url, onClose }: WeaponVideoModalProps) {
   return (
     <div
       style={{
-        position: 'fixed',
+        position: "fixed",
         inset: 0,
-        background: 'rgba(0,0,0,.75)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        background: "rgba(0,0,0,.75)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
         zIndex: 2100,
       }}
       onMouseDown={onClose}
@@ -467,24 +445,24 @@ function WeaponVideoModal({ open, url, onClose }: WeaponVideoModalProps) {
       <div
         onMouseDown={(e) => e.stopPropagation()}
         style={{
-          width: 'min(960px, 90vw)',
-          maxHeight: '80vh',
-          background: '#020617',
+          width: "min(960px, 90vw)",
+          maxHeight: "80vh",
+          background: "#020617",
           borderRadius: 14,
-          boxShadow: '0 20px 50px rgba(0,0,0,.75)',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
+          boxShadow: "0 20px 50px rgba(0,0,0,.75)",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
         }}
       >
         <div
           style={{
-            padding: '8px 12px',
-            borderBottom: '1px solid #111827',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            color: '#e5e7eb',
+            padding: "8px 12px",
+            borderBottom: "1px solid #111827",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            color: "#e5e7eb",
             fontSize: 14,
           }}
         >
@@ -494,12 +472,12 @@ function WeaponVideoModal({ open, url, onClose }: WeaponVideoModalProps) {
             onClick={onClose}
             style={{
               borderRadius: 999,
-              border: '1px solid #4b5563',
-              padding: '3px 10px',
-              background: '#020617',
-              color: '#e5e7eb',
+              border: "1px solid #4b5563",
+              padding: "3px 10px",
+              background: "#020617",
+              color: "#e5e7eb",
               fontSize: 12,
-              cursor: 'pointer',
+              cursor: "pointer",
             }}
           >
             닫기
@@ -511,10 +489,10 @@ function WeaponVideoModal({ open, url, onClose }: WeaponVideoModalProps) {
           style={{
             flex: 1,
             minHeight: 0,
-            background: '#000',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            background: "#000",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             padding: 8,
           }}
         >
@@ -524,385 +502,16 @@ function WeaponVideoModal({ open, url, onClose }: WeaponVideoModalProps) {
             controlsList="nodownload"
             playsInline
             style={{
-              maxWidth: '100%',
-              maxHeight: '100%',
-              width: 'auto',
-              height: 'auto',
-              objectFit: 'contain',
-              background: '#000',
+              maxWidth: "100%",
+              maxHeight: "100%",
+              width: "auto",
+              height: "auto",
+              objectFit: "contain",
+              background: "#000",
             }}
           />
         </div>
       </div>
-    </div>
-  );
-}
-
-// 무기 카드 한 블럭 렌더러 (읽기 전용)
-function WeaponCardView({ node, keyProp }: { node: any; keyProp: React.Key }) {
-  const weaponType: WeaponType = node.weaponType || 'epic';
-  const meta = WEAPON_TYPES_META[weaponType] ?? WEAPON_TYPES_META.epic;
-
-  const stats: any[] = Array.isArray(node.stats) ? node.stats : [];
-  const visibleStats = stats.filter((s) => s && s.enabled !== false);
-
-  // 강수(강화 단계) 리스트
-  const levelKeys: string[] =
-    Array.isArray(node.levels) && node.levels.length
-      ? node.levels.map((lv: any) => String(lv))
-      : ['M'];
-
-  const [selectedLevelIdx, setSelectedLevelIdx] = useState<number>(() => {
-    const idx =
-      typeof node.initialLevelIndex === 'number'
-        ? node.initialLevelIndex
-        : 0;
-    if (!Number.isFinite(idx)) return 0;
-    return Math.max(0, Math.min(levelKeys.length - 1, Math.floor(idx)));
-  });
-
-  const [isLevelMenuOpen, setIsLevelMenuOpen] = useState(false);
-  const [videoOpen, setVideoOpen] = useState(false);
-
-  const mainLevelLabel = levelButtonLabel(
-    levelKeys[selectedLevelIdx] ?? levelKeys[0]
-  );
-
-  const cardWidth = 260;
-
-  const versionBase =
-    (node.updatedAt ?? node.version ?? node.imageVersion ?? node.videoVersion) as
-      | string
-      | number
-      | undefined;
-
-  const rawImage = node.imageUrl || node.image || '';
-  const imageSrc = rawImage ? withVersion(cdn(rawImage), versionBase) : '';
-
-  const rawVideo = node.videoUrl || '';
-  const videoSrc = rawVideo ? withVersion(cdn(rawVideo), versionBase) : '';
-
-  const name = node.name || '새 무기 이름';
-
-  return (
-    <div key={keyProp} style={{ margin: '14px 0' }}>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'flex-start',
-        }}
-      >
-        <div
-          style={{
-            width: cardWidth,
-            borderRadius: 18,
-            overflow: 'hidden',
-            background: '#020617',
-            border: `1.5px solid ${meta.border}`,
-            boxShadow: '0 18px 45px rgba(0,0,0,.45)',
-            fontFamily: 'inherit',
-          }}
-        >
-          {/* 상단 타입 바 */}
-          <div
-            style={{
-              width: '100%',
-              background: meta.headerBg,
-              color: '#f9fafb',
-              padding: '8px 0',
-              fontSize: 13,
-              fontWeight: 700,
-              letterSpacing: 1.5,
-              textAlign: 'center',
-            }}
-          >
-            {meta.label}
-          </div>
-
-          {/* 무기 이름 */}
-          <div
-            style={{
-              padding: '10px 14px',
-              background: '#020617',
-              color: '#e5e7eb',
-              fontSize: 18,
-              fontWeight: 700,
-              textAlign: 'center',
-              borderBottom: '1px solid #111827',
-            }}
-          >
-            {name}
-          </div>
-
-          {/* 이미지 */}
-          <div
-            style={{
-              background:
-                'radial-gradient(circle at top, #1f2937 0, #020617 55%)',
-              height: 140,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            {imageSrc ? (
-              <SmartImage
-                src={imageSrc}
-                alt=""
-                width={160}
-                height={96}
-                sizes="(max-width: 768px) 80vw, 260px"
-                rounded={10}
-                style={{
-                  maxWidth: '80%',
-                  maxHeight: '80%',
-                  objectFit: 'contain',
-                  boxShadow: '0 12px 18px rgba(0,0,0,.55)',
-                  // ⬇️ 배경 제거 (투명 PNG 살리기)
-                  background: 'transparent',
-                }}
-              />
-            ) : (
-              <span
-                style={{
-                  color: '#6b7280',
-                  fontSize: 14,
-                }}
-              >
-                이미지 없음
-              </span>
-            )}
-          </div>
-
-          {/* 정보 리스트 + 강수 선택 */}
-          <div
-            style={{
-              padding: '8px 10px 8px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 6,
-            }}
-          >
-            {/* 강수 선택 버튼 (우측 상단) */}
-            {levelKeys.length >= 1 && (
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                  marginBottom: 4,
-                  position: 'relative',
-                }}
-              >
-                <div style={{ position: 'relative' }}>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setIsLevelMenuOpen((prev) => !prev)
-                    }
-                    style={{
-                      borderRadius: 999,
-                      border: '1px solid #1e293b',
-                      padding: '3px 9px',
-                      fontSize: 11,
-                      fontWeight: 600,
-                      background: '#020617',
-                      color: '#e5e7eb',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6,
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: 16,
-                        height: 16,
-                        borderRadius: 999,
-                        background: meta.badgeBg,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: '#f9fafb',
-                      }}
-                    >
-                      {mainLevelLabel}
-                    </span>
-                    <span
-                      style={{
-                        color: '#9ca3af',
-                        fontWeight: 500,
-                      }}
-                    >
-                      강수 선택
-                    </span>
-                    <span
-                      style={{
-                        fontSize: 10,
-                        color: '#6b7280',
-                      }}
-                    >
-                      {isLevelMenuOpen ? '▲' : '▼'}
-                    </span>
-                  </button>
-
-                  {/* 드롭다운 (모션 + 토글) */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      right: 0,
-                      marginTop: 4,
-                      transformOrigin: 'top right',
-                      transform: isLevelMenuOpen
-                        ? 'scaleY(1)'
-                        : 'scaleY(0.7)',
-                      opacity: isLevelMenuOpen ? 1 : 0,
-                      pointerEvents: isLevelMenuOpen ? 'auto' : 'none',
-                      transition:
-                        'opacity 0.14s ease-out, transform 0.14s ease-out',
-                      background: '#020617',
-                      borderRadius: 10,
-                      border: '1px solid #1f2937',
-                      boxShadow: '0 12px 28px rgba(0,0,0,.6)',
-                      padding: 4,
-                      zIndex: 5,
-                      minWidth: 80,
-                    }}
-                  >
-                    {levelKeys.map((lv, idx) => {
-                      const label = levelButtonLabel(lv);
-                      const isActive = idx === selectedLevelIdx;
-                      return (
-                        <button
-                          key={`${lv}-${idx}`}
-                          type="button"
-                          onClick={() => {
-                            setSelectedLevelIdx(idx);
-                            setIsLevelMenuOpen(false);
-                          }}
-                          style={{
-                            display: 'block',
-                            width: '100%',
-                            border: 'none',
-                            borderRadius: 7,
-                            padding: '4px 10px',
-                            marginBottom: 2,
-                            fontSize: 12,
-                            background: isActive ? '#1d4ed8' : 'transparent',
-                            color: '#e5e7eb',
-                            textAlign: 'left',
-                            cursor: 'pointer',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* 실제 스탯 렌더 */}
-            {visibleStats.length === 0 && (
-              <div
-                style={{
-                  fontSize: 12,
-                  color: '#6b7280',
-                  padding: '6px 8px',
-                  borderRadius: 10,
-                  background: 'rgba(15,23,42,.75)',
-                }}
-              >
-                표시할 정보가 없습니다.
-              </div>
-            )}
-
-            {visibleStats.map((stat: any) => {
-              const displayValue = getStatDisplayValue(
-                stat,
-                selectedLevelIdx,
-                levelKeys
-              );
-              return (
-                <div
-                  key={stat.key}
-                  style={{
-                    borderRadius: 10,
-                    padding: '6px 8px',
-                    border: '1px solid #111827',
-                    background:
-                      'linear-gradient(90deg, rgba(15,23,42,.95), rgba(15,23,42,.85))',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: 12,
-                      color: '#9ca3af',
-                      fontWeight: 500,
-                    }}
-                  >
-                    {stat.label}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 13,
-                      color: '#e5e7eb',
-                      fontWeight: 600,
-                    }}
-                  >
-                    {displayValue}
-                    {stat.unit ? ` ${stat.unit}` : ''}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* 하단 공격 영상 버튼 */}
-          <div
-            style={{
-              padding: '8px 10px 10px',
-              display: 'flex',
-              justifyContent: 'center',
-            }}
-          >
-            <button
-              type="button"
-              disabled={!videoSrc}
-              onClick={() => videoSrc && setVideoOpen(true)}
-              style={{
-                padding: '8px 10px',
-                borderRadius: 999,
-                border: 'none',
-                fontSize: 13,
-                fontWeight: 600,
-                background: videoSrc
-                  ? 'linear-gradient(90deg,#1d4ed8,#3b82f6)'
-                  : '#111827',
-                color: videoSrc ? '#f9fafb' : '#6b7280',
-                cursor: videoSrc ? 'pointer' : 'default',
-                minWidth: 160,
-                textAlign: 'center',
-              }}
-            >
-              공격 영상 보기
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <WeaponVideoModal
-        open={videoOpen && !!videoSrc}
-        url={videoSrc}
-        onClose={() => setVideoOpen(false)}
-      />
     </div>
   );
 }
@@ -913,11 +522,13 @@ export default function WikiReadRenderer({ content }: { content: Descendant[] })
 }
 
 function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key }) {
-  const [indexes, setIndexes] = useState<number[]>(() => node.items.map(() => 0));
+  const [indexes, setIndexes] = useState<number[]>(() =>
+    node.items.map(() => 0)
+  );
   const [hovered, setHovered] = useState<number | null>(null);
 
   const setCardIdx = (cardIdx: number, dir: -1 | 1) => {
-    setIndexes(prev => {
+    setIndexes((prev) => {
       const copy = [...prev];
       const item = node.items[cardIdx];
       if (!item) return copy;
@@ -940,7 +551,7 @@ function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key 
         padding: "10px 0",
         margin: "10px 0",
         marginLeft: 10,
-        position: "relative"
+        position: "relative",
       }}
     >
       <div
@@ -952,51 +563,50 @@ function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key 
           width: "100%",
           justifyContent: "center",
           margin: "0 auto",
-          maxWidth: 1040
+          maxWidth: 1040,
         }}
       >
         {node.items.map((item: any, idx: number) => {
-          const stages: string[] = item.stages || ['가격'];
+          const stages: string[] = item.stages || ["가격"];
           const prices: Array<string | number> =
             Array.isArray(item.prices) && item.prices.length
               ? item.prices
               : Array(stages.length).fill(0);
 
           const cardIdx = indexes[idx] ?? 0;
-          const stage = stages[cardIdx] || '';
-          const priceVal = prices[cardIdx] ?? '';
+          const stage = stages[cardIdx] || "";
+          const priceVal = prices[cardIdx] ?? "";
           const badgeColor = getPriceBadgeColor(stage, item.colorType);
 
-          const name = item.name?.trim() ? item.name : '이름 없음';
+          const name = item.name?.trim() ? item.name : "이름 없음";
           const priceSize = autoFont(20, String(priceVal));
 
-          const image =
-            item.image ? (
-              <img
-                src={cdn(item.image)}
-                alt=""
-                loading="lazy"
-                decoding="async"
-                fetchPriority="low"
-                style={{
-                  width: 65,
-                  height: 65,
-                  objectFit: "contain",
-                  borderRadius: 7,
-                  background: "#fff"
-                }}
-              />
-            ) : (
-              <span
-                style={{
-                  width: 54,
-                  height: 54,
-                  background: "#ececec",
-                  borderRadius: 7,
-                  display: "inline-block"
-                }}
-              />
-            );
+          const image = item.image ? (
+            <img
+              src={cdn(item.image)}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              fetchPriority="low"
+              style={{
+                width: 65,
+                height: 65,
+                objectFit: "contain",
+                borderRadius: 7,
+                background: "#fff",
+              }}
+            />
+          ) : (
+            <span
+              style={{
+                width: 54,
+                height: 54,
+                background: "#ececec",
+                borderRadius: 7,
+                display: "inline-block",
+              }}
+            />
+          );
 
           const badge =
             stages.length > 1 ? (
@@ -1009,7 +619,7 @@ function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key 
                   zIndex: 3,
                   width: 66,
                   display: "flex",
-                  justifyContent: "center"
+                  justifyContent: "center",
                 }}
               >
                 <span
@@ -1026,7 +636,7 @@ function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key 
                     border: "1.5px solid #fff",
                     textAlign: "center",
                     letterSpacing: "1px",
-                    transition: "background .1s"
+                    transition: "background .1s",
                   }}
                 >
                   {stage}
@@ -1051,7 +661,7 @@ function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key 
                 minWidth: 140,
                 maxWidth: 140,
                 minHeight: 160,
-                margin: "0 8px"
+                margin: "0 8px",
               }}
               onMouseEnter={() => setHovered(idx)}
               onMouseLeave={() => setHovered(null)}
@@ -1077,7 +687,7 @@ function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key 
                     boxShadow: "0 2px 6px #0001",
                     zIndex: 2,
                     cursor: "pointer",
-                    opacity: 0.9
+                    opacity: 0.9,
                   }}
                   tabIndex={-1}
                   aria-hidden="true"
@@ -1106,7 +716,7 @@ function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key 
                     boxShadow: "0 2px 6px #0001",
                     zIndex: 2,
                     cursor: "pointer",
-                    opacity: 0.9
+                    opacity: 0.9,
                   }}
                   tabIndex={-1}
                   aria-hidden="true"
@@ -1124,7 +734,7 @@ function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key 
                   height: 65,
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center"
+                  justifyContent: "center",
                 }}
               >
                 {image}
@@ -1144,7 +754,7 @@ function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key 
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  padding: 0
+                  padding: 0,
                 }}
               >
                 {name}
@@ -1162,7 +772,7 @@ function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key 
                   marginTop: 3,
                   borderRadius: 8,
                   padding: "2px 10px",
-                  minHeight: 28
+                  minHeight: 28,
                 }}
               >
                 <PriceText value={priceVal} />
@@ -1198,46 +808,6 @@ function getPriceBadgeColor(stage: string, _type?: string) {
 
 /* ======================= 🔫 무기 카드 (문서 읽기용) ======================= */
 
-const WEAPON_TYPE_PRESETS: Record<
-  string,
-  { label: string; headerBg: string; headerText: string; border: string }
-> = {
-  NORMAL: {
-    label: "NORMAL",
-    headerBg: "#1f2937",
-    headerText: "#e5e7eb",
-    border: "#4b5563",
-  },
-  RARE: {
-    label: "RARE",
-    headerBg: "#2563eb",
-    headerText: "#eff6ff",
-    border: "#1d4ed8",
-  },
-  SUPERIOR: {
-    label: "SUPERIOR",
-    headerBg: "#facc15",
-    headerText: "#111827",
-    border: "#fbbf24",
-  },
-  DIVINE: {
-    // 👉 디바인 조금 더 진하게
-    label: "DIVINE",
-    headerBg: "#6d28d9",
-    headerText: "#f9fafb",
-    border: "#5b21b6",
-  },
-  BLOCK: {
-    // 👉 연두색 계열
-    label: "BLOCK",
-    headerBg: "#4ade80",
-    headerText: "#022c22",
-    border: "#22c55e",
-  },
-};
-
-const DEFAULT_WEAPON_PRESET = WEAPON_TYPE_PRESETS.SUPERIOR;
-
 function shortLevelLabel(label: string): string {
   const raw = (label ?? "").trim();
   if (!raw) return "?";
@@ -1256,7 +826,7 @@ type WeaponLevelSelectorProps = {
   onChange: (idx: number) => void;
 };
 
-/** 카드 오른쪽 바깥에 붙는 강수 선택 버튼 */
+/** 카드 오른쪽 바깥에 붙는 강수 선택 버튼 (단색 뱃지 + MAX만 다른 색) */
 function WeaponLevelSelector({
   levelLabels,
   selectedIndex,
@@ -1270,10 +840,28 @@ function WeaponLevelSelector({
     selectedIndex != null ? levelLabels[selectedIndex] : null;
   const selectedShort = selectedLabel ? shortLevelLabel(selectedLabel) : "-";
 
+  const isMaxLabel = (label: string | null | undefined, short: string) => {
+    if (!label && !short) return false;
+    const up = (label ?? "").toUpperCase();
+    return up.includes("MAX") || up === "M" || short === "M";
+  };
+
+  const selectedIsMax = isMaxLabel(selectedLabel, selectedShort);
+
   const handleSelect = (idx: number) => {
     onChange(idx);
     setOpen(false);
   };
+
+  // 단일색 스타일 정의
+  const BASE_BG = "rgba(15,23,42,0.96)";
+  const BASE_TEXT = "#e5e7eb";
+  const BASE_BORDER = "1px solid rgba(148,163,184,0.9)";
+  const ACTIVE_BORDER = "1px solid #60a5fa";
+
+  const MAX_BG = "#facc15";
+  const MAX_TEXT = "#111827";
+  const MAX_BORDER = "1px solid #fbbf24";
 
   return (
     <div
@@ -1283,7 +871,7 @@ function WeaponLevelSelector({
         alignSelf: "flex-start",
       }}
     >
-      {/* 상단 pill 버튼 */}
+      {/* 상단 버튼: 선택된 강수 뱃지 + 화살표만 (단색) */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -1291,21 +879,14 @@ function WeaponLevelSelector({
           border: "none",
           outline: "none",
           cursor: "pointer",
-          display: "flex",
+          display: "inline-flex",
           alignItems: "center",
-          gap: 8,
-          borderRadius: 999,
-          padding: "4px 10px 4px 6px",
-          background:
-            "linear-gradient(135deg, rgba(15,23,42,0.9), rgba(15,23,42,0.98))",
-          boxShadow: "0 10px 24px rgba(15,23,42,0.65)",
-          borderColor: "#1e293b",
-          borderWidth: 1,
-          borderStyle: "solid",
-          color: "#e5e7eb",
-          fontSize: 12,
+          gap: 4,
+          padding: 0,
+          background: "transparent",
+          color: BASE_TEXT,
+          fontSize: 13,
           fontWeight: 600,
-          whiteSpace: "nowrap",
         }}
       >
         <span
@@ -1313,61 +894,71 @@ function WeaponLevelSelector({
             width: 22,
             height: 22,
             borderRadius: "999px",
-            background:
-              "radial-gradient(circle at 30% 0%, #facc15, #f97316 55%, #b45309)",
-            boxShadow: "0 0 0 1px #111827",
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
             fontSize: 11,
-            fontWeight: 800,
-            color: "#111827",
+            fontWeight: 700,
+            background: selectedIsMax ? MAX_BG : BASE_BG,
+            color: selectedIsMax ? MAX_TEXT : BASE_TEXT,
+            border: selectedIsMax ? MAX_BORDER : BASE_BORDER,
+            boxShadow: selectedIsMax
+              ? "0 0 0 1px rgba(15,23,42,0.7)"
+              : "0 0 0 1px rgba(15,23,42,0.7)",
           }}
         >
           {selectedShort}
         </span>
-        <span>강수 선택</span>
         <span
           style={{
             fontSize: 10,
             opacity: 0.8,
-            marginLeft: 2,
           }}
         >
           {open ? "▲" : "▼"}
         </span>
       </button>
 
-      {/* 펼쳐지는 강수 리스트 */}
+      {/* 펼쳐지는 강수 리스트: 투명 컨테이너 + 단색 동그라미들만 세로로 */}
       <div
         style={{
           position: "absolute",
           top: "100%",
-          right: 0,
+          right: 13,
           marginTop: 4,
           zIndex: 40,
           pointerEvents: open ? "auto" : "none",
           opacity: open ? 1 : 0,
-          transform: open ? "translateY(0)" : "translateY(-6px)",
+          transform: open ? "translateY(0)" : "translateY(-4px)",
           transition: "opacity 0.16s ease-out, transform 0.16s ease-out",
         }}
       >
         <div
           style={{
-            padding: 6,
-            borderRadius: 999,
-            background:
-              "linear-gradient(145deg, rgba(15,23,42,0.98), rgba(15,23,42,0.92))",
-            boxShadow: "0 18px 40px rgba(15,23,42,0.9)",
-            border: "1px solid rgba(148,163,184,0.8)",
+            padding: 0,
+            borderRadius: 0,
+            background: "transparent",
+            border: "none",
+            boxShadow: "none",
             display: "flex",
             flexDirection: "column",
-            gap: 4,
+            gap: 6,
+            alignItems: "center",
           }}
         >
           {levelLabels.map((fullLabel, idx) => {
             const short = shortLevelLabel(fullLabel);
             const active = selectedIndex === idx;
+            const isMax = isMaxLabel(fullLabel, short);
+
+            const bg = isMax ? MAX_BG : BASE_BG;
+            const textColor = isMax ? MAX_TEXT : BASE_TEXT;
+            const border = isMax
+              ? MAX_BORDER
+              : active
+              ? ACTIVE_BORDER
+              : BASE_BORDER;
+
             return (
               <button
                 key={`${fullLabel}-${idx}`}
@@ -1377,38 +968,34 @@ function WeaponLevelSelector({
                   border: "none",
                   outline: "none",
                   cursor: "pointer",
-                  borderRadius: 999,
-                  padding: "3px 9px",
+                  padding: 0,
+                  margin: 0,
+                  background: "transparent",
                   display: "flex",
                   alignItems: "center",
-                  gap: 6,
-                  background: active ? "#1d4ed8" : "transparent",
-                  color: active ? "#eff6ff" : "#e5e7eb",
-                  fontSize: 11,
-                  fontWeight: active ? 700 : 500,
-                  transition: "background 0.16s ease-out, color 0.16s ease-out",
+                  justifyContent: "center",
                 }}
               >
                 <span
                   style={{
-                    width: 20,
-                    height: 20,
+                    width: 22,
+                    height: 22,
                     borderRadius: "999px",
-                    background: active ? "#fbbf24" : "#020617",
-                    color: active ? "#111827" : "#e5e7eb",
                     display: "inline-flex",
                     alignItems: "center",
                     justifyContent: "center",
                     fontSize: 11,
-                    fontWeight: 800,
+                    fontWeight: 700,
+                    background: bg,
+                    color: textColor,
+                    border,
                     boxShadow: active
-                      ? "0 0 0 1px rgba(15,23,42,0.8)"
-                      : "0 0 0 1px #111827",
+                      ? "0 0 0 1px rgba(15,23,42,0.7)"
+                      : "0 0 0 1px rgba(15,23,42,0.4)",
                   }}
                 >
                   {short}
                 </span>
-                <span>{fullLabel}</span>
               </button>
             );
           })}
@@ -1428,7 +1015,7 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
   );
   const levelLabels: string[] = baseStatWithLevels
     ? baseStatWithLevels.levels
-        .map((lv: any) => String(lv.levelLabel ?? '').trim())
+        .map((lv: any) => String(lv.levelLabel ?? "").trim())
         .filter(Boolean)
     : [];
 
@@ -1437,7 +1024,7 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
     () => {
       if (!levelLabels.length) return null;
       const idxMax = levelLabels.findIndex(
-        (x) => x.toUpperCase() === 'MAX' || x.toUpperCase() === 'M'
+        (x) => x.toUpperCase() === "MAX" || x.toUpperCase() === "M"
       );
       return idxMax >= 0 ? idxMax : levelLabels.length - 1;
     }
@@ -1446,10 +1033,10 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
   const [showVideo, setShowVideo] = useState(false);
 
   // 🔹 Element 쪽과 같은 메타 사용
-  const weaponType: WeaponType = (node.weaponType as WeaponType) || 'epic';
+  const weaponType: WeaponType = (node.weaponType as WeaponType) || "epic";
   const meta = WEAPON_TYPES_META[weaponType] ?? WEAPON_TYPES_META.epic;
 
-  const name = (node.name ?? '').trim() || '무기 이름 없음';
+  const name = (node.name ?? "").trim() || "무기 이름 없음";
 
   // 공용 버전 파라미터
   const versionBase =
@@ -1460,38 +1047,38 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
     node.updatedAt ||
     node.version;
 
-  const rawImage = node.imageUrl || node.image || '';
-  const imageSrc = rawImage ? withVersion(cdn(rawImage), versionBase) : '';
+  const rawImage = node.imageUrl || node.image || "";
+  const imageSrc = rawImage ? withVersion(cdn(rawImage), versionBase) : "";
 
-  const rawVideo = node.videoUrl || '';
-  const videoSrc = rawVideo ? withVersion(cdn(rawVideo), versionBase) : '';
+  const rawVideo = node.videoUrl || "";
+  const videoSrc = rawVideo ? withVersion(cdn(rawVideo), versionBase) : "";
 
   const getStatDisplay = (stat: any): { value: string; unit?: string } => {
-    const unit = stat.unit || '';
+    const unit = stat.unit || "";
     if (
       selectedLevelIndex == null ||
       !Array.isArray(stat.levels) ||
       !stat.levels.length
     ) {
-      return { value: String(stat.summary ?? ''), unit };
+      return { value: String(stat.summary ?? ""), unit };
     }
     const lv = stat.levels[selectedLevelIndex];
     const v =
-      lv && lv.value != null && lv.value !== ''
+      lv && lv.value != null && lv.value !== ""
         ? String(lv.value)
-        : String(stat.summary ?? '');
+        : String(stat.summary ?? "");
     return { value: v, unit };
   };
 
   const cardWidth = 260; // 🔹 Element 와 동일
 
   return (
-    <div key={keyProp} style={{ margin: '14px 0' }}>
+    <div key={keyProp} style={{ margin: "14px 0" }}>
       <div
         style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'flex-start',
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "flex-start",
           gap: 10,
         }}
       >
@@ -1500,24 +1087,24 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
           style={{
             width: cardWidth,
             borderRadius: 18,
-            overflow: 'hidden',
-            background: '#020617',
-            border: `1.5px solid ${meta.border}`,
-            boxShadow: '0 18px 45px rgba(0,0,0,.45)',
-            fontFamily: 'inherit',
+            overflow: "hidden",
+            background: "#020617",
+            boxShadow: "0 18px 45px rgba(0,0,0,.45)",
+            fontFamily: "inherit",
+            paddingTop: 8,
           }}
         >
           {/* 상단 타입 바 */}
           <div
             style={{
-              width: '100%',
+              width: "100%",
               background: meta.headerBg,
-              color: '#f9fafb',
-              padding: '8px 0',
-              fontSize: 13,
+              color: "#f9fafb",
+              padding: "6px 0",
+              fontSize: 16,
               fontWeight: 700,
               letterSpacing: 1.5,
-              textAlign: 'center',
+              textAlign: "center",
             }}
           >
             {meta.label}
@@ -1526,13 +1113,13 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
           {/* 무기 이름 */}
           <div
             style={{
-              padding: '10px 14px',
-              background: '#020617',
-              color: '#e5e7eb',
+              padding: "10px 14px",
+              background: "#020617",
+              color: "#e5e7eb",
               fontSize: 18,
               fontWeight: 700,
-              textAlign: 'center',
-              borderBottom: '1px solid #111827',
+              textAlign: "center",
+              borderBottom: "1px solid #111827",
             }}
           >
             {name}
@@ -1542,13 +1129,13 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
           <div
             style={{
               background:
-                'radial-gradient(circle at 20% 0%, rgba(56,189,248,0.18), transparent 55%), ' +
-                'radial-gradient(circle at 100% 0%, rgba(129,140,248,0.22), transparent 55%), ' +
-                '#020617',
+                "radial-gradient(circle at 20% 0%, rgba(56,189,248,0.18), transparent 55%), " +
+                "radial-gradient(circle at 100% 0%, rgba(129,140,248,0.22), transparent 55%), " +
+                "#020617",
               height: 140,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
             {imageSrc ? (
@@ -1560,19 +1147,18 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
                 sizes="(max-width: 768px) 80vw, 260px"
                 rounded={10}
                 style={{
-                  maxWidth: '80%',
-                  maxHeight: '80%',
-                  objectFit: 'contain',
-                  boxShadow: '0 12px 18px rgba(0,0,0,.55)',
-                  background: 'transparent',
-                  imageRendering: 'pixelated',
-                  display: 'block',
+                  maxWidth: "80%",
+                  maxHeight: "80%",
+                  objectFit: "contain",
+                  background: "transparent",
+                  imageRendering: "pixelated",
+                  display: "block",
                 }}
               />
             ) : (
               <span
                 style={{
-                  color: '#6b7280',
+                  color: "#6b7280",
                   fontSize: 14,
                 }}
               >
@@ -1584,9 +1170,9 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
           {/* 스탯 리스트 – Element 의 디자인 그대로, 클릭 불가 버전 */}
           <div
             style={{
-              padding: '8px 10px 8px',
-              display: 'flex',
-              flexDirection: 'column',
+              padding: "8px 10px 8px",
+              display: "flex",
+              flexDirection: "column",
               gap: 6,
             }}
           >
@@ -1594,10 +1180,10 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
               <div
                 style={{
                   fontSize: 12,
-                  color: '#6b7280',
-                  padding: '6px 8px',
+                  color: "#6b7280",
+                  padding: "6px 8px",
                   borderRadius: 10,
-                  background: 'rgba(15,23,42,.75)',
+                  background: "rgba(15,23,42,.75)",
                 }}
               >
                 표시할 정보가 없습니다.
@@ -1611,19 +1197,19 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
                   key={stat.key || stat.label}
                   style={{
                     borderRadius: 10,
-                    padding: '6px 8px',
-                    border: '1px solid #111827',
+                    padding: "6px 8px",
+                    border: "1px solid #111827",
                     background:
-                      'linear-gradient(90deg, rgba(15,23,42,.95), rgba(15,23,42,.85))',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
+                      "linear-gradient(90deg, rgba(15,23,42,.95), rgba(15,23,42,.85))",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
                   }}
                 >
                   <span
                     style={{
                       fontSize: 12,
-                      color: '#9ca3af',
+                      color: "#9ca3af",
                       fontWeight: 500,
                     }}
                   >
@@ -1632,12 +1218,12 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
                   <span
                     style={{
                       fontSize: 13,
-                      color: '#e5e7eb',
+                      color: "#e5e7eb",
                       fontWeight: 600,
                     }}
                   >
-                    {value || '-'}
-                    {unit ? ` ${unit}` : ''}
+                    {value || "-"}
+                    {unit ? ` ${unit}` : ""}
                   </span>
                 </div>
               );
@@ -1647,9 +1233,9 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
           {/* 하단 공격 영상 버튼 – Element 스타일 + 렌더러 그림자 */}
           <div
             style={{
-              padding: '8px 10px 10px',
-              display: 'flex',
-              justifyContent: 'center',
+              padding: "8px 10px 10px",
+              display: "flex",
+              justifyContent: "center",
             }}
           >
             <button
@@ -1657,24 +1243,24 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
               disabled={!videoSrc}
               onClick={() => videoSrc && setShowVideo(true)}
               style={{
-                padding: '8px 10px',
+                padding: "8px 10px",
                 borderRadius: 999,
-                border: 'none',
+                border: "none",
                 fontSize: 13,
                 fontWeight: 600,
                 background: videoSrc
-                  ? 'linear-gradient(90deg,#1d4ed8,#3b82f6)'
-                  : '#111827',
-                color: videoSrc ? '#f9fafb' : '#6b7280',
-                cursor: videoSrc ? 'pointer' : 'default',
+                  ? "linear-gradient(90deg,#1d4ed8,#3b82f6)"
+                  : "#111827",
+                color: videoSrc ? "#f9fafb" : "#6b7280",
+                cursor: videoSrc ? "pointer" : "default",
                 minWidth: 160,
-                textAlign: 'center',
+                textAlign: "center",
                 boxShadow: videoSrc
-                  ? '0 12px 30px rgba(37,99,235,0.7)'
-                  : 'none',
+                  ? "0 12px 30px rgba(37,99,235,0.7)"
+                  : "none",
               }}
             >
-              공격 영상 보기
+              스킬 사용 영상
             </button>
           </div>
         </div>
@@ -1717,15 +1303,15 @@ function renderLeaf(node: any, key?: React.Key): React.ReactNode {
 
   // 🎯 폰트 패밀리 (boolean 방어 + 기본값 적용)
   const rawFamily = node.fontFamily;
-  let familyKey: string;        // HANDWRITING_SCALE용 키
-  let familyCss: string;        // 실제 CSS에 넣을 값
+  let familyKey: string; // HANDWRITING_SCALE용 키
+  let familyCss: string; // 실제 CSS에 넣을 값
 
-  if (typeof rawFamily === 'string' && rawFamily.trim()) {
-    familyKey = rawFamily.trim();       // 예: 'BareunHippy'
-    familyCss = familyKey;              // 그대로 사용
+  if (typeof rawFamily === "string" && rawFamily.trim()) {
+    familyKey = rawFamily.trim(); // 예: 'BareunHippy'
+    familyCss = familyKey; // 그대로 사용
   } else {
     // 마크가 없거나 잘못(true 등) 들어간 경우 → 기본 글꼴
-    familyKey = 'NanumSquareRound';
+    familyKey = "NanumSquareRound";
     familyCss =
       "'NanumSquareRound', -apple-system, BlinkMacSystemFont, system-ui, sans-serif";
   }
@@ -1734,11 +1320,11 @@ function renderLeaf(node: any, key?: React.Key): React.ReactNode {
 
   // 폰트 크기 + 손글씨 보정
   const normalized = normalizeFontSize(node.fontSize);
-  const basePx = toPxNumber(normalized);
+  const basePx = toPxNumber(normalized as any);
   const scale = HANDWRITING_SCALE[familyKey] ?? 1;
 
   if (scale !== 1) {
-    if (typeof basePx === 'number') {
+    if (typeof basePx === "number") {
       style.fontSize = `${Math.round(basePx * scale)}px`;
     } else if (normalized !== undefined) {
       style.fontSize = normalized as any;
@@ -1763,7 +1349,9 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
     return renderLeaf(node, key);
   }
 
-  const children = node.children?.map((n: any, i: number) => renderNode(n, key ? `${key}-${i}` : i));
+  const children = node.children?.map((n: any, i: number) =>
+    renderNode(n, key ? `${key}-${i}` : i)
+  );
 
   switch (node.type) {
     case "paragraph": {
@@ -1812,7 +1400,7 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
                 verticalAlign: "middle",
                 marginRight: 6,
                 objectFit: "contain",
-                display: "inline-block"
+                display: "inline-block",
               }}
             />
           );
@@ -1823,7 +1411,7 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
                 fontSize: "1.5em",
                 fontWeight: "600",
                 marginRight: 6,
-                display: "inline-block"
+                display: "inline-block",
               }}
             >
               {el.icon}
@@ -1834,20 +1422,27 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
 
       // ⬇⬇ heading 자식에서 fontSize 마크 제거한 뒤 렌더링
       const safeChildren = (el.children ?? []).map((child: any, i: number) =>
-        renderNode(
-          stripFontSizeFromDescendants(child),
-          key ? `${key}-${i}` : i
-        )
+        renderNode(stripFontSizeFromDescendants(child), key ? `${key}-${i}` : i)
       );
 
       const textContent = stripReact(safeChildren).trim();
       const id = toHeadingIdFromText(textContent);
-      const level = node.type === "heading-one" ? 1 : node.type === "heading-two" ? 2 : 3;
-      const fontSize = level === 1 ? "28px" : node.type === "heading-two" ? "22px" : "18px";
+      const level =
+        node.type === "heading-one"
+          ? 1
+          : node.type === "heading-two"
+          ? 2
+          : 3;
+      const fontSize =
+        level === 1 ? "28px" : node.type === "heading-two" ? "22px" : "18px";
       const Tag = `h${level}` as keyof JSX.IntrinsicElements;
 
       const justify =
-        el.textAlign === 'center' ? 'center' : el.textAlign === 'right' ? 'flex-end' : 'flex-start';
+        el.textAlign === "center"
+          ? "center"
+          : el.textAlign === "right"
+          ? "flex-end"
+          : "flex-start";
 
       return (
         <Tag
@@ -1856,12 +1451,12 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
           suppressHydrationWarning
           style={{
             fontSize,
-            textAlign: el.textAlign || 'left',
+            textAlign: el.textAlign || "left",
             display: "flex",
             alignItems: "center",
             gap: 8,
             justifyContent: justify,
-            width: '100%'
+            width: "100%",
           }}
         >
           {iconHtml}
@@ -1888,56 +1483,150 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
       switch (node.style) {
         case "bold":
           return (
-            <div key={key} style={{ width: "95%", margin: "32px auto", textAlign: "center" }}>
-              <hr style={{ border: 0, borderTop: `4px solid ${borderColor}`, width: "100%", margin: "0 auto" }} />
+            <div
+              key={key}
+              style={{ width: "95%", margin: "32px auto", textAlign: "center" }}
+            >
+              <hr
+                style={{
+                  border: 0,
+                  borderTop: `4px solid ${borderColor}`,
+                  width: "100%",
+                  margin: "0 auto",
+                }}
+              />
             </div>
           );
         case "shortbold":
           return (
-            <div key={key} style={{ width: 82, margin: "34px auto", textAlign: "center" }}>
-              <hr style={{ border: 0, borderTop: `5px solid ${borderColor}`, width: "100%", margin: "0 auto" }} />
+            <div
+              key={key}
+              style={{ width: 82, margin: "34px auto", textAlign: "center" }}
+            >
+              <hr
+                style={{
+                  border: 0,
+                  borderTop: `5px solid ${borderColor}`,
+                  width: "100%",
+                  margin: "0 auto",
+                }}
+              />
             </div>
           );
         case "dotted":
           return (
-            <div key={key} style={{ width: "95%", margin: "28px auto", textAlign: "center" }}>
-              <hr style={{ border: 0, borderTop: `2px dotted ${borderColor}`, width: "100%", margin: "0 auto" }} />
+            <div
+              key={key}
+              style={{ width: "95%", margin: "28px auto", textAlign: "center" }}
+            >
+              <hr
+                style={{
+                  border: 0,
+                  borderTop: `2px dotted ${borderColor}`,
+                  width: "100%",
+                  margin: "0 auto",
+                }}
+              />
             </div>
           );
         case "diamond":
           return (
-            <div key={key} style={{ width: "100%", margin: "34px 0", textAlign: "center" }}>
-              <span style={{ fontSize: 24, letterSpacing: 12, color: "#666" }}>◇───◇</span>
+            <div
+              key={key}
+              style={{ width: "100%", margin: "34px 0", textAlign: "center" }}
+            >
+              <span
+                style={{
+                  fontSize: 24,
+                  letterSpacing: 12,
+                  color: "#666",
+                }}
+              >
+                ◇───◇
+              </span>
             </div>
           );
         case "diamonddot":
           return (
-            <div key={key} style={{ width: "100%", margin: "32px 0", textAlign: "center" }}>
-              <span style={{ fontSize: 22, letterSpacing: 6, color: "#666" }}>◇ ⋅ ⋅ ⋅ ◇</span>
+            <div
+              key={key}
+              style={{ width: "100%", margin: "32px 0", textAlign: "center" }}
+            >
+              <span
+                style={{
+                  fontSize: 22,
+                  letterSpacing: 6,
+                  color: "#666",
+                }}
+              >
+                ◇ ⋅ ⋅ ⋅ ◇
+              </span>
             </div>
           );
         case "dotdot":
           return (
-            <div key={key} style={{ width: "100%", margin: "30px 0", textAlign: "center" }}>
-              <span style={{ fontSize: 28, letterSpacing: 8, color: borderColor }}>• • • • • • •</span>
+            <div
+              key={key}
+              style={{ width: "100%", margin: "30px 0", textAlign: "center" }}
+            >
+              <span
+                style={{
+                  fontSize: 28,
+                  letterSpacing: 8,
+                  color: borderColor,
+                }}
+              >
+                • • • • • • •
+              </span>
             </div>
           );
         case "slash":
           return (
-            <div key={key} style={{ width: "100%", margin: "30px 0", textAlign: "center" }}>
-              <span style={{ fontSize: 30, letterSpacing: 14, color: borderColor }}>/  /  /</span>
+            <div
+              key={key}
+              style={{ width: "100%", margin: "30px 0", textAlign: "center" }}
+            >
+              <span
+                style={{
+                  fontSize: 30,
+                  letterSpacing: 14,
+                  color: borderColor,
+                }}
+              >
+                /  /  /
+              </span>
             </div>
           );
         case "bar":
           return (
-            <div key={key} style={{ width: "100%", margin: "28px 0", textAlign: "center" }}>
-              <span style={{ fontSize: 22, color: borderColor }}>|</span>
+            <div
+              key={key}
+              style={{ width: "100%", margin: "28px 0", textAlign: "center" }}
+            >
+              <span
+                style={{
+                  fontSize: 22,
+                  color: borderColor,
+                }}
+              >
+                |
+              </span>
             </div>
           );
         default:
           return (
-            <div key={key} style={{ width: "95%", margin: "24px auto", textAlign: "center" }}>
-              <hr style={{ border: 0, borderTop: `1.5px solid ${borderColor}`, width: "100%", margin: "0 auto" }} />
+            <div
+              key={key}
+              style={{ width: "95%", margin: "24px auto", textAlign: "center" }}
+            >
+              <hr
+                style={{
+                  border: 0,
+                  borderTop: `1.5px solid ${borderColor}`,
+                  width: "100%",
+                  margin: "0 auto",
+                }}
+              />
             </div>
           );
       }
@@ -1945,7 +1634,7 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
 
     // 링크 블록(박스형)
     case "link-block": {
-      return <LinkBlockView node={node} keyProp={key ?? ''} />;
+      return <LinkBlockView node={node} keyProp={key ?? ""} />;
     }
 
     // 내부적으로도 사용되는 컨테이너
@@ -1954,12 +1643,12 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
         <div
           key={key}
           style={{
-            display: 'flex',
+            display: "flex",
             gap: 12,
-            margin: '8px 0',
-            width: '100%',
-            flexWrap: 'wrap',
-            alignItems: 'stretch'
+            margin: "8px 0",
+            width: "100%",
+            flexWrap: "wrap",
+            alignItems: "stretch",
           }}
         >
           {children}
@@ -1967,19 +1656,19 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
       );
     }
 
-    case 'info-box': {
-      const type = (node.boxType || 'info').toLowerCase();
+    case "info-box": {
+      const type = (node.boxType || "info").toLowerCase();
       const { container, icon, role } = getInfoboxPreset(type);
       return (
-        <div key={key} role={role} style={{ ...container, margin: '8px 0' }}>
+        <div key={key} role={role} style={{ ...container, margin: "8px 0" }}>
           <span aria-hidden="true" style={icon as React.CSSProperties} />
           <div
             style={{
-              flex: '1 1 auto',
+              flex: "1 1 auto",
               minWidth: 0,
               lineHeight: 1.55,
               fontWeight: 560,
-              color: '#1c1d1f'
+              color: "#1c1d1f",
             }}
           >
             {children}
@@ -1990,28 +1679,31 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
 
     // 이미지 블록 (SmartImage로 최적화 + CDN/버전)
     case "image": {
-      let justify: 'flex-start' | 'center' | 'flex-end' = 'center';
-      if (node.textAlign === 'left') justify = 'flex-start';
-      else if (node.textAlign === 'right') justify = 'flex-end';
+      let justify: "flex-start" | "center" | "flex-end" = "center";
+      if (node.textAlign === "left") justify = "flex-start";
+      else if (node.textAlign === "right") justify = "flex-end";
 
-      const v = (node.updatedAt || node.version) as string | number | undefined;
+      const v = (node.updatedAt || node.version) as
+        | string
+        | number
+        | undefined;
       const src = withVersion(cdn(node.url), v);
 
       const w = node.width ? Number(node.width) : undefined;
       const h = node.height ? Number(node.height) : undefined;
 
       return (
-        <div key={key} style={{ margin: '16px 0' }}>
+        <div key={key} style={{ margin: "16px 0" }}>
           <div
             style={{
-              display: 'flex',
-              flexDirection: 'row',
+              display: "flex",
+              flexDirection: "row",
               justifyContent: justify,
-              alignItems: 'flex-start',
-              minHeight: 40
+              alignItems: "flex-start",
+              minHeight: 40,
             }}
           >
-            <div style={{ position: 'relative', display: 'inline-block' }}>
+            <div style={{ position: "relative", display: "inline-block" }}>
               <SmartImage
                 src={src}
                 alt=""
@@ -2019,7 +1711,7 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
                 height={h}
                 sizes="(max-width: 768px) 90vw, 60vw"
                 rounded={10}
-                style={{ boxShadow: '0 2px 12px 0 #0001', background: '#fff' }}
+                style={{ boxShadow: "0 2px 12px 0 #0001", background: "#fff" }}
               />
             </div>
           </div>
@@ -2029,40 +1721,43 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
 
     // 영상 블록: 이미지와 동일한 정렬(textAlign) + CDN/버전 적용
     case "video": {
-      let justify: 'flex-start' | 'center' | 'flex-end' = 'center';
-      if (node.textAlign === 'left') justify = 'flex-start';
-      else if (node.textAlign === 'right') justify = 'flex-end';
+      let justify: "flex-start" | "center" | "flex-end" = "center";
+      if (node.textAlign === "left") justify = "flex-start";
+      else if (node.textAlign === "right") justify = "flex-end";
 
-      const v = (node.updatedAt || node.version) as string | number | undefined;
+      const v = (node.updatedAt || node.version) as
+        | string
+        | number
+        | undefined;
       const src = withVersion(cdn(node.url), v);
 
       const w = node.width ? Number(node.width) : undefined;
       const h = node.height ? Number(node.height) : undefined;
 
       return (
-        <div key={key} style={{ margin: '16px 0' }}>
+        <div key={key} style={{ margin: "16px 0" }}>
           <div
             style={{
-              display: 'flex',
-              flexDirection: 'row',
+              display: "flex",
+              flexDirection: "row",
               justifyContent: justify,
-              alignItems: 'flex-start',
-              minHeight: 40
+              alignItems: "flex-start",
+              minHeight: 40,
             }}
           >
-            <div style={{ position: 'relative', display: 'inline-block' }}>
+            <div style={{ position: "relative", display: "inline-block" }}>
               <video
                 src={src}
                 controls
                 playsInline
                 preload="metadata"
                 style={{
-                  maxWidth: w ? `${w}px` : '90%',
-                  height: h ? `${h}px` : 'auto',
+                  maxWidth: w ? `${w}px` : "90%",
+                  height: h ? `${h}px` : "auto",
                   borderRadius: 10,
-                  boxShadow: '0 2px 12px 0 #0001',
-                  background: '#000',
-                  display: 'block'
+                  boxShadow: "0 2px 12px 0 #0001",
+                  background: "#000",
+                  display: "block",
                 }}
               />
             </div>
@@ -2086,7 +1781,7 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
             display: "inline",
             verticalAlign: "middle",
             margin: "0 2px",
-            borderRadius: 4
+            borderRadius: 4,
           }}
         />
       );
@@ -2103,7 +1798,7 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
             marginRight: 8,
             marginLeft: 2,
             userSelect: "none",
-            verticalAlign: "middle"
+            verticalAlign: "middle",
           }}
         >
           {node.icon}
@@ -2112,7 +1807,7 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
 
     case "price-table-card": {
       if (!Array.isArray(node.items)) return <div key={key}></div>;
-      return <PriceTableCardBlock node={node} keyProp={key ?? ''} />;
+      return <PriceTableCardBlock node={node} keyProp={key ?? ""} />;
     }
 
     // 무기 카드 블록 (문서 보기용)
@@ -2120,39 +1815,39 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
       return <WeaponCardRead node={node} keyProp={key ?? ""} />;
     }
 
-    case 'table': {
+    case "table": {
       const widthPx =
-        typeof node.maxWidth === 'number' ? node.maxWidth : undefined;
-      const align = node.align || 'left';
+        typeof node.maxWidth === "number" ? node.maxWidth : undefined;
+      const align = node.align || "left";
       const justify =
-        align === 'center'
-          ? 'center'
-          : align === 'right'
-          ? 'flex-end'
-          : 'flex-start';
+        align === "center"
+          ? "center"
+          : align === "right"
+          ? "flex-end"
+          : "flex-start";
 
       const tableWidth = widthPx
         ? `${widthPx}px`
         : node.fullWidth
-        ? '100%'
-        : 'auto';
+        ? "100%"
+        : "auto";
 
       return (
         <div
           key={key}
           style={{
-            margin: '12px 0',
-            display: 'flex',
+            margin: "12px 0",
+            display: "flex",
             justifyContent: justify,
           }}
         >
           <table
             className="wiki-table"
             style={{
-              borderCollapse: 'collapse',
-              tableLayout: 'fixed',
+              borderCollapse: "collapse",
+              tableLayout: "fixed",
               width: tableWidth,
-              maxWidth: '100%',
+              maxWidth: "100%",
             }}
           >
             <tbody>{children}</tbody>
@@ -2161,11 +1856,11 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
       );
     }
 
-    case 'table-row': {
+    case "table-row": {
       return <tr key={key}>{children}</tr>;
     }
 
-    case 'table-cell': {
+    case "table-cell": {
       const colSpan = Math.max(1, Number(node.colspan) || 1);
       const rowSpan = Math.max(1, Number(node.rowspan) || 1);
 
@@ -2175,10 +1870,10 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
           colSpan={colSpan}
           rowSpan={rowSpan}
           style={{
-            border: '1px solid #e5e7eb',
-            padding: '6px 8px',
-            verticalAlign: 'top',
-            background: '#ffffff',
+            border: "1px solid #e5e7eb",
+            padding: "6px 8px",
+            verticalAlign: "top",
+            background: "#ffffff",
           }}
         >
           {children}
