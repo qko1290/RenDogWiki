@@ -81,7 +81,16 @@ export default function TableOfContents({
     }
   }, [scrollRootSelector, headings]);
 
-  const getRootForObserver = () => rootRef.current ?? null;
+  // 🔍 IntersectionObserver용 root: 실제로 스크롤 가능한 경우에만 사용, 아니면 window 기준(null)
+  const getRootForObserver = () => {
+    const root = rootRef.current;
+    if (!root) return null;
+    const { overflowY } = getComputedStyle(root);
+    const canScroll =
+      /(auto|scroll)/.test(overflowY) &&
+      root.scrollHeight > root.clientHeight + 1;
+    return canScroll ? root : null;
+  };
 
   // 타겟 찾기(동일 id의 n번째)
   const getTarget = (id: string, occ: number) => {
@@ -130,15 +139,23 @@ export default function TableOfContents({
       root.scrollTo({ top: y, behavior });
     }
 
+    // ✅ URL 해시는 항상 현재 path + search 를 유지한 채로 변경
     try {
-      history.replaceState(null, '', `#${id}`);
-    } catch {}
+      const { pathname, search } = window.location;
+      const hashId = target.id || id;
+      const nextUrl = `${pathname}${search}#${hashId}`;
+      history.replaceState(null, '', nextUrl);
+    } catch {
+      // ignore
+    }
 
     try {
       window.dispatchEvent(
         new CustomEvent('editor:toc-jump', { detail: { id, occ } })
       );
-    } catch {}
+    } catch {
+      // ignore
+    }
   };
 
   // 스크롤 스파이(컨테이너 기준)
@@ -184,20 +201,21 @@ export default function TableOfContents({
     };
   }, [indexed, headerOffset, rootKey]);
 
-  // 초기 진입 시 URL 해시가 있으면 해당 위치로 스크롤
-  const didInitialHashScroll = useRef(false);
+  // 새 문서 로드 후 URL 해시가 있으면 해당 위치로 한 번 스크롤
   useEffect(() => {
-    if (didInitialHashScroll.current) return;
-    const hash = decodeURIComponent(window.location.hash || '').replace(/^#/, '');
+    if (!headings.length) return;
+
+    const rawHash = window.location.hash || '';
+    if (!rawHash) return;
+
+    const hash = decodeURIComponent(rawHash).replace(/^#/, '');
     if (!hash) return;
 
     const raf = requestAnimationFrame(() => {
       scrollToId(hash, 0);
-      didInitialHashScroll.current = true;
     });
     return () => cancelAnimationFrame(raf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [headings, rootKey]);
 
   // ----- UI -----
   const boxStyle: React.CSSProperties = {

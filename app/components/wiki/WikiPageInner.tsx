@@ -198,6 +198,38 @@ export default function WikiPageInner({ user }: Props) {
   const searchParams = useSearchParams();
   const contentRef = useRef<HTMLDivElement>(null);
 
+  const syncUrlWithDoc = (
+    docTitle: string | null,
+    fullPath: number[] | null | undefined
+  ) => {
+    if (typeof window === 'undefined') return;
+    if (!docTitle) return;
+
+    const search = new URLSearchParams(window.location.search);
+    const currentPath = search.get('path');
+    const currentTitle = search.get('title');
+
+    // 루트([])면 path=0, 그 외에는 fullPath의 마지막 카테고리 id
+    const lastId =
+      !fullPath || fullPath.length === 0
+        ? '0'
+        : String(fullPath[fullPath.length - 1]);
+
+    // 이미 같은 값이면 불필요한 replace 방지
+    if (currentPath === lastId && currentTitle === docTitle) return;
+
+    search.set('path', lastId);
+    search.set('title', docTitle);
+    // 내부 fetch용 타임스탬프는 URL에 남길 필요 없음
+    search.delete('_t');
+
+    const hash = window.location.hash || '';
+    const nextUrl =
+      window.location.pathname + '?' + search.toString() + hash;
+
+    router.replace(nextUrl);
+  };
+  
   useEffect(() => {
     const onMode = (e: Event) => {
       const next = (e as CustomEvent).detail?.mode ?? null;
@@ -512,20 +544,36 @@ export default function WikiPageInner({ user }: Props) {
         const meta = parseSpecial(special);
         setSpecialMeta(meta);
 
-        if (meta?.kind === 'faq') { setFaqQuery(meta.q ?? ''); setFaqTags(meta.tags ?? []); }
-        else { setFaqQuery(''); setFaqTags([]); }
+        if (meta?.kind === 'faq') {
+          setFaqQuery(meta.q ?? '');
+          setFaqTags(meta.tags ?? []);
+        } else {
+          setFaqQuery('');
+          setFaqTags([]);
+        }
 
-        if (Array.isArray(data.fullPath)) setSelectedDocPath([...data.fullPath]);
-        else if (isRoot) setSelectedDocPath([]); // 서버가 fullPath 미동봉 시에도 루트 경로 고정
+        // 🔁 fullPath 기준으로 nextPath 계산 (없으면 기존 categoryPath/루트 사용)
+        let nextPath: number[] = [];
+        if (Array.isArray(data.fullPath)) {
+          nextPath = [...data.fullPath];
+        } else if (isRoot) {
+          nextPath = [];
+        } else {
+          nextPath = [...categoryPath];
+        }
+        setSelectedDocPath(nextPath);
 
-        setLoadingDoc(false);                       // 성공 종료
+        // ✅ 문서 로드 후 URL ?path=&title= 동기화
+        syncUrlWithDoc(data.title ?? docTitle, nextPath);
+
+        setLoadingDoc(false); // 성공 종료
       })
       .catch(() => {
         if (!mountedRef.current || reqId !== docReqIdRef.current) return;
         setDocContent(null);
         setSpecialMeta(null);
         setFaqQuery(''); setFaqTags([]);
-        setLoadingDoc(false);                       // 실패 종료
+        setLoadingDoc(false); // 실패 종료
       });
   }
 
@@ -567,6 +615,8 @@ export default function WikiPageInner({ user }: Props) {
       }
       setSelectedDocPath(nextPath);
 
+      syncUrlWithDoc(data.title ?? null, nextPath);
+
       setHideDocChrome(!!opts?.hideChrome);
       setLoadingDoc(false);
     } catch {
@@ -582,18 +632,37 @@ export default function WikiPageInner({ user }: Props) {
   useEffect(() => {
     const el = contentRef.current;
     if (!el) return;
+
     const handler = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
-      const aTag = target?.closest('a'); if (!aTag) return;
+      const aTag = target?.closest('a');
+      if (!aTag) return;
+
       const href = aTag.getAttribute('href');
-      if (href && href.startsWith('/wiki?')) {
-        e.preventDefault();
+      if (!href) return;
+
+      // 위키 내부 문서 링크만 가로채기
+      if (href.startsWith('/wiki')) {
         const url = new URL(href, window.location.origin);
+        if (url.pathname !== '/wiki') return;
+
         const path = url.searchParams.get('path');
         const title = url.searchParams.get('title');
-        if (path && title) router.push(`/wiki?path=${encodeURIComponent(path)}&title=${encodeURIComponent(title)}&_t=${Date.now()}`);
+        if (!path || !title) return;
+
+        e.preventDefault();
+
+        // path / title만 정규화해서 사용하고, 해시는 그대로 유지
+        const params = new URLSearchParams();
+        params.set('path', path);
+        params.set('title', title);
+
+        const hash = url.hash || '';
+
+        router.push(`/wiki?${params.toString()}${hash}`);
       }
     };
+
     el.addEventListener('click', handler);
     return () => el.removeEventListener('click', handler);
   }, [docContent, router]);
