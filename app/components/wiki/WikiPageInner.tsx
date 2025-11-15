@@ -871,7 +871,9 @@ export default function WikiPageInner({ user }: Props) {
               </>
             )}
 
-            <div className="wiki-content-body" ref={contentRef}>
+            <div className="wiki-content-body" ref={contentRef} style={{
+              fontFamily: "'NanumSquareRound', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
+            }}>
               {hold ? (
                 <BookLoader />
               ) : isFaq ? (

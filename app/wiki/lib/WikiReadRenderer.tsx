@@ -623,26 +623,37 @@ function renderLeaf(node: any, key?: React.Key): React.ReactNode {
   if (node.color) style.color = node.color;
   if (node.backgroundColor) style.backgroundColor = node.backgroundColor;
 
-  // 폰트 패밀리
-  const family = node.fontFamily ? String(node.fontFamily) : undefined;
-  if (family) style.fontFamily = family;
+  // 🎯 폰트 패밀리 (boolean 방어 + 기본값 적용)
+  const rawFamily = node.fontFamily;
+  let familyKey: string;        // HANDWRITING_SCALE용 키
+  let familyCss: string;        // 실제 CSS에 넣을 값
+
+  if (typeof rawFamily === 'string' && rawFamily.trim()) {
+    familyKey = rawFamily.trim();       // 예: 'BareunHippy'
+    familyCss = familyKey;              // 그대로 사용
+  } else {
+    // 마크가 없거나 잘못(true 등) 들어간 경우 → 기본 글꼴
+    familyKey = 'NanumSquareRound';
+    familyCss =
+      "'NanumSquareRound', -apple-system, BlinkMacSystemFont, system-ui, sans-serif";
+  }
+
+  style.fontFamily = familyCss;
 
   // 폰트 크기 + 손글씨 보정
   const normalized = normalizeFontSize(node.fontSize);
   const basePx = toPxNumber(normalized);
-  const scale = family && HANDWRITING_SCALE[family] ? HANDWRITING_SCALE[family] : 1;
+  const scale = HANDWRITING_SCALE[familyKey] ?? 1;
 
   if (scale !== 1) {
     if (typeof basePx === 'number') {
       style.fontSize = `${Math.round(basePx * scale)}px`;
     } else if (normalized !== undefined) {
-      // rem/em/% 등은 사용자가 준 그대로
       style.fontSize = normalized as any;
     } else {
-      // 별도 지정이 없으면 손글씨만 기본을 약간 키움
       style.fontSize = `${scale}em`;
     }
-    style.lineHeight = style.lineHeight ?? 1.35; // 손글씨는 줄간 살짝 넉넉하게
+    style.lineHeight = style.lineHeight ?? 1.35;
   } else {
     if (normalized !== undefined) style.fontSize = normalized as any;
   }
