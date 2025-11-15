@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Editor, Path, Node as SlateNode } from 'slate';
+import { Editor, Path, Node as SlateNode, Transforms } from 'slate';
 import { ReactEditor } from 'slate-react';
 import {
   getSelectedRectOrCell,
@@ -14,10 +14,9 @@ import {
   isFullColSelection,
   removeRows,
   removeCols,
-  setTableAlignment,
-  TableAlign,
 } from './helpers/tableOps';
 import { getDragRect, clearDrag } from './helpers/tableDrag';
+import type { TableElement } from '@/types/slate';
 
 type Props = { editor: Editor };
 
@@ -27,16 +26,20 @@ export default function TableContextMenu({ editor }: Props) {
   const [cellPath, setCellPath] = useState<Path | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
 
-  // 외부에서 열기 이벤트
+  // 외부에서 열기 이벤트 (Element.tsx → window.dispatchEvent('editor:table-menu'))
   useEffect(() => {
     const onOpen = (e: Event) => {
       const { x, y, cellPath } = (e as CustomEvent).detail || {};
+      if (!cellPath) return;
+
       setXY({ x, y });
       setCellPath(cellPath);
       setOpen(true);
     };
+
     window.addEventListener('editor:table-menu' as any, onOpen as any);
-    return () => window.removeEventListener('editor:table-menu' as any, onOpen as any);
+    return () =>
+      window.removeEventListener('editor:table-menu' as any, onOpen as any);
   }, []);
 
   // 바깥 클릭/스크롤/ESC → 닫기
@@ -57,7 +60,9 @@ export default function TableContextMenu({ editor }: Props) {
     window.addEventListener('keydown', esc);
 
     return () => {
-      window.removeEventListener('mousedown', close, { capture: true } as any);
+      window.removeEventListener('mousedown', close as any, {
+        capture: true,
+      } as any);
       window.removeEventListener('wheel', close as any);
       window.removeEventListener('keydown', esc);
     };
@@ -65,6 +70,7 @@ export default function TableContextMenu({ editor }: Props) {
 
   if (!open || !cellPath) return null;
 
+  // 공통 액션 래퍼: 포커스 + 실행 + 드래그 상태 초기화 + 메뉴 닫기
   const act = (fn: () => void) => () => {
     try {
       ReactEditor.focus(editor as any);
@@ -76,13 +82,18 @@ export default function TableContextMenu({ editor }: Props) {
     setOpen(false);
   };
 
+  // 현재 셀이 속한 표 path
   const tablePath = findTablePath(editor, cellPath);
 
-  // 현재 표 정렬
-  let align: TableAlign = 'left';
+  // 현재 표 정렬 상태 (표 블록의 align만 읽어온다)
+  let align: TableElement['align'] = 'left';
   try {
-    const tbl = SlateNode.get(editor, tablePath) as any;
-    if (tbl.align === 'center' || tbl.align === 'right') align = tbl.align;
+    const tbl = SlateNode.get(editor, tablePath) as TableElement;
+    if (tbl.align === 'center' || tbl.align === 'right') {
+      align = tbl.align;
+    } else {
+      align = 'left';
+    }
   } catch {
     /* ignore */
   }
@@ -97,6 +108,15 @@ export default function TableContextMenu({ editor }: Props) {
   const canDeleteRow = isFullRowSelection(editor, rect);
   const canDeleteCol = isFullColSelection(editor, rect);
   const canDelete = canDeleteRow || canDeleteCol;
+
+  // 표 align 설정 (툴바 텍스트 정렬과 완전히 분리)
+  const setTableAlign = (targetAlign: TableElement['align']) => {
+    Transforms.setNodes<TableElement>(
+      editor,
+      { align: targetAlign } as Partial<TableElement>,
+      { at: tablePath },
+    );
+  };
 
   return (
     <div
@@ -119,32 +139,38 @@ export default function TableContextMenu({ editor }: Props) {
       role="menu"
       aria-label="표 메뉴"
     >
-      {/* 정렬 */}
+      {/* 표 자체 정렬 (표 블록 align) */}
       <MenuItem
-        onClick={act(() => setTableAlignment(editor, tablePath, 'left'))}
-        active={align === 'left'}
+        onClick={act(() => setTableAlign('left'))}
+        active={align === 'left' || !align}
       >
-        왼쪽 정렬
+        표 왼쪽 정렬
       </MenuItem>
       <MenuItem
-        onClick={act(() => setTableAlignment(editor, tablePath, 'center'))}
+        onClick={act(() => setTableAlign('center'))}
         active={align === 'center'}
       >
-        가운데 정렬
+        표 가운데 정렬
       </MenuItem>
       <MenuItem
-        onClick={act(() => setTableAlignment(editor, tablePath, 'right'))}
+        onClick={act(() => setTableAlign('right'))}
         active={align === 'right'}
       >
-        오른쪽 정렬
+        표 오른쪽 정렬
       </MenuItem>
 
       <MenuDivider />
 
       {/* 셀/행/열 조작 */}
-      <MenuItem onClick={act(() => mergeCells(editor, rect))}>셀 병합</MenuItem>
-      <MenuItem onClick={act(() => splitCellByRow(editor, cellPath))}>행 분할</MenuItem>
-      <MenuItem onClick={act(() => splitCellByCol(editor, cellPath))}>열 분할</MenuItem>
+      <MenuItem onClick={act(() => mergeCells(editor, rect))}>
+        셀 병합
+      </MenuItem>
+      <MenuItem onClick={act(() => splitCellByRow(editor, cellPath))}>
+        행 분할
+      </MenuItem>
+      <MenuItem onClick={act(() => splitCellByCol(editor, cellPath))}>
+        열 분할
+      </MenuItem>
 
       <MenuItem
         danger={canDelete}
@@ -160,7 +186,11 @@ export default function TableContextMenu({ editor }: Props) {
             : () => {}
         }
       >
-        {canDeleteRow ? '행 삭제' : canDeleteCol ? '열 삭제' : '삭제(행/열 전체 선택 시)'}
+        {canDeleteRow
+          ? '행 삭제'
+          : canDeleteCol
+          ? '열 삭제'
+          : '삭제(행/열 전체 선택 시)'}
       </MenuItem>
     </div>
   );

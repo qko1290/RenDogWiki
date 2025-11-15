@@ -1092,7 +1092,7 @@ const Element: React.FC<ElementProps> = ({
       );
     }
 
-    // -------------------- 표(Table) --------------------
+        // -------------------- 표(Table) --------------------
     case 'table': {
       const table = element as TableElement;
 
@@ -1223,6 +1223,7 @@ const Element: React.FC<ElementProps> = ({
         const parentRect = wrap.parentElement?.getBoundingClientRect();
         const containerWidth = parentRect?.width ?? window.innerWidth;
 
+        // ✅ 표 최소 너비: 400px
         const MIN = 400;
         const MAX = Math.max(MIN, containerWidth - 16);
         let latest = startWidth;
@@ -1252,7 +1253,7 @@ const Element: React.FC<ElementProps> = ({
               {
                 maxWidth: null,
                 fullWidth: true,
-              },
+              } as Partial<TableElement>,
               { at: tablePath },
             );
           } else {
@@ -1261,7 +1262,7 @@ const Element: React.FC<ElementProps> = ({
               {
                 maxWidth: Math.round(latest),
                 fullWidth: false,
-              },
+              } as Partial<TableElement>,
               { at: tablePath },
             );
           }
@@ -1280,7 +1281,7 @@ const Element: React.FC<ElementProps> = ({
         maxWidth: '100%',
       };
 
-      // fullWidth(100%)가 아닌 경우에만 정렬 적용
+      // fullWidth(100%)가 아닌 경우에만 표 자체 정렬 적용
       if (!table.fullWidth) {
         if (tableAlign === 'center') {
           wrapStyle.marginLeft = 'auto';

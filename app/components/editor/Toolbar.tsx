@@ -263,7 +263,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
     const { selection } = editor;
     if (!selection) return;
 
-    // 1) 문단/헤딩 정렬 - 먼저 모든 대상 path를 수집
+    // 1) selection 안의 문단/헤딩 노드를 모두 수집
     const blockEntries = Array.from(
       Editor.nodes(editor, {
         at: selection,
@@ -276,6 +276,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
       }),
     );
 
+    // 2) 각 block 노드에 textAlign만 설정 (표는 건드리지 않음)
     for (const [, path] of blockEntries) {
       Transforms.setNodes(
         editor,
