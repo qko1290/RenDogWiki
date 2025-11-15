@@ -26,8 +26,10 @@ import type {
   ParagraphElement,
   TableElement,
   VideoElement,
-  WeaponInfoElement,
-  WeaponStat,
+  WeaponCardElement,
+  WeaponStatConfig,
+  WeaponType,
+  WeaponStatKey,
 } from '@/types/slate';
 import { tablePathKey, useDragRect, beginDrag, hoverCell, selectRectDirect, isDragPrimedOrActive } from './helpers/tableDrag';
 
@@ -126,320 +128,127 @@ const isProbablyVideo = (url: string, mime?: string | null) => {
   return ['mp4', 'webm', 'ogg', 'mov', 'm4v', 'avi', 'mkv'].includes(ext);
 };
 
-// 희귀도별 색상
-function weaponRarityStyle(rarity: WeaponInfoElement['rarity']) {
-  switch (rarity) {
+const WEAPON_TYPES_META: Record<
+  WeaponType,
+  { label: string; headerBg: string; border: string; badgeBg: string }
+> = {
+  epic:      { label: 'EPIC',      headerBg: '#7c3aed', border: '#a855f7', badgeBg: '#5b21b6' },
+  unique:    { label: 'UNIQUE',    headerBg: '#0ea5e9', border: '#38bdf8', badgeBg: '#0369a1' },
+  legendary: { label: 'LEGEND',    headerBg: '#f97373', border: '#fb7185', badgeBg: '#b91c1c' },
+  divine:    { label: 'DIVINE',    headerBg: '#22c55e', border: '#4ade80', badgeBg: '#15803d' },
+  superior:  { label: 'SUPERIOR',  headerBg: '#eab308', border: '#facc15', badgeBg: '#92400e' },
+  class:     { label: 'CLASS',     headerBg: '#6366f1', border: '#818cf8', badgeBg: '#312e81' },
+  hidden:    { label: 'HIDDEN',    headerBg: '#0f766e', border: '#14b8a6', badgeBg: '#134e4a' },
+  limited:   { label: 'LIMITED',   headerBg: '#f97316', border: '#fdba74', badgeBg: '#c2410c' },
+  ancient:   { label: 'ANCIENT',   headerBg: '#6b7280', border: '#9ca3af', badgeBg: '#374151' },
+};
+
+const ALL_WEAPON_STAT_KEYS: WeaponStatKey[] = [
+  'damage',
+  'cooldown',
+  'hitCount',
+  'range',
+  'duration',
+  'heal',
+];
+
+const WEAPON_STAT_PRESET: Record<
+  WeaponStatKey,
+  { label: string; defaultUnit?: string }
+> = {
+  damage:   { label: '데미지' },
+  cooldown: { label: '쿨타임', defaultUnit: '초' },
+  hitCount: { label: '타수',   defaultUnit: '타' },
+  range:    { label: '범위' },
+  duration: { label: '지속시간', defaultUnit: '초' },
+  heal:     { label: '회복량' },
+};
+
+// 무기 유형별 강화 단계 라벨
+export function getWeaponLevelLabels(type: WeaponType): string[] {
+  switch (type) {
+    // 1강 ~ MAX(5강)
     case 'epic':
-      return { border: '#a855f7', header: '#4c1d95', bg: '#0b1020' };
     case 'unique':
-      return { border: '#38bdf8', header: '#0f172a', bg: '#04121e' };
     case 'legendary':
-      return { border: '#f97373', header: '#7f1d1d', bg: '#1b0b0b' };
-    case 'rare':
-      return { border: '#60a5fa', header: '#1d4ed8', bg: '#020617' };
-    case 'normal':
+    case 'divine':
+    case 'superior':
+      return ['1강', '2강', '3강', '4강', 'MAX'];
+    // 1강 ~ MAX(9강)
+    case 'class':
+      return ['1강', '2강', '3강', '4강', '5강', '6강', '7강', '8강', 'MAX'];
+    // 나머지는 단일 단계
+    case 'hidden':
+    case 'limited':
+    case 'ancient':
     default:
-      return { border: '#9ca3af', header: '#374151', bg: '#020617' };
+      return ['기본'];
   }
 }
 
-// ==================== WeaponStatModal (상세/편집 공용) ====================
-type WeaponStatModalProps = {
-  open: boolean;
-  readOnly: boolean;
-  stat: WeaponStat | null;
-  onClose: () => void;
-  onSave?: (next: WeaponStat) => void;
-};
+function normalizeStatLevels(
+  levels: WeaponStatConfig['levels'] | undefined,
+  type: WeaponType,
+): WeaponStatConfig['levels'] {
+  const labels = getWeaponLevelLabels(type);
+  const list = levels ?? [];
+  return labels.map((label, idx) => ({
+    levelLabel: label,
+    value: list[idx]?.value ?? '',
+  }));
+}
 
-const WeaponStatModal: React.FC<WeaponStatModalProps> = ({
-  open,
-  readOnly,
-  stat,
-  onClose,
-  onSave,
-}) => {
-  const [local, setLocal] = React.useState<WeaponStat | null>(stat ?? null);
-
-  React.useEffect(() => {
-    setLocal(stat ?? null);
-  }, [stat]);
-
-  if (!open || !local) return null;
-
-  const handleChange = <K extends keyof WeaponStat>(key: K, value: WeaponStat[K]) => {
-    setLocal(prev => (prev ? { ...prev, [key]: value } : prev));
+function createEmptyWeaponStat(
+  key: WeaponStatKey,
+  type: WeaponType,
+  enabled: boolean,
+): WeaponStatConfig {
+  const preset = WEAPON_STAT_PRESET[key];
+  return {
+    key,
+    label: preset.label,
+    summary: '',
+    unit: preset.defaultUnit,
+    enabled,
+    levels: normalizeStatLevels([], type),
   };
+}
 
-  const handleUpgradeChange = (idx: number, field: 'level' | 'value', value: string) => {
-    setLocal(prev => {
-      if (!prev) return prev;
-      const upgrades = [...(prev.upgrades ?? [])];
-      upgrades[idx] = { ...(upgrades[idx] ?? { level: '', value: '' }), [field]: value };
-      return { ...prev, upgrades };
-    });
-  };
+// 현재 stats 배열을 기준으로, 모든 stat 키를 채우고 단계 구조를 유형에 맞게 정규화
+function ensureWeaponStats(
+  stats: WeaponStatConfig[] | undefined,
+  type: WeaponType,
+): WeaponStatConfig[] {
+  const map = new Map<WeaponStatKey, WeaponStatConfig>();
+  (stats ?? []).forEach((s) => map.set(s.key, s));
 
-  const handleAddUpgrade = () => {
-    setLocal(prev => {
-      if (!prev) return prev;
-      const upgrades = [...(prev.upgrades ?? []), { level: '', value: '' }];
-      return { ...prev, upgrades };
-    });
-  };
-
-  const handleRemoveUpgrade = (idx: number) => {
-    setLocal(prev => {
-      if (!prev) return prev;
-      const upgrades = [...(prev.upgrades ?? [])];
-      upgrades.splice(idx, 1);
-      return { ...prev, upgrades };
-    });
-  };
-
-  const handleSave = () => {
-    if (readOnly || !onSave || !local) {
-      onClose();
-      return;
+  return ALL_WEAPON_STAT_KEYS.map((key) => {
+    const existing = map.get(key);
+    if (!existing) {
+      // 기본은 데미지 / 쿨타임만 on, 나머지는 off
+      const enabled = key === 'damage' || key === 'cooldown';
+      return createEmptyWeaponStat(key, type, enabled);
     }
-    onSave(local);
-    onClose();
-  };
+    return {
+      ...existing,
+      label: existing.label || WEAPON_STAT_PRESET[key].label,
+      unit: existing.unit ?? WEAPON_STAT_PRESET[key].defaultUnit,
+      levels: normalizeStatLevels(existing.levels, type),
+    };
+  });
+}
 
-  return (
-    <div
-      contentEditable={false}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(15,23,42,0.55)',
-        zIndex: 99999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-      onClick={onClose}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          width: 420,
-          maxWidth: '90vw',
-          maxHeight: '80vh',
-          overflowY: 'auto',
-          background: '#0f172a',
-          borderRadius: 10,
-          padding: 16,
-          color: '#e5e7eb',
-          boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
-        }}
-      >
-        <h3 style={{ marginTop: 0, marginBottom: 10, fontSize: 16 }}>
-          {readOnly ? '상세 정보' : '무기 정보 편집'}
-        </h3>
+function normalizeStatsForWeaponType(
+  stats: WeaponStatConfig[] | undefined,
+  type: WeaponType,
+): WeaponStatConfig[] {
+  return ensureWeaponStats(stats, type).map((s) => ({
+    ...s,
+    levels: normalizeStatLevels(s.levels, type),
+  }));
+}
 
-        {/* 라벨 / 값 / 단위 */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-          <div style={{ flex: 1 }}>
-            <label style={{ fontSize: 12 }}>표시 이름</label>
-            {readOnly ? (
-              <div style={{ padding: '4px 6px' }}>{local.label}</div>
-            ) : (
-              <input
-                value={local.label}
-                onChange={e => handleChange('label', e.target.value)}
-                style={{ width: '100%' }}
-              />
-            )}
-          </div>
-          <div style={{ flex: 1 }}>
-            <label style={{ fontSize: 12 }}>요약 값</label>
-            {readOnly ? (
-              <div style={{ padding: '4px 6px' }}>{local.value}</div>
-            ) : (
-              <input
-                value={local.value}
-                onChange={e => handleChange('value', e.target.value)}
-                style={{ width: '100%' }}
-              />
-            )}
-          </div>
-          <div style={{ width: 80 }}>
-            <label style={{ fontSize: 12 }}>단위</label>
-            {readOnly ? (
-              <div style={{ padding: '4px 6px' }}>{local.unit ?? ''}</div>
-            ) : (
-              <input
-                value={local.unit ?? ''}
-                onChange={e => handleChange('unit', e.target.value)}
-                style={{ width: '100%' }}
-              />
-            )}
-          </div>
-        </div>
 
-        {/* 강화별 상세 값 목록 */}
-        <div style={{ marginTop: 6 }}>
-          <div style={{ fontSize: 12, marginBottom: 4 }}>강화별 상세 값</div>
-          {(local.upgrades ?? []).length === 0 && (
-            <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 6 }}>
-              {readOnly ? '등록된 상세 값이 없습니다.' : '아직 추가된 단계가 없습니다.'}
-            </div>
-          )}
-          {(local.upgrades ?? []).map((u, idx) => (
-            <div
-              key={idx}
-              style={{ display: 'flex', gap: 6, marginBottom: 4, alignItems: 'center' }}
-            >
-              {readOnly ? (
-                <>
-                  <div style={{ width: 80, fontSize: 13, color: '#e5e7eb' }}>{u.level}</div>
-                  <div style={{ flex: 1, fontSize: 13 }}>{u.value}</div>
-                </>
-              ) : (
-                <>
-                  <input
-                    style={{ width: 80 }}
-                    placeholder="예: 1강"
-                    value={u.level}
-                    onChange={e => handleUpgradeChange(idx, 'level', e.target.value)}
-                  />
-                  <input
-                    style={{ flex: 1 }}
-                    placeholder="예: 120 x 3"
-                    value={u.value}
-                    onChange={e => handleUpgradeChange(idx, 'value', e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveUpgrade(idx)}
-                    style={{
-                      padding: '2px 6px',
-                      fontSize: 11,
-                      borderRadius: 4,
-                      border: '1px solid #fecaca',
-                      color: '#fecaca',
-                      background: 'transparent',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    삭제
-                  </button>
-                </>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {!readOnly && (
-          <button
-            type="button"
-            onClick={handleAddUpgrade}
-            style={{
-              marginTop: 4,
-              marginBottom: 10,
-              fontSize: 12,
-              padding: '3px 8px',
-              borderRadius: 4,
-              border: '1px solid #4b5563',
-              background: 'transparent',
-              color: '#e5e7eb',
-              cursor: 'pointer',
-            }}
-          >
-            단계 추가
-          </button>
-        )}
-
-        {/* 버튼 영역 */}
-        <div style={{ marginTop: 10, textAlign: 'right', display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              padding: '5px 10px',
-              borderRadius: 4,
-              border: '1px solid #4b5563',
-              background: 'transparent',
-              color: '#e5e7eb',
-              fontSize: 12,
-              cursor: 'pointer',
-            }}
-          >
-            닫기
-          </button>
-          {!readOnly && (
-            <button
-              type="button"
-              onClick={handleSave}
-              style={{
-                padding: '5px 10px',
-                borderRadius: 4,
-                border: 'none',
-                background: '#2563eb',
-                color: '#fff',
-                fontSize: 12,
-                cursor: 'pointer',
-              }}
-            >
-              저장
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ==================== WeaponVideoModal (영상 보기) ====================
-type WeaponVideoModalProps = {
-  open: boolean;
-  url: string | null | undefined;
-  onClose: () => void;
-};
-
-const WeaponVideoModal: React.FC<WeaponVideoModalProps> = ({ open, url, onClose }) => {
-  if (!open || !url) return null;
-  return (
-    <div
-      contentEditable={false}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(15,23,42,0.7)',
-        zIndex: 99999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-      onClick={onClose}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          width: 'min(900px, 90vw)',
-          background: '#020617',
-          borderRadius: 10,
-          padding: 12,
-          boxShadow: '0 12px 40px rgba(0,0,0,0.65)',
-        }}
-      >
-        <video
-          src={url}
-          controls
-          playsInline
-          style={{
-            width: '100%',
-            maxHeight: '70vh',
-            borderRadius: 8,
-            background: '#000',
-            display: 'block',
-          }}
-        />
-      </div>
-    </div>
-  );
-};
 
 // -------------------- 타입 --------------------
 type PriceTableEditState = {
@@ -1875,222 +1684,290 @@ const Element: React.FC<ElementProps> = ({
       );
     }
 
-        // -------------------- 무기 정보 박스 --------------------
-    case 'weapon-info': {
-      const el = element as WeaponInfoElement;
+        // -------------------- Weapon Card (무기 정보 박스) --------------------
+    case 'weapon-card': {
+      const el = element as WeaponCardElement;
+      const path = ReactEditor.findPath(editor, element);
       const isReadOnly = ReactEditor.isReadOnly(editor);
-      const [videoPickerOpen, setVideoPickerOpen] = React.useState(false);
-      const [videoViewOpen, setVideoViewOpen] = React.useState(false);
-      const [statModalIndex, setStatModalIndex] = React.useState<number | null>(null);
 
-      const style = weaponRarityStyle(el.rarity ?? 'normal');
+      const weaponType: WeaponType = el.weaponType || 'epic';
+      const meta = WEAPON_TYPES_META[weaponType];
+      const stats = ensureWeaponStats(el.stats, weaponType);
+      const visibleStats = stats.filter((s) => s.enabled);
 
-      const thumbSrc =
-        el.image && el.image.startsWith('http') ? toProxyUrl(el.image) : el.image;
+      const [typeModalOpen, setTypeModalOpen] = React.useState(false);
+      const [nameModalOpen, setNameModalOpen] = React.useState(false);
+      const [imageModalOpen, setImageModalOpen] = React.useState(false);
+      const [videoSelectOpen, setVideoSelectOpen] = React.useState(false);
+      const [videoModalOpen, setVideoModalOpen] = React.useState(false);
+      const [statEditKey, setStatEditKey] = React.useState<WeaponStatKey | null>(null);
+      const [statSelectOpen, setStatSelectOpen] = React.useState(false);
 
-      const cardStyle: React.CSSProperties = {
-        borderRadius: 12,
-        border: `2px solid ${style.border}`,
-        background: style.bg,
-        color: '#e5e7eb',
-        width: 260,
-        boxShadow: '0 4px 20px rgba(0,0,0,0.45)',
-        overflow: 'hidden',
-        fontSize: 13,
+      const updateElement = (patch: Partial<WeaponCardElement>) => {
+        Transforms.setNodes<WeaponCardElement>(
+          editor,
+          patch as Partial<WeaponCardElement>,
+          { at: path },
+        );
       };
 
-      const headerStyle: React.CSSProperties = {
-        background: style.header,
-        padding: '6px 10px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        fontSize: 12,
-        fontWeight: 600,
+      const handleWeaponTypeChange = (next: WeaponType) => {
+        if (next === weaponType) return;
+        const nextStats = normalizeStatsForWeaponType(stats, next);
+        updateElement({
+          weaponType: next,
+          stats: nextStats,
+        });
       };
 
-      const nameStyle: React.CSSProperties = {
-        padding: '6px 10px 4px',
-        textAlign: 'center',
-        fontSize: 15,
-        fontWeight: 700,
+      const handleSaveStat = (updated: WeaponStatConfig) => {
+        const nextStats = stats.map((s) =>
+          s.key === updated.key ? updated : s,
+        );
+        updateElement({ stats: nextStats });
       };
 
-      const handleSaveStat = (idx: number, next: WeaponStat) => {
-        const path = ReactEditor.findPath(editor, element);
-        const stats = [...el.stats];
-        stats[idx] = next;
-        Transforms.setNodes(editor, { stats }, { at: path });
+      const handleSaveStatsSelection = (nextStats: WeaponStatConfig[]) => {
+        updateElement({
+          stats: normalizeStatsForWeaponType(nextStats, weaponType),
+        });
       };
 
-      const handlePickVideo = (url: string, _name?: string, row?: any) => {
-        const raw = row?.url ?? url;
-        const mime = row?.mime_type as string | undefined;
-        if (!isProbablyVideo(raw, mime)) {
-          alert('영상 파일만 선택할 수 있습니다.');
-          return;
-        }
-        const path = ReactEditor.findPath(editor, element);
-        Transforms.setNodes(editor, { video: raw }, { at: path });
-        setVideoPickerOpen(false);
+      const handleImageSelected = (url: string) => {
+        updateElement({ imageUrl: url });
+        setImageModalOpen(false);
       };
+
+      const handleVideoSelected = (url: string) => {
+        updateElement({ videoUrl: url });
+        setVideoSelectOpen(false);
+      };
+
+      const cardWidth = 260;
+
+      const videoSrc =
+        el.videoUrl && el.videoUrl.startsWith('http')
+          ? toProxyUrl(el.videoUrl)
+          : el.videoUrl || '';
+
+      const imageSrc =
+        el.imageUrl && el.imageUrl.startsWith('http')
+          ? toProxyUrl(el.imageUrl)
+          : el.imageUrl || '';
 
       return (
         <div {...attributes}>
-          <div
-            contentEditable={false}
-            style={{ margin: '16px 0', display: 'flex', justifyContent: 'center' }}
-          >
-            <div style={cardStyle}>
-              {/* 상단 헤더 (희귀도/코드) */}
-              <div style={headerStyle}>
-                <span>
-                  {el.rarity === 'epic'
-                    ? '에픽 무기'
-                    : el.rarity === 'unique'
-                    ? '유니크 무기'
-                    : el.rarity === 'legendary'
-                    ? '레전드 무기'
-                    : el.rarity === 'rare'
-                    ? '레어 무기'
-                    : '무기'}
-                </span>
-                {el.code && (
-                  <span style={{ opacity: 0.8, fontSize: 11 }}>#{el.code}</span>
-                )}
+          <div contentEditable={false} style={{ margin: '14px 0' }}>
+            <div
+              style={{
+                width: cardWidth,
+                borderRadius: 18,
+                overflow: 'hidden',
+                background: '#020617',
+                border: `1.5px solid ${meta.border}`,
+                boxShadow: '0 18px 45px rgba(0,0,0,.45)',
+                fontFamily: 'inherit',
+              }}
+            >
+              {/* 상단 타입 바 */}
+              <button
+                type="button"
+                onClick={() => !isReadOnly && setTypeModalOpen(true)}
+                style={{
+                  width: '100%',
+                  border: 'none',
+                  outline: 'none',
+                  background: meta.headerBg,
+                  color: '#f9fafb',
+                  padding: '8px 0',
+                  fontSize: 13,
+                  fontWeight: 700,
+                  letterSpacing: 1.5,
+                  textAlign: 'center',
+                  cursor: isReadOnly ? 'default' : 'pointer',
+                }}
+              >
+                {meta.label}
+              </button>
+
+              {/* 무기 이름 */}
+              <div
+                onClick={() => !isReadOnly && setNameModalOpen(true)}
+                style={{
+                  padding: '10px 14px',
+                  background: '#020617',
+                  color: '#e5e7eb',
+                  fontSize: 18,
+                  fontWeight: 700,
+                  textAlign: 'center',
+                  borderBottom: '1px solid #111827',
+                  cursor: isReadOnly ? 'default' : 'pointer',
+                  userSelect: 'none',
+                }}
+              >
+                {el.name || '새 무기 이름'}
               </div>
-
-              {/* 이름 */}
-              <div style={nameStyle}>{el.name || '이름 없음'}</div>
-
-              {/* 타입 표시 (근접 무기 / 원거리 등) */}
-              {el.weaponType && (
-                <div
-                  style={{
-                    textAlign: 'center',
-                    fontSize: 12,
-                    color: '#cbd5f5',
-                    marginBottom: 4,
-                  }}
-                >
-                  {el.weaponType}
-                </div>
-              )}
 
               {/* 이미지 영역 */}
               <div
+                onClick={() => !isReadOnly && setImageModalOpen(true)}
                 style={{
-                  height: 90,
+                  background:
+                    'radial-gradient(circle at top, #1f2937 0, #020617 55%)',
+                  height: 140,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  borderTop: '1px solid rgba(148,163,184,0.5)',
-                  borderBottom: '1px solid rgba(148,163,184,0.5)',
-                  background:
-                    'radial-gradient(circle at 20% 0%, rgba(148,163,184,0.18), transparent 60%)',
+                  cursor: isReadOnly ? 'default' : 'pointer',
                 }}
               >
-                {thumbSrc ? (
+                {imageSrc ? (
                   <img
-                    src={thumbSrc}
+                    src={imageSrc}
                     alt=""
+                    width={160}
+                    height={96}
                     loading="lazy"
                     decoding="async"
                     draggable={false}
                     style={{
-                      maxWidth: '70%',
+                      maxWidth: '80%',
                       maxHeight: '80%',
                       objectFit: 'contain',
+                      filter: 'drop-shadow(0 12px 18px rgba(0,0,0,.55))',
                       display: 'block',
                     }}
                   />
                 ) : (
-                  <span style={{ fontSize: 12, color: '#64748b' }}>
+                  <span
+                    style={{
+                      color: '#6b7280',
+                      fontSize: 14,
+                    }}
+                  >
                     이미지 없음
                   </span>
+                )}
+              </div>
+
+              {/* 상세 정보 + 설정 버튼 (에디터에서만) */}
+              <div
+                style={{
+                  position: 'relative',
+                  padding: '8px 10px 4px',
+                }}
+              >
+                {!isReadOnly && (
+                  <button
+                    type="button"
+                    onClick={() => setStatSelectOpen(true)}
+                    style={{
+                      position: 'absolute',
+                      right: 8,
+                      top: 6,
+                      fontSize: 11,
+                      borderRadius: 999,
+                      padding: '2px 8px',
+                      border: '1px solid #4b5563',
+                      background: '#020617',
+                      color: '#9ca3af',
+                      cursor: 'pointer',
+                    }}
+                    title="표시할 정보 선택"
+                  >
+                    정보 설정
+                  </button>
                 )}
               </div>
 
               {/* 정보 리스트 */}
               <div
                 style={{
-                  padding: '6px 8px 4px',
+                  padding: '0 10px 8px',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 4,
+                  gap: 6,
                 }}
               >
-                {el.stats.map((s, idx) => (
-                  <button
-                    key={s.id || idx}
-                    type="button"
-                    onClick={() => setStatModalIndex(idx)}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      padding: '3px 6px',
-                      borderRadius: 6,
-                      border: '1px solid rgba(148,163,184,0.4)',
-                      background: 'rgba(15,23,42,0.6)',
-                      color: '#e5e7eb',
-                      cursor: 'pointer',
-                      fontSize: 12,
-                    }}
-                    title={
-                      isReadOnly
-                        ? '상세 정보 보기'
-                        : '클릭해서 상세/강화 정보를 편집합니다'
-                    }
-                  >
-                    <span style={{ opacity: 0.9 }}>{s.label}</span>
-                    <span style={{ fontWeight: 600 }}>
-                      {s.value}
-                      {s.unit && ` ${s.unit}`}
-                      {s.upgrades && s.upgrades.length > 0 && (
-                        <span style={{ fontSize: 11, marginLeft: 4, opacity: 0.8 }}>
-                          (상세)
-                        </span>
-                      )}
-                    </span>
-                  </button>
-                ))}
-                {!el.stats.length && (
+                {visibleStats.length === 0 && (
                   <div
                     style={{
                       fontSize: 12,
-                      color: '#94a3b8',
-                      padding: '4px 2px',
+                      color: '#6b7280',
+                      padding: '6px 8px',
+                      borderRadius: 10,
+                      background: 'rgba(15,23,42,.75)',
                     }}
                   >
-                    표시할 정보가 없습니다. 편집 모달에서 추가해 주세요.
+                    표시할 정보가 없습니다. (정보 설정 버튼으로 추가)
                   </div>
                 )}
+
+                {visibleStats.map((stat) => (
+                  <button
+                    key={stat.key}
+                    type="button"
+                    onClick={() => setStatEditKey(stat.key)}
+                    style={{
+                      borderRadius: 10,
+                      padding: '6px 8px',
+                      border: '1px solid #111827',
+                      background:
+                        'linear-gradient(90deg, rgba(15,23,42,.95), rgba(15,23,42,.85))',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      cursor: 'pointer',
+                    }}
+                    title="클릭해서 강화별 상세 정보 보기/편집"
+                  >
+                    <span
+                      style={{
+                        fontSize: 12,
+                        color: '#9ca3af',
+                        fontWeight: 500,
+                      }}
+                    >
+                      {stat.label}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 13,
+                        color: '#e5e7eb',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {stat.summary || '-'}
+                      {stat.unit ? ` ${stat.unit}` : ''}
+                    </span>
+                  </button>
+                ))}
               </div>
 
-              {/* 공격 모습 보기 / 영상 설정 */}
+              {/* 하단 영상 버튼 */}
               <div
                 style={{
-                  padding: '6px 8px 8px',
+                  padding: '8px 10px 10px',
                   display: 'flex',
-                  justifyContent: 'space-between',
-                  gap: 6,
+                  gap: 8,
                 }}
               >
                 <button
                   type="button"
-                  onClick={() => setVideoViewOpen(true)}
-                  disabled={!el.video}
+                  disabled={!el.videoUrl}
+                  onClick={() => el.videoUrl && setVideoModalOpen(true)}
                   style={{
                     flex: 1,
-                    padding: '5px 0',
-                    borderRadius: 6,
+                    padding: '8px 10px',
+                    borderRadius: 999,
                     border: 'none',
-                    background: el.video ? '#22c55e' : '#4b5563',
-                    color: '#fff',
-                    fontSize: 12,
-                    cursor: el.video ? 'pointer' : 'default',
-                    opacity: el.video ? 1 : 0.6,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    background: el.videoUrl
+                      ? 'linear-gradient(90deg,#1d4ed8,#3b82f6)'
+                      : '#111827',
+                    color: el.videoUrl ? '#f9fafb' : '#6b7280',
+                    cursor: el.videoUrl ? 'pointer' : 'default',
                   }}
                 >
                   공격 영상 보기
@@ -2098,14 +1975,14 @@ const Element: React.FC<ElementProps> = ({
                 {!isReadOnly && (
                   <button
                     type="button"
-                    onClick={() => setVideoPickerOpen(true)}
+                    onClick={() => setVideoSelectOpen(true)}
                     style={{
-                      padding: '5px 6px',
-                      borderRadius: 6,
-                      border: '1px solid #64748b',
-                      background: 'transparent',
-                      color: '#cbd5f5',
-                      fontSize: 11,
+                      padding: '8px 10px',
+                      borderRadius: 999,
+                      border: '1px solid #334155',
+                      background: '#020617',
+                      color: '#e5e7eb',
+                      fontSize: 12,
                       cursor: 'pointer',
                       whiteSpace: 'nowrap',
                     }}
@@ -2115,41 +1992,78 @@ const Element: React.FC<ElementProps> = ({
                 )}
               </div>
             </div>
-
-            {/* 영상 보기 모달 */}
-            <WeaponVideoModal
-              open={videoViewOpen}
-              url={el.video}
-              onClose={() => setVideoViewOpen(false)}
-            />
-
-            {/* 스탯 상세/편집 모달 */}
-            <WeaponStatModal
-              open={statModalIndex !== null}
-              readOnly={isReadOnly}
-              stat={
-                statModalIndex !== null ? el.stats[statModalIndex] ?? null : null
-              }
-              onClose={() => setStatModalIndex(null)}
-              onSave={
-                isReadOnly || statModalIndex === null
-                  ? undefined
-                  : next => handleSaveStat(statModalIndex, next)
-              }
-            />
-
-            {/* 에디터에서만: 영상 선택 모달 (업로드 시스템 재사용) */}
-            {!isReadOnly && (
-              <ImageSelectModal
-                open={videoPickerOpen}
-                onClose={() => setVideoPickerOpen(false)}
-                onSelectImage={handlePickVideo}
-              />
-            )}
           </div>
 
-          {/* dummy 텍스트 노드 렌더링 */}
           {children}
+
+          {/* 유형 선택 모달 */}
+          <WeaponTypeSelectModal
+            open={typeModalOpen && !isReadOnly}
+            currentType={weaponType}
+            onClose={() => setTypeModalOpen(false)}
+            onSelect={(t) => {
+              handleWeaponTypeChange(t);
+              setTypeModalOpen(false);
+            }}
+          />
+
+          {/* 이름 수정 모달 */}
+          <WeaponNameEditModal
+            open={nameModalOpen && !isReadOnly}
+            initialName={el.name}
+            onClose={() => setNameModalOpen(false)}
+            onSave={(name) => {
+              updateElement({ name });
+              setNameModalOpen(false);
+            }}
+          />
+
+          {/* 이미지 선택 모달 */}
+          <ImageSelectModal
+            open={imageModalOpen && !isReadOnly}
+            onClose={() => setImageModalOpen(false)}
+            onSelectImage={handleImageSelected}
+          />
+
+          {/* 영상 선택 모달 (업로드 목록에서 선택) */}
+          <ImageSelectModal
+            open={videoSelectOpen && !isReadOnly}
+            onClose={() => setVideoSelectOpen(false)}
+            onSelectImage={handleVideoSelected}
+          />
+
+          {/* 개별 스탯 편집 모달 (강화 단계별 값) */}
+          <WeaponStatEditModal
+            open={!!statEditKey}
+            weaponType={weaponType}
+            stats={stats}
+            statKey={statEditKey}
+            readOnly={isReadOnly}
+            onClose={() => setStatEditKey(null)}
+            onSave={(updated) => {
+              handleSaveStat(updated);
+              setStatEditKey(null);
+            }}
+          />
+
+          {/* 어떤 정보들을 쓸지 온/오프 설정 */}
+          <WeaponStatSelectModal
+            open={statSelectOpen && !isReadOnly}
+            weaponType={weaponType}
+            stats={stats}
+            onClose={() => setStatSelectOpen(false)}
+            onSave={(nextStats) => {
+              handleSaveStatsSelection(nextStats);
+              setStatSelectOpen(false);
+            }}
+          />
+
+          {/* 공격 영상 보기 모달 (뷰어/에디터 공용) */}
+          <WeaponVideoModal
+            open={videoModalOpen && !!videoSrc}
+            url={videoSrc}
+            onClose={() => setVideoModalOpen(false)}
+          />
         </div>
       );
     }
@@ -2171,3 +2085,725 @@ const Element: React.FC<ElementProps> = ({
 };
 
 export default Element;
+
+// -------------------- Weapon Card Modals --------------------
+
+type WeaponTypeSelectModalProps = {
+  open: boolean;
+  currentType: WeaponType;
+  onClose: () => void;
+  onSelect: (t: WeaponType) => void;
+};
+
+const WeaponTypeSelectModal: React.FC<WeaponTypeSelectModalProps> = ({
+  open,
+  currentType,
+  onClose,
+  onSelect,
+}) => {
+  if (!open) return null;
+
+  const types: WeaponType[] = [
+    'epic',
+    'unique',
+    'legendary',
+    'divine',
+    'superior',
+    'class',
+    'hidden',
+    'limited',
+    'ancient',
+  ];
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,.55)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 2000,
+      }}
+      onMouseDown={onClose}
+    >
+      <div
+        onMouseDown={(e) => e.stopPropagation()}
+        style={{
+          width: 360,
+          maxWidth: '90%',
+          borderRadius: 14,
+          background: '#020617',
+          padding: '16px 18px 14px',
+          boxShadow: '0 18px 40px rgba(0,0,0,.55)',
+          color: '#e5e7eb',
+        }}
+      >
+        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 10 }}>
+          무기 유형 선택
+        </div>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+            gap: 8,
+            marginBottom: 14,
+          }}
+        >
+          {types.map((t) => {
+            const meta = WEAPON_TYPES_META[t];
+            const active = t === currentType;
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => onSelect(t)}
+                style={{
+                  borderRadius: 999,
+                  border: active ? 'none' : '1px solid #1f2937',
+                  padding: '6px 0',
+                  background: active
+                    ? meta.headerBg
+                    : 'linear-gradient(90deg,#020617,#020617)',
+                  color: active ? '#f9fafb' : '#9ca3af',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  letterSpacing: 1,
+                  cursor: 'pointer',
+                }}
+              >
+                {meta.label}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              borderRadius: 999,
+              border: '1px solid #4b5563',
+              padding: '5px 14px',
+              background: '#020617',
+              color: '#e5e7eb',
+              fontSize: 12,
+              cursor: 'pointer',
+            }}
+          >
+            닫기
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+type WeaponNameEditModalProps = {
+  open: boolean;
+  initialName: string;
+  onClose: () => void;
+  onSave: (name: string) => void;
+};
+
+const WeaponNameEditModal: React.FC<WeaponNameEditModalProps> = ({
+  open,
+  initialName,
+  onClose,
+  onSave,
+}) => {
+  const [name, setName] = React.useState(initialName || '');
+
+  React.useEffect(() => {
+    if (open) setName(initialName || '');
+  }, [open, initialName]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,.55)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 2000,
+      }}
+      onMouseDown={onClose}
+    >
+      <div
+        onMouseDown={(e) => e.stopPropagation()}
+        style={{
+          width: 420,
+          maxWidth: '90%',
+          borderRadius: 14,
+          background: '#020617',
+          padding: '18px 20px 16px',
+          boxShadow: '0 18px 40px rgba(0,0,0,.55)',
+          color: '#e5e7eb',
+        }}
+      >
+        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>
+          무기 이름 수정
+        </div>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="무기 이름"
+          autoFocus
+          style={{
+            width: '100%',
+            borderRadius: 8,
+            border: '1px solid #4b5563',
+            background: '#020617',
+            padding: '8px 10px',
+            color: '#e5e7eb',
+            fontSize: 14,
+            outline: 'none',
+          }}
+        />
+        <div
+          style={{
+            marginTop: 14,
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: 8,
+          }}
+        >
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              borderRadius: 999,
+              border: '1px solid #4b5563',
+              padding: '6px 14px',
+              background: '#020617',
+              color: '#e5e7eb',
+              fontSize: 13,
+              cursor: 'pointer',
+            }}
+          >
+            닫기
+          </button>
+          <button
+            type="button"
+            onClick={() => onSave(name.trim() || '새 무기 이름')}
+            style={{
+              borderRadius: 999,
+              border: 'none',
+              padding: '6px 16px',
+              background: '#2563eb',
+              color: '#f9fafb',
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            저장
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+type WeaponStatEditModalProps = {
+  open: boolean;
+  weaponType: WeaponType;
+  stats: WeaponStatConfig[];
+  statKey: WeaponStatKey | null;
+  readOnly: boolean;
+  onClose: () => void;
+  onSave: (nextStat: WeaponStatConfig) => void;
+};
+
+const WeaponStatEditModal: React.FC<WeaponStatEditModalProps> = ({
+  open,
+  weaponType,
+  stats,
+  statKey,
+  readOnly,
+  onClose,
+  onSave,
+}) => {
+  if (!open || !statKey) return null;
+
+  const original =
+    stats.find((s) => s.key === statKey) ||
+    createEmptyWeaponStat(statKey, weaponType, true);
+
+  const [local, setLocal] = React.useState<WeaponStatConfig>(
+    {
+      ...original,
+      levels: normalizeStatLevels(original.levels, weaponType),
+    },
+  );
+
+  React.useEffect(() => {
+    if (!open || !statKey) return;
+    const base =
+      stats.find((s) => s.key === statKey) ||
+      createEmptyWeaponStat(statKey, weaponType, true);
+    setLocal({
+      ...base,
+      levels: normalizeStatLevels(base.levels, weaponType),
+    });
+  }, [open, statKey, stats, weaponType]);
+
+  const levels = getWeaponLevelLabels(weaponType);
+
+  const handleLevelChange = (idx: number, value: string) => {
+    setLocal((prev) => ({
+      ...prev,
+      levels: prev.levels.map((lv, i) =>
+        i === idx ? { ...lv, value } : lv,
+      ),
+    }));
+  };
+
+  const handleSave = () => {
+    onSave({
+      ...local,
+      levels: normalizeStatLevels(local.levels, weaponType),
+    });
+  };
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,.55)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 2000,
+      }}
+      onMouseDown={onClose}
+    >
+      <div
+        onMouseDown={(e) => e.stopPropagation()}
+        style={{
+          width: 520,
+          maxWidth: '95%',
+          maxHeight: '90vh',
+          overflow: 'auto',
+          borderRadius: 14,
+          background: '#020617',
+          padding: '18px 20px 16px',
+          boxShadow: '0 18px 40px rgba(0,0,0,.55)',
+          color: '#e5e7eb',
+        }}
+      >
+        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>
+          무기 정보 편집
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '2fr 2fr 1fr',
+            gap: 8,
+            marginBottom: 10,
+            fontSize: 12,
+            color: '#9ca3af',
+          }}
+        >
+          <span>표시 이름</span>
+          <span>요약 값</span>
+          <span>단위</span>
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '2fr 2fr 1fr',
+            gap: 8,
+            marginBottom: 14,
+          }}
+        >
+          <input
+            value={local.label}
+            readOnly={readOnly}
+            onChange={(e) =>
+              setLocal((p) => ({ ...p, label: e.target.value }))
+            }
+            style={{
+              borderRadius: 8,
+              border: '1px solid #4b5563',
+              background: readOnly ? '#020617' : '#020617',
+              padding: '7px 8px',
+              color: '#e5e7eb',
+              fontSize: 14,
+              outline: 'none',
+            }}
+          />
+          <input
+            value={local.summary}
+            readOnly={readOnly}
+            onChange={(e) =>
+              setLocal((p) => ({ ...p, summary: e.target.value }))
+            }
+            style={{
+              borderRadius: 8,
+              border: '1px solid #4b5563',
+              background: readOnly ? '#020617' : '#020617',
+              padding: '7px 8px',
+              color: '#e5e7eb',
+              fontSize: 14,
+              outline: 'none',
+            }}
+          />
+          <input
+            value={local.unit ?? ''}
+            readOnly={readOnly}
+            onChange={(e) =>
+              setLocal((p) => ({ ...p, unit: e.target.value }))
+            }
+            style={{
+              borderRadius: 8,
+              border: '1px solid #4b5563',
+              background: readOnly ? '#020617' : '#020617',
+              padding: '7px 8px',
+              color: '#e5e7eb',
+              fontSize: 14,
+              outline: 'none',
+            }}
+          />
+        </div>
+
+        <div
+          style={{
+            fontSize: 13,
+            fontWeight: 600,
+            marginBottom: 8,
+          }}
+        >
+          강화별 상세 값
+        </div>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 3fr',
+            gap: 6,
+          }}
+        >
+          {levels.map((label, idx) => (
+            <React.Fragment key={label}>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: '#9ca3af',
+                  paddingTop: 4,
+                }}
+              >
+                {label}
+              </div>
+              <input
+                value={local.levels[idx]?.value ?? ''}
+                readOnly={readOnly}
+                onChange={(e) => handleLevelChange(idx, e.target.value)}
+                style={{
+                  borderRadius: 8,
+                  border: '1px solid #4b5563',
+                  background: readOnly ? '#020617' : '#020617',
+                  padding: '6px 8px',
+                  color: '#e5e7eb',
+                  fontSize: 13,
+                  outline: 'none',
+                }}
+              />
+            </React.Fragment>
+          ))}
+        </div>
+
+        <div
+          style={{
+            marginTop: 16,
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: 8,
+          }}
+        >
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              borderRadius: 999,
+              border: '1px solid #4b5563',
+              padding: '6px 14px',
+              background: '#020617',
+              color: '#e5e7eb',
+              fontSize: 13,
+              cursor: 'pointer',
+            }}
+          >
+            닫기
+          </button>
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={handleSave}
+              style={{
+                borderRadius: 999,
+                border: 'none',
+                padding: '6px 16px',
+                background: '#2563eb',
+                color: '#f9fafb',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              저장
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+type WeaponStatSelectModalProps = {
+  open: boolean;
+  weaponType: WeaponType;
+  stats: WeaponStatConfig[];
+  onClose: () => void;
+  onSave: (nextStats: WeaponStatConfig[]) => void;
+};
+
+const WeaponStatSelectModal: React.FC<WeaponStatSelectModalProps> = ({
+  open,
+  weaponType,
+  stats,
+  onClose,
+  onSave,
+}) => {
+  if (!open) return null;
+
+  const base = ensureWeaponStats(stats, weaponType);
+  const [local, setLocal] = React.useState<WeaponStatConfig[]>(base);
+
+  React.useEffect(() => {
+    if (open) setLocal(ensureWeaponStats(stats, weaponType));
+  }, [open, stats, weaponType]);
+
+  const toggle = (key: WeaponStatKey) => {
+    setLocal((prev) =>
+      prev.map((s) =>
+        s.key === key ? { ...s, enabled: !s.enabled } : s,
+      ),
+    );
+  };
+
+  const handleSave = () => {
+    onSave(local);
+  };
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,.55)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 2000,
+      }}
+      onMouseDown={onClose}
+    >
+      <div
+        onMouseDown={(e) => e.stopPropagation()}
+        style={{
+          width: 380,
+          maxWidth: '90%',
+          borderRadius: 14,
+          background: '#020617',
+          padding: '16px 18px 14px',
+          boxShadow: '0 18px 40px rgba(0,0,0,.55)',
+          color: '#e5e7eb',
+        }}
+      >
+        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>
+          표시할 정보 선택
+        </div>
+        <div
+          style={{
+            fontSize: 12,
+            color: '#9ca3af',
+            marginBottom: 10,
+          }}
+        >
+          데미지 / 쿨타임 / 타수 / 범위 / 지속시간 / 회복량 중에서
+          카드에 표시할 항목을 선택합니다.
+        </div>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 4,
+            marginBottom: 12,
+          }}
+        >
+          {local.map((s) => (
+            <label
+              key={s.key}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '4px 2px',
+                fontSize: 13,
+                cursor: 'pointer',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={s.enabled}
+                onChange={() => toggle(s.key)}
+              />
+              <span>{WEAPON_STAT_PRESET[s.key].label}</span>
+            </label>
+          ))}
+        </div>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: 8,
+          }}
+        >
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              borderRadius: 999,
+              border: '1px solid #4b5563',
+              padding: '5px 14px',
+              background: '#020617',
+              color: '#e5e7eb',
+              fontSize: 13,
+              cursor: 'pointer',
+            }}
+          >
+            닫기
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            style={{
+              borderRadius: 999,
+              border: 'none',
+              padding: '5px 16px',
+              background: '#2563eb',
+              color: '#f9fafb',
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            저장
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+type WeaponVideoModalProps = {
+  open: boolean;
+  url: string;
+  onClose: () => void;
+};
+
+const WeaponVideoModal: React.FC<WeaponVideoModalProps> = ({
+  open,
+  url,
+  onClose,
+}) => {
+  if (!open) return null;
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,.75)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 2100,
+      }}
+      onMouseDown={onClose}
+    >
+      <div
+        onMouseDown={(e) => e.stopPropagation()}
+        style={{
+          width: 'min(960px, 90vw)',
+          height: 'min(540px, 60vh)',
+          background: '#020617',
+          borderRadius: 14,
+          boxShadow: '0 20px 50px rgba(0,0,0,.75)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            padding: '8px 12px',
+            borderBottom: '1px solid #111827',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            color: '#e5e7eb',
+            fontSize: 14,
+          }}
+        >
+          <span>공격 영상</span>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              borderRadius: 999,
+              border: '1px solid #4b5563',
+              padding: '3px 10px',
+              background: '#020617',
+              color: '#e5e7eb',
+              fontSize: 12,
+              cursor: 'pointer',
+            }}
+          >
+            닫기
+          </button>
+        </div>
+        <div
+          style={{
+            flex: 1,
+            background: '#000',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <video
+            src={url}
+            controls
+            controlsList="nodownload"
+            playsInline
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              background: '#000',
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
