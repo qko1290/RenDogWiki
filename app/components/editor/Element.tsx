@@ -1687,383 +1687,376 @@ const Element: React.FC<ElementProps> = ({
         // -------------------- Weapon Card (무기 정보 박스) --------------------
     case 'weapon-card': {
       const el = element as WeaponCardElement;
-      const path = ReactEditor.findPath(editor, element);
       const isReadOnly = ReactEditor.isReadOnly(editor);
 
-      const weaponType: WeaponType = el.weaponType || 'epic';
-      const meta = WEAPON_TYPES_META[weaponType];
-      const stats = ensureWeaponStats(el.stats, weaponType);
-      const visibleStats = stats.filter((s) => s.enabled);
+      // 우클릭 삭제 메뉴용 상태
+      const [menuOpen, setMenuOpen] = React.useState(false);
+      const [menuPos, setMenuPos] = React.useState<{ x: number; y: number }>({
+        x: 0,
+        y: 0,
+      });
+      const pathRef = React.useRef<Path | null>(null);
+      pathRef.current = ReactEditor.findPath(editor, element);
 
-      const [typeModalOpen, setTypeModalOpen] = React.useState(false);
-      const [nameModalOpen, setNameModalOpen] = React.useState(false);
-      const [imageModalOpen, setImageModalOpen] = React.useState(false);
-      const [videoSelectOpen, setVideoSelectOpen] = React.useState(false);
-      const [videoModalOpen, setVideoModalOpen] = React.useState(false);
-      const [statEditKey, setStatEditKey] = React.useState<WeaponStatKey | null>(null);
-      const [statSelectOpen, setStatSelectOpen] = React.useState(false);
+      // 메뉴 바깥 클릭 / ESC 로 닫기
+      React.useEffect(() => {
+        if (!menuOpen) return;
+        const close = (e: MouseEvent | KeyboardEvent) => {
+          if ((e as KeyboardEvent).key && (e as KeyboardEvent).key !== 'Escape') return;
+          setMenuOpen(false);
+        };
+        const click = () => setMenuOpen(false);
 
-      const updateElement = (patch: Partial<WeaponCardElement>) => {
-        Transforms.setNodes<WeaponCardElement>(
-          editor,
-          patch as Partial<WeaponCardElement>,
-          { at: path },
+        window.addEventListener('keydown', close);
+        window.addEventListener('mousedown', click, true);
+        window.addEventListener('scroll', click, true);
+        return () => {
+          window.removeEventListener('keydown', close);
+          window.removeEventListener('mousedown', click, true);
+          window.removeEventListener('scroll', click, true);
+        };
+      }, [menuOpen]);
+
+      const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (isReadOnly) return; // 문서 보기 모드에서는 삭제 메뉴 없음
+        e.preventDefault();
+        e.stopPropagation();
+        setMenuPos({ x: e.clientX, y: e.clientY });
+        setMenuOpen(true);
+      };
+
+      const handleDeleteCard = () => {
+        const path = pathRef.current;
+        if (!path) return;
+        Transforms.removeNodes(editor, { at: path });
+        setMenuOpen(false);
+      };
+
+      // 이 card 안에서 이미 쓰고 있는 "정보 설정" 핸들러가 있다면 여기에 연결
+      // (예: openWeaponInfoModal(el) 같은 함수)
+      const handleOpenInfo = () => {
+        // TODO: 여기서 기존 정보 설정 모달 여는 로직 호출
+        // 예) window.dispatchEvent(new CustomEvent('weapon:open-info', { detail: { id: el.id } }))
+      };
+
+      // attack / video 버튼 레이아웃 설명:
+      // - "공격 영상 보기" 버튼은 항상 렌더되지만
+      //   readOnly일 때는 width 100%, 중앙 정렬
+      // - "영상 설정" 버튼은 에디터 모드일 때만 노출
+      const renderBottomButtons = () => {
+        return (
+          <div
+            style={{
+              display: 'flex',
+              gap: 8,
+              marginTop: 12,
+              justifyContent: isReadOnly ? 'center' : 'space-between',
+            }}
+          >
+            <button
+              type="button"
+              style={{
+                flex: isReadOnly ? 1 : 1.2,
+                padding: '8px 12px',
+                borderRadius: 999,
+                border: 'none',
+                background: '#2563eb',
+                color: '#f9fafb',
+                fontWeight: 700,
+                fontSize: 14,
+                cursor: 'pointer',
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                // TODO: 공격 영상 보기 모달 / 재생 로직
+                // (el.videoUrl 을 사용하거나, 따로 선택된 미디어 id 사용)
+              }}
+            >
+              공격 영상 보기
+            </button>
+
+            {!isReadOnly && (
+              <button
+                type="button"
+                style={{
+                  flex: 0,
+                  padding: '8px 12px',
+                  borderRadius: 999,
+                  border: '1px solid #4b5563',
+                  background: '#020617',
+                  color: '#e5e7eb',
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  // TODO: 영상 설정 모달 열기 (영상 선택 / URL 입력 등)
+                }}
+              >
+                영상 설정
+              </button>
+            )}
+          </div>
         );
       };
 
-      const handleWeaponTypeChange = (next: WeaponType) => {
-        if (next === weaponType) return;
-        const nextStats = normalizeStatsForWeaponType(stats, next);
-        updateElement({
-          weaponType: next,
-          stats: nextStats,
-        });
-      };
-
-      const handleSaveStat = (updated: WeaponStatConfig) => {
-        const nextStats = stats.map((s) =>
-          s.key === updated.key ? updated : s,
-        );
-        updateElement({ stats: nextStats });
-      };
-
-      const handleSaveStatsSelection = (nextStats: WeaponStatConfig[]) => {
-        updateElement({
-          stats: normalizeStatsForWeaponType(nextStats, weaponType),
-        });
-      };
-
-      const handleImageSelected = (url: string) => {
-        updateElement({ imageUrl: url });
-        setImageModalOpen(false);
-      };
-
-      const handleVideoSelected = (url: string) => {
-        updateElement({ videoUrl: url });
-        setVideoSelectOpen(false);
-      };
-
-      const cardWidth = 260;
-
-      const videoSrc =
-        el.videoUrl && el.videoUrl.startsWith('http')
-          ? toProxyUrl(el.videoUrl)
-          : el.videoUrl || '';
-
-      const imageSrc =
-        el.imageUrl && el.imageUrl.startsWith('http')
-          ? toProxyUrl(el.imageUrl)
-          : el.imageUrl || '';
+      // 활성화된 스탯만 표시
+      const activeStats = (el.stats ?? []).filter((s) => s.enabled);
 
       return (
         <div {...attributes}>
-          <div contentEditable={false} style={{ margin: '14px 0' }}>
+          {/* 우클릭 컨텍스트 메뉴 (에디터 전용) */}
+          {!isReadOnly && menuOpen && (
             <div
+              contentEditable={false}
               style={{
-                width: cardWidth,
-                borderRadius: 18,
-                overflow: 'hidden',
+                position: 'fixed',
+                top: menuPos.y,
+                left: menuPos.x,
+                transform: 'translateY(-6px)',
                 background: '#020617',
-                border: `1.5px solid ${meta.border}`,
-                boxShadow: '0 18px 45px rgba(0,0,0,.45)',
-                fontFamily: 'inherit',
+                borderRadius: 8,
+                border: '1px solid #1f2937',
+                boxShadow: '0 8px 24px rgba(0,0,0,.45)',
+                padding: 4,
+                zIndex: 99999,
+                minWidth: 120,
               }}
             >
-              {/* 상단 타입 바 */}
               <button
                 type="button"
-                onClick={() => !isReadOnly && setTypeModalOpen(true)}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={handleDeleteCard}
                 style={{
                   width: '100%',
+                  padding: '6px 10px',
+                  borderRadius: 6,
                   border: 'none',
-                  outline: 'none',
-                  background: meta.headerBg,
-                  color: '#f9fafb',
-                  padding: '8px 0',
+                  background: 'transparent',
+                  color: '#f97373',
+                  textAlign: 'left',
                   fontSize: 13,
-                  fontWeight: 700,
-                  letterSpacing: 1.5,
-                  textAlign: 'center',
-                  cursor: isReadOnly ? 'default' : 'pointer',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#111827';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
                 }}
               >
-                {meta.label}
+                무기 박스 삭제
               </button>
+            </div>
+          )}
 
-              {/* 무기 이름 */}
+          {/* 카드 래퍼: 중앙 정렬 */}
+          <div
+            contentEditable={false}
+            onContextMenu={handleContextMenu}
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              margin: '18px 0',
+            }}
+          >
+            <div style={{ position: 'relative', width: 260, maxWidth: '100%' }}>
+              {/* 정보 설정 버튼: 카드 바깥 우상단, 에디터에서만 노출 */}
+              {!isReadOnly && (
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={handleOpenInfo}
+                  style={{
+                    position: 'absolute',
+                    top: -16,
+                    right: -4,
+                    padding: '4px 10px',
+                    borderRadius: 999,
+                    border: '1px solid rgba(148,163,184,.9)',
+                    background: '#020617',
+                    color: '#e5e7eb',
+                    fontSize: 11,
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(15,23,42,.6)',
+                    zIndex: 2,
+                  }}
+                >
+                  정보 설정
+                </button>
+              )}
+
+              {/* 실제 카드 박스 시작 */}
               <div
-                onClick={() => !isReadOnly && setNameModalOpen(true)}
                 style={{
-                  padding: '10px 14px',
+                  borderRadius: 18,
+                  overflow: 'hidden',
+                  boxShadow: '0 8px 30px rgba(0,0,0,.45)',
                   background: '#020617',
-                  color: '#e5e7eb',
-                  fontSize: 18,
-                  fontWeight: 700,
-                  textAlign: 'center',
-                  borderBottom: '1px solid #111827',
-                  cursor: isReadOnly ? 'default' : 'pointer',
-                  userSelect: 'none',
+                  border: '1px solid #1f2937',
                 }}
               >
-                {el.name || '새 무기 이름'}
-              </div>
+                {/* 상단 레어도 영역 */}
+                <div
+                  style={{
+                    background:
+                      el.weaponType === 'epic'
+                        ? '#7c3aed'
+                        : el.weaponType === 'unique'
+                        ? '#38bdf8'
+                        : el.weaponType === 'legendary'
+                        ? '#f97316'
+                        : el.weaponType === 'divine'
+                        ? '#ecfeff'
+                        : el.weaponType === 'superior'
+                        ? '#22c55e'
+                        : el.weaponType === 'class'
+                        ? '#6366f1'
+                        : el.weaponType === 'hidden'
+                        ? '#64748b'
+                        : el.weaponType === 'limited'
+                        ? '#e11d48'
+                        : '#facc15',
+                    color:
+                      el.weaponType === 'divine' ? '#0f172a' : '#f9fafb',
+                    textAlign: 'center',
+                    fontWeight: 700,
+                    padding: '8px 10px',
+                    fontSize: 13,
+                    letterSpacing: 1.4,
+                  }}
+                >
+                  {el.weaponType?.toUpperCase?.() ?? 'EPIC'}
+                </div>
 
-              {/* 이미지 영역 */}
-              <div
-                onClick={() => !isReadOnly && setImageModalOpen(true)}
-                style={{
-                  background:
-                    'radial-gradient(circle at top, #1f2937 0, #020617 55%)',
-                  height: 140,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: isReadOnly ? 'default' : 'pointer',
-                }}
-              >
-                {imageSrc ? (
-                  <img
-                    src={imageSrc}
-                    alt=""
-                    width={160}
-                    height={96}
-                    loading="lazy"
-                    decoding="async"
-                    draggable={false}
-                    style={{
-                      maxWidth: '80%',
-                      maxHeight: '80%',
-                      objectFit: 'contain',
-                      filter: 'drop-shadow(0 12px 18px rgba(0,0,0,.55))',
-                      display: 'block',
-                    }}
-                  />
-                ) : (
+                {/* 이름 영역 */}
+                <div
+                  style={{
+                    padding: '14px 12px 10px',
+                    borderBottom: '1px solid rgba(15,23,42,.9)',
+                    textAlign: 'center',
+                    cursor: isReadOnly ? 'default' : 'pointer',
+                  }}
+                  onClick={(e) => {
+                    if (isReadOnly) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const next = window.prompt('무기 이름을 입력하세요.', el.name ?? '');
+                    if (next == null) return;
+                    const path = pathRef.current;
+                    if (!path) return;
+                    Transforms.setNodes<WeaponCardElement>(
+                      editor,
+                      { name: next },
+                      { at: path },
+                    );
+                  }}
+                >
                   <span
                     style={{
-                      color: '#6b7280',
-                      fontSize: 14,
+                      fontSize: 18,
+                      fontWeight: 700,
+                      color: '#f9fafb',
                     }}
                   >
-                    이미지 없음
+                    {el.name || '새 무기 이름'}
                   </span>
-                )}
-              </div>
+                </div>
 
-              {/* 상세 정보 + 설정 버튼 (에디터에서만) */}
-              <div
-                style={{
-                  position: 'relative',
-                  padding: '8px 10px 4px',
-                }}
-              >
-                {!isReadOnly && (
-                  <button
-                    type="button"
-                    onClick={() => setStatSelectOpen(true)}
-                    style={{
-                      position: 'absolute',
-                      right: 8,
-                      top: 6,
-                      fontSize: 11,
-                      borderRadius: 999,
-                      padding: '2px 8px',
-                      border: '1px solid #4b5563',
-                      background: '#020617',
-                      color: '#9ca3af',
-                      cursor: 'pointer',
-                    }}
-                    title="표시할 정보 선택"
-                  >
-                    정보 설정
-                  </button>
-                )}
-              </div>
-
-              {/* 정보 리스트 */}
-              <div
-                style={{
-                  padding: '0 10px 8px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 6,
-                }}
-              >
-                {visibleStats.length === 0 && (
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: '#6b7280',
-                      padding: '6px 8px',
-                      borderRadius: 10,
-                      background: 'rgba(15,23,42,.75)',
-                    }}
-                  >
-                    표시할 정보가 없습니다. (정보 설정 버튼으로 추가)
-                  </div>
-                )}
-
-                {visibleStats.map((stat) => (
-                  <button
-                    key={stat.key}
-                    type="button"
-                    onClick={() => setStatEditKey(stat.key)}
-                    style={{
-                      borderRadius: 10,
-                      padding: '6px 8px',
-                      border: '1px solid #111827',
-                      background:
-                        'linear-gradient(90deg, rgba(15,23,42,.95), rgba(15,23,42,.85))',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      cursor: 'pointer',
-                    }}
-                    title="클릭해서 강화별 상세 정보 보기/편집"
-                  >
-                    <span
+                {/* 이미지 영역 */}
+                <div
+                  style={{
+                    padding: '18px 12px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minHeight: 120,
+                    background:
+                      'radial-gradient(circle at 20% 0%, #1e293b, #020617)',
+                    cursor: isReadOnly ? 'default' : 'pointer',
+                  }}
+                  onClick={(e) => {
+                    if (isReadOnly) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // TODO: 이미지 선택 모달 열기 (이미지 업로드 시스템 연동)
+                  }}
+                >
+                  {el.imageUrl ? (
+                    <img
+                      src={el.imageUrl}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      draggable={false}
                       style={{
-                        fontSize: 12,
-                        color: '#9ca3af',
-                        fontWeight: 500,
+                        maxWidth: 120,
+                        maxHeight: 120,
+                        imageRendering: 'pixelated',
                       }}
-                    >
-                      {stat.label}
-                    </span>
+                    />
+                  ) : (
                     <span
                       style={{
                         fontSize: 13,
-                        color: '#e5e7eb',
-                        fontWeight: 600,
+                        color: '#6b7280',
                       }}
                     >
-                      {stat.summary || '-'}
-                      {stat.unit ? ` ${stat.unit}` : ''}
+                      이미지 없음
                     </span>
-                  </button>
-                ))}
-              </div>
+                  )}
+                </div>
 
-              {/* 하단 영상 버튼 */}
-              <div
-                style={{
-                  padding: '8px 10px 10px',
-                  display: 'flex',
-                  gap: 8,
-                }}
-              >
-                <button
-                  type="button"
-                  disabled={!el.videoUrl}
-                  onClick={() => el.videoUrl && setVideoModalOpen(true)}
+                {/* 스탯 영역 */}
+                <div
                   style={{
-                    flex: 1,
-                    padding: '8px 10px',
-                    borderRadius: 999,
-                    border: 'none',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    background: el.videoUrl
-                      ? 'linear-gradient(90deg,#1d4ed8,#3b82f6)'
-                      : '#111827',
-                    color: el.videoUrl ? '#f9fafb' : '#6b7280',
-                    cursor: el.videoUrl ? 'pointer' : 'default',
+                    padding: '10px 10px 12px',
+                    background: '#020617',
                   }}
                 >
-                  공격 영상 보기
-                </button>
-                {!isReadOnly && (
-                  <button
-                    type="button"
-                    onClick={() => setVideoSelectOpen(true)}
-                    style={{
-                      padding: '8px 10px',
-                      borderRadius: 999,
-                      border: '1px solid #334155',
-                      background: '#020617',
-                      color: '#e5e7eb',
-                      fontSize: 12,
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    영상 설정
-                  </button>
-                )}
+                  {activeStats.map((s) => (
+                    <div
+                      key={s.key}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '6px 10px',
+                        borderRadius: 10,
+                        background: '#020617',
+                        border: '1px solid #111827',
+                        color: '#e5e7eb',
+                        fontSize: 13,
+                        marginBottom: 6,
+                      }}
+                      onClick={(e) => {
+                        if (isReadOnly) return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        // TODO: 해당 스탯 상세 설정 모달 열기
+                      }}
+                    >
+                      <span>{s.label}</span>
+                      <span style={{ opacity: s.summary ? 1 : 0.5 }}>
+                        {s.summary || '-'}
+                        {s.unit ? (
+                          <span style={{ marginLeft: 4 }}>{s.unit}</span>
+                        ) : null}
+                      </span>
+                    </div>
+                  ))}
+
+                  {/* 하단 버튼들 */}
+                  {renderBottomButtons()}
+                </div>
               </div>
             </div>
           </div>
 
           {children}
-
-          {/* 유형 선택 모달 */}
-          <WeaponTypeSelectModal
-            open={typeModalOpen && !isReadOnly}
-            currentType={weaponType}
-            onClose={() => setTypeModalOpen(false)}
-            onSelect={(t) => {
-              handleWeaponTypeChange(t);
-              setTypeModalOpen(false);
-            }}
-          />
-
-          {/* 이름 수정 모달 */}
-          <WeaponNameEditModal
-            open={nameModalOpen && !isReadOnly}
-            initialName={el.name}
-            onClose={() => setNameModalOpen(false)}
-            onSave={(name) => {
-              updateElement({ name });
-              setNameModalOpen(false);
-            }}
-          />
-
-          {/* 이미지 선택 모달 */}
-          <ImageSelectModal
-            open={imageModalOpen && !isReadOnly}
-            onClose={() => setImageModalOpen(false)}
-            onSelectImage={handleImageSelected}
-          />
-
-          {/* 영상 선택 모달 (업로드 목록에서 선택) */}
-          <ImageSelectModal
-            open={videoSelectOpen && !isReadOnly}
-            onClose={() => setVideoSelectOpen(false)}
-            onSelectImage={handleVideoSelected}
-          />
-
-          {/* 개별 스탯 편집 모달 (강화 단계별 값) */}
-          <WeaponStatEditModal
-            open={!!statEditKey}
-            weaponType={weaponType}
-            stats={stats}
-            statKey={statEditKey}
-            readOnly={isReadOnly}
-            onClose={() => setStatEditKey(null)}
-            onSave={(updated) => {
-              handleSaveStat(updated);
-              setStatEditKey(null);
-            }}
-          />
-
-          {/* 어떤 정보들을 쓸지 온/오프 설정 */}
-          <WeaponStatSelectModal
-            open={statSelectOpen && !isReadOnly}
-            weaponType={weaponType}
-            stats={stats}
-            onClose={() => setStatSelectOpen(false)}
-            onSave={(nextStats) => {
-              handleSaveStatsSelection(nextStats);
-              setStatSelectOpen(false);
-            }}
-          />
-
-          {/* 공격 영상 보기 모달 (뷰어/에디터 공용) */}
-          <WeaponVideoModal
-            open={videoModalOpen && !!videoSrc}
-            url={videoSrc}
-            onClose={() => setVideoModalOpen(false)}
-          />
         </div>
       );
     }
