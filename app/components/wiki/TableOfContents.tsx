@@ -28,7 +28,7 @@ export default function TableOfContents({
   headerOffset = 72,
   right = 20,
   top = 100,
-  width = 240,
+  width = 190,
   title = '목차',
   scrollRootSelector,
 }: Props) {
@@ -117,12 +117,15 @@ export default function TableOfContents({
   };
 
   // 컨테이너 기준 스무스 스크롤
-  const scrollToId = (id: string, occ: number) => {
+  const scrollToId = (
+    id: string,
+    occ: number,
+    behavior: ScrollBehavior = 'smooth'
+  ) => {
     const target = getTarget(id, occ);
     if (!target) return;
 
     const root = getScrollRoot(target);
-    const behavior: ScrollBehavior = 'smooth';
 
     if (!root) {
       // window 스크롤
@@ -139,12 +142,10 @@ export default function TableOfContents({
       root.scrollTo({ top: y, behavior });
     }
 
-    // ✅ URL 해시는 항상 현재 path + search 를 유지한 채로 변경
+    // 🔁 URL 해시는 간단하게 '#id'만 갱신 (path/query는 그대로 유지)
     try {
-      const { pathname, search } = window.location;
       const hashId = target.id || id;
-      const nextUrl = `${pathname}${search}#${hashId}`;
-      history.replaceState(null, '', nextUrl);
+      history.replaceState(null, '', `#${hashId}`);
     } catch {
       // ignore
     }
@@ -212,7 +213,9 @@ export default function TableOfContents({
     if (!hash) return;
 
     const raf = requestAnimationFrame(() => {
-      scrollToId(hash, 0);
+      // ✅ 초기 진입 시에는 애니메이션 없이 바로 점프
+      //    (맨 위에서부터 길게 스크롤되는 느낌 방지)
+      scrollToId(hash, 0, 'auto');
     });
     return () => cancelAnimationFrame(raf);
   }, [headings, rootKey]);
