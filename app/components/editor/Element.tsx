@@ -1685,6 +1685,7 @@ const Element: React.FC<ElementProps> = ({
     }
 
         // -------------------- Weapon Card (무기 정보 박스) --------------------
+        // -------------------- Weapon Card (무기 정보 박스) --------------------
     case 'weapon-card': {
       const el = element as WeaponCardElement;
       const path = ReactEditor.findPath(editor, element);
@@ -1755,9 +1756,23 @@ const Element: React.FC<ElementProps> = ({
           ? toProxyUrl(el.imageUrl)
           : el.imageUrl || '';
 
+      // 에디터 모드에서만 보이는 설정 버튼들
+      const showConfigButtons = !isReadOnly;
+
       return (
         <div {...attributes}>
-          <div contentEditable={false} style={{ margin: '14px 0' }}>
+          {/* ✅ 무기 카드 + 정보 설정 버튼을 중앙 정렬 */}
+          <div
+            contentEditable={false}
+            style={{
+              margin: '14px 0',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'flex-start',
+              gap: 10,
+            }}
+          >
+            {/* 카드 본체 */}
             <div
               style={{
                 width: cardWidth,
@@ -1850,40 +1865,10 @@ const Element: React.FC<ElementProps> = ({
                 )}
               </div>
 
-              {/* 상세 정보 + 설정 버튼 (에디터에서만) */}
-              <div
-                style={{
-                  position: 'relative',
-                  padding: '8px 10px 4px',
-                }}
-              >
-                {!isReadOnly && (
-                  <button
-                    type="button"
-                    onClick={() => setStatSelectOpen(true)}
-                    style={{
-                      position: 'absolute',
-                      right: 8,
-                      top: 6,
-                      fontSize: 11,
-                      borderRadius: 999,
-                      padding: '2px 8px',
-                      border: '1px solid #4b5563',
-                      background: '#020617',
-                      color: '#9ca3af',
-                      cursor: 'pointer',
-                    }}
-                    title="표시할 정보 선택"
-                  >
-                    정보 설정
-                  </button>
-                )}
-              </div>
-
               {/* 정보 리스트 */}
               <div
                 style={{
-                  padding: '0 10px 8px',
+                  padding: '8px 10px 8px',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 6,
@@ -1949,30 +1934,36 @@ const Element: React.FC<ElementProps> = ({
                 style={{
                   padding: '8px 10px 10px',
                   display: 'flex',
-                  gap: 8,
+                  gap: showConfigButtons ? 8 : 0,
+                  justifyContent: showConfigButtons ? 'stretch' : 'center',
                 }}
               >
+                {/* ✅ 문서 로드(readOnly)에서는 가운데 정렬 + 단일 버튼 */}
                 <button
                   type="button"
-                  disabled={!el.videoUrl}
-                  onClick={() => el.videoUrl && setVideoModalOpen(true)}
+                  disabled={!videoSrc}
+                  onClick={() => videoSrc && setVideoModalOpen(true)}
                   style={{
-                    flex: 1,
                     padding: '8px 10px',
                     borderRadius: 999,
                     border: 'none',
                     fontSize: 13,
                     fontWeight: 600,
-                    background: el.videoUrl
+                    background: videoSrc
                       ? 'linear-gradient(90deg,#1d4ed8,#3b82f6)'
                       : '#111827',
-                    color: el.videoUrl ? '#f9fafb' : '#6b7280',
-                    cursor: el.videoUrl ? 'pointer' : 'default',
+                    color: videoSrc ? '#f9fafb' : '#6b7280',
+                    cursor: videoSrc ? 'pointer' : 'default',
+                    flex: showConfigButtons ? 1 : undefined,
+                    minWidth: showConfigButtons ? undefined : 160,
+                    textAlign: 'center',
                   }}
                 >
                   공격 영상 보기
                 </button>
-                {!isReadOnly && (
+
+                {/* 영상 설정 버튼은 에디터에서만 표시 */}
+                {showConfigButtons && (
                   <button
                     type="button"
                     onClick={() => setVideoSelectOpen(true)}
@@ -1992,11 +1983,35 @@ const Element: React.FC<ElementProps> = ({
                 )}
               </div>
             </div>
+
+            {/* ✅ 정보 설정 버튼: 카드 “밖”에 배치 (에디터에서만) */}
+            {showConfigButtons && (
+              <button
+                type="button"
+                onClick={() => setStatSelectOpen(true)}
+                style={{
+                  alignSelf: 'flex-start',
+                  marginTop: 8,
+                  fontSize: 11,
+                  borderRadius: 999,
+                  padding: '4px 10px',
+                  border: '1px solid #4b5563',
+                  background: '#020617',
+                  color: '#9ca3af',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+                title="표시할 정보 선택"
+              >
+                정보 설정
+              </button>
+            )}
           </div>
 
           {children}
 
-          {/* 유형 선택 모달 */}
+          {/* 이하 모달 구성은 그대로 유지 */}
+
           <WeaponTypeSelectModal
             open={typeModalOpen && !isReadOnly}
             currentType={weaponType}
@@ -2007,7 +2022,6 @@ const Element: React.FC<ElementProps> = ({
             }}
           />
 
-          {/* 이름 수정 모달 */}
           <WeaponNameEditModal
             open={nameModalOpen && !isReadOnly}
             initialName={el.name}
@@ -2018,21 +2032,18 @@ const Element: React.FC<ElementProps> = ({
             }}
           />
 
-          {/* 이미지 선택 모달 */}
           <ImageSelectModal
             open={imageModalOpen && !isReadOnly}
             onClose={() => setImageModalOpen(false)}
             onSelectImage={handleImageSelected}
           />
 
-          {/* 영상 선택 모달 (업로드 목록에서 선택) */}
           <ImageSelectModal
             open={videoSelectOpen && !isReadOnly}
             onClose={() => setVideoSelectOpen(false)}
             onSelectImage={handleVideoSelected}
           />
 
-          {/* 개별 스탯 편집 모달 (강화 단계별 값) */}
           <WeaponStatEditModal
             open={!!statEditKey}
             weaponType={weaponType}
@@ -2046,7 +2057,6 @@ const Element: React.FC<ElementProps> = ({
             }}
           />
 
-          {/* 어떤 정보들을 쓸지 온/오프 설정 */}
           <WeaponStatSelectModal
             open={statSelectOpen && !isReadOnly}
             weaponType={weaponType}
@@ -2058,7 +2068,6 @@ const Element: React.FC<ElementProps> = ({
             }}
           />
 
-          {/* 공격 영상 보기 모달 (뷰어/에디터 공용) */}
           <WeaponVideoModal
             open={videoModalOpen && !!videoSrc}
             url={videoSrc}
