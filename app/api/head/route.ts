@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
     const username =
       authed?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
 
-    // 🔹 NOT NULL 컬럼이니까 여기서 절대 null 안 나오게 보정
+    // 🔹 NOT NULL 컬럼: uploader는 항상 값이 있도록 보정
     const uploader = username ?? 'admin';
 
     // 필수값 존재 여부만 확인(기존 규칙 유지)
@@ -122,7 +122,23 @@ export async function POST(req: NextRequest) {
     // pictures는 어떤 형태가 와도 배열로 정규화
     const pictures = parsePictures(body.pictures);
 
-    const inserted = (await sql`
+    // ✅ 1단계: 같은 마을 + 같은 order 중복 여부 사전 체크
+    const dup = await sql/*sql*/`
+      SELECT 1
+      FROM head_finder
+      WHERE village_id = ${village_id}
+        AND "order"    = ${order}
+      LIMIT 1
+    `;
+    if (Array.isArray(dup) && dup.length > 0) {
+      return NextResponse.json(
+        { error: '같은 마을에 이미 존재하는 머리 번호입니다. 다른 번호(order)로 입력해 주세요.' },
+        { status: 409, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+
+    // ✅ 2단계: 실제 INSERT
+    const inserted = (await sql/*sql*/`
       INSERT INTO head_finder
         (village_id, "order", location_x, location_y, location_z, pictures, uploader)
       VALUES (
@@ -131,7 +147,7 @@ export async function POST(req: NextRequest) {
         ${location_x},
         ${location_y},
         ${location_z},
-        ${pictures},     -- jsonb 컬럼이므로 JS 배열 그대로 넣기
+        ${pictures},   -- jsonb 컬럼: JS 배열 그대로
         ${uploader}
       )
       RETURNING id, village_id, "order", location_x, location_y, location_z, pictures, uploader
@@ -168,8 +184,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(normalized, {
       headers: { 'Cache-Control': 'no-store' },
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error('[head POST] unexpected error:', err);
+
+    // 🔁 혹시 레이스 컨디션으로 유니크 제약에 또 걸리면 여기서도 한 번 더 처리
+    if (
+      err?.code === '23505' &&
+      ((err as any).constraint === 'unique_village_order' ||
+        (err as any).constraint_name === 'unique_village_order')
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            '같은 마을에 이미 존재하는 머리 번호입니다. 다른 번호(order)로 입력해 주세요.',
+        },
+        { status: 409, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+
     return NextResponse.json(
       { error: 'Server error' },
       { status: 500, headers: { 'Cache-Control': 'no-store' } }
