@@ -24,6 +24,7 @@ type HeadRow = {
   location_y: number;
   location_z: number;
   pictures: unknown; // DB에 json/text/array일 수 있음
+  uploader?: string | null;
 };
 
 // 문자열/JSON/배열 입력을 안전한 배열로 정규화
@@ -88,6 +89,7 @@ export async function POST(req: NextRequest) {
     const authed = getAuthUser();
     const username =
       authed?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
+    const uploader = username ?? 'admin';
 
     // 필수값 존재 여부만 확인(기존 규칙 유지) -> 타입은 아래에서 보정
     const required = [

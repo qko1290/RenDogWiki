@@ -22,7 +22,8 @@ type HeadRow = {
   location_x: number;
   location_y: number;
   location_z: number;
-  pictures: unknown; // DB가 json/text/array 모두 될 수 있음
+  pictures: unknown;         // DB가 json/text/array 모두 될 수 있음
+  uploader?: string | null;  // NOT NULL 컬럼이지만 타입상 옵션으로 둠
 };
 
 // 문자열/JSON/배열 입력을 안전한 배열로 정규화
@@ -62,10 +63,16 @@ export async function PATCH(
     const body = await req.json().catch(() => ({} as any));
 
     const me = getAuthUser();
-    const username = me?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
+    const username =
+      me?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
 
     // 현재 행 조회
-    const rows = (await sql`SELECT * FROM head_finder WHERE id = ${id}`) as unknown as HeadRow[];
+    const rows = (await sql`
+      SELECT *
+      FROM head_finder
+      WHERE id = ${id}
+    `) as unknown as HeadRow[];
+
     if (!rows.length) {
       return NextResponse.json(
         { error: 'Not found' },
@@ -85,21 +92,27 @@ export async function PATCH(
       location_y: toNumOr(body?.location_y, cur.location_y),
       location_z: toNumOr(body?.location_z, cur.location_z),
       pictures:
-        body?.pictures === undefined ? curPictures : parsePictures(body?.pictures),
+        body?.pictures === undefined
+          ? curPictures
+          : parsePictures(body?.pictures),
     };
 
     // 변경된 필드만 추출(로그용)
-    const changed: Record<string, { from: number | string[]; to: number | string[] }> = {};
-    (['village_id', 'order', 'location_x', 'location_y', 'location_z'] as const).forEach((k) => {
-      if ((cur as any)[k] !== (merged as any)[k]) {
-        changed[k] = { from: (cur as any)[k], to: (merged as any)[k] };
-      }
-    });
+    const changed: Record<
+      string,
+      { from: number | string[]; to: number | string[] }
+    > = {};
+    (['village_id', 'order', 'location_x', 'location_y', 'location_z'] as const)
+      .forEach((k) => {
+        if ((cur as any)[k] !== (merged as any)[k]) {
+          changed[k] = { from: (cur as any)[k], to: (merged as any)[k] };
+        }
+      });
     if (JSON.stringify(curPictures) !== JSON.stringify(merged.pictures)) {
       changed.pictures = { from: curPictures, to: merged.pictures };
     }
 
-    // 업데이트 수행 -> pictures는 문자열(JSON)로 저장
+    // 업데이트 수행 -> pictures는 jsonb 컬럼이므로 JS 배열 그대로 넣기
     await sql`
       UPDATE head_finder SET
         village_id = ${merged.village_id},
@@ -107,15 +120,17 @@ export async function PATCH(
         location_x = ${merged.location_x},
         location_y = ${merged.location_y},
         location_z = ${merged.location_z},
-        pictures   = ${JSON.stringify(merged.pictures)}
+        pictures   = ${merged.pictures}
       WHERE id = ${id}
     `;
 
     // 갱신된 데이터 재조회 -> pictures는 배열로 반환
     const updatedRows = (await sql`
-      SELECT id, village_id, "order", location_x, location_y, location_z, pictures
-      FROM head_finder WHERE id = ${id}
+      SELECT id, village_id, "order", location_x, location_y, location_z, pictures, uploader
+      FROM head_finder
+      WHERE id = ${id}
     `) as unknown as HeadRow[];
+
     const updated = updatedRows[0];
     (updated as any).pictures = parsePictures(updated.pictures);
 
@@ -156,7 +171,8 @@ export async function DELETE(
     }
 
     const me = getAuthUser();
-    const username = me?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
+    const username =
+      me?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
 
     // 삭제 전 메타 조회(로그용)
     const rows = (await sql`

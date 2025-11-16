@@ -173,6 +173,8 @@ export default function WikiPageInner({ user }: Props) {
   const [selectedHead, setSelectedHead] = useState<HeadRow | null>(null);
   const [headPage, setHeadPage] = useState(0);
 
+  const [headVillageIcon, setHeadVillageIcon] = useState<string | null>(null);
+
   const [faqQuery, setFaqQuery] = useState('');
   const [faqTags, setFaqTags] = useState<string[]>([]);
   const [faqRefreshSignal, setFaqRefreshSignal] = useState(0);
@@ -680,12 +682,14 @@ export default function WikiPageInner({ user }: Props) {
     if (!selectedDocId || !selectedDocTitle) {
       setNpcList([]); setNpcLoading(false); setNpcPage(0);
       setHeadList([]); setHeadLoading(false); setHeadPage(0);
+      setHeadVillageIcon(null); // 🔽 머리 아이콘 초기화
       return;
     }
     const meta = specialMeta;
     if (!meta || meta.kind === 'faq') {
       setNpcList([]); setNpcLoading(false); setNpcPage(0);
       setHeadList([]); setHeadLoading(false); setHeadPage(0);
+      setHeadVillageIcon(null); // 🔽 머리 아이콘 초기화
       return;
     }
 
@@ -699,28 +703,43 @@ export default function WikiPageInner({ user }: Props) {
       }
       return null;
     };
- 
+
     (async () => {
       if (meta.kind === 'head') {
         setHeadLoading(true); setHeadList([]); setHeadPage(0);
         const v = await findVillage([meta.village, selectedDocTitle].filter(Boolean) as string[]);
-        if (!v) { setHeadLoading(false); return; }
+        if (!v) {
+          if (!cancelled) {
+            setHeadLoading(false);
+            setHeadVillageIcon(null);   // 🔽 못 찾으면 null
+          }
+          return;
+        }
+
+        // 🔽 여기서 village 테이블의 head_icon을 상태에 저장
+        if (!cancelled) {
+          setHeadVillageIcon(v.head_icon ?? null);
+        }
+
         const res = await fetch(withTs(`/api/head?village_id=${v.id}`), NC);
         const heads = res.ok ? await res.json() : [];
         if (cancelled) return;
-        setHeadList(Array.isArray(heads) ? (heads as HeadRow[]) : []); setHeadLoading(false);
+        setHeadList(Array.isArray(heads) ? (heads as HeadRow[]) : []);
+        setHeadLoading(false);
         return;
       }
 
       // quest / npc
+      setHeadVillageIcon(null); // 🔽 머리 모드가 아니면 아이콘 초기화
       setNpcLoading(true); setNpcList([]); setNpcPage(0);
       const v = await findVillage([meta.village, selectedDocTitle].filter(Boolean) as string[]);
-      if (!v) { setNpcLoading(false); return; }
+      if (!v) { if (!cancelled) setNpcLoading(false); return; }
       const npcType = meta.kind === 'quest' ? 'quest' : 'normal';
       const res = await fetch(withTs(`/api/npcs?village_id=${v.id}&npc_type=${npcType}`), NC);
       const npcs = res.ok ? await res.json() : [];
       if (cancelled) return;
-      setNpcList(Array.isArray(npcs) ? (npcs as NpcRow[]) : []); setNpcLoading(false);
+      setNpcList(Array.isArray(npcs) ? (npcs as NpcRow[]) : []);
+      setNpcLoading(false);
     })();
 
     return () => { cancelled = true; };
@@ -886,6 +905,7 @@ export default function WikiPageInner({ user }: Props) {
                     heads={headList.slice(headPage * 21, (headPage + 1) * 21)}
                     onClick={setSelectedHead}
                     selectedHeadId={selectedHead?.id || null}
+                    headIcon={headVillageIcon}
                   />
                 ) : (
                   <div>등록된 머리가 없습니다.</div>
