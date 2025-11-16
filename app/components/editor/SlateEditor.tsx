@@ -51,7 +51,6 @@ type PriceTableEditState = {
 
 // 커서 진입 불가 블럭
 const VOID_BLOCK_TYPES = new Set([
-  'link-block',
   'image',
   'divider',
   'price-table-card',
@@ -167,7 +166,10 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
   };
 
   const editor = useMemo(() => {
-    const e = withCustomInline(withHistory(withReact(createEditor())));
+    // ✅ 커스텀 플러그인 묶는 순서: React → History → inline/void → weapon-card 플러그인
+    const e = withWeaponBlocks(
+      withCustomInline(withHistory(withReact(createEditor())))
+    );
 
     const { normalizeNode } = e;
     e.normalizeNode = ([node, path]) => {
@@ -177,12 +179,13 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
         if (node.children.length > 1) {
           const merged = { ...node, children: [{ text }] };
           Transforms.removeNodes(e, { at: path });
-          Transforms.insertNodes(e, merged, { at: path });
+          Transforms.insertNodes(e, merged as any, { at: path });
           return;
         }
       }
       normalizeNode([node, path]);
     };
+
     return e;
   }, []);
 

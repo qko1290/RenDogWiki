@@ -132,8 +132,16 @@ function getInfoboxPreset(
 }
 
 // ── 링크 블록 (읽기 전용) : Element.tsx와 동일 동작 ──────────────
-function LinkBlockView({ node, keyProp }: { node: any; keyProp: React.Key }) {
-  // 외부 링크: sitename 추론 (파비콘은 네트워크 호출 제거)
+function LinkBlockView({
+  node,
+  keyProp,
+  children,
+}: {
+  node: any;
+  keyProp: React.Key;
+  children?: React.ReactNode;
+}) {
+  // 외부 링크: sitename 추론
   let displaySitename: string | undefined = node.sitename;
 
   if (!node.isWiki && !displaySitename) {
@@ -143,53 +151,83 @@ function LinkBlockView({ node, keyProp }: { node: any; keyProp: React.Key }) {
     } catch {}
   }
 
-  // 내부 문서 링크: 아이콘 로딩
+  // 내부 문서 아이콘
   const [wikiIcon, setWikiIcon] = useState<string | null>(
     node.isWiki ? node.docIcon ?? null : null
   );
 
-  useEffect(() => {
-    if (!node.isWiki || wikiIcon) return;
-    const key = String(node.wikiPath ?? node.url ?? node.wikiTitle ?? "");
-    if (!key) return;
+  // 🔹 외부 링크 파비콘
+  const [externalFavicon, setExternalFavicon] = useState<string | null>(
+    !node.isWiki && node.favicon ? node.favicon : null
+  );
 
-    if (wikiDocIconCache.has(key)) {
-      setWikiIcon(wikiDocIconCache.get(key)!);
+  useEffect(() => {
+    // 내부 문서 아이콘 로딩
+    if (node.isWiki) {
+      if (wikiIcon) return;
+      const key = String(node.wikiPath ?? node.url ?? node.wikiTitle ?? "");
+      if (!key) return;
+
+      if (wikiDocIconCache.has(key)) {
+        setWikiIcon(wikiDocIconCache.get(key)!);
+        return;
+      }
+
+      let cancelled = false;
+      (async () => {
+        try {
+          if (!wikiDocsAll) {
+            const res = await fetch("/api/documents?all=1", {
+              cache: "force-cache",
+            });
+            const data = await res.json();
+            setWikiDocsAll(Array.isArray(data) ? data : []);
+          }
+          const docs = wikiDocsAll || [];
+          const match = docs.find(
+            (d: any) =>
+              (node.wikiPath && String(d.path) === String(node.wikiPath)) ||
+              (node.wikiTitle && d.title === node.wikiTitle)
+          );
+          const icon = (match?.icon ?? "").trim();
+          if (!cancelled) {
+            if (icon) {
+              setWikiIcon(icon);
+              wikiDocIconCache.set(key, icon);
+            } else {
+              setWikiIcon(null);
+            }
+          }
+        } catch {
+          if (!cancelled) setWikiIcon(null);
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [node.isWiki, node.wikiPath, node.wikiTitle, node.url, wikiIcon]);
+
+  // 🔹 외부 링크 파비콘 추론 (favicon 필드 없으면 도메인/favicon.ico)
+  useEffect(() => {
+    if (node.isWiki) return; // 내부 문서는 위 useEffect에서 처리
+    if (externalFavicon) return;
+
+    if (node.favicon) {
+      setExternalFavicon(node.favicon);
       return;
     }
 
-    let cancelled = false;
-    (async () => {
-      try {
-        if (!wikiDocsAll) {
-          const res = await fetch("/api/documents?all=1", { cache: "force-cache" });
-          const data = await res.json();
-          setWikiDocsAll(Array.isArray(data) ? data : []);
-        }
-        const docs = wikiDocsAll || [];
-        const match = docs.find(
-          (d: any) =>
-            (node.wikiPath && String(d.path) === String(node.wikiPath)) ||
-            (node.wikiTitle && d.title === node.wikiTitle)
-        );
-        const icon = (match?.icon ?? "").trim();
-        if (!cancelled) {
-          if (icon) {
-            setWikiIcon(icon);
-            wikiDocIconCache.set(key, icon);
-          } else {
-            setWikiIcon(null);
-          }
-        }
-      } catch {
-        if (!cancelled) setWikiIcon(null);
-      }
-    })();
+    if (!node.url) return;
 
-    return () => {
-      cancelled = true;
-    };
-  }, [node.isWiki, node.wikiPath, node.wikiTitle, node.url, wikiIcon]);
+    try {
+      const u = new URL(node.url);
+      setExternalFavicon(`${u.origin}/favicon.ico`);
+    } catch {
+      // URL 파싱 실패 시 그냥 아이콘만 사용
+    }
+  }, [node.isWiki, node.url, node.favicon, externalFavicon]);
 
   const isSmall = node.size === "small";
   const flexStyle: React.CSSProperties = isSmall
@@ -197,7 +235,9 @@ function LinkBlockView({ node, keyProp }: { node: any; keyProp: React.Key }) {
     : { flex: "0 0 100%", maxWidth: "100%" };
 
   let iconNode: React.ReactNode = null;
+
   if (node.isWiki) {
+    // 내부 문서 아이콘 (이모지 or 이미지)
     if (wikiIcon) {
       iconNode = wikiIcon.startsWith("http") ? (
         <img
@@ -220,7 +260,7 @@ function LinkBlockView({ node, keyProp }: { node: any; keyProp: React.Key }) {
       );
     }
   } else {
-    // 외부 파비콘 네트워크 호출 제거 → 인라인 아이콘
+    // 🔹 외부 링크: 파비콘 있으면 파비콘, 없으면 기본 ExternalLinkIcon
     iconNode = (
       <span
         style={{
@@ -233,10 +273,31 @@ function LinkBlockView({ node, keyProp }: { node: any; keyProp: React.Key }) {
           color: "#64748b",
         }}
       >
-        <ExternalLinkIcon size={18} />
+        {externalFavicon ? (
+          <img
+            src={externalFavicon}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            fetchPriority="low"
+            style={{
+              width: 16,
+              height: 16,
+              borderRadius: 4,
+              objectFit: "contain",
+              display: "block",
+            }}
+          />
+        ) : (
+          <ExternalLinkIcon size={18} />
+        )}
       </span>
     );
   }
+
+  // 👉 children(에디터 텍스트)이 있으면 우선 사용
+  const hasChildrenText =
+    children != null && stripReact(children).replace(/\u200B/g, "").trim().length > 0;
 
   return (
     <div key={keyProp} style={{ position: "relative", ...flexStyle }}>
@@ -258,9 +319,17 @@ function LinkBlockView({ node, keyProp }: { node: any; keyProp: React.Key }) {
           href={node.url}
           target={node.isWiki ? undefined : "_blank"}
           rel={node.isWiki ? undefined : "noopener noreferrer nofollow"}
-          style={{ color: "#0070f3", textDecoration: "none", flexGrow: 1 }}
+          style={{
+            color: "#0070f3",
+            textDecoration: "none",
+            flexGrow: 1,
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+          }}
         >
-          {node.isWiki
+          {hasChildrenText
+            ? children
+            : node.isWiki
             ? node.wikiTitle || node.sitename || "문서"
             : displaySitename || node.url}
         </a>
@@ -1634,7 +1703,11 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
 
     // 링크 블록(박스형)
     case "link-block": {
-      return <LinkBlockView node={node} keyProp={key ?? ""} />;
+      return (
+        <LinkBlockView node={node} keyProp={key ?? ""}>
+          {children}
+        </LinkBlockView>
+      );
     }
 
     // 내부적으로도 사용되는 컨테이너

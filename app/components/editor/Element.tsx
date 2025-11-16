@@ -86,8 +86,8 @@ const LinkBlockView: React.FC<
   const el = element;
   const isReadOnly = ReactEditor.isReadOnly(editor);
 
+  // 표시용 사이트 이름 (초기값용)
   let displaySitename = el.sitename;
-
   if (!el.isWiki && !displaySitename) {
     try {
       const u = new URL(el.url);
@@ -96,6 +96,7 @@ const LinkBlockView: React.FC<
     } catch {}
   }
 
+  // 위키 아이콘 (문서 아이콘)
   const [wikiIcon, setWikiIcon] = useState<string | null>(
     el.isWiki ? (el as any).docIcon ?? null : null,
   );
@@ -145,6 +146,17 @@ const LinkBlockView: React.FC<
     };
   }, [el.isWiki, el.wikiPath, el.wikiTitle, el.url, wikiIcon]);
 
+  // 외부 링크 파비콘 (https://사이트/favicon.ico 형태)
+  let externalFavicon: string | null = null;
+  if (!el.isWiki && el.url) {
+    try {
+      const u = new URL(el.url);
+      externalFavicon = `${u.origin}/favicon.ico`;
+    } catch {
+      externalFavicon = null;
+    }
+  }
+
   const isSmall = el.size === 'small' || (el as any).size === 'half';
 
   // 부모가 link-block-row인지 여부
@@ -153,7 +165,8 @@ const LinkBlockView: React.FC<
     const path = ReactEditor.findPath(editor, element);
     const parent = Node.parent(editor as any, path);
     inRow =
-      SlateElement.isElement(parent) && (parent as any).type === 'link-block-row';
+      SlateElement.isElement(parent) &&
+      (parent as any).type === 'link-block-row';
   } catch {}
 
   const wrapperStyle: React.CSSProperties = isSmall
@@ -166,119 +179,184 @@ const LinkBlockView: React.FC<
       }
     : { display: 'block', width: '100%', maxWidth: '100%' };
 
-  return (
-    <div {...attributes} style={{ position: 'relative', ...wrapperStyle }}>
-      <div
-        contentEditable={false}
-        style={{
-          position: 'relative',
-          display: 'flex',
-          alignItems: 'center',
-          padding: 12,
-          border: '1px solid #ddd',
-          borderRadius: 6,
-          marginBottom: 8,
-          width: '100%',
-          boxSizing: 'border-box',
-        }}
-      >
-        {!isReadOnly && (
-          <button
-            type="button"
-            aria-label="링크 카드 삭제"
-            onClick={() => {
-              const path = ReactEditor.findPath(editor, element);
-              Transforms.removeNodes(editor, { at: path });
-            }}
-            style={{
-              position: 'absolute',
-              top: 4,
-              right: 6,
-              width: 20,
-              height: 20,
-              lineHeight: '20px',
-              fontSize: 20,
-              fontWeight: 'bold',
-              textAlign: 'center',
-              color: '#e11d48',
-              background: 'transparent',
-              border: 'none',
-              padding: 0,
-              cursor: 'pointer',
-            }}
-          >
-            ×
-          </button>
-        )}
+  // 공통 카드 내용 (아이콘 + 텍스트 영역)
+  const CardInner = (
+    <div
+      style={{
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        padding: 15,
+        fontSize: 16,
+        border: '1px solid #ddd',
+        borderRadius: 6,
+        marginBottom: 8,
+        width: '100%',
+        boxSizing: 'border-box',
+      }}
+    >
+      {/* 삭제 버튼 (편집 모드에서만) */}
+      {!isReadOnly && (
+        <button
+          type="button"
+          aria-label="링크 카드 삭제"
+          onClick={() => {
+            const path = ReactEditor.findPath(editor, element);
+            Transforms.removeNodes(editor, { at: path });
+          }}
+          style={{
+            position: 'absolute',
+            top: 4,
+            right: 6,
+            width: 20,
+            height: 20,
+            lineHeight: '20px',
+            fontSize: 20,
+            fontWeight: 'bold',
+            textAlign: 'center',
+            color: '#e11d48',
+            background: 'transparent',
+            border: 'none',
+            padding: 0,
+            cursor: 'pointer',
+          }}
+          contentEditable={false}
+        >
+          ×
+        </button>
+      )}
 
-        {/* 아이콘 */}
-        {el.isWiki ? (
-          wikiIcon ? (
-            wikiIcon.startsWith('http') ? (
-              <img
-                src={toProxyUrl(wikiIcon)}
-                alt="doc icon"
-                width={24}
-                height={24}
-                loading="lazy"
-                decoding="async"
-                fetchPriority="low"
-                style={{
-                  width: 24,
-                  height: 24,
-                  marginRight: 8,
-                  objectFit: 'contain',
-                  display: 'block',
-                }}
-                draggable={false}
-              />
-            ) : (
-              <span
-                style={{
-                  fontSize: 20,
-                  marginRight: 8,
-                  lineHeight: 1,
-                }}
-              >
-                {wikiIcon}
-              </span>
-            )
-          ) : null
-        ) : (
-          <span
-            style={{
-              width: 24,
-              height: 24,
-              marginRight: 8,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#64748b',
-            }}
-            aria-hidden
-          >
-            <ExternalLinkIcon size={18} />
-          </span>
-        )}
+      {/* 아이콘 (위키 아이콘 or 파비콘 or 기본 아이콘) */}
+      {el.isWiki ? (
+        wikiIcon ? (
+          wikiIcon.startsWith('http') ? (
+            <img
+              src={toProxyUrl(wikiIcon)}
+              alt="doc icon"
+              width={24}
+              height={24}
+              loading="lazy"
+              decoding="async"
+              fetchPriority="low"
+              style={{
+                width: 24,
+                height: 24,
+                marginRight: 8,
+                objectFit: 'contain',
+                display: 'block',
+              }}
+              draggable={false}
+              contentEditable={false}
+            />
+          ) : (
+            <span
+              style={{
+                fontSize: 20,
+                marginRight: 8,
+                lineHeight: 1,
+              }}
+              contentEditable={false}
+            >
+              {wikiIcon}
+            </span>
+          )
+        ) : null
+      ) : externalFavicon ? (
+        <img
+          src={toProxyUrl(externalFavicon)}
+          alt=""
+          width={20}
+          height={20}
+          loading="lazy"
+          decoding="async"
+          fetchPriority="low"
+          style={{
+            width: 20,
+            height: 20,
+            marginRight: 8,
+            objectFit: 'contain',
+            display: 'block',
+          }}
+          draggable={false}
+          onError={(e) => {
+            // 파비콘 로드 실패 시 그냥 숨김
+            (e.currentTarget as HTMLImageElement).style.display = 'none';
+          }}
+          contentEditable={false}
+        />
+      ) : (
+        <span
+          style={{
+            width: 24,
+            height: 24,
+            marginRight: 8,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#64748b',
+          }}
+          aria-hidden
+          contentEditable={false}
+        >
+          <ExternalLinkIcon size={18} />
+        </span>
+      )}
 
-        {/* 타이틀/링크 */}
+      {/* 텍스트 영역 */}
+      {isReadOnly ? (
+        // 🔹 읽기 모드: children + fallback (비어 있으면 사이트 이름)
+        <span
+          style={{
+            flexGrow: 1,
+            color: '#0070f3',
+            textDecoration: 'none',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {Node.string(el) ||
+            (el.isWiki
+              ? el.wikiTitle || el.sitename || '문서'
+              : displaySitename || el.url)}
+        </span>
+      ) : (
+        // 🔹 편집 모드: children 을 그대로 노출해서 직접 수정 가능
+        <span
+          style={{
+            flexGrow: 1,
+            minWidth: 0,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          }}
+        >
+          {children}
+        </span>
+      )}
+    </div>
+  );
+
+  // 🔹 읽기 모드: 카드 전체를 링크로 감싸서 클릭 시 이동
+  if (isReadOnly) {
+    return (
+      <div {...attributes} style={{ position: 'relative', ...wrapperStyle }}>
         <a
           href={el.url}
           target={el.isWiki ? undefined : '_blank'}
           rel={el.isWiki ? undefined : 'noopener noreferrer nofollow'}
-          style={{
-            color: '#0070f3',
-            textDecoration: 'none',
-            flexGrow: 1,
-          }}
+          style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
+          contentEditable={false}
         >
-          {el.isWiki
-            ? el.wikiTitle || el.sitename || '문서'
-            : displaySitename || el.url}
+          {CardInner}
         </a>
       </div>
+    );
+  }
 
-      {children}
+  // 🔹 편집 모드: 그냥 카드만 렌더 (앵커 없음 → 클릭해도 이동 X)
+  return (
+    <div {...attributes} style={{ position: 'relative', ...wrapperStyle }}>
+      {CardInner}
     </div>
   );
 };
@@ -889,7 +967,7 @@ const Element: React.FC<ElementRenderProps> = ({
             fetchPriority="low"
             draggable={false}
             style={{
-              height: '3em',
+              height: '2em',
               width: 'auto',
               display: 'inline',
               verticalAlign: 'middle',
@@ -916,6 +994,7 @@ const Element: React.FC<ElementRenderProps> = ({
             fontSize: '1.08em',
             marginRight: 8,
             marginLeft: 2,
+            marginTop: 0,
             userSelect: 'none',
             verticalAlign: 'middle',
           }}

@@ -172,7 +172,7 @@ export const insertWeaponInfo = (
     weaponType,
   );
 
-  const element: WeaponCardElement = {
+  const card: WeaponCardElement = {
     type: 'weapon-card',
     weaponType,
     name: initial?.name ?? '새 무기 이름',
@@ -183,7 +183,13 @@ export const insertWeaponInfo = (
     children: [{ text: '' }],
   };
 
-  const at = editor.selection ?? Editor.end(editor, []);
+  // 카드 뒤에 바로 따라갈 빈 단락
+  const paragraph = {
+    type: 'paragraph',
+    children: [{ text: '' }],
+  } as any;
 
-  Transforms.insertNodes(editor, element as any, { at });
+  // selection 위치에 카드 + 빈 단락을 한 번에 삽입
+  // (Path.next 같은 건 전혀 안 씀)
+  Transforms.insertNodes(editor, [card as any, paragraph] as any);
 };
