@@ -2,7 +2,7 @@
 // File: components/wiki/CategoryTree.tsx
 // (대표 문서 우선 오픈, 이미지 lazy/async/CloudFront 우회, 루트 문서 정렬 유지)
 // + 초기 로딩 가드(interactionReady) 및 안전장치 추가
-// + CollapsibleList: transitionend 누락 시 height 자동 복구 fail-safe
+// + CollapsibleList: transitionend 누락 시에도 height를 auto로 복구하는 단순/안정 버전
 // =============================================
 "use client";
 
@@ -131,7 +131,7 @@ function CollapsibleList({
 
     if (prevOpen === isOpen) return;
 
-    // 열기
+    // === 열기 ===
     if (isOpen && prevOpen === false) {
       const full = el.scrollHeight;
       el.style.overflow = "hidden";
@@ -148,44 +148,25 @@ function CollapsibleList({
         if (e.propertyName !== "height") return;
         el.removeEventListener("transitionend", onEnd);
 
+        // ✅ 애니메이션 끝나면 그냥 auto로 정리
         el.style.transition = "";
-        const frozen = el.getBoundingClientRect().height;
-        el.style.height = `${Math.ceil(frozen)}px`;
-
-        const releaseToAuto = () => {
-          // 열려있는 상태에서만 auto로
-          if (prevOpenRef.current) {
-            requestAnimationFrame(() => {
-              el.style.height = "auto";
-            });
-          }
-        };
-
-        try {
-          const fonts = (document as any).fonts;
-          if (fonts && fonts.ready && typeof fonts.ready.then === "function") {
-            fonts.ready.then(releaseToAuto).catch(releaseToAuto);
-          } else {
-            requestAnimationFrame(() => requestAnimationFrame(releaseToAuto));
-          }
-        } catch {
-          requestAnimationFrame(() => requestAnimationFrame(releaseToAuto));
+        if (prevOpenRef.current) {
+          el.style.height = "auto";
         }
       };
 
       if (D === 0) {
+        // 모션 없음 → 바로 auto
         el.style.height = "auto";
       } else {
         el.addEventListener("transitionend", onEnd);
 
         // ✅ FAIL-SAFE:
-        // transitionend가 어떤 이유로든 불리지 않아도,
-        // 애니메이션 시간(D) 이후에는 height를 auto로 강제 복구
+        // 어떤 이유로든 transitionend가 안 불려도, 일정 시간 뒤에는 height를 auto로 맞춰줌
         window.setTimeout(() => {
-          if (!ref.current) return;
           const node = ref.current;
-          if (!prevOpenRef.current) return; // 이미 닫혔으면 무시
-          // transition 중이든 말든, 열려 있는 상태라면 height를 auto로 정리
+          if (!node) return;
+          if (!prevOpenRef.current) return; // 이미 닫힌 상태면 무시
           node.style.transition = "";
           node.style.height = "auto";
         }, D + 320);
@@ -193,7 +174,7 @@ function CollapsibleList({
       return;
     }
 
-    // 닫기
+    // === 닫기 ===
     if (!isOpen && prevOpen === true) {
       if (!isClosing) {
         el.style.overflow = "hidden";
@@ -256,7 +237,7 @@ const CategoryTree: React.FC<Props> = ({
   isPathOpen,
   isClosing,
   finalizeClose,
-  interactionReady, // 👈 추가
+  interactionReady,
 }) => {
   // 숨길 루트 대표 문서 ID
   const HIDE_ROOT_DOC_ID = 73;
