@@ -12,7 +12,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
 import { logActivity, resolveVillageName } from '@wiki/lib/activity';
 import { getAuthUser } from '@/wiki/lib/auth';
-import { cached } from '@/wiki/lib/cache'; // ✅ 앱 메모리 캐시
 
 export const runtime = 'nodejs';
 
@@ -54,21 +53,18 @@ export async function GET(req: NextRequest) {
       return NextResponse.json([], { headers: { 'Cache-Control': 'no-store' } });
     }
 
-    // ✅ 마을별 목록 60초 캐시
-    const cacheKey = `head:list:v=${village_id}`;
-    const normalized = await cached(cacheKey, { ttlSec: 60 }, async () => {
-      const rows = (await sql`
-        SELECT id, village_id, "order", location_x, location_y, location_z, pictures, uploader
-        FROM head_finder
-        WHERE village_id = ${village_id}
-        ORDER BY "order"
-      `) as unknown as HeadRow[];
+    // ❌ 캐시 없이 항상 최신 값 조회
+    const rows = (await sql/*sql*/`
+      SELECT id, village_id, "order", location_x, location_y, location_z, pictures, uploader
+      FROM head_finder
+      WHERE village_id = ${village_id}
+      ORDER BY "order"
+    `) as unknown as HeadRow[];
 
-      return rows.map((r) => ({
-        ...r,
-        pictures: parsePictures(r.pictures),
-      }));
-    });
+    const normalized = rows.map((r) => ({
+      ...r,
+      pictures: parsePictures(r.pictures),
+    }));
 
     return NextResponse.json(normalized, {
       headers: { 'Cache-Control': 'no-store' },
@@ -82,7 +78,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// [POST] 추가
+// [POST] 새 머리 추가
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({} as any));
@@ -132,7 +128,10 @@ export async function POST(req: NextRequest) {
     `;
     if (Array.isArray(dup) && dup.length > 0) {
       return NextResponse.json(
-        { error: '같은 마을에 이미 존재하는 머리 번호입니다. 다른 번호(order)로 입력해 주세요.' },
+        {
+          error:
+            '같은 마을에 이미 존재하는 머리 번호입니다. 다른 번호(order)로 입력해 주세요.',
+        },
         { status: 409, headers: { 'Cache-Control': 'no-store' } }
       );
     }
