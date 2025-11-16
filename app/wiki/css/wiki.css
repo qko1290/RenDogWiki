@@ -137,7 +137,7 @@
   border-left: 2px solid #e0e0e0;
 
   /* 중요: 슬라이드 중 내부 높이 변화가 부모에 전파되지 않도록 숨김 */
-  overflow-y: hidden;   /* 높이 트랜지션용 */
+  /* overflow-y: hidden; */   /* 높이 트랜지션용 */
   overflow-x: visible;
 }
 
