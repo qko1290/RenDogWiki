@@ -116,9 +116,7 @@ export async function POST(req: NextRequest) {
     const location_z = Number(body.location_z);
 
     // pictures는 배열로 정규화(문자열/객체가 와도 빈 배열로 처리 -> 기존과 동일한 관용)
-    const pictures = Array.isArray(body.pictures)
-      ? (body.pictures as string[])
-      : [];
+    const pictures = parsePictures(body.pictures);
 
     const inserted = (await sql`
       INSERT INTO head_finder
@@ -129,7 +127,7 @@ export async function POST(req: NextRequest) {
         ${location_x},
         ${location_y},
         ${location_z},
-        ${JSON.stringify(pictures)}
+        ${pictures}
       )
       RETURNING id, village_id, "order", location_x, location_y, location_z, pictures
     `) as unknown as HeadRow[];

@@ -59,7 +59,10 @@ export async function GET(req: NextRequest) {
     });
 
     if (!data) {
-      return new NextResponse(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json(null, {
+        status: 200,
+        headers: { 'Cache-Control': 'no-store' },
+      });
     }
     return NextResponse.json(data, { headers: { 'Cache-Control': 'no-store' } });
   } catch (err) {
