@@ -2,12 +2,12 @@
 // File: components/wiki/CategoryTree.tsx
 // (대표 문서 우선 오픈, 이미지 lazy/async/CloudFront 우회, 루트 문서 정렬 유지)
 // + 초기 로딩 가드(interactionReady) 및 안전장치 추가
-// + CollapsibleList: transitionend 누락 시에도 height를 auto로 복구하는 단순/안정 버전
+// + CollapsibleList: 서브트리 열림 상태 변화에 따라 height를 auto로 보정
 // =============================================
 "use client";
 
 import React, { useRef, useLayoutEffect, useMemo, useEffect } from "react";
-import SmartImage from "../common/SmartImage"; // ✅ 이미지 우회/최적화 공통 컴포넌트 (현재 직접 사용 X, import 유지)
+import SmartImage from "../common/SmartImage"; // ✅ 이미지 우회/최적화 공통 컴포넌트 (직접 사용은 안 해도 import 유지)
 import { toProxyUrl } from "@lib/cdn";
 
 type CategoryNode = {
@@ -57,7 +57,7 @@ type Props = {
   isClosing: (path: number[]) => boolean;
   finalizeClose: (path: number[]) => void;
 
-  /** 👇 추가: 초기 로딩 끝나 상호작용 가능한지 여부 */
+  /** 👇 초기 로딩 끝나 상호작용 가능한지 여부 */
   interactionReady: boolean;
 };
 
@@ -87,12 +87,15 @@ function CollapsibleList({
   onCollapseEnd,
   className,
   children,
+  /** 🔑 서브트리 안에서 열린 path 개수 → 바뀔 때마다 부모 높이 보정용 */
+  contentVersion = 0,
 }: {
   isOpen: boolean;
   isClosing: boolean;
   onCollapseEnd?: () => void;
   className?: string;
   children: React.ReactNode;
+  contentVersion?: number;
 }) {
   const ref = useRef<HTMLUListElement>(null);
   const firstRef = useRef(true);
@@ -110,29 +113,26 @@ function CollapsibleList({
     const D = prefersReduced ? 0 : 280;
     const E = "cubic-bezier(.2,.8,.2,1)";
 
-    // 초기 세팅
-    if (firstRef.current) {
-      firstRef.current = false;
-      if (isOpen) {
-        el.style.height = "auto";
-        el.style.opacity = "1";
-        el.style.overflow = "hidden";
-      } else {
-        el.style.height = "0px";
-        el.style.opacity = "0";
-        el.style.overflow = "hidden";
-      }
-      prevOpenRef.current = isOpen;
-      return;
-    }
-
+    const first = firstRef.current;
     const prevOpen = prevOpenRef.current;
     prevOpenRef.current = isOpen;
 
-    if (prevOpen === isOpen) return;
+    // === 최초 마운트 ===
+    if (first) {
+      firstRef.current = false;
+      el.style.overflow = "hidden";
+      if (isOpen) {
+        el.style.height = "auto";
+        el.style.opacity = "1";
+      } else {
+        el.style.height = "0px";
+        el.style.opacity = "0";
+      }
+      return;
+    }
 
-    // === 열기 ===
-    if (isOpen && prevOpen === false) {
+    // === 열림 상태 토글: 닫힘 → 열림 ===
+    if (prevOpen === false && isOpen === true) {
       const full = el.scrollHeight;
       el.style.overflow = "hidden";
       el.style.height = "0px";
@@ -147,8 +147,7 @@ function CollapsibleList({
       const onEnd = (e: TransitionEvent) => {
         if (e.propertyName !== "height") return;
         el.removeEventListener("transitionend", onEnd);
-
-        // ✅ 애니메이션 끝나면 그냥 auto로 정리
+        // 애니메이션 끝나면 height: auto 로 풀어줘서 자식 변경에 따라 자연스럽게 늘어나도록
         el.style.transition = "";
         if (prevOpenRef.current) {
           el.style.height = "auto";
@@ -156,17 +155,15 @@ function CollapsibleList({
       };
 
       if (D === 0) {
-        // 모션 없음 → 바로 auto
         el.style.height = "auto";
       } else {
         el.addEventListener("transitionend", onEnd);
 
-        // ✅ FAIL-SAFE:
-        // 어떤 이유로든 transitionend가 안 불려도, 일정 시간 뒤에는 height를 auto로 맞춰줌
+        // ⚠️ 일부 환경에서 transitionend 누락될 수 있으니 fail-safe
         window.setTimeout(() => {
           const node = ref.current;
           if (!node) return;
-          if (!prevOpenRef.current) return; // 이미 닫힌 상태면 무시
+          if (!prevOpenRef.current) return; // 이미 닫혔으면 무시
           node.style.transition = "";
           node.style.height = "auto";
         }, D + 320);
@@ -174,14 +171,17 @@ function CollapsibleList({
       return;
     }
 
-    // === 닫기 ===
-    if (!isOpen && prevOpen === true) {
+    // === 열림 상태 토글: 열림 → 닫힘 ===
+    if (prevOpen === true && isOpen === false) {
+      // isClosing = false 인 경우엔 즉시 접기
       if (!isClosing) {
         el.style.overflow = "hidden";
         el.style.height = "0px";
         el.style.opacity = "0";
         return;
       }
+
+      // isClosing = true → 부드럽게 접기
       const full = el.scrollHeight;
       el.style.overflow = "hidden";
       el.style.height = full + "px";
@@ -205,8 +205,21 @@ function CollapsibleList({
       } else {
         el.addEventListener("transitionend", onEnd);
       }
+      return;
     }
-  }, [isOpen, isClosing, onCollapseEnd]);
+
+    // === 여기까지 왔다는 건: isOpen / isClosing 값은 그대로인데 contentVersion만 바뀐 경우도 포함 ===
+    // → 이미 열려 있는 상태에서 2차/3차 카테고리 열리면서 내부 컨텐츠 높이가 늘어난 상황 등을 케어
+    if (isOpen && !isClosing) {
+      // 어떤 환경에서 height가 예전에 잡힌 px 값으로 남아있어도 강제로 auto로 풀어줌
+      if (el.style.height !== "auto") {
+        el.style.transition = "";
+        el.style.overflow = "hidden";
+        el.style.height = "auto";
+        el.style.opacity = "1";
+      }
+    }
+  }, [isOpen, isClosing, onCollapseEnd, contentVersion]);
 
   return (
     <ul ref={ref} className={className}>
@@ -272,6 +285,18 @@ const CategoryTree: React.FC<Props> = ({
         .sort(sortDocs),
     [allDocuments]
   );
+
+  // 📌 특정 path를 prefix로 가지는 openPaths 개수 (서브트리 열림 상태 버전)
+  const countOpenInSubtree = (basePath: number[]) => {
+    if (openPaths.length === 0) return 0;
+    return openPaths.reduce((cnt, p) => {
+      if (p.length < basePath.length) return cnt;
+      for (let i = 0; i < basePath.length; i++) {
+        if (p[i] !== basePath[i]) return cnt;
+      }
+      return cnt + 1;
+    }, 0);
+  };
 
   // 로고(홈 링크) 클릭 시, 숨긴 루트 대표 문서(id===73) 열기
   useEffect(() => {
@@ -340,11 +365,16 @@ const CategoryTree: React.FC<Props> = ({
       const isCategoryActive = equalsPath(selectedCategoryPath, currentPath);
       const panelId = `wiki-doc-list-${key}`;
 
+      // 🔑 이 카테고리 이하에서 열린 path 개수 (자식/손자 포함)
+      const subtreeOpenVersion = countOpenInSubtree(currentPath);
+
       return (
         <li key={`cat-${node.id}`}>
           {/* === 카테고리 행 === */}
           <button
-            className={`wiki-nav-item ${isCategoryActive ? "active" : ""} ${interactionReady ? "" : "is-disabled"}`}
+            className={`wiki-nav-item ${isCategoryActive ? "active" : ""} ${
+              interactionReady ? "" : "is-disabled"
+            }`}
             onClick={async (e) => {
               if (guardClick(e)) return;
 
@@ -361,7 +391,9 @@ const CategoryTree: React.FC<Props> = ({
                   let title = repFromList?.title;
                   if (!title) {
                     try {
-                      const r = await fetch(`/api/documents?id=${repId}&_ts=${Date.now()}`, { cache: "no-store" });
+                      const r = await fetch(`/api/documents?id=${repId}&_ts=${Date.now()}`, {
+                        cache: "no-store",
+                      });
                       if (r.ok) {
                         const data = await r.json();
                         title = data?.title || "";
@@ -469,6 +501,7 @@ const CategoryTree: React.FC<Props> = ({
             isClosing={closing}
             onCollapseEnd={() => finalizeClose(currentPath)}
             className="wiki-doc-list"
+            contentVersion={subtreeOpenVersion}
           >
             {shouldRender && (
               <>
@@ -532,7 +565,9 @@ const CategoryTree: React.FC<Props> = ({
         return (
           <li key={`rootdoc-${doc.id}`}>
             <button
-              className={`wiki-nav-item ${isDocActive ? "active" : ""} ${interactionReady ? "" : "is-disabled"}`}
+              className={`wiki-nav-item ${isDocActive ? "active" : ""} ${
+                interactionReady ? "" : "is-disabled"
+              }`}
               onClick={(e) => {
                 if (guardClick(e)) return;
                 fetchDoc([0], doc.title, doc.id, { clearCategoryPath: true });
