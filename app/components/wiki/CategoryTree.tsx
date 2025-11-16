@@ -2,11 +2,12 @@
 // File: components/wiki/CategoryTree.tsx
 // (대표 문서 우선 오픈, 이미지 lazy/async/CloudFront 우회, 루트 문서 정렬 유지)
 // + 초기 로딩 가드(interactionReady) 및 안전장치 추가
+// + CollapsibleList: transitionend 누락 시 height 자동 복구 fail-safe
 // =============================================
 "use client";
 
 import React, { useRef, useLayoutEffect, useMemo, useEffect } from "react";
-import SmartImage from "../common/SmartImage"; // ✅ 이미지 우회/최적화 공통 컴포넌트
+import SmartImage from "../common/SmartImage"; // ✅ 이미지 우회/최적화 공통 컴포넌트 (현재 직접 사용 X, import 유지)
 import { toProxyUrl } from "@lib/cdn";
 
 type CategoryNode = {
@@ -176,6 +177,18 @@ function CollapsibleList({
         el.style.height = "auto";
       } else {
         el.addEventListener("transitionend", onEnd);
+
+        // ✅ FAIL-SAFE:
+        // transitionend가 어떤 이유로든 불리지 않아도,
+        // 애니메이션 시간(D) 이후에는 height를 auto로 강제 복구
+        window.setTimeout(() => {
+          if (!ref.current) return;
+          const node = ref.current;
+          if (!prevOpenRef.current) return; // 이미 닫혔으면 무시
+          // transition 중이든 말든, 열려 있는 상태라면 height를 auto로 정리
+          node.style.transition = "";
+          node.style.height = "auto";
+        }, D + 320);
       }
       return;
     }
@@ -441,10 +454,21 @@ const CategoryTree: React.FC<Props> = ({
                   e.stopPropagation();
                   handleArrowClick(node, currentPath);
                 }}
-                style={{ display: "inline-block", verticalAlign: "middle", pointerEvents: interactionReady ? "auto" : "none", opacity: interactionReady ? 1 : 0.5 }}
+                style={{
+                  display: "inline-block",
+                  verticalAlign: "middle",
+                  pointerEvents: interactionReady ? "auto" : "none",
+                  opacity: interactionReady ? 1 : 0.5,
+                }}
                 aria-hidden="true"
               >
-                <svg width="16" height="16" viewBox="0 0 16 16" style={{ display: "block" }} className="wiki-arrow-svg">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  style={{ display: "block" }}
+                  className="wiki-arrow-svg"
+                >
                   <polyline
                     points="5,4 11,8 5,12"
                     fill="none"
@@ -473,14 +497,19 @@ const CategoryTree: React.FC<Props> = ({
                   return (
                     <li
                       key={`doc-${doc.id}`}
-                      className={`wiki-doc-item ${isDocActive ? "active" : ""} ${interactionReady ? "" : "is-disabled"}`}
+                      className={`wiki-doc-item ${isDocActive ? "active" : ""} ${
+                        interactionReady ? "" : "is-disabled"
+                      }`}
                       onClick={(e) => {
                         if (guardClick(e as any)) return;
                         fetchDoc(currentPath, doc.title, doc.id, { clearCategoryPath: true });
                       }}
                       aria-disabled={!interactionReady}
                       title={!interactionReady ? "로딩 중입니다…" : undefined}
-                      style={{ pointerEvents: interactionReady ? "auto" : "none", opacity: interactionReady ? 1 : 0.6 }}
+                      style={{
+                        pointerEvents: interactionReady ? "auto" : "none",
+                        opacity: interactionReady ? 1 : 0.6,
+                      }}
                     >
                       <span style={{ marginRight: "0.3em" }}>
                         {doc.icon?.startsWith("http") ? (
