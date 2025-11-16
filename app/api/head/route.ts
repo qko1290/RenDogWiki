@@ -12,7 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
 import { logActivity, resolveVillageName } from '@wiki/lib/activity';
 import { getAuthUser } from '@/wiki/lib/auth';
-import { cached } from '@/wiki/lib/cache'; // ✅ 추가: 앱 메모리 캐시
+import { cached } from '@/wiki/lib/cache'; // ✅ 앱 메모리 캐시
 
 export const runtime = 'nodejs';
 
@@ -23,7 +23,7 @@ type HeadRow = {
   location_x: number;
   location_y: number;
   location_z: number;
-  pictures: unknown; // DB에 json/text/array일 수 있음
+  pictures: unknown;          // DB에 json/text/array일 수 있음
   uploader?: string | null;
 };
 
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
     const villageIdParam = searchParams.get('village_id');
     const village_id = villageIdParam != null ? Number(villageIdParam) : NaN;
 
-    // village_id 없거나 숫자 아님 -> 빈 배열 반환(기존 동작 유지)
+    // village_id 없거나 숫자 아님 -> 빈 배열 반환
     if (!villageIdParam || !Number.isFinite(village_id)) {
       return NextResponse.json([], { headers: { 'Cache-Control': 'no-store' } });
     }
@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
     const cacheKey = `head:list:v=${village_id}`;
     const normalized = await cached(cacheKey, { ttlSec: 60 }, async () => {
       const rows = (await sql`
-        SELECT id, village_id, "order", location_x, location_y, location_z, pictures
+        SELECT id, village_id, "order", location_x, location_y, location_z, pictures, uploader
         FROM head_finder
         WHERE village_id = ${village_id}
         ORDER BY "order"
@@ -89,9 +89,11 @@ export async function POST(req: NextRequest) {
     const authed = getAuthUser();
     const username =
       authed?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
+
+    // 🔹 NOT NULL 컬럼이니까 여기서 절대 null 안 나오게 보정
     const uploader = username ?? 'admin';
 
-    // 필수값 존재 여부만 확인(기존 규칙 유지) -> 타입은 아래에서 보정
+    // 필수값 존재 여부만 확인(기존 규칙 유지)
     const required = [
       'village_id',
       'order',
@@ -110,28 +112,29 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 숫자 필드 정규화 -> Number 변환, NaN이면 DB에서 오류가 나므로 기본 동작을 유지
+    // 숫자 필드 정규화
     const village_id = Number(body.village_id);
     const order = Number(body.order);
     const location_x = Number(body.location_x);
     const location_y = Number(body.location_y);
     const location_z = Number(body.location_z);
 
-    // pictures는 배열로 정규화(문자열/객체가 와도 빈 배열로 처리 -> 기존과 동일한 관용)
+    // pictures는 어떤 형태가 와도 배열로 정규화
     const pictures = parsePictures(body.pictures);
 
     const inserted = (await sql`
       INSERT INTO head_finder
-        (village_id, "order", location_x, location_y, location_z, pictures)
+        (village_id, "order", location_x, location_y, location_z, pictures, uploader)
       VALUES (
         ${village_id},
         ${order},
         ${location_x},
         ${location_y},
         ${location_z},
-        ${pictures}
+        ${pictures},     -- jsonb 컬럼이므로 JS 배열 그대로 넣기
+        ${uploader}
       )
-      RETURNING id, village_id, "order", location_x, location_y, location_z, pictures
+      RETURNING id, village_id, "order", location_x, location_y, location_z, pictures, uploader
     `) as unknown as HeadRow[];
 
     const row = inserted[0];
