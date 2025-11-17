@@ -1,89 +1,65 @@
-// File: app/api/image/folder/delete/route.ts
+// File: app/api/image/delete/route.ts
 /**
- * 이미지 폴더 일괄 삭제
- * - DELETE body -> { id: number }
- * - 동작 -> 루트 폴더 id 기준으로 모든 하위 폴더/이미지 수집 -> S3 삭제 -> DB(images -> image_folders) 삭제 -> 활동 로그
- * - 보안 -> 로그인 필요(getAuthUser)
- * - 주의 -> 트랜잭션/롤백 없음. S3 또는 DB 한쪽 실패 가능성은 기존 정책 유지
+ * 이미지 삭제 API (DB + S3)
+ * - DELETE body -> { ids: number[] }
+ * - 흐름 -> ids 검증 -> DB에서 s3_key 조회 -> S3에서 객체 삭제 -> DB rows 삭제 -> 활동 로그
+ * - 주의 -> 트랜잭션/롤백 없음. S3 또는 DB 한쪽 실패 가능성이 있음(기존 정책 유지)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
 import { S3 } from 'aws-sdk';
-import { getAuthUser } from '@/wiki/lib/auth';
-import { logActivity, resolveFolderName } from '@/wiki/lib/activity';
+import { logActivity } from '@wiki/lib/activity';
 
 export const runtime = 'nodejs';
 
-// 하위 폴더 id를 재귀적으로 모두 모은다(자기 자신 포함)
-async function getAllFolderIds(rootId: number): Promise<number[]> {
-  const rows = (await sql`
-    WITH RECURSIVE subfolders AS (
-      SELECT id FROM image_folders WHERE id = ${rootId}
-      UNION ALL
-      SELECT f.id FROM image_folders f
-      INNER JOIN subfolders sf ON f.parent_id = sf.id
-    )
-    SELECT id FROM subfolders
-  `) as unknown as Array<{ id: number }>;
-  return rows.map((r) => r.id);
-}
-
 export async function DELETE(req: NextRequest) {
   try {
-    // 1) 인증 + 입력 파싱
-    const user = getAuthUser();
-    if (!user) {
-      return NextResponse.json(
-        { error: '로그인 필요' },
-        { status: 401, headers: { 'Cache-Control': 'no-store' } }
-      );
-    }
+    // 1) 입력 파싱 -> ids는 정수 배열만 허용, 중복 제거
+    type DeleteBody = { ids: number[] };
 
-    const body = await req.json().catch(() => null);
-    const id = Number(body?.id);
-    if (!Number.isFinite(id) || id <= 0) {
+    const body = (await req.json().catch(() => null)) as Partial<DeleteBody> | null;
+    const idsRaw: number[] = Array.isArray(body?.ids) ? (body!.ids as number[]) : [];
+
+    if (idsRaw.length === 0) {
       return NextResponse.json(
-        { error: '필수값 누락' },
+        { error: 'ids 필요' },
         { status: 400, headers: { 'Cache-Control': 'no-store' } }
       );
     }
 
-    // 2) 삭제 전 루트 정보 확보(로그용). 없으면 404
-    const rootInfoRows = (await sql`
-      SELECT id, name, parent_id
-      FROM image_folders
-      WHERE id = ${id}
-      LIMIT 1
-    `) as unknown as Array<{ id: number; name: string | null; parent_id: number | null }>;
+    // 양수 정수만, 중복 제거
+    const ids: number[] = Array.from(
+      new Set(
+        idsRaw
+          .map((v) => Number(v))
+          .filter((n): n is number => Number.isFinite(n) && n > 0)
+      )
+    );
 
-    if (!rootInfoRows.length) {
+    if (ids.length === 0) {
       return NextResponse.json(
-        { error: 'not found' },
-        { status: 404, headers: { 'Cache-Control': 'no-store' } }
+        { error: '유효한 id가 없습니다.' },
+        { status: 400, headers: { 'Cache-Control': 'no-store' } }
       );
     }
 
-    const rootInfo = rootInfoRows[0];
-    const rootName = rootInfo.name ?? String(id);
-    const parentLabel = await resolveFolderName(rootInfo.parent_id ?? null);
+    const username = req.headers.get('x-wiki-username') ?? null;
 
-    // 3) 모든 하위 폴더 id 수집
-    const folderIds = await getAllFolderIds(id);
-
-    // 4) 해당 폴더들의 이미지 S3 key 수집
-    const imgRows = (await sql`
+    // 2) 삭제 대상 s3_key 조회 (ANY 사용)
+    const rows = (await sql`
       SELECT s3_key
       FROM images
-      WHERE folder_id = ANY(${folderIds})
-    `) as unknown as Array<{ s3_key: string | null }>;
+      WHERE id = ANY(${ids})
+    `) as Array<{ s3_key: string | null }>;
 
-    const keys = imgRows
+    // 키 정리 -> 빈 문자열/null 제거
+    const keys = rows
       .map((r) => (r?.s3_key ? String(r.s3_key) : ''))
       .filter((k) => k.length > 0)
       .map((k) => ({ Key: k }));
 
-    // 5) S3에서 이미지 삭제(1000개 단위 분할). 키가 있을 때만 버킷 검사
+    // 3) S3에서 실제 객체 삭제(대상이 있을 때만)
     if (keys.length > 0) {
       const bucket = process.env.S3_BUCKET_NAME;
       if (!bucket) {
@@ -93,9 +69,12 @@ export async function DELETE(req: NextRequest) {
         );
       }
 
-      // 자격증명은 환경/IAM에서 자동 탐색. region만 명시(필요 시)
-      const s3 = new S3({ region: process.env.AWS_REGION });
+      // region/credentials는 환경/IAM에서 자동 추론 -> 명시 필요 시 AWS_REGION만 전달
+      const s3 = new S3({
+        region: process.env.AWS_REGION,
+      });
 
+      // deleteObjects는 최대 1000개까지 -> 분할 실행
       for (let i = 0; i < keys.length; i += 1000) {
         const slice = keys.slice(i, i + 1000);
         await s3
@@ -104,35 +83,34 @@ export async function DELETE(req: NextRequest) {
             Delete: { Objects: slice },
           })
           .promise();
-        // 참고: 부분 실패는 AWS 응답의 Errors에 담길 수 있음 -> 현재는 별도 처리 없이 진행(정책 유지)
+        // 참고: AWS SDK는 부분 실패도 200으로 오고 Errors 필드에 담길 수 있음 -> 기존 정책에 맞춰 추가 처리 없음
       }
     }
 
-    // 6) DB에서 images -> image_folders 순으로 삭제(참조 무결성 고려)
-    await sql`DELETE FROM images WHERE folder_id = ANY(${folderIds})`;
-    await sql`DELETE FROM image_folders WHERE id = ANY(${folderIds})`;
+    // 4) DB에서 이미지 row 삭제 (ANY 사용)
+    await sql`
+      DELETE FROM images
+      WHERE id = ANY(${ids})
+    `;
 
-    // 7) 활동 로그
+    // 5) 활동 로그
     await logActivity({
-      action: 'folder.delete',
-      username: user.minecraft_name,
-      targetType: 'folder',
-      targetId: id,
-      targetName: rootName,
-      targetPath: parentLabel, // 루트면 '루트 폴더'
-      meta: { deletedFolders: folderIds.length, deletedImages: keys.length },
+      action: 'image.delete',
+      username,
+      targetType: 'image',
+      targetId: null,
+      targetName: null,
+      targetPath: null,
+      meta: { ids, requestedCount: idsRaw.length, s3KeysCount: keys.length },
     });
 
-    // 8) 성공 응답
+    // 6) 성공 응답
     return NextResponse.json(
-      {
-        ok: true,
-        deleted: { folders: folderIds.length, images: keys.length },
-      },
+      { success: true },
       { headers: { 'Cache-Control': 'no-store' } }
     );
   } catch (err) {
-    console.error('[image/folder/delete] unexpected error:', err);
+    console.error('[image/delete] unexpected error:', err);
     return NextResponse.json(
       { error: 'Server error' },
       { status: 500, headers: { 'Cache-Control': 'no-store' } }
