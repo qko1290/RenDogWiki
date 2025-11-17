@@ -18,29 +18,28 @@ export async function DELETE(req: NextRequest) {
     // 1) 입력 파싱 -> ids는 정수 배열만 허용, 중복 제거
     type DeleteBody = { ids: number[] };
 
-    const body = (await req.json().catch(() => null)) as Partial<DeleteBody> | null;
-    const idsRaw: number[] = Array.isArray(body?.ids) ? (body!.ids as number[]) : [];
+    const body = await req.json().catch(() => null);
+    const raw = body?.ids;
 
-    if (idsRaw.length === 0) {
-      return NextResponse.json(
-        { error: 'ids 필요' },
-        { status: 400, headers: { 'Cache-Control': 'no-store' } }
-      );
+    let ids: number[] = [];
+
+    if (Array.isArray(raw)) {
+      ids = raw
+        .map((v) => {
+          if (typeof v === "number") return v;
+          if (typeof v === "string") return Number(v);
+          if (v && typeof v === "object" && "id" in v) return Number(v.id);
+          return NaN;
+        })
+        .filter((n) => Number.isFinite(n) && n > 0);
     }
 
-    // 양수 정수만, 중복 제거
-    const ids: number[] = Array.from(
-      new Set(
-        idsRaw
-          .map((v) => Number(v))
-          .filter((n): n is number => Number.isFinite(n) && n > 0)
-      )
-    );
+    ids = Array.from(new Set(ids)); // 중복 제거
 
     if (ids.length === 0) {
       return NextResponse.json(
-        { error: '유효한 id가 없습니다.' },
-        { status: 400, headers: { 'Cache-Control': 'no-store' } }
+        { error: "유효한 ids가 없습니다." },
+        { status: 400, headers: { "Cache-Control": "no-store" } }
       );
     }
 
