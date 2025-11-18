@@ -147,7 +147,7 @@ export default function FaqUpsertModal({ open, mode, initial, onClose, onSaved }
 
       <style jsx>{`
         .faq-upsert-backdrop{
-          position: fixed; inset: 0; z-index: 11000;
+          position: fixed; inset: 0; z-index: 21000;
           background: rgba(15, 23, 42, 0.45);
           display: grid; place-items: center; padding: 16px;
           backdrop-filter: blur(2px);
