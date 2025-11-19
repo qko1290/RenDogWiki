@@ -118,6 +118,50 @@ export default function TableContextMenu({ editor }: Props) {
     );
   };
 
+  // ✅ 행 추가(아래) 헬퍼
+  const insertRowBelow = () => {
+    try {
+      // cellPath: [tableIndex, rowIndex, cellIndex, ...]
+      const rowIndex = cellPath[cellPath.length - 2] as number;
+      const rowPath = [...tablePath, rowIndex];
+
+      const rowNode = SlateNode.get(editor, rowPath) as any;
+      if (!rowNode || !Array.isArray(rowNode.children)) return;
+
+      // 기존 행의 셀 개수만큼 새 셀 생성
+      const newRow = {
+        type: 'table-row',
+        children: rowNode.children.map((cell: any) => {
+          const newCell: any = {
+            type: 'table-cell',
+            children: [
+              {
+                type: 'paragraph',
+                children: [{ text: '' }],
+              },
+            ],
+          };
+
+          // colspan/rowspan 그대로 복사 (있다면)
+          if (cell.colspan && Number(cell.colspan) > 1) {
+            newCell.colspan = cell.colspan;
+          }
+          if (cell.rowspan && Number(cell.rowspan) > 1) {
+            newCell.rowspan = cell.rowspan;
+          }
+          return newCell;
+        }),
+      };
+
+      // 현재 행 바로 아래에 삽입
+      Transforms.insertNodes(editor, newRow, {
+        at: [...tablePath, rowIndex + 1],
+      });
+    } catch (e) {
+      console.error('insertRowBelow failed', e);
+    }
+  };
+
   return (
     <div
       ref={boxRef}
@@ -170,6 +214,11 @@ export default function TableContextMenu({ editor }: Props) {
       </MenuItem>
       <MenuItem onClick={act(() => splitCellByCol(editor, cellPath))}>
         열 분할
+      </MenuItem>
+
+      {/* ✅ 새로 추가된 기능: 행 추가(아래) */}
+      <MenuItem onClick={act(insertRowBelow)}>
+        행 추가(아래)
       </MenuItem>
 
       <MenuItem
