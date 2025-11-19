@@ -1,7 +1,3 @@
-// =============================================
-// File: app/components/editor/Toolbar.tsx
-// =============================================
-
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -23,13 +19,14 @@ import { insertMedia } from './helpers/insertMedia';
 import { setImageAlignment } from './helpers/setImageAlignment';
 import { InlineMarkElement, TableElement } from '@/types/slate';
 import LinkInputModal from './LinkInputModal';
-import CustomColorDropdown from './CustomColorDropdown';
+import WikiLinkModal from './WikiLinkModal';
+import CustomColorDropdown from "./CustomColorDropdown";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faHeading, faFillDrip, faPalette, faTextHeight, faLink,
-  faImage, faDollarSign, faFont, faTable,
+  faImage, faBookOpen, faDollarSign, faFont, faTable,
   faAlignLeft, faMinus, faBold, faItalic, faUnderline, faStrikethrough,
-  faGripLinesVertical, faIcons, faPhotoFilm,
+  faGripLinesVertical, faIcons, faPhotoFilm, 
 } from '@fortawesome/free-solid-svg-icons';
 import HeadingIconSelectModal from './HeadingIconSelectModal';
 import { insertInlineImage } from './helpers/insertInlineImage';
@@ -93,7 +90,7 @@ const INLINE_MARKS = [
   { label: '대시', icon: '-', color: '#888' },
   { label: '화살표', icon: '→', color: '#888' },
   { label: '채운 삼각', icon: '▶', color: '#888' },
-  { label: '주의', icon: '⚠️', color: '#e87e21' },
+  { label: '주의', icon: '⚠️', color: '#e87e21' }
 ];
 
 const INLINE_IMAGE_OPTIONS = ['업로드/선택', '링크 삽입'];
@@ -110,7 +107,7 @@ const isProbablyVideo = (url: string, mime?: string | null) => {
   if (mime && mime.startsWith('video/')) return true;
   const clean = url.split('?')[0].split('#')[0];
   const ext = clean.substring(clean.lastIndexOf('.') + 1).toLowerCase();
-  return ['mp4', 'webm', 'ogg', 'mov', 'm4v', 'avi', 'mkv'].includes(ext);
+  return ['mp4','webm','ogg','mov','m4v','avi','mkv'].includes(ext);
 };
 
 const insertVideoNode = (editor: any, url: string) => {
@@ -120,9 +117,7 @@ const insertVideoNode = (editor: any, url: string) => {
     width: 720,
     children: [{ text: '' }],
   } as any);
-  try {
-    ReactEditor.focus(editor);
-  } catch {}
+  try { ReactEditor.focus(editor); } catch {}
 };
 
 export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
@@ -149,6 +144,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
   const bgColorBtnRef = useRef<HTMLDivElement>(null);
 
   const [linkModalOpen, setLinkModalOpen] = useState(false);
+  const [wikiLinkOpen, setWikiLinkOpen] = useState(false);
+  const wikiLinkBtnRef = useRef<HTMLButtonElement>(null);
 
   const [headingModalOpen, setHeadingModalOpen] =
     useState<false | 'heading-one' | 'heading-two' | 'heading-three'>(false);
@@ -173,39 +170,17 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
   }, []);
 
   // 같은 종류/다른 종류 간 상호배타 처리
-  useEffect(() => {
-    if (openDropdown) {
-      setShowColorDropdown(false);
-      setShowBgColorDropdown(false);
-    }
-  }, [openDropdown]);
-  useEffect(() => {
-    if (showColorDropdown) {
-      setOpenDropdown(null);
-      setShowBgColorDropdown(false);
-    }
-  }, [showColorDropdown]);
-  useEffect(() => {
-    if (showBgColorDropdown) {
-      setOpenDropdown(null);
-      setShowColorDropdown(false);
-    }
-  }, [showBgColorDropdown]);
+  useEffect(() => { if (openDropdown) { setShowColorDropdown(false); setShowBgColorDropdown(false);} }, [openDropdown]);
+  useEffect(() => { if (showColorDropdown) { setOpenDropdown(null); setShowBgColorDropdown(false);} }, [showColorDropdown]);
+  useEffect(() => { if (showBgColorDropdown) { setOpenDropdown(null); setShowColorDropdown(false);} }, [showBgColorDropdown]);
 
   // 툴바 내부 모달이 열릴 때는 자동으로 모두 닫기
   const anyToolbarModalOpen =
-    imgModalOpen ||
-    blockImgModalOpen ||
-    blockImgLinkModalOpen ||
-    inlineImgModalOpen ||
-    inlineImgLinkModalOpen ||
-    linkModalOpen ||
-    !!headingModalOpen ||
-    showPriceTableInsertModal;
+    imgModalOpen || blockImgModalOpen || blockImgLinkModalOpen ||
+    inlineImgModalOpen || inlineImgLinkModalOpen ||
+    linkModalOpen || wikiLinkOpen || !!headingModalOpen || showPriceTableInsertModal;
 
-  useEffect(() => {
-    if (anyToolbarModalOpen) closeAllDropdowns();
-  }, [anyToolbarModalOpen]);
+  useEffect(() => { if (anyToolbarModalOpen) closeAllDropdowns(); }, [anyToolbarModalOpen]);
 
   // 외부 클릭(색상/배경 닫기)
   useEffect(() => {
@@ -259,10 +234,30 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
     insertInlineImage(editor, url);
     setInlineImgModalOpen(false);
   };
-
+  
   const handleInlineImgLinkInsert = (url: string) => {
     insertInlineImage(editor, url);
     setInlineImgLinkModalOpen(false);
+  };
+
+  const handleWikiLinkInsert = (doc: any) => {
+    setWikiLinkOpen(false);
+    if (isLinkActive(editor)) unwrapLink(editor);
+
+    const url = `/wiki?path=${encodeURIComponent(doc.path)}&title=${encodeURIComponent(doc.title)}`;
+    const text = doc.title;
+
+    if (editor.selection && Range.isCollapsed(editor.selection)) {
+      insertLinkBlock(editor, url, {
+        sitename: text,
+        favicon: undefined,
+        isWiki: true,
+        wikiTitle: text,
+        wikiPath: doc.path,
+      });
+    } else {
+      insertLink(editor, url, text);
+    }
   };
 
   const setAlignment = (alignment: 'left' | 'center' | 'right' | 'justify') => {
@@ -277,7 +272,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
 
           const t = (n as any).type;
 
-          // 표 자체 / 행 / 셀은 제외
+          // ✅ 표 자체 / 행 / 셀은 무조건 제외해서
+          // 툴바 정렬이 표 레이아웃에 영향을 안 주도록 막는다.
           if (t === 'table' || t === 'table-row' || t === 'table-cell') return false;
 
           // 텍스트 블록만 정렬
@@ -383,13 +379,28 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
             }}
             onClose={() => setShowBgColorDropdown(false)}
             recentColors={recentBgColors}
-            setRecentBgColors={setRecentBgColors}
+            setRecentColors={setRecentBgColors}
             kind="background"
           />
         )}
       </div>
 
-      {/* 🔗 링크 (내부/외부 전부 여기서 처리) */}
+      {/* 내부 문서 링크 */}
+      <button
+        className="editor-toolbar-btn"
+        ref={wikiLinkBtnRef}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          selectionRef.current = editor.selection ?? null;
+          setWikiLinkOpen(true);
+        }}
+        title="내부 문서 링크"
+      >
+        <FontAwesomeIcon icon={faBookOpen} />
+      </button>
+
+      {/* 외부 링크/링크블럭 */}
       <button
         className="editor-toolbar-btn"
         onMouseDown={(e) => {
@@ -409,7 +420,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
           setLinkModalOpen(false);
           if (!items || items.length === 0) return;
 
-          // 링크 삽입 시 모달 열기 직전 selection 복원
           if (selectionRef.current) {
             try { Transforms.select(editor, selectionRef.current); } catch {}
           }
@@ -422,45 +432,25 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
 
           const hasSelection = !!editor.selection && !Range.isCollapsed(editor.selection);
 
-          // 드래그된 텍스트가 있으면 인라인 링크로
           if (hasSelection) {
             const url = (items[0]?.url || '').trim();
             if (url) insertLink(editor, url);
             return;
           }
 
-          // 커서만 있을 때는 링크 카드(블록)
           if (items.length === 1) {
             insertLinkBlock(editor, items[0].url, { size: 'large' });
           } else if (items.length === 2) {
             Transforms.insertNodes(editor, {
               type: 'link-block-row',
               children: [
-                {
-                  type: 'link-block',
-                  url: items[0].url,
-                  size: 'small',
-                  sitename: items[0].url,
-                  favicon: null,
-                  children: [{ text: '' }],
-                },
-                {
-                  type: 'link-block',
-                  url: items[1].url,
-                  size: 'small',
-                  sitename: items[1].url,
-                  favicon: null,
-                  children: [{ text: '' }],
-                },
-              ],
+                { type: 'link-block', url: items[0].url, size: 'small', sitename: items[0].url, favicon: null, children: [{ text: '' }] },
+                { type: 'link-block', url: items[1].url, size: 'small', sitename: items[1].url, favicon: null, children: [{ text: '' }] },
+              ]
             } as any, { select: false });
 
             const lastPath = [editor.children.length];
-            Transforms.insertNodes(
-              editor,
-              { type: 'paragraph', children: [{ text: '' }] } as any,
-              { at: lastPath, select: true },
-            );
+            Transforms.insertNodes(editor, { type: 'paragraph', children: [{ text: '' }] }, { at: lastPath, select: true });
           }
         }}
       />
@@ -562,7 +552,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
           const v = row?.url ?? url;
           if (isProbablyVideo(v, row?.mime_type)) {
             insertVideoNode(editor, v);
-          } else {
+          } else {  
             insertImage(editor, v);
           }
           setBlockImgModalOpen(false);
@@ -641,6 +631,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
         }}
       />
 
+      {/* 내부 위키 링크 모달 */}
+      <WikiLinkModal
+        key={wikiLinkOpen ? 'open' : 'closed'}
+        open={wikiLinkOpen}
+        onClose={() => setWikiLinkOpen(false)}
+        onSelect={handleWikiLinkInsert}
+      />
+
       {/* Heading 아이콘 선택 모달 */}
       <HeadingIconSelectModal
         open={!!headingModalOpen}
@@ -677,18 +675,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
               stages: [],
             })),
             cardsPerRow,
-            children: [{ text: '' }],
+            children: [{ text: '' }]
           };
           Transforms.insertNodes(editor, element as any);
-          Transforms.insertNodes(
-            editor,
-            { type: 'paragraph', children: [{ text: '' }] } as any,
-          );
+          Transforms.insertNodes(editor, { type: 'paragraph', children: [{ text: '' }] });
           setShowPriceTableInsertModal(false);
         }}
       />
 
-      {/* 표 삽입 버튼 + TablePicker */}
+      {/* ★ 표 삽입 버튼 + TablePicker */}
       <button
         className="editor-toolbar-btn"
         ref={tableBtnRef}
@@ -696,6 +691,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
         onMouseDown={(e) => {
           e.preventDefault();
           closeAllDropdowns();
+          // 현재 selection 기억 → 선택 위치에 표 삽입
           selectionRef.current = editor.selection ?? null;
           setTablePickerOpen(true);
         }}
