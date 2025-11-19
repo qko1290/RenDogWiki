@@ -1087,7 +1087,7 @@ export default function WikiPageInner({ user }: Props) {
         />
       )}
 
-      {/* 콘텐츠 페이드 전환 + 제목/링크 버튼 스타일 */}
+            {/* 콘텐츠 페이드 전환 + 제목/링크 버튼 스타일 */}
       <style jsx global>{`
         .wiki-content.is-ready {
           opacity: 1;
@@ -1097,20 +1097,25 @@ export default function WikiPageInner({ user }: Props) {
           opacity: 0;
         }
 
-        /* 제목 + 링크 버튼 정렬 */
+        /* 제목 래퍼 */
         .wiki-doc-title-wrap {
-          display: inline-flex;
+          display: flex;
           align-items: center;
+          justify-content: flex-start;
           gap: 8px;
           line-height: 1;
-          padding-bottom: 10px; /* 👇 아래로 10px 패딩 */
+          padding-bottom: 10px; /* 아래 살짝 여백 */
+          position: relative;
         }
 
+        /* 제목 텍스트와 아이콘 */
         .wiki-doc-title-wrap .wiki-content-title-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
           margin: 0;
-          padding-top: 0;
-          padding-bottom: 0;
-          line-height: 1.15;
+          padding: 0;
+          line-height: 1.2;
         }
 
         .wiki-doc-title-wrap .wiki-doc-icon-img,
@@ -1120,11 +1125,12 @@ export default function WikiPageInner({ user }: Props) {
           align-items: center;
         }
 
-        /* 🔗 링크 버튼 */
+        /* 🔗 링크 버튼 (제목 오른쪽) */
         .wiki-doc-link-btn {
-          width: 20px; /* 👇 버튼 폭 축소 */
+          margin-left: 6px; /* 제목 오른쪽 여백 */
+          width: 20px;
           height: 20px;
-          border-radius: 999px;
+          border-radius: 50%;
           border: none;
           font-size: 11px;
           display: grid;
@@ -1135,14 +1141,12 @@ export default function WikiPageInner({ user }: Props) {
           transition:
             background-color 0.15s ease,
             color 0.15s ease,
-            transform 0.15s ease,
-            box-shadow 0.15s ease,
             opacity 0.15s ease;
-          opacity: 0; /* 👇 기본 상태에서 가리기 */
+          opacity: 0;
           pointer-events: none;
         }
 
-        /* hover 시만 표시 (목차 버튼처럼) */
+        /* hover 시만 보이게 */
         .wiki-doc-title-wrap:hover .wiki-doc-link-btn {
           opacity: 1;
           pointer-events: auto;
