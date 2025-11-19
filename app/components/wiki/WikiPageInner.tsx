@@ -1102,7 +1102,6 @@ export default function WikiPageInner({ user }: Props) {
           display: flex;
           align-items: center;
           gap: 8px;
-          height: 30px;
         }
 
         .wiki-doc-link-btn {
