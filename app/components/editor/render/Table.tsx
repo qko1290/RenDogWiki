@@ -9,7 +9,6 @@ import {
   useDragRect,
   beginDrag,
   hoverCell,
-  selectRectDirect,
   isDragPrimedOrActive,
 } from '../helpers/tableDrag';
 
@@ -86,47 +85,6 @@ export function TableElementRenderer(props: RenderElementProps & { editor: any }
     ro.observe(wrapRef.current);
     return () => ro.disconnect();
   }, [positionOverlay]);
-
-  // 좌 레일 클릭 → 행 전체 선택
-  const onRailLeft = (e: React.MouseEvent<HTMLDivElement>) => {
-    const wrap = wrapRef.current;
-    if (!wrap) return;
-    const trs = Array.from(wrap.querySelectorAll('tr')) as HTMLElement[];
-    const y = e.clientY;
-    let row = 0;
-    for (let i = 0; i < trs.length; i++) {
-      const r = trs[i].getBoundingClientRect();
-      if (y >= r.top && y <= r.bottom) {
-        row = i;
-        break;
-      }
-    }
-    const cols =
-      (trs[0]?.querySelectorAll('td.slate-table__cell')?.length ?? 1) - 1;
-    selectRectDirect(editor, tablePath, tkey, row, 0, row, Math.max(0, cols));
-  };
-
-  // 상 레일 클릭 → 열 전체 선택
-  const onRailTop = (e: React.MouseEvent<HTMLDivElement>) => {
-    const wrap = wrapRef.current;
-    if (!wrap) return;
-    const firstRow = wrap.querySelector('tr');
-    if (!firstRow) return;
-    const tds = Array.from(
-      firstRow.querySelectorAll('td.slate-table__cell'),
-    ) as HTMLElement[];
-    const x = e.clientX;
-    let col = 0;
-    for (let i = 0; i < tds.length; i++) {
-      const r = tds[i].getBoundingClientRect();
-      if (x >= r.left && x <= r.right) {
-        col = i;
-        break;
-      }
-    }
-    const rows = wrap.querySelectorAll('tr').length - 1;
-    selectRectDirect(editor, tablePath, tkey, 0, col, Math.max(0, rows), col);
-  };
 
   // 폭 조절 핸들 드래그
   const onResizeMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -278,48 +236,6 @@ export function TableElementRenderer(props: RenderElementProps & { editor: any }
           background: 'rgba(42,157,111,.12)',
           pointerEvents: 'none',
           display: 'none',
-        }}
-      />
-
-      {/* 좌/상단 레일 */}
-      <div
-        contentEditable={false}
-        aria-hidden
-        onMouseDown={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onRailLeft(e);
-        }}
-        style={{
-          position: 'absolute',
-          left: -14,
-          top: 0,
-          width: 14,
-          height: '100%',
-          background: '#eceff3',
-          borderRadius: 6,
-          userSelect: 'none',
-          cursor: 'default',
-        }}
-      />
-      <div
-        contentEditable={false}
-        aria-hidden
-        onMouseDown={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onRailTop(e);
-        }}
-        style={{
-          position: 'absolute',
-          left: 0,
-          top: -14,
-          height: 14,
-          width: '100%',
-          background: '#eceff3',
-          borderRadius: 6,
-          userSelect: 'none',
-          cursor: 'default',
         }}
       />
 
