@@ -19,7 +19,6 @@ import { insertMedia } from './helpers/insertMedia';
 import { setImageAlignment } from './helpers/setImageAlignment';
 import { InlineMarkElement, TableElement } from '@/types/slate';
 import LinkInputModal from './LinkInputModal';
-import WikiLinkModal from './WikiLinkModal';
 import CustomColorDropdown from "./CustomColorDropdown";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
