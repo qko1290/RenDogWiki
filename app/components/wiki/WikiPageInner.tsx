@@ -1102,18 +1102,17 @@ export default function WikiPageInner({ user }: Props) {
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          line-height: 1;        /* 불필요한 세로 높이 제거 */
+          line-height: 1;
+          padding-bottom: 10px; /* 👇 아래로 10px 패딩 */
         }
 
-        /* 제목 h2의 위아래 패딩/마진 줄이기 */
         .wiki-doc-title-wrap .wiki-content-title-row {
           margin: 0;
           padding-top: 0;
           padding-bottom: 0;
-          line-height: 1.15;     /* 텍스트만 딱 들어가게 */
+          line-height: 1.15;
         }
 
-        /* 아이콘/텍스트 수직 가운데 정렬 */
         .wiki-doc-title-wrap .wiki-doc-icon-img,
         .wiki-doc-title-wrap .wiki-doc-icon-emoji,
         .wiki-doc-title-wrap .wiki-title-color {
@@ -1121,12 +1120,13 @@ export default function WikiPageInner({ user }: Props) {
           align-items: center;
         }
 
+        /* 🔗 링크 버튼 */
         .wiki-doc-link-btn {
-          width: 26px;
-          height: 26px;
+          width: 20px; /* 👇 버튼 폭 축소 */
+          height: 20px;
           border-radius: 999px;
           border: none;
-          font-size: 12px;
+          font-size: 11px;
           display: grid;
           place-items: center;
           cursor: pointer;
@@ -1136,10 +1136,19 @@ export default function WikiPageInner({ user }: Props) {
             background-color 0.15s ease,
             color 0.15s ease,
             transform 0.15s ease,
-            box-shadow 0.15s ease;
+            box-shadow 0.15s ease,
+            opacity 0.15s ease;
+          opacity: 0; /* 👇 기본 상태에서 가리기 */
+          pointer-events: none;
         }
 
+        /* hover 시만 표시 (목차 버튼처럼) */
         .wiki-doc-title-wrap:hover .wiki-doc-link-btn {
+          opacity: 1;
+          pointer-events: auto;
+        }
+
+        .wiki-doc-link-btn:hover {
           background: #eef2ff;
           color: #4f46e5;
         }
@@ -1148,6 +1157,8 @@ export default function WikiPageInner({ user }: Props) {
           background: #dcfce7;
           color: #16a34a;
           box-shadow: 0 0 0 1px rgba(22, 163, 74, 0.15);
+          opacity: 1;
+          pointer-events: auto;
         }
 
         @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
