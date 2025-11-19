@@ -1,7 +1,7 @@
 // =============================================
 // File: app/wiki/WikiPageInner.tsx
-// (이미지 lazy/async 적용 유지, 로더 포함 / 전환 딜레이 적용)
-// + 제목 왼쪽 "링크 복사" 버튼 추가
+// (이미지 lazy/async 적용 유지, 로더 포함 / 전환 딜레이 적용
+//  + 문서 제목 왼쪽 링크 복사 버튼 추가)
 // =============================================
 'use client';
 
@@ -182,6 +182,9 @@ export default function WikiPageInner({ user }: Props) {
 
   const [showNewFaq, setShowNewFaq] = useState(false);
 
+  // 🔗 문서 링크 복사 상태
+  const [copiedDocLink, setCopiedDocLink] = useState(false);
+
   // ⭐ 루트 문서는 문서 크롬(제목/브레드크럼) 숨김
   const [hideDocChrome, setHideDocChrome] = useState(false);
   const [loadingDoc, setLoadingDoc] = useState(false);
@@ -232,7 +235,21 @@ export default function WikiPageInner({ user }: Props) {
 
     router.replace(nextUrl);
   };
-  
+
+  // 🔗 현재 문서 링크 복사
+  const handleCopyDocLink = async () => {
+    if (typeof window === 'undefined') return;
+    try {
+      const { origin, pathname, search } = window.location;
+      const url = `${origin}${pathname}${search}`; // 해시는 제외
+      await navigator.clipboard?.writeText(url);
+      setCopiedDocLink(true);
+      setTimeout(() => setCopiedDocLink(false), 1500);
+    } catch (e) {
+      console.error('Failed to copy doc link', e);
+    }
+  };
+
   useEffect(() => {
     const onMode = (e: Event) => {
       const next = (e as CustomEvent).detail?.mode ?? null;
@@ -548,11 +565,9 @@ export default function WikiPageInner({ user }: Props) {
         setSpecialMeta(meta);
 
         if (meta?.kind === 'faq') {
-          setFaqQuery(meta.q ?? '');
-          setFaqTags(meta.tags ?? []);
+          setFaqQuery(meta.q ?? ''); setFaqTags(meta.tags ?? []);
         } else {
-          setFaqQuery('');
-          setFaqTags([]);
+          setFaqQuery(''); setFaqTags([]);
         }
 
         // 🔁 fullPath 기준으로 nextPath 계산 (없으면 기존 categoryPath/루트 사용)
@@ -822,23 +837,6 @@ export default function WikiPageInner({ user }: Props) {
     allDocuments.length > 0 &&
     Object.keys(categoryIdMap).length > 0;
 
-  // 🔗 문서 링크 복사 (제목 왼쪽 버튼)
-  const handleCopyDocLink = async () => {
-    if (typeof window === 'undefined') return;
-    const nav: any = (navigator as any);
-    if (!nav?.clipboard?.writeText) return;
-
-    try {
-      const { origin, pathname, search } = window.location;
-      const url = origin + pathname + (search || '');
-      await nav.clipboard.writeText(url);
-      // 필요하면 나중에 토스트 연결
-      // console.log('Copied wiki page link:', url);
-    } catch (err) {
-      console.error('[wiki] failed to copy page link', err);
-    }
-  };
-
   return (
     <div className="wiki-container">
       <WikiHeader user={user} />
@@ -881,52 +879,31 @@ export default function WikiPageInner({ user }: Props) {
                   setSelectedDocTitle={setSelectedDocTitle}
                   setDocContent={setDocContent}
                 />
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                  {/* 제목 왼쪽: 숨겨진 링크 버튼 + 문서 아이콘 + 제목 */}
-                  <div className="wiki-title-row-left">
+
+                {/* 제목 + 링크 버튼 + FAQ 버튼 한 줄 정렬 */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                  }}
+                >
+                  <div className="wiki-doc-title-wrap">
+                    {/* 문서 링크 복사 버튼 */}
                     <button
                       type="button"
-                      className="wiki-title-link-btn"
+                      className={`wiki-doc-link-btn${
+                        copiedDocLink ? ' wiki-doc-link-btn--copied' : ''
+                      }`}
                       onClick={handleCopyDocLink}
-                      aria-label="문서 링크 복사"
-                      title="문서 링크 복사"
+                      title="이 문서 링크 복사"
+                      aria-label="이 문서 링크 복사"
                     >
-                      <span aria-hidden="true">
-                        <svg
-                          viewBox="0 0 24 24"
-                          width="14"
-                          height="14"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            d="M9.5 13.5L8 15C6.343 16.657 6.343 19.343 8 21C9.657 22.657 12.343 22.657 14 21L16.5 18.5C18.157 16.843 18.157 14.157 16.5 12.5C16.105 12.105 15.645 11.797 15.143 11.574"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.6"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                          <path
-                            d="M14.5 10.5L16 9C17.657 7.343 17.657 4.657 16 3C14.343 1.343 11.657 1.343 10 3L7.5 5.5C5.843 7.157 5.843 9.843 7.5 11.5C7.895 11.895 8.355 12.203 8.857 12.426"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.6"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                          <line
-                            x1="9"
-                            y1="12"
-                            x2="15"
-                            y2="12"
-                            stroke="currentColor"
-                            strokeWidth="1.6"
-                            strokeLinecap="round"
-                          />
-                        </svg>
-                      </span>
+                      {copiedDocLink ? '✔' : '🔗'}
                     </button>
 
+                    {/* 문서 아이콘 + 제목 */}
                     <h2
                       className="wiki-content-title-row wiki-content-title"
                       style={{ margin: 0 }}
@@ -943,9 +920,15 @@ export default function WikiPageInner({ user }: Props) {
                                   decoding="async"
                                 />
                               )
-                              : <span className="wiki-doc-icon-emoji">{currentDoc.icon}</span>)
+                              : (
+                                <span className="wiki-doc-icon-emoji">
+                                  {currentDoc.icon}
+                                </span>
+                              ))
                           : null}
-                        <span className="wiki-title-color">{selectedDocTitle || '렌독 위키'}</span>
+                        <span className="wiki-title-color">
+                          {selectedDocTitle || '렌독 위키'}
+                        </span>
                       </>
                     </h2>
                   </div>
@@ -958,13 +941,23 @@ export default function WikiPageInner({ user }: Props) {
               </>
             )}
 
-            <div className="wiki-content-body" ref={contentRef} style={{
-              fontFamily: "'NanumSquareRound', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
-            }}>
+            <div
+              className="wiki-content-body"
+              ref={contentRef}
+              style={{
+                fontFamily:
+                  "'NanumSquareRound', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
+              }}
+            >
               {hold ? (
                 <BookLoader />
               ) : isFaq ? (
-                <FaqList query={faqQuery} tags={faqTags} user={user} refreshSignal={faqRefreshSignal} />
+                <FaqList
+                  query={faqQuery}
+                  tags={faqTags}
+                  user={user}
+                  refreshSignal={faqRefreshSignal}
+                />
               ) : specialMeta?.kind === 'head' ? (
                 headLoading ? (
                   <BookLoader />
@@ -998,18 +991,63 @@ export default function WikiPageInner({ user }: Props) {
 
               {specialMeta?.kind === 'head' && headList.length > 21 && !hold && (
                 <div className="wiki-paging-bar">
-                  <button onClick={() => setHeadPage(p => Math.max(0, p - 1))} disabled={headPage === 0} className="wiki-paging-btn">◀</button>
-                  <span className="wiki-paging-text">{headPage + 1} / {Math.ceil(headList.length / 21)}</span>
-                  <button onClick={() => setHeadPage(p => Math.min(Math.ceil(headList.length / 21) - 1, p + 1))} disabled={headPage === Math.ceil(headList.length / 21) - 1} className="wiki-paging-btn">▶</button>
+                  <button
+                    onClick={() => setHeadPage(p => Math.max(0, p - 1))}
+                    disabled={headPage === 0}
+                    className="wiki-paging-btn"
+                  >
+                    ◀
+                  </button>
+                  <span className="wiki-paging-text">
+                    {headPage + 1} / {Math.ceil(headList.length / 21)}
+                  </span>
+                  <button
+                    onClick={() =>
+                      setHeadPage(p =>
+                        Math.min(Math.ceil(headList.length / 21) - 1, p + 1),
+                      )
+                    }
+                    disabled={
+                      headPage === Math.ceil(headList.length / 21) - 1
+                    }
+                    className="wiki-paging-btn"
+                  >
+                    ▶
+                  </button>
                 </div>
               )}
-              {(specialMeta?.kind === 'npc' || specialMeta?.kind === 'quest') && npcList.length > 21 && !hold && (
-                <div className="wiki-paging-bar">
-                  <button onClick={() => setNpcPage(p => Math.max(0, p - 1))} disabled={npcPage === 0} className="wiki-paging-btn">◀</button>
-                  <span className="wiki-paging-text">{npcPage + 1} / {Math.ceil(npcList.length / 21)}</span>
-                  <button onClick={() => setNpcPage(p => Math.min(Math.ceil(npcList.length / 21) - 1, p + 1))} disabled={npcPage === Math.ceil(npcList.length / 21) - 1} className="wiki-paging-btn">▶</button>
-                </div>
-              )}
+              {(specialMeta?.kind === 'npc' || specialMeta?.kind === 'quest') &&
+                npcList.length > 21 &&
+                !hold && (
+                  <div className="wiki-paging-bar">
+                    <button
+                      onClick={() => setNpcPage(p => Math.max(0, p - 1))}
+                      disabled={npcPage === 0}
+                      className="wiki-paging-btn"
+                    >
+                      ◀
+                    </button>
+                    <span className="wiki-paging-text">
+                      {npcPage + 1} / {Math.ceil(npcList.length / 21)}
+                    </span>
+                    <button
+                      onClick={() =>
+                        setNpcPage(p =>
+                          Math.min(
+                            Math.ceil(npcList.length / 21) - 1,
+                            p + 1,
+                          ),
+                        )
+                      }
+                      disabled={
+                        npcPage === Math.ceil(npcList.length / 21) - 1
+                      }
+                      className="wiki-paging-btn"
+                    >
+                      ▶
+                    </button>
+                  </div>
+                )}
 
               {selectedNpc && !hold && (
                 <NpcDetailModal
@@ -1019,7 +1057,11 @@ export default function WikiPageInner({ user }: Props) {
                 />
               )}
               {selectedHead && !hold && (
-                <HeadDetailModal head={selectedHead} docIcon={currentDoc?.icon} onClose={() => setSelectedHead(null)} />
+                <HeadDetailModal
+                  head={selectedHead}
+                  docIcon={currentDoc?.icon}
+                  onClose={() => setSelectedHead(null)}
+                />
               )}
             </div>
           </main>
@@ -1038,81 +1080,105 @@ export default function WikiPageInner({ user }: Props) {
           open
           mode="create"
           onClose={() => setShowNewFaq(false)}
-          onSaved={() => { setShowNewFaq(false); setFaqRefreshSignal(v => v + 1); }}
+          onSaved={() => {
+            setShowNewFaq(false);
+            setFaqRefreshSignal(v => v + 1);
+          }}
         />
       )}
 
-      {/* (선택) 콘텐츠 페이드 전환용 + 제목 링크 버튼 스타일 */}
+      {/* 콘텐츠 페이드 전환 + 제목/링크 버튼 스타일 */}
       <style jsx global>{`
-        .wiki-content.is-ready { opacity: 1; transition: opacity .18s ease; }
-        .wiki-content.is-hold  { opacity: 0; }
-
-        /* 제목 왼쪽 링크 복사 버튼 */
-        .wiki-title-row-left {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
+        .wiki-content.is-ready {
+          opacity: 1;
+          transition: opacity 0.18s ease;
         }
-        .wiki-title-link-btn {
+        .wiki-content.is-hold {
+          opacity: 0;
+        }
+
+        /* 제목 + 링크 버튼 정렬용 */
+        .wiki-doc-title-wrap {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .wiki-doc-link-btn {
           width: 26px;
           height: 26px;
           border-radius: 999px;
           border: none;
-          padding: 0;
-          margin: 0;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
+          font-size: 12px;
+          display: grid;
+          place-items: center;
+          cursor: pointer;
           background: transparent;
           color: #9ca3af;
-          cursor: pointer;
-          opacity: 0;
-          transform: translateX(-4px);
           transition:
-            opacity .14s ease,
-            transform .14s ease,
-            background-color .14s ease,
-            color .14s ease,
-            box-shadow .14s ease;
+            background-color 0.15s ease,
+            color 0.15s ease,
+            transform 0.15s ease,
+            box-shadow 0.15s ease;
         }
-        .wiki-title-row-left:hover .wiki-title-link-btn,
-        .wiki-title-link-btn:focus-visible {
-          opacity: 1;
-          transform: translateX(0);
+
+        .wiki-doc-title-wrap:hover .wiki-doc-link-btn {
+          background: #eef2ff;
+          color: #4f46e5;
         }
-        .wiki-title-link-btn:hover {
-          background: #eff6ff;
-          color: #2563eb;
-          box-shadow: 0 0 0 1px rgba(37,99,235,0.1);
+
+        .wiki-doc-link-btn--copied {
+          background: #dcfce7;
+          color: #16a34a;
+          box-shadow: 0 0 0 1px rgba(22, 163, 74, 0.15);
         }
 
         @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
-        :root { --wiki-round-font: 'Jua', 'Pretendard', 'Malgun Gothic', system-ui, sans-serif; }
+        :root {
+          --wiki-round-font: 'Jua', 'Pretendard', 'Malgun Gothic', system-ui,
+            sans-serif;
+        }
       `}</style>
     </div>
   );
 }
 
 // -------- 새 질문 모달 (미사용 시 제거 가능) --------
-function NewFaqModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void; }) {
+function NewFaqModal({
+  onClose,
+  onSaved,
+}: {
+  onClose: () => void;
+  onSaved: () => void;
+}) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [tags, setTags] = useState('');
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
-    if (!title.trim() || !content.trim()) { alert('제목과 내용을 입력해주세요.'); return; }
+    if (!title.trim() || !content.trim()) {
+      alert('제목과 내용을 입력해주세요.');
+      return;
+    }
     setSaving(true);
     try {
       const r = await fetch('/api/faq', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: title.trim(), content: content.trim(), tags }),
+        body: JSON.stringify({
+          title: title.trim(),
+          content: content.trim(),
+          tags,
+        }),
       });
       if (!r.ok) throw 0;
       onSaved();
-    } catch { alert('저장에 실패했습니다.'); }
-    finally { setSaving(false); }
+    } catch {
+      alert('저장에 실패했습니다.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -1120,25 +1186,59 @@ function NewFaqModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
       <div style={modalStyle} onClick={e => e.stopPropagation()}>
         <div style={modalHeaderStyle}>
           <h3 style={{ margin: 0 }}>질문 추가</h3>
-          <button onClick={onClose} style={closeBtnStyle} aria-label="close">✕</button>
+          <button
+            onClick={onClose}
+            style={closeBtnStyle}
+            aria-label="close"
+          >
+            ✕
+          </button>
         </div>
         <div style={{ display: 'grid', gap: 10 }}>
           <div>
             <label style={labelStyle}>제목</label>
-            <input style={inputStyle} value={title} onChange={e => setTitle(e.target.value)} />
+            <input
+              style={inputStyle}
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+            />
           </div>
           <div>
             <label style={labelStyle}>내용</label>
-            <textarea style={{ ...inputStyle, height: 140, resize: 'vertical' }} value={content} onChange={e => setContent(e.target.value)} />
+            <textarea
+              style={{ ...inputStyle, height: 140, resize: 'vertical' }}
+              value={content}
+              onChange={e => setContent(e.target.value)}
+            />
           </div>
           <div>
             <label style={labelStyle}>태그(쉼표로 구분, 선택)</label>
-            <input style={inputStyle} value={tags} onChange={e => setTags(e.target.value)} placeholder="예: 뉴비,설정" />
+            <input
+              style={inputStyle}
+              value={tags}
+              onChange={e => setTags(e.target.value)}
+              placeholder="예: 뉴비,설정"
+            />
           </div>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
-          <button className="wiki-btn" onClick={onClose}>취소</button>
-          <button className="wiki-btn wiki-btn-primary" onClick={save} disabled={saving}>{saving ? '저장 중…' : '저장'}</button>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: 8,
+            marginTop: 14,
+          }}
+        >
+          <button className="wiki-btn" onClick={onClose}>
+            취소
+          </button>
+          <button
+            className="wiki-btn wiki-btn-primary"
+            onClick={save}
+            disabled={saving}
+          >
+            {saving ? '저장 중…' : '저장'}
+          </button>
         </div>
       </div>
     </div>
@@ -1146,22 +1246,58 @@ function NewFaqModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
 }
 
 const backdropStyle: React.CSSProperties = {
-  position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000,
-  display: 'grid', placeItems: 'center', padding: 16,
+  position: 'fixed',
+  inset: 0,
+  background: 'rgba(0,0,0,0.45)',
+  zIndex: 1000,
+  display: 'grid',
+  placeItems: 'center',
+  padding: 16,
 };
 const modalStyle: React.CSSProperties = {
-  width: 'min(680px, 100%)', background: '#fff', borderRadius: 16, padding: 16, boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+  width: 'min(680px, 100%)',
+  background: '#fff',
+  borderRadius: 16,
+  padding: 16,
+  boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
 };
-const modalHeaderStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 };
-const closeBtnStyle: React.CSSProperties = { border: '1px solid #e5e7eb', background: '#fff', borderRadius: 8, width: 32, height: 32, cursor: 'pointer' };
-const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, color: '#555', marginBottom: 6 };
-const inputStyle: React.CSSProperties = { width: '100%', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 10px' };
+const modalHeaderStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  marginBottom: 12,
+};
+const closeBtnStyle: React.CSSProperties = {
+  border: '1px solid #e5e7eb',
+  background: '#fff',
+  borderRadius: 8,
+  width: 32,
+  height: 32,
+  cursor: 'pointer',
+};
+const labelStyle: React.CSSProperties = {
+  display: 'block',
+  fontSize: 13,
+  color: '#555',
+  marginBottom: 6,
+};
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  border: '1px solid #e5e7eb',
+  borderRadius: 8,
+  padding: '8px 10px',
+};
 
 // ====== FAQ 상단 액션 버튼 ======
 function FaqAddButton({ onClick }: { onClick: () => void }) {
   return (
     <div className="faq-add-group">
-      <button className="faq-add-seg" onClick={onClick} title="질문 추가" aria-label="질문 추가">
+      <button
+        className="faq-add-seg"
+        onClick={onClick}
+        title="질문 추가"
+        aria-label="질문 추가"
+      >
         <svg
           className="faq-add-ic"
           stroke="currentColor"
@@ -1170,7 +1306,11 @@ function FaqAddButton({ onClick }: { onClick: () => void }) {
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
         >
-          <path d="M12 6v12M6 12h12" strokeLinecap="round" strokeLinejoin="round" />
+          <path
+            d="M12 6v12M6 12h12"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </svg>
         <span className="faq-add-label">질문 추가</span>
       </button>
@@ -1182,7 +1322,7 @@ function FaqAddButton({ onClick }: { onClick: () => void }) {
           background: #fff;
           border: 1px solid #b7f0d0;
           border-radius: 12px;
-          box-shadow: 0 1px 0 rgba(16,185,129,0.06);
+          box-shadow: 0 1px 0 rgba(16, 185, 129, 0.06);
         }
         .faq-add-seg {
           display: inline-flex;
@@ -1194,14 +1334,20 @@ function FaqAddButton({ onClick }: { onClick: () => void }) {
           background: transparent;
           border: none;
           cursor: pointer;
-          transition: background .2s ease, color .2s ease, border-color .2s ease;
+          transition: background 0.2s ease, color 0.2s ease,
+            border-color 0.2s ease;
           height: 36px;
         }
         .faq-add-seg:hover {
           background: #ecfdf5;
         }
-        .faq-add-ic { width: 20px; height: 20px; }
-        .faq-add-label { line-height: 1; }
+        .faq-add-ic {
+          width: 20px;
+          height: 20px;
+        }
+        .faq-add-label {
+          line-height: 1;
+        }
       `}</style>
     </div>
   );

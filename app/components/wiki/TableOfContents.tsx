@@ -1,3 +1,8 @@
+// =============================================
+// File: app/components/wiki/TableOfContents.tsx
+// - 목차 항목 왼쪽 숨겨진 링크 복사 버튼
+// - 해시 포함 링크로 진입했을 때 스크롤 재시도 로직 추가
+// =============================================
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -33,7 +38,7 @@ export default function TableOfContents({
   scrollRootSelector,
 }: Props) {
   const [activeId, setActiveId] = useState<string>('');
-  const [copiedId, setCopiedId] = useState<string | null>(null); // 🔗 최근에 복사한 heading id
+  const [copiedId, setCopiedId] = useState<string | null>(null); // 🔗 최근 복사한 heading id
   const rootRef = useRef<HTMLElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const [rootKey, setRootKey] = useState(0); // 루트 변경 트리거 키
@@ -117,20 +122,23 @@ export default function TableOfContents({
     return findScrollableAncestor(target);
   };
 
-  // 컨테이너 기준 스무스 스크롤
+  // 컨테이너 기준 스무스 스크롤 (성공 여부 반환)
   const scrollToId = (
     id: string,
     occ: number,
     behavior: ScrollBehavior = 'smooth'
-  ) => {
+  ): boolean => {
     const target = getTarget(id, occ);
-    if (!target) return;
+    if (!target) return false;
 
     const root = getScrollRoot(target);
 
     if (!root) {
       // window 스크롤
-      const y = target.getBoundingClientRect().top + window.scrollY - headerOffset;
+      const y =
+        target.getBoundingClientRect().top +
+        window.scrollY -
+        headerOffset;
       window.scrollTo({ top: y, behavior });
     } else {
       // 컨테이너 스크롤
@@ -158,6 +166,8 @@ export default function TableOfContents({
     } catch {
       // ignore
     }
+
+    return true;
   };
 
   // 🔗 퍼머링크 생성 (문서 + 선택 헤딩)
@@ -189,7 +199,7 @@ export default function TableOfContents({
 
     observerRef.current?.disconnect();
     const obs = new IntersectionObserver(
-      (entries) => {
+      entries => {
         const visible = entries
           .filter(e => e.isIntersecting)
           .sort((a, b) =>
@@ -214,10 +224,12 @@ export default function TableOfContents({
       if (seenIds.has(id)) return;
       seenIds.add(id);
       const esc = id.replace(/"/g, '\\"');
-      document.querySelectorAll<HTMLElement>(`[id="${esc}"]`).forEach(el => {
-        obs.observe(el);
-        observed.push(el);
-      });
+      document
+        .querySelectorAll<HTMLElement>(`[id="${esc}"]`)
+        .forEach(el => {
+          obs.observe(el);
+          observed.push(el);
+        });
     });
 
     return () => {
@@ -226,7 +238,7 @@ export default function TableOfContents({
     };
   }, [indexed, headerOffset, rootKey]);
 
-  // 새 문서 로드 후 URL 해시가 있으면 해당 위치로 한 번 스크롤
+  // 새 문서 로드 + 해시가 있을 때 해당 위치로 여러 번 재시도하며 스크롤
   useEffect(() => {
     if (!headings.length) return;
 
@@ -237,9 +249,14 @@ export default function TableOfContents({
     if (!hash) return;
 
     const raf = requestAnimationFrame(() => {
-      // ✅ 초기 진입 시에는 애니메이션 없이 바로 점프
-      //    (맨 위에서부터 길게 스크롤되는 느낌 방지)
-      scrollToId(hash, 0, 'auto');
+      // 한 번에 안 잡히는 경우를 대비해 약간의 딜레이를 두고 최대 3회 시도
+      if (scrollToId(hash, 0, 'auto')) return;
+      setTimeout(() => {
+        if (scrollToId(hash, 0, 'auto')) return;
+        setTimeout(() => {
+          scrollToId(hash, 0, 'auto');
+        }, 180);
+      }, 120);
     });
     return () => cancelAnimationFrame(raf);
   }, [headings, rootKey]);
@@ -339,15 +356,16 @@ export default function TableOfContents({
                   {/* 🔗 링크 복사 버튼 (hover 시 등장) */}
                   <button
                     type="button"
-                    className={`wiki-toc-link-btn${isCopied ? ' wiki-toc-link-btn--copied' : ''}`}
-                    onClick={(e) => {
+                    className={`wiki-toc-link-btn${
+                      isCopied ? ' wiki-toc-link-btn--copied' : ''
+                    }`}
+                    onClick={e => {
                       e.stopPropagation();
                       handleCopyLink(h.id);
                     }}
                     title="이 위치 링크 복사"
                     aria-label="이 위치 링크 복사"
                   >
-                    {/* 단순 아이콘 (체크/링크 전환) */}
                     {isCopied ? '✔' : '🔗'}
                   </button>
 
