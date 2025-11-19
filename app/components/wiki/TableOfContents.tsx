@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faAlignLeft, faLink } from '@fortawesome/free-solid-svg-icons';
+import { faAlignLeft } from '@fortawesome/free-solid-svg-icons';
 import { toProxyUrl } from '@lib/cdn';
 
 type Heading = {
@@ -33,6 +33,7 @@ export default function TableOfContents({
   scrollRootSelector,
 }: Props) {
   const [activeId, setActiveId] = useState<string>('');
+  const [copiedId, setCopiedId] = useState<string | null>(null); // 🔗 최근에 복사한 heading id
   const rootRef = useRef<HTMLElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const [rootKey, setRootKey] = useState(0); // 루트 변경 트리거 키
@@ -159,6 +160,29 @@ export default function TableOfContents({
     }
   };
 
+  // 🔗 퍼머링크 생성 (문서 + 선택 헤딩)
+  const buildPermalink = (headingId?: string) => {
+    if (typeof window === 'undefined') return '';
+    const { origin, pathname, search } = window.location;
+    const hash = headingId ? `#${encodeURIComponent(headingId)}` : '';
+    return `${origin}${pathname}${search}${hash}`;
+  };
+
+  // 🔗 링크 복사
+  const handleCopyLink = async (headingId: string) => {
+    if (typeof window === 'undefined') return;
+    const url = buildPermalink(headingId);
+    try {
+      await navigator.clipboard?.writeText(url);
+      setCopiedId(headingId);
+      setTimeout(() => {
+        setCopiedId(prev => (prev === headingId ? null : prev));
+      }, 1500);
+    } catch (e) {
+      console.error('Failed to copy permalink', e);
+    }
+  };
+
   // 스크롤 스파이(컨테이너 기준)
   useEffect(() => {
     if (!indexed.length) return;
@@ -220,7 +244,7 @@ export default function TableOfContents({
     return () => cancelAnimationFrame(raf);
   }, [headings, rootKey]);
 
-  // ----- UI 스타일 공통 -----
+  // ----- UI 스타일 -----
   const boxStyle: React.CSSProperties = {
     position: 'fixed',
     right,
@@ -256,9 +280,6 @@ export default function TableOfContents({
     fontWeight: 800,
     color: '#0f172a',
     margin: '0 0 10px 8px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
   };
   const textStyle: React.CSSProperties = {
     fontSize: 13.5,
@@ -269,81 +290,25 @@ export default function TableOfContents({
     textOverflow: 'ellipsis',
   };
 
-  // 🔗 특정 목차 항목 링크 복사
-  const copyHeadingLink = async (heading: Heading & { __occ: number }) => {
-    if (typeof window === 'undefined') return;
-    const nav: any = (navigator as any);
-    if (!nav?.clipboard?.writeText) return;
-
-    try {
-      const url = new URL(window.location.href);
-      url.hash = heading.id || '';
-      await nav.clipboard.writeText(url.toString());
-      // console.log('Copied heading link:', url.toString());
-    } catch (err) {
-      console.error('[wiki] failed to copy heading link', err);
-    }
-  };
-
+  // ----- headings 없을 때 -----
   if (!indexed.length) {
     return (
-      <>
-        <aside
-          role="navigation"
-          aria-label="Table of contents"
-          style={{
-            ...boxStyle,
-            display: 'grid',
-            placeItems: 'center',
-            color: '#9aa1ad',
-          }}
-        >
-          목차 없음
-        </aside>
-        <style jsx global>{`
-          .wiki-toc-row {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-          }
-          .wiki-toc-link-btn {
-            flex: 0 0 auto;
-            width: 24px;
-            height: 24px;
-            border-radius: 999px;
-            border: none;
-            padding: 0;
-            margin: 0;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background: transparent;
-            color: #9ca3af;
-            cursor: pointer;
-            opacity: 0;
-            transform: translateX(4px);
-            transition:
-              opacity .14s ease,
-              transform .14s ease,
-              background-color .14s ease,
-              color .14s ease,
-              box-shadow .14s ease;
-          }
-          .wiki-toc-row:hover .wiki-toc-link-btn,
-          .wiki-toc-link-btn:focus-visible {
-            opacity: 1;
-            transform: translateX(0);
-          }
-          .wiki-toc-link-btn:hover {
-            background: #eff6ff;
-            color: #2563eb;
-            box-shadow: 0 0 0 1px rgba(37,99,235,0.12);
-          }
-        `}</style>
-      </>
+      <aside
+        role="navigation"
+        aria-label="Table of contents"
+        style={{
+          ...boxStyle,
+          display: 'grid',
+          placeItems: 'center',
+          color: '#9aa1ad',
+        }}
+      >
+        목차 없음
+      </aside>
     );
   }
 
+  // ----- 실제 렌더 -----
   return (
     <>
       <aside
@@ -353,40 +318,63 @@ export default function TableOfContents({
       >
         <p style={titleStyle}>
           <FontAwesomeIcon icon={faAlignLeft} />
-          <span>{title}</span>
+          &nbsp;&nbsp;{title}
         </p>
         <ul style={listStyle}>
           {indexed.map((h, i) => {
             const active = h.id === activeId;
             const padLeft = h.level === 1 ? 8 : h.level === 2 ? 26 : 44;
-
-            const mainButtonStyle: React.CSSProperties = {
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              width: '100%',
-              cursor: 'pointer',
-              border: 0,
-              background: active ? '#eff6ff' : 'transparent',
-              borderLeft: `3px solid ${active ? '#2563eb' : 'transparent'}`,
-              color: active ? '#2563eb' : '#4b5563',
-              padding: '6px 8px',
-              paddingLeft: padLeft,
-              borderRadius: 8,
-              textAlign: 'left',
-              transition:
-                'background .12s, color .12s, border-color .12s',
-            };
-
+            const isCopied = copiedId === h.id;
             return (
               <li key={`${h.id}-${h.__occ}-${i}`}>
-                <div className="wiki-toc-row">
+                <div
+                  className="wiki-toc-row"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    paddingLeft: padLeft - 4,
+                  }}
+                >
+                  {/* 🔗 링크 복사 버튼 (hover 시 등장) */}
+                  <button
+                    type="button"
+                    className={`wiki-toc-link-btn${isCopied ? ' wiki-toc-link-btn--copied' : ''}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCopyLink(h.id);
+                    }}
+                    title="이 위치 링크 복사"
+                    aria-label="이 위치 링크 복사"
+                  >
+                    {/* 단순 아이콘 (체크/링크 전환) */}
+                    {isCopied ? '✔' : '🔗'}
+                  </button>
+
+                  {/* 기존: 헤딩으로 스크롤 이동하는 버튼 */}
                   <button
                     type="button"
                     onClick={() => scrollToId(h.id, h.__occ)}
                     title={h.text}
                     aria-current={active ? 'true' : undefined}
-                    style={mainButtonStyle}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      width: '100%',
+                      cursor: 'pointer',
+                      border: 0,
+                      background: active ? '#eff6ff' : 'transparent',
+                      borderLeft: `3px solid ${
+                        active ? '#2563eb' : 'transparent'
+                      }`,
+                      color: active ? '#2563eb' : '#4b5563',
+                      padding: '6px 8px',
+                      borderRadius: 8,
+                      textAlign: 'left',
+                      transition:
+                        'background .12s, color .12s, border-color .12s',
+                    }}
                   >
                     <span style={iconBox} aria-hidden>
                       {h.icon?.startsWith('http') ? (
@@ -419,21 +407,6 @@ export default function TableOfContents({
                     </span>
                     <span style={textStyle}>{h.text}</span>
                   </button>
-
-                  {/* 🔗 목차 항목 링크 복사 버튼 (호버 시 노출) */}
-                  <button
-                    type="button"
-                    className="wiki-toc-link-btn"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      void copyHeadingLink(h);
-                    }}
-                    aria-label="이 항목 링크 복사"
-                    title="이 항목 링크 복사"
-                  >
-                    <FontAwesomeIcon icon={faLink} style={{ fontSize: 12 }} />
-                  </button>
                 </div>
               </li>
             );
@@ -444,44 +417,49 @@ export default function TableOfContents({
       {/* 목차 링크 버튼 전용 스타일 */}
       <style jsx global>{`
         .wiki-toc-row {
-          display: flex;
-          align-items: center;
-          gap: 4px;
+          position: relative;
         }
+
         .wiki-toc-link-btn {
-          flex: 0 0 auto;
-          width: 24px;
-          height: 24px;
+          width: 22px;
+          height: 22px;
           border-radius: 999px;
           border: none;
-          padding: 0;
-          margin: 0;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
+          font-size: 11px;
+          display: grid;
+          place-items: center;
+          cursor: pointer;
+          margin-right: 2px;
           background: transparent;
           color: #9ca3af;
-          cursor: pointer;
           opacity: 0;
-          transform: translateX(4px);
+          transform: translateX(-4px);
+          pointer-events: none;
           transition:
-            opacity .14s ease,
-            transform .14s ease,
-            background-color .14s ease,
-            color .14s ease,
-            box-shadow .14s ease;
+            opacity 0.15s ease,
+            transform 0.15s ease,
+            background-color 0.15s ease,
+            color 0.15s ease;
         }
-        .wiki-toc-row:hover .wiki-toc-link-btn,
-        .wiki-toc-link-btn:focus-visible {
+
+        .wiki-toc-row:hover .wiki-toc-link-btn {
+          opacity: 1;
+          transform: translateX(0);
+          pointer-events: auto;
+        }
+
+        .wiki-toc-link-btn:hover {
+          background: #eef2ff;
+          color: #4f46e5;
+        }
+
+        .wiki-toc-link-btn--copied {
+          background: #dcfce7;
+          color: #16a34a;
           opacity: 1;
           transform: translateX(0);
         }
-        .wiki-toc-link-btn:hover {
-          background: #eff6ff;
-          color: #2563eb;
-          box-shadow: 0 0 0 1px rgba(37,99,235,0.12);
-        }
-      </style>
+      `}</style>
     </>
   );
 }
