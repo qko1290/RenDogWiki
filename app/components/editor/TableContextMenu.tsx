@@ -129,7 +129,7 @@ export default function TableContextMenu({ editor }: Props) {
       if (!rowNode || !Array.isArray(rowNode.children)) return;
 
       // 기존 행의 셀 개수만큼 새 셀 생성
-      const newRow = {
+      const newRow: any = {
         type: 'table-row',
         children: rowNode.children.map((cell: any) => {
           const newCell: any = {
@@ -142,13 +142,10 @@ export default function TableContextMenu({ editor }: Props) {
             ],
           };
 
-          // colspan/rowspan 그대로 복사 (있다면)
-          if (cell.colspan && Number(cell.colspan) > 1) {
-            newCell.colspan = cell.colspan;
-          }
-          if (cell.rowspan && Number(cell.rowspan) > 1) {
-            newCell.rowspan = cell.rowspan;
-          }
+          // 필요하면 colspan/rowspan 복사
+          if (cell.colspan != null) newCell.colspan = cell.colspan;
+          if (cell.rowspan != null) newCell.rowspan = cell.rowspan;
+
           return newCell;
         }),
       };
