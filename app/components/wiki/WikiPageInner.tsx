@@ -1,6 +1,7 @@
 // =============================================
 // File: app/wiki/WikiPageInner.tsx
 // (이미지 lazy/async 적용 유지, 로더 포함 / 전환 딜레이 적용)
+// + 제목 왼쪽 "링크 복사" 버튼 추가
 // =============================================
 'use client';
 
@@ -821,6 +822,23 @@ export default function WikiPageInner({ user }: Props) {
     allDocuments.length > 0 &&
     Object.keys(categoryIdMap).length > 0;
 
+  // 🔗 문서 링크 복사 (제목 왼쪽 버튼)
+  const handleCopyDocLink = async () => {
+    if (typeof window === 'undefined') return;
+    const nav: any = (navigator as any);
+    if (!nav?.clipboard?.writeText) return;
+
+    try {
+      const { origin, pathname, search } = window.location;
+      const url = origin + pathname + (search || '');
+      await nav.clipboard.writeText(url);
+      // 필요하면 나중에 토스트 연결
+      // console.log('Copied wiki page link:', url);
+    } catch (err) {
+      console.error('[wiki] failed to copy page link', err);
+    }
+  };
+
   return (
     <div className="wiki-container">
       <WikiHeader user={user} />
@@ -864,23 +882,73 @@ export default function WikiPageInner({ user }: Props) {
                   setDocContent={setDocContent}
                 />
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                  {/* 문서 아이콘 + 제목 */}
-                  <h2 className="wiki-content-title-row wiki-content-title" style={{ margin: 0 }}>
-                    <>
-                      {currentDoc?.icon
-                        ? (currentDoc.icon.startsWith('http')
-                            ? <img
-                                src={toProxyUrl(currentDoc.icon)}   // ✅ CloudFront 리라이트
-                                alt="icon"
-                                className="wiki-doc-icon-img"
-                                loading="lazy"
-                                decoding="async"
-                              />
-                            : <span className="wiki-doc-icon-emoji">{currentDoc.icon}</span>)
-                        : null}
-                      <span className="wiki-title-color">{selectedDocTitle || '렌독 위키'}</span>
-                    </>
-                  </h2>
+                  {/* 제목 왼쪽: 숨겨진 링크 버튼 + 문서 아이콘 + 제목 */}
+                  <div className="wiki-title-row-left">
+                    <button
+                      type="button"
+                      className="wiki-title-link-btn"
+                      onClick={handleCopyDocLink}
+                      aria-label="문서 링크 복사"
+                      title="문서 링크 복사"
+                    >
+                      <span aria-hidden="true">
+                        <svg
+                          viewBox="0 0 24 24"
+                          width="14"
+                          height="14"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            d="M9.5 13.5L8 15C6.343 16.657 6.343 19.343 8 21C9.657 22.657 12.343 22.657 14 21L16.5 18.5C18.157 16.843 18.157 14.157 16.5 12.5C16.105 12.105 15.645 11.797 15.143 11.574"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.6"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d="M14.5 10.5L16 9C17.657 7.343 17.657 4.657 16 3C14.343 1.343 11.657 1.343 10 3L7.5 5.5C5.843 7.157 5.843 9.843 7.5 11.5C7.895 11.895 8.355 12.203 8.857 12.426"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.6"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          <line
+                            x1="9"
+                            y1="12"
+                            x2="15"
+                            y2="12"
+                            stroke="currentColor"
+                            strokeWidth="1.6"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      </span>
+                    </button>
+
+                    <h2
+                      className="wiki-content-title-row wiki-content-title"
+                      style={{ margin: 0 }}
+                    >
+                      <>
+                        {currentDoc?.icon
+                          ? (currentDoc.icon.startsWith('http')
+                              ? (
+                                <img
+                                  src={toProxyUrl(currentDoc.icon)}   // ✅ CloudFront 리라이트
+                                  alt="icon"
+                                  className="wiki-doc-icon-img"
+                                  loading="lazy"
+                                  decoding="async"
+                                />
+                              )
+                              : <span className="wiki-doc-icon-emoji">{currentDoc.icon}</span>)
+                          : null}
+                        <span className="wiki-title-color">{selectedDocTitle || '렌독 위키'}</span>
+                      </>
+                    </h2>
+                  </div>
 
                   {/* FAQ일 때만 '질문 추가' 버튼 노출 (권한 필요) */}
                   {isFaq && canWrite && (
@@ -974,10 +1042,50 @@ export default function WikiPageInner({ user }: Props) {
         />
       )}
 
-      {/* (선택) 콘텐츠 페이드 전환용 간단 스타일 */}
+      {/* (선택) 콘텐츠 페이드 전환용 + 제목 링크 버튼 스타일 */}
       <style jsx global>{`
         .wiki-content.is-ready { opacity: 1; transition: opacity .18s ease; }
         .wiki-content.is-hold  { opacity: 0; }
+
+        /* 제목 왼쪽 링크 복사 버튼 */
+        .wiki-title-row-left {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .wiki-title-link-btn {
+          width: 26px;
+          height: 26px;
+          border-radius: 999px;
+          border: none;
+          padding: 0;
+          margin: 0;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: transparent;
+          color: #9ca3af;
+          cursor: pointer;
+          opacity: 0;
+          transform: translateX(-4px);
+          transition:
+            opacity .14s ease,
+            transform .14s ease,
+            background-color .14s ease,
+            color .14s ease,
+            box-shadow .14s ease;
+        }
+        .wiki-title-row-left:hover .wiki-title-link-btn,
+        .wiki-title-link-btn:focus-visible {
+          opacity: 1;
+          transform: translateX(0);
+        }
+        .wiki-title-link-btn:hover {
+          background: #eff6ff;
+          color: #2563eb;
+          box-shadow: 0 0 0 1px rgba(37,99,235,0.1);
+        }
+
         @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
         :root { --wiki-round-font: 'Jua', 'Pretendard', 'Malgun Gothic', system-ui, sans-serif; }
       `}</style>

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faAlignLeft } from '@fortawesome/free-solid-svg-icons';
+import { faAlignLeft, faLink } from '@fortawesome/free-solid-svg-icons';
 import { toProxyUrl } from '@lib/cdn';
 
 type Heading = {
@@ -220,7 +220,7 @@ export default function TableOfContents({
     return () => cancelAnimationFrame(raf);
   }, [headings, rootKey]);
 
-  // ----- UI -----
+  // ----- UI 스타일 공통 -----
   const boxStyle: React.CSSProperties = {
     position: 'fixed',
     right,
@@ -256,6 +256,9 @@ export default function TableOfContents({
     fontWeight: 800,
     color: '#0f172a',
     margin: '0 0 10px 8px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
   };
   const textStyle: React.CSSProperties = {
     fontSize: 13.5,
@@ -266,99 +269,219 @@ export default function TableOfContents({
     textOverflow: 'ellipsis',
   };
 
+  // 🔗 특정 목차 항목 링크 복사
+  const copyHeadingLink = async (heading: Heading & { __occ: number }) => {
+    if (typeof window === 'undefined') return;
+    const nav: any = (navigator as any);
+    if (!nav?.clipboard?.writeText) return;
+
+    try {
+      const url = new URL(window.location.href);
+      url.hash = heading.id || '';
+      await nav.clipboard.writeText(url.toString());
+      // console.log('Copied heading link:', url.toString());
+    } catch (err) {
+      console.error('[wiki] failed to copy heading link', err);
+    }
+  };
+
   if (!indexed.length) {
     return (
-      <aside
-        role="navigation"
-        aria-label="Table of contents"
-        style={{
-          ...boxStyle,
-          display: 'grid',
-          placeItems: 'center',
-          color: '#9aa1ad',
-        }}
-      >
-        목차 없음
-      </aside>
+      <>
+        <aside
+          role="navigation"
+          aria-label="Table of contents"
+          style={{
+            ...boxStyle,
+            display: 'grid',
+            placeItems: 'center',
+            color: '#9aa1ad',
+          }}
+        >
+          목차 없음
+        </aside>
+        <style jsx global>{`
+          .wiki-toc-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+          }
+          .wiki-toc-link-btn {
+            flex: 0 0 auto;
+            width: 24px;
+            height: 24px;
+            border-radius: 999px;
+            border: none;
+            padding: 0;
+            margin: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            color: #9ca3af;
+            cursor: pointer;
+            opacity: 0;
+            transform: translateX(4px);
+            transition:
+              opacity .14s ease,
+              transform .14s ease,
+              background-color .14s ease,
+              color .14s ease,
+              box-shadow .14s ease;
+          }
+          .wiki-toc-row:hover .wiki-toc-link-btn,
+          .wiki-toc-link-btn:focus-visible {
+            opacity: 1;
+            transform: translateX(0);
+          }
+          .wiki-toc-link-btn:hover {
+            background: #eff6ff;
+            color: #2563eb;
+            box-shadow: 0 0 0 1px rgba(37,99,235,0.12);
+          }
+        `}</style>
+      </>
     );
   }
 
   return (
-    <aside
-      role="navigation"
-      aria-label="Table of contents"
-      style={boxStyle}
-    >
-      <p style={titleStyle}>
-        <FontAwesomeIcon icon={faAlignLeft} />
-        &nbsp;&nbsp;{title}
-      </p>
-      <ul style={listStyle}>
-        {indexed.map((h, i) => {
-          const active = h.id === activeId;
-          const padLeft = h.level === 1 ? 8 : h.level === 2 ? 26 : 44;
-          return (
-            <li key={`${h.id}-${h.__occ}-${i}`}>
-              <button
-                type="button"
-                onClick={() => scrollToId(h.id, h.__occ)}
-                title={h.text}
-                aria-current={active ? 'true' : undefined}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  width: '100%',
-                  cursor: 'pointer',
-                  border: 0,
-                  background: active ? '#eff6ff' : 'transparent',
-                  borderLeft: `3px solid ${
-                    active ? '#2563eb' : 'transparent'
-                  }`,
-                  color: active ? '#2563eb' : '#4b5563',
-                  padding: '6px 8px',
-                  paddingLeft: padLeft,
-                  borderRadius: 8,
-                  textAlign: 'left',
-                  transition:
-                    'background .12s, color .12s, border-color .12s',
-                }}
-              >
-                <span style={iconBox} aria-hidden>
-                  {h.icon?.startsWith('http') ? (
-                    <img
-                      src={toProxyUrl(h.icon)}
-                      alt=""
-                      width={16}
-                      height={16}
-                      loading="lazy"
-                      decoding="async"
-                      draggable={false}
-                      style={{
-                        width: 16,
-                        height: 16,
-                        objectFit: 'contain',
-                        display: 'block',
-                      }}
-                    />
-                  ) : h.icon ? (
-                    <span
-                      style={{
-                        fontSize: 14,
-                        lineHeight: 1,
-                        display: 'block',
-                      }}
-                    >
-                      {h.icon}
+    <>
+      <aside
+        role="navigation"
+        aria-label="Table of contents"
+        style={boxStyle}
+      >
+        <p style={titleStyle}>
+          <FontAwesomeIcon icon={faAlignLeft} />
+          <span>{title}</span>
+        </p>
+        <ul style={listStyle}>
+          {indexed.map((h, i) => {
+            const active = h.id === activeId;
+            const padLeft = h.level === 1 ? 8 : h.level === 2 ? 26 : 44;
+
+            const mainButtonStyle: React.CSSProperties = {
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              width: '100%',
+              cursor: 'pointer',
+              border: 0,
+              background: active ? '#eff6ff' : 'transparent',
+              borderLeft: `3px solid ${active ? '#2563eb' : 'transparent'}`,
+              color: active ? '#2563eb' : '#4b5563',
+              padding: '6px 8px',
+              paddingLeft: padLeft,
+              borderRadius: 8,
+              textAlign: 'left',
+              transition:
+                'background .12s, color .12s, border-color .12s',
+            };
+
+            return (
+              <li key={`${h.id}-${h.__occ}-${i}`}>
+                <div className="wiki-toc-row">
+                  <button
+                    type="button"
+                    onClick={() => scrollToId(h.id, h.__occ)}
+                    title={h.text}
+                    aria-current={active ? 'true' : undefined}
+                    style={mainButtonStyle}
+                  >
+                    <span style={iconBox} aria-hidden>
+                      {h.icon?.startsWith('http') ? (
+                        <img
+                          src={toProxyUrl(h.icon)}
+                          alt=""
+                          width={16}
+                          height={16}
+                          loading="lazy"
+                          decoding="async"
+                          draggable={false}
+                          style={{
+                            width: 16,
+                            height: 16,
+                            objectFit: 'contain',
+                            display: 'block',
+                          }}
+                        />
+                      ) : h.icon ? (
+                        <span
+                          style={{
+                            fontSize: 14,
+                            lineHeight: 1,
+                            display: 'block',
+                          }}
+                        >
+                          {h.icon}
+                        </span>
+                      ) : null}
                     </span>
-                  ) : null}
-                </span>
-                <span style={textStyle}>{h.text}</span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </aside>
+                    <span style={textStyle}>{h.text}</span>
+                  </button>
+
+                  {/* 🔗 목차 항목 링크 복사 버튼 (호버 시 노출) */}
+                  <button
+                    type="button"
+                    className="wiki-toc-link-btn"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      void copyHeadingLink(h);
+                    }}
+                    aria-label="이 항목 링크 복사"
+                    title="이 항목 링크 복사"
+                  >
+                    <FontAwesomeIcon icon={faLink} style={{ fontSize: 12 }} />
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </aside>
+
+      {/* 목차 링크 버튼 전용 스타일 */}
+      <style jsx global>{`
+        .wiki-toc-row {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .wiki-toc-link-btn {
+          flex: 0 0 auto;
+          width: 24px;
+          height: 24px;
+          border-radius: 999px;
+          border: none;
+          padding: 0;
+          margin: 0;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: transparent;
+          color: #9ca3af;
+          cursor: pointer;
+          opacity: 0;
+          transform: translateX(4px);
+          transition:
+            opacity .14s ease,
+            transform .14s ease,
+            background-color .14s ease,
+            color .14s ease,
+            box-shadow .14s ease;
+        }
+        .wiki-toc-row:hover .wiki-toc-link-btn,
+        .wiki-toc-link-btn:focus-visible {
+          opacity: 1;
+          transform: translateX(0);
+        }
+        .wiki-toc-link-btn:hover {
+          background: #eff6ff;
+          color: #2563eb;
+          box-shadow: 0 0 0 1px rgba(37,99,235,0.12);
+        }
+      </style>
+    </>
   );
 }
