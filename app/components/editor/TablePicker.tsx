@@ -3,11 +3,18 @@
 // 10x10(기본) 테이블 그리드 선택 팝오버
 // - maxRows / maxCols 로 조절 가능
 // - body 포탈, 화면 가장자리 자동 뒤집기 + 클램프
+// - 🔍 기존 대비 약 1.5배 크게 확대
 // =============================================
 
 'use client';
 
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { createPortal } from 'react-dom';
 
 type Props = {
@@ -31,24 +38,33 @@ export default function TablePicker({
 }: Props) {
   const [hover, setHover] = useState<[number, number] | null>(null);
   const popRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const [pos, setPos] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  });
+
+  // 📏 셀/패딩 크기 (기존 24 / 14 기준 약 1.5배)
+  const CELL = 36; // px (24 * 1.5)
+  const PAD = 21; // px (14 * 1.5 정도)
 
   // 위치 계산 (오른쪽/아래 오버플로우 시 자동 뒤집기 & 클램프)
   useLayoutEffect(() => {
     if (!open || !anchor) return;
     const rect = anchor.getBoundingClientRect();
-    const CELL = 24; // px
-    const PAD = 14;
     const width = PAD * 2 + CELL * maxCols;
-    const height = PAD * 2 + CELL * maxRows + 20; // caption
+    const height = PAD * 2 + CELL * maxRows + 26; // caption 약간 키움
 
     let left = rect.left;
     let top = rect.bottom + 6;
 
     // 우측 오버플로우면 왼쪽으로 붙임
-    if (left + width > window.innerWidth - 8) left = Math.max(8, rect.right - width);
+    if (left + width > window.innerWidth - 8) {
+      left = Math.max(8, rect.right - width);
+    }
     // 하단 오버플로우면 위로 붙임
-    if (top + height > window.innerHeight - 8) top = Math.max(8, rect.top - height - 6);
+    if (top + height > window.innerHeight - 8) {
+      top = Math.max(8, rect.top - height - 6);
+    }
 
     setPos({ top, left });
 
@@ -64,9 +80,11 @@ export default function TablePicker({
       if (finalTop + box.height > window.innerHeight - 8) {
         finalTop = Math.max(8, window.innerHeight - 8 - box.height);
       }
-      if (finalLeft !== left || finalTop !== top) setPos({ top: finalTop, left: finalLeft });
+      if (finalLeft !== left || finalTop !== top) {
+        setPos({ top: finalTop, left: finalLeft });
+      }
     });
-  }, [open, anchor, maxRows, maxCols]);
+  }, [open, anchor, maxRows, maxCols, CELL, PAD]);
 
   // 외부 클릭/ESC로 닫기
   useEffect(() => {
@@ -77,18 +95,26 @@ export default function TablePicker({
       if (anchor && anchor.contains(e.target as Node)) return;
       onClose();
     };
-    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
     addEventListener('mousedown', onDown);
     addEventListener('keydown', onEsc);
-    return () => { removeEventListener('mousedown', onDown); removeEventListener('keydown', onEsc); };
+    return () => {
+      removeEventListener('mousedown', onDown);
+      removeEventListener('keydown', onEsc);
+    };
   }, [open, anchor, onClose]);
 
   const grid = useMemo(
     () =>
       Array.from({ length: maxRows }, (_, r) =>
-        Array.from({ length: maxCols }, (_, c) => [r + 1, c + 1] as [number, number])
+        Array.from(
+          { length: maxCols },
+          (_, c) => [r + 1, c + 1] as [number, number],
+        ),
       ),
-    [maxRows, maxCols]
+    [maxRows, maxCols],
   );
 
   if (!open) return null;
@@ -97,13 +123,35 @@ export default function TablePicker({
     <div
       ref={popRef}
       className="table-picker-popover"
-      style={{ position: 'fixed', top: pos.top, left: pos.left }}
+      style={{
+        position: 'fixed',
+        top: pos.top,
+        left: pos.left,
+        // 전체 스케일이 커졌으니 살짝 여유 padding
+        padding: PAD,
+        background: '#fff',
+        borderRadius: 10,
+        boxShadow: '0 10px 32px rgba(15,23,42,0.22)',
+        border: '1px solid #e5e7eb',
+        zIndex: 99999,
+      }}
       role="dialog"
       aria-label="표 크기 선택"
     >
-      <div className="table-picker-grid">
+      <div
+        className="table-picker-grid"
+        style={{
+          display: 'inline-flex',
+          flexDirection: 'column',
+          gap: 4,
+        }}
+      >
         {grid.map((row, r) => (
-          <div key={r} className="table-picker-row">
+          <div
+            key={r}
+            className="table-picker-row"
+            style={{ display: 'flex', gap: 4 }}
+          >
             {row.map(([rr, cc]) => {
               const sel = hover && rr <= hover[0] && cc <= hover[1];
               return (
@@ -112,18 +160,39 @@ export default function TablePicker({
                   type="button"
                   className={`table-picker-cell${sel ? ' selected' : ''}`}
                   onMouseEnter={() => setHover([rr, cc])}
-                  onClick={() => { onPick(rr, cc); onClose(); }}
+                  onClick={() => {
+                    onPick(rr, cc);
+                    onClose();
+                  }}
                   aria-label={`${rr} x ${cc}`}
+                  style={{
+                    width: CELL,
+                    height: CELL,
+                    borderRadius: 4,
+                    border: sel ? '2px solid #2563eb' : '1px solid #d4d4d8',
+                    background: sel ? '#e0edff' : '#f9fafb',
+                    padding: 0,
+                    cursor: 'pointer',
+                  }}
                 />
               );
             })}
           </div>
         ))}
       </div>
-      <div className="table-picker-caption">
+      <div
+        className="table-picker-caption"
+        style={{
+          marginTop: 10,
+          textAlign: 'center',
+          fontSize: 13,
+          color: '#4b5563',
+          fontWeight: 500,
+        }}
+      >
         {hover ? `${hover[0]} × ${hover[1]}` : '1 × 1'}
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }
