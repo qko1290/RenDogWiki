@@ -21,7 +21,7 @@ import ImageSelectModal from '@/components/image/ImageSelectModal';
 import { insertImage } from './helpers/insertImage';
 import { insertMedia } from './helpers/insertMedia';
 import { setImageAlignment } from './helpers/setImageAlignment';
-import { InlineMarkElement, TableElement } from '@/types/slate';
+import { InlineMarkElement } from '@/types/slate';
 import LinkInputModal from './LinkInputModal';
 import CustomColorDropdown from './CustomColorDropdown';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -47,14 +47,14 @@ type ToolbarProps = {
 const FONT_SIZES = ['11px', '13px', '15px', '16px', '19px', '24px', '28px', '30px', '34px', '38px'];
 
 const FONT_FAMILIES = [
-  { label: '기본서체',               value: 'inherit' },
-  { label: '나눔고딕',               value: 'NanumGothic' },
-  { label: '나눔스퀘어 네오',         value: 'NanumSquareNeo' },
-  { label: '나눔스퀘어 라운딩',       value: 'NanumSquareRound' },
-  { label: '나눔바른고딕',           value: 'NanumBarunGothic' },
-  { label: '나눔휴먼',               value: 'NanumHuman' },
-  { label: '나눔손글씨 바른히피',      value: 'BareunHippy' },
-  { label: '나눔손글씨 중학생',        value: 'NanumHandwritingMiddleSchool' },
+  { label: '기본서체',         value: 'inherit' },
+  { label: '나눔고딕',         value: 'NanumGothic' },
+  { label: '나눔스퀘어 네오',   value: 'NanumSquareNeo' },
+  { label: '나눔스퀘어 라운딩', value: 'NanumSquareRound' },
+  { label: '나눔바른고딕',     value: 'NanumBarunGothic' },
+  { label: '나눔휴먼',         value: 'NanumHuman' },
+  { label: '나눔손글씨 바른히피',  value: 'BareunHippy' },
+  { label: '나눔손글씨 중학생',    value: 'NanumHandwritingMiddleSchool' },
 ];
 
 const HEADINGS = [
@@ -383,7 +383,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
             }}
             onClose={() => setShowBgColorDropdown(false)}
             recentColors={recentBgColors}
-            setRecentBgColors={setRecentBgColors}
+            setRecentColors={setRecentBgColors}
             kind="background"
           />
         )}
