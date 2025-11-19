@@ -1097,11 +1097,28 @@ export default function WikiPageInner({ user }: Props) {
           opacity: 0;
         }
 
-        /* 제목 + 링크 버튼 정렬용 */
+        /* 제목 + 링크 버튼 정렬 */
         .wiki-doc-title-wrap {
-          display: flex;
+          display: inline-flex;
           align-items: center;
           gap: 8px;
+          line-height: 1;        /* 불필요한 세로 높이 제거 */
+        }
+
+        /* 제목 h2의 위아래 패딩/마진 줄이기 */
+        .wiki-doc-title-wrap .wiki-content-title-row {
+          margin: 0;
+          padding-top: 0;
+          padding-bottom: 0;
+          line-height: 1.15;     /* 텍스트만 딱 들어가게 */
+        }
+
+        /* 아이콘/텍스트 수직 가운데 정렬 */
+        .wiki-doc-title-wrap .wiki-doc-icon-img,
+        .wiki-doc-title-wrap .wiki-doc-icon-emoji,
+        .wiki-doc-title-wrap .wiki-title-color {
+          display: inline-flex;
+          align-items: center;
         }
 
         .wiki-doc-link-btn {
