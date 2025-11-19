@@ -889,48 +889,44 @@ export default function WikiPageInner({ user }: Props) {
                     gap: 12,
                   }}
                 >
-                  <div className="wiki-doc-title-wrap">
-                    {/* 문서 링크 복사 버튼 */}
-                    <button
-                      type="button"
-                      className={`wiki-doc-link-btn${
-                        copiedDocLink ? ' wiki-doc-link-btn--copied' : ''
-                      }`}
-                      onClick={handleCopyDocLink}
-                      title="이 문서 링크 복사"
-                      aria-label="이 문서 링크 복사"
-                    >
-                      {copiedDocLink ? '✔' : '🔗'}
-                    </button>
-
-                    {/* 문서 아이콘 + 제목 */}
-                    <h2
-                      className="wiki-content-title-row wiki-content-title"
-                      style={{ margin: 0 }}
-                    >
-                      <>
-                        {currentDoc?.icon
-                          ? (currentDoc.icon.startsWith('http')
-                              ? (
-                                <img
-                                  src={toProxyUrl(currentDoc.icon)}   // ✅ CloudFront 리라이트
-                                  alt="icon"
-                                  className="wiki-doc-icon-img"
-                                  loading="lazy"
-                                  decoding="async"
-                                />
-                              )
-                              : (
-                                <span className="wiki-doc-icon-emoji">
-                                  {currentDoc.icon}
-                                </span>
-                              ))
-                          : null}
-                        <span className="wiki-title-color">
-                          {selectedDocTitle || '렌독 위키'}
-                        </span>
-                      </>
+                  <div
+                    className="wiki-doc-title-wrap"
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 8 }}
+                  >
+                    {/* 아이콘 + 제목 */}
+                    <h2 className="wiki-content-title-row wiki-content-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {currentDoc?.icon
+                        ? currentDoc.icon.startsWith('http') ? (
+                            <img
+                              src={toProxyUrl(currentDoc.icon)}
+                              alt="icon"
+                              className="wiki-doc-icon-img"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          ) : (
+                            <span className="wiki-doc-icon-emoji">{currentDoc.icon}</span>
+                          )
+                        : null}
+                      <span className="wiki-title-color">{selectedDocTitle || '렌독 위키'}</span>
                     </h2>
+
+                    {/* 🔗 제목 오른쪽 링크 버튼 */}
+                    <button
+                      className="wiki-doc-link-btn"
+                      onClick={() => {
+                        const url = window.location.href.split('#')[0];
+                        navigator.clipboard.writeText(url);
+                        const btn = document.querySelector('.wiki-doc-link-btn');
+                        if (btn) {
+                          btn.classList.add('wiki-doc-link-btn--copied');
+                          setTimeout(() => btn.classList.remove('wiki-doc-link-btn--copied'), 1500);
+                        }
+                      }}
+                      title="문서 링크 복사"
+                    >
+                      🔗
+                    </button>
                   </div>
 
                   {/* FAQ일 때만 '질문 추가' 버튼 노출 (권한 필요) */}
@@ -1088,89 +1084,72 @@ export default function WikiPageInner({ user }: Props) {
       )}
 
             {/* 콘텐츠 페이드 전환 + 제목/링크 버튼 스타일 */}
-      <style jsx global>{`
-        .wiki-content.is-ready {
-          opacity: 1;
-          transition: opacity 0.18s ease;
-        }
-        .wiki-content.is-hold {
-          opacity: 0;
-        }
+            <style jsx global>{`
+              .wiki-content.is-ready {
+                opacity: 1;
+                transition: opacity 0.18s ease;
+              }
+              .wiki-content.is-hold {
+                opacity: 0;
+              }
 
-        /* 제목 래퍼 */
-        .wiki-doc-title-wrap {
-          display: flex;
-          align-items: center;
-          justify-content: flex-start;
-          gap: 8px;
-          line-height: 1;
-          padding-bottom: 10px; /* 아래 살짝 여백 */
-          position: relative;
-        }
+              /* 제목 + 버튼 정렬 */
+              .wiki-doc-title-wrap {
+                display: flex;
+                align-items: center;
+                justify-content: flex-start;
+                gap: 6px;
+                line-height: 1;
+                padding-bottom: 10px;
+              }
 
-        /* 제목 텍스트와 아이콘 */
-        .wiki-doc-title-wrap .wiki-content-title-row {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          margin: 0;
-          padding: 0;
-          line-height: 1.2;
-        }
+              .wiki-doc-icon-img {
+                width: 24px;
+                height: 24px;
+                image-rendering: pixelated;
+              }
 
-        .wiki-doc-title-wrap .wiki-doc-icon-img,
-        .wiki-doc-title-wrap .wiki-doc-icon-emoji,
-        .wiki-doc-title-wrap .wiki-title-color {
-          display: inline-flex;
-          align-items: center;
-        }
+              .wiki-doc-link-btn {
+                width: 20px;
+                height: 20px;
+                margin-left: 6px;
+                display: grid;
+                place-items: center;
+                border: none;
+                border-radius: 50%;
+                background: transparent;
+                color: #9ca3af;
+                font-size: 12px;
+                opacity: 0;
+                pointer-events: none;
+                cursor: pointer;
+                transition: all 0.15s ease;
+              }
 
-        /* 🔗 링크 버튼 (제목 오른쪽) */
-        .wiki-doc-link-btn {
-          margin-left: 6px; /* 제목 오른쪽 여백 */
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          border: none;
-          font-size: 11px;
-          display: grid;
-          place-items: center;
-          cursor: pointer;
-          background: transparent;
-          color: #9ca3af;
-          transition:
-            background-color 0.15s ease,
-            color 0.15s ease,
-            opacity 0.15s ease;
-          opacity: 0;
-          pointer-events: none;
-        }
+              /* hover 시만 표시 */
+              .wiki-doc-title-wrap:hover .wiki-doc-link-btn {
+                opacity: 1;
+                pointer-events: auto;
+              }
 
-        /* hover 시만 보이게 */
-        .wiki-doc-title-wrap:hover .wiki-doc-link-btn {
-          opacity: 1;
-          pointer-events: auto;
-        }
+              .wiki-doc-link-btn:hover {
+                background: #eef2ff;
+                color: #4f46e5;
+              }
 
-        .wiki-doc-link-btn:hover {
-          background: #eef2ff;
-          color: #4f46e5;
-        }
+              .wiki-doc-link-btn--copied {
+                background: #dcfce7;
+                color: #16a34a;
+                opacity: 1;
+                pointer-events: auto;
+              }
 
-        .wiki-doc-link-btn--copied {
-          background: #dcfce7;
-          color: #16a34a;
-          box-shadow: 0 0 0 1px rgba(22, 163, 74, 0.15);
-          opacity: 1;
-          pointer-events: auto;
-        }
-
-        @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
-        :root {
-          --wiki-round-font: 'Jua', 'Pretendard', 'Malgun Gothic', system-ui,
-            sans-serif;
-        }
-      `}</style>
+              @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
+              :root {
+                --wiki-round-font: 'Jua', 'Pretendard', 'Malgun Gothic', system-ui,
+                  sans-serif;
+              }
+            `}</style>
     </div>
   );
 }
