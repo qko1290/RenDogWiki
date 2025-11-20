@@ -598,7 +598,7 @@
   pointer-events: auto;
 }
 
-* 버튼 자체 */
+/* 버튼 자체 */
 .wiki-heading-anchor-btn {
   border: none;
   background: transparent;
