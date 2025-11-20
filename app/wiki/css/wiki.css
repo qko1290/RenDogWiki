@@ -724,6 +724,7 @@
   opacity: 1;
   background: #eef2ff;
   pointer-events: auto;
+  border-radius: 50%;
 }
 
 /* 버튼 자체 – 시스템 기본 스타일 제거 + 크기 최소화 */
