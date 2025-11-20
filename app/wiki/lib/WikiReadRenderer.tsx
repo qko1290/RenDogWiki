@@ -70,54 +70,6 @@ const ExternalLinkIcon: React.FC<{ size?: number }> = ({ size = 18 }) => (
   </svg>
 );
 
-/** 제목/헤딩 공통 스타일의 링크 아이콘 (체인) */
-const HeadingLinkIcon: React.FC<{ size?: number }> = ({ size = 14 }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    aria-hidden
-    focusable="false"
-  >
-    <path
-      d="M9.5 13.5a3 3 0 0 0 4.24 0l2.12-2.12a3 3 0 0 0-4.24-4.24L10 8"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <path
-      d="M14.5 10.5a3 3 0 0 0-4.24 0L8.14 12.6a3 3 0 0 0 4.24 4.24L14 15"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
-/** 제목/헤딩 공통 스타일의 체크 아이콘 */
-const HeadingCheckIcon: React.FC<{ size?: number }> = ({ size = 14 }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    aria-hidden
-    focusable="false"
-  >
-    <path
-      d="M5 13.5 9.2 17 19 7"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
 type HeadingAnchorButtonProps = {
   anchorId: string;
 };
@@ -162,7 +114,7 @@ const HeadingAnchorButton: React.FC<HeadingAnchorButtonProps> = ({
           "wiki-heading-anchor-pill" + (copied ? " wiki-heading-anchor-pill--copied" : "")
         }
       >
-        {copied ? <HeadingCheckIcon /> : <HeadingLinkIcon />}
+        {copied ? ✔ : 🔗}
       </span>
     </button>
   );
