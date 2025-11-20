@@ -57,10 +57,6 @@ const wikiDocDetailCache: Map<string, WikiDocDetail> =
 
 (globalThis as any)[WIKI_DOC_DETAIL_CACHE_KEY] = wikiDocDetailCache;
 
-// 🔎 heading id/icon을 뽑는 유틸
-// (이미 프로젝트에서 쓰는 경로 그대로 맞춰줘야 함)
-import extractHeadings from "@/lib/extractHeadings";
-
 // ───────────────────────────────────────────────────────────────
 
 function toHeadingIdFromText(text: string) {
