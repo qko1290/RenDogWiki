@@ -253,7 +253,12 @@ function nodeToPlainText(node: any): string {
   return '';
 }
 
-const LinkBlockView: React.FC<{ node: LinkBlockNode }> = ({ node }) => {
+type LinkBlockViewProps = {
+  node: LinkBlockNode;
+  children?: React.ReactNode;
+};
+
+const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
   const el = node;
 
   // URL 파싱
@@ -2004,7 +2009,7 @@ function renderNode(
     // 링크 블록(박스형)
     case "link-block": {
       return (
-        <LinkBlockView node={node} keyProp={key ?? ""}>
+        <LinkBlockView key={key} node={node}>
           {children}
         </LinkBlockView>
       );
