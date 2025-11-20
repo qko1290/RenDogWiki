@@ -15,20 +15,31 @@ import { Descendant, Text } from "slate";
 // ⬇️ 추가: CDN 치환/버전 유틸 + 최적화 이미지 컴포넌트
 import SmartImage from "@/components/common/SmartImage";
 import { cdn, withVersion } from "@lib/cdn";
+import { extractHeadings } from "@/wiki/lib/extractHeadings";
 
 // ── Element.tsx와 동일한 전역 캐시 (HMR 안전) ─────────────────────
 const WIKI_ICON_CACHE_KEY = "__rdwiki_doc_icon_cache__";
 const WIKI_DOCS_ALL_KEY = "__rdwiki_docs_all__";
+const WIKI_DOC_DETAIL_CACHE_KEY = "__rdwiki_doc_detail_cache__";
 
 const wikiDocIconCache: Map<string, string> =
   (globalThis as any)[WIKI_ICON_CACHE_KEY] ?? new Map<string, string>();
 (globalThis as any)[WIKI_ICON_CACHE_KEY] = wikiDocIconCache;
 
+// (현재 이 파일에선 사용 빈도 낮지만, Element.tsx와 포맷을 맞추기 위해 유지)
 let wikiDocsAll: any[] | null = (globalThis as any)[WIKI_DOCS_ALL_KEY] ?? null;
 const setWikiDocsAll = (rows: any[]) => {
   wikiDocsAll = rows;
   (globalThis as any)[WIKI_DOCS_ALL_KEY] = rows;
 };
+
+type WikiDocHeadingMeta = { id: string; icon?: string | null };
+type WikiDocDetail = { icon?: string | null; headings: WikiDocHeadingMeta[] };
+
+const wikiDocDetailCache: Map<string, WikiDocDetail> =
+  (globalThis as any)[WIKI_DOC_DETAIL_CACHE_KEY] ??
+  new Map<string, WikiDocDetail>();
+(globalThis as any)[WIKI_DOC_DETAIL_CACHE_KEY] = wikiDocDetailCache;
 // ───────────────────────────────────────────────────────────────
 
 function toHeadingIdFromText(text: string) {
@@ -120,7 +131,8 @@ const HeadingAnchorButton: React.FC<HeadingAnchorButtonProps> = ({
     >
       <span
         className={
-          "wiki-heading-anchor-pill" + (copied ? " wiki-heading-anchor-pill--copied" : "")
+          "wiki-heading-anchor-pill" +
+          (copied ? " wiki-heading-anchor-pill--copied" : "")
         }
       >
         {copied ? "✔" : "🔗"}
@@ -149,7 +161,13 @@ function getInfoboxPreset(
 
   const map: Record<
     string,
-    { bg: string; bd: string; accent: string; mask: string; role: "note" | "alert" }
+    {
+      bg: string;
+      bd: string;
+      accent: string;
+      mask: string;
+      role: "note" | "alert";
+    }
   > = {
     info: {
       bg: "#f2f6ff",
@@ -211,7 +229,7 @@ function getInfoboxPreset(
   return { container, icon, role: sel.role };
 }
 
-// ── 링크 블록 (읽기 전용) : Element.tsx와 동일 동작 ──────────────
+// ── 링크 블록 (읽기 전용) : Element.tsx와 동일 동작 + heading 아이콘 감지 ───────
 function LinkBlockView({
   node,
   keyProp,
@@ -231,83 +249,132 @@ function LinkBlockView({
     } catch {}
   }
 
-  // 내부 문서 아이콘
+  // 내부 문서/heading 아이콘
   const [wikiIcon, setWikiIcon] = useState<string | null>(
     node.isWiki ? node.docIcon ?? null : null
   );
 
-  // 🔹 외부 링크 파비콘
-  const [externalFavicon, setExternalFavicon] = useState<string | null>(
-    !node.isWiki && node.favicon ? node.favicon : null
-  );
+  // 🔹 외부 링크 파비콘 (추가 네트워크 호출 없이 node.favicon만 사용)
+  const externalFavicon: string | null =
+    !node.isWiki && node.favicon ? node.favicon : null;
 
+  // ✅ 내부 위키 링크면: path/title/hash 기준으로 문서/목차 아이콘 자동 선택
   useEffect(() => {
-    // 내부 문서 아이콘 로딩
-    if (node.isWiki) {
-      if (wikiIcon) return;
-      const key = String(node.wikiPath ?? node.url ?? node.wikiTitle ?? "");
-      if (!key) return;
+    if (!node.isWiki || !node.url) return;
+    if (typeof window === "undefined") return;
 
-      if (wikiDocIconCache.has(key)) {
-        setWikiIcon(wikiDocIconCache.get(key)!);
-        return;
-      }
-
-      let cancelled = false;
-      (async () => {
-        try {
-          if (!wikiDocsAll) {
-            const res = await fetch("/api/documents?all=1", {
-              cache: "force-cache",
-            });
-            const data = await res.json();
-            setWikiDocsAll(Array.isArray(data) ? data : []);
-          }
-          const docs = wikiDocsAll || [];
-          const match = docs.find(
-            (d: any) =>
-              (node.wikiPath && String(d.path) === String(node.wikiPath)) ||
-              (node.wikiTitle && d.title === node.wikiTitle)
-          );
-          const icon = (match?.icon ?? "").trim();
-          if (!cancelled) {
-            if (icon) {
-              setWikiIcon(icon);
-              wikiDocIconCache.set(key, icon);
-            } else {
-              setWikiIcon(null);
-            }
-          }
-        } catch {
-          if (!cancelled) setWikiIcon(null);
-        }
-      })();
-
-      return () => {
-        cancelled = true;
-      };
-    }
-  }, [node.isWiki, node.wikiPath, node.wikiTitle, node.url, wikiIcon]);
-
-  // 🔹 외부 링크 파비콘 추론 (favicon 필드 없으면 도메인/favicon.ico)
-  useEffect(() => {
-    if (node.isWiki) return; // 내부 문서는 위 useEffect에서 처리
-    if (externalFavicon) return;
-
-    if (node.favicon) {
-      setExternalFavicon(node.favicon);
+    let urlObj: URL;
+    try {
+      urlObj = new URL(node.url, window.location.origin);
+    } catch {
       return;
     }
 
-    if (!node.url) return;
+    // URL 파라미터에서 path/title 추출 + node.wikiPath/wikiTitle 보정
+    const urlPathParam = urlObj.searchParams.get("path");
+    const urlTitleParam = urlObj.searchParams.get("title");
 
-    try {
-      const u = new URL(node.url);
-      setExternalFavicon(`${u.origin}/favicon.ico`);
-    } catch {
-      // URL 파싱 실패 시 그냥 아이콘만 사용
+    const pathParam =
+      urlPathParam ??
+      (node.wikiPath != null ? String(node.wikiPath) : null);
+    const titleParam = urlTitleParam ?? node.wikiTitle ?? null;
+
+    const hash = urlObj.hash ? urlObj.hash.slice(1) : ""; // '#heading-...' → 'heading-...'
+
+    // 문서 식별 키 (path + title 조합, 없으면 pathname)
+    const docKeyParts: string[] = [];
+    if (pathParam) docKeyParts.push(`p:${pathParam}`);
+    if (titleParam) docKeyParts.push(`t:${titleParam}`);
+    const baseDocKey = docKeyParts.join("|") || urlObj.pathname;
+
+    // 링크별 최종 아이콘 캐시 키 (문서 + 해시)
+    const cacheKey = `${baseDocKey}#${hash || "root"}`;
+
+    if (wikiDocIconCache.has(cacheKey)) {
+      const cached = wikiDocIconCache.get(cacheKey) || null;
+      setWikiIcon(cached);
+      return;
     }
-  }, [node.isWiki, node.url, node.favicon, externalFavicon]);
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        let detail = wikiDocDetailCache.get(baseDocKey);
+        if (!detail) {
+          // path/title이 있으면 해당 문서 상세 요청
+          let res: Response | null = null;
+          if (pathParam || titleParam) {
+            const qs: string[] = [];
+            if (pathParam)
+              qs.push(`path=${encodeURIComponent(pathParam)}`);
+            if (titleParam)
+              qs.push(`title=${encodeURIComponent(titleParam)}`);
+            const query = qs.join("&");
+            res = await fetch(`/api/documents?${query}`, {
+              cache: "force-cache",
+            });
+          }
+
+          if (!res || !res.ok) {
+            wikiDocIconCache.set(cacheKey, "");
+            return;
+          }
+
+          const data = await res.json();
+          const rawContent = data.content;
+          const slateContent =
+            typeof rawContent === "string"
+              ? JSON.parse(rawContent)
+              : rawContent;
+
+          // 목차 추출 (heading id + icon)
+          let headingsMeta: WikiDocHeadingMeta[] = [];
+          try {
+            const hs = extractHeadings(
+              Array.isArray(slateContent) ? slateContent : []
+            );
+            headingsMeta = hs.map((h: any) => ({
+              id: h.id,
+              icon: h.icon ?? null,
+            }));
+          } catch {
+            headingsMeta = [];
+          }
+
+          detail = {
+            icon: (data.icon ?? "").trim() || null,
+            headings: headingsMeta,
+          };
+          wikiDocDetailCache.set(baseDocKey, detail);
+        }
+
+        // 1) 해시가 있으면 해당 heading 아이콘 우선
+        let iconCandidate: string | null = null;
+        if (hash && detail.headings.length > 0) {
+          const hMeta = detail.headings.find((h) => h.id === hash);
+          if (hMeta?.icon) iconCandidate = hMeta.icon;
+        }
+
+        // 2) heading 아이콘이 없거나 못 찾으면 문서 아이콘 사용
+        if (!iconCandidate) iconCandidate = detail.icon || null;
+
+        if (!cancelled) {
+          setWikiIcon(iconCandidate || null);
+          wikiDocIconCache.set(cacheKey, iconCandidate || "");
+        }
+      } catch {
+        if (!cancelled) {
+          setWikiIcon(null);
+          wikiDocIconCache.set(cacheKey, "");
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [node.isWiki, node.url, node.wikiPath, node.wikiTitle]);
 
   const isSmall = node.size === "small";
   const flexStyle: React.CSSProperties = isSmall
@@ -336,6 +403,24 @@ function LinkBlockView({
       ) : (
         <span style={{ fontSize: 20, marginRight: 8, lineHeight: 1 }}>
           {wikiIcon}
+        </span>
+      );
+    } else {
+      // 위키 링크인데 아직 아이콘을 못 가져온 경우: 기본 문서 아이콘
+      iconNode = (
+        <span
+          style={{
+            width: 24,
+            height: 24,
+            marginRight: 8,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 18,
+          }}
+          aria-hidden
+        >
+          📄
         </span>
       );
     }
@@ -721,8 +806,16 @@ export default function WikiReadRenderer({
   );
 }
 
-function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key }) {
-  const [indexes, setIndexes] = useState<number[]>(() => node.items.map(() => 0));
+function PriceTableCardBlock({
+  node,
+  keyProp,
+}: {
+  node: any;
+  keyProp: React.Key;
+}) {
+  const [indexes, setIndexes] = useState<number[]>(() =>
+    node.items.map(() => 0)
+  );
   const [hovered, setHovered] = useState<number | null>(null);
 
   const setCardIdx = (cardIdx: number, dir: -1 | 1) => {
@@ -1100,8 +1193,7 @@ function WeaponLevelSelector({
             background: selectedIsMax ? MAX_BG : BASE_BG,
             color: selectedIsMax ? MAX_TEXT : BASE_TEXT,
             border: selectedIsMax ? MAX_BORDER : BASE_BORDER,
-            boxShadow:
-              "0 0 0 1px rgba(15,23,42,0.7)",
+            boxShadow: "0 0 0 1px rgba(15,23,42,0.7)",
           }}
         >
           {selectedShort}
