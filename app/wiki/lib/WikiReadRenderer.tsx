@@ -39,9 +39,30 @@ function toHeadingIdFromText(text: string) {
   return `heading-${slug}`;
 }
 
+/** textAlign → flex justify-content 매핑 */
+function flexJustifyFromAlign(
+  align?: string | null
+): "flex-start" | "center" | "flex-end" {
+  if (align === "center") return "center";
+  if (align === "right") return "flex-end";
+  return "flex-start";
+}
+
+/** heading 링크 복사용 컨텍스트 */
+type HeadingCopyCtx = {
+  copiedHeadingId: string | null;
+  onCopyHeading: (id?: string) => void;
+};
+
 /** 외부 링크용 인라인 아이콘 (파비콘 네트워크 호출 제거) */
 const ExternalLinkIcon: React.FC<{ size?: number }> = ({ size = 18 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden focusable="false">
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    aria-hidden
+    focusable="false"
+  >
     <path
       d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42 9.3-9.29H14V3zM19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7z"
       fill="currentColor"
@@ -297,7 +318,8 @@ function LinkBlockView({
 
   // 👉 children(에디터 텍스트)이 있으면 우선 사용
   const hasChildrenText =
-    children != null && stripReact(children).replace(/\u200B/g, "").trim().length > 0;
+    children != null &&
+    stripReact(children).replace(/\u200B/g, "").trim().length > 0;
 
   return (
     <div key={keyProp} style={{ position: "relative", ...flexStyle }}>
@@ -586,14 +608,61 @@ function WeaponVideoModal({ open, url, onClose }: WeaponVideoModalProps) {
 }
 
 // 메인 렌더 컴포넌트
-export default function WikiReadRenderer({ content }: { content: Descendant[] }) {
-  return <>{content.map((node, idx) => renderNode(node, idx))}</>;
+export default function WikiReadRenderer({
+  content,
+}: {
+  content: Descendant[];
+}) {
+  const [copiedHeadingId, setCopiedHeadingId] = useState<string | null>(null);
+
+  const handleCopyHeadingLink = async (headingId?: string) => {
+    if (!headingId) return;
+    if (
+      typeof window === "undefined" ||
+      typeof navigator === "undefined" ||
+      !navigator.clipboard
+    ) {
+      return;
+    }
+    try {
+      const { origin, pathname, search } = window.location;
+      const url = `${origin}${pathname}${search}#${encodeURIComponent(
+        headingId
+      )}`;
+      await navigator.clipboard.writeText(url);
+      setCopiedHeadingId(headingId);
+      // 필요시 외부에서 감지할 수 있도록 이벤트만 발행(선택 사항, 기존 기능에는 영향 없음)
+      try {
+        window.dispatchEvent(
+          new CustomEvent("wiki:heading-link-copied", {
+            detail: { id: headingId },
+          })
+        );
+      } catch {
+        // noop
+      }
+      setTimeout(() => {
+        setCopiedHeadingId((prev) => (prev === headingId ? null : prev));
+      }, 1500);
+    } catch (e) {
+      console.error("Failed to copy heading link", e);
+    }
+  };
+
+  const ctx: HeadingCopyCtx = {
+    copiedHeadingId,
+    onCopyHeading: handleCopyHeadingLink,
+  };
+
+  return (
+    <>
+      {content.map((node, idx) => renderNode(node, idx, ctx))}
+    </>
+  );
 }
 
 function PriceTableCardBlock({ node, keyProp }: { node: any; keyProp: React.Key }) {
-  const [indexes, setIndexes] = useState<number[]>(() =>
-    node.items.map(() => 0)
-  );
+  const [indexes, setIndexes] = useState<number[]>(() => node.items.map(() => 0));
   const [hovered, setHovered] = useState<number | null>(null);
 
   const setCardIdx = (cardIdx: number, dir: -1 | 1) => {
@@ -971,9 +1040,8 @@ function WeaponLevelSelector({
             background: selectedIsMax ? MAX_BG : BASE_BG,
             color: selectedIsMax ? MAX_TEXT : BASE_TEXT,
             border: selectedIsMax ? MAX_BORDER : BASE_BORDER,
-            boxShadow: selectedIsMax
-              ? "0 0 0 1px rgba(15,23,42,0.7)"
-              : "0 0 0 1px rgba(15,23,42,0.7)",
+            boxShadow:
+              "0 0 0 1px rgba(15,23,42,0.7)",
           }}
         >
           {selectedShort}
@@ -988,7 +1056,7 @@ function WeaponLevelSelector({
         </span>
       </button>
 
-      {/* 펼쳐지는 강수 리스트: 투명 컨테이너 + 단색 동그라미들만 세로로 */}
+      {/* 펼쳐지는 강수 리스트 */}
       <div
         style={{
           position: "absolute",
@@ -1194,7 +1262,7 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
             {name}
           </div>
 
-          {/* 이미지 영역 – 렌더러 느낌의 배경을 Element 와 공유 */}
+          {/* 이미지 영역 */}
           <div
             style={{
               background:
@@ -1236,7 +1304,7 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
             )}
           </div>
 
-          {/* 스탯 리스트 – Element 의 디자인 그대로, 클릭 불가 버전 */}
+          {/* 스탯 리스트 */}
           <div
             style={{
               padding: "8px 10px 8px",
@@ -1299,7 +1367,7 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
             })}
           </div>
 
-          {/* 하단 공격 영상 버튼 – Element 스타일 + 렌더러 그림자 */}
+          {/* 하단 공격 영상 버튼 */}
           <div
             style={{
               padding: "8px 10px 10px",
@@ -1334,7 +1402,7 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
           </div>
         </div>
 
-        {/* 오른쪽 강수 선택 버튼 – 기존 WeaponLevelSelector 유지 */}
+        {/* 오른쪽 강수 선택 버튼 */}
         {levelLabels.length > 0 && (
           <WeaponLevelSelector
             levelLabels={levelLabels}
@@ -1344,7 +1412,7 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
         )}
       </div>
 
-      {/* 영상 모달 – 이미 위에서 정의해둔 WeaponVideoModal 재사용 */}
+      {/* 영상 모달 */}
       {videoSrc && (
         <WeaponVideoModal
           open={showVideo}
@@ -1413,13 +1481,17 @@ function renderLeaf(node: any, key?: React.Key): React.ReactNode {
 }
 
 // 노드 타입별 렌더링 (재귀)
-function renderNode(node: any, key?: React.Key): React.ReactNode {
+function renderNode(
+  node: any,
+  key?: React.Key,
+  ctx?: HeadingCopyCtx
+): React.ReactNode {
   if (Text.isText(node)) {
     return renderLeaf(node, key);
   }
 
   const children = node.children?.map((n: any, i: number) =>
-    renderNode(n, key ? `${key}-${i}` : i)
+    renderNode(n, key ? `${key}-${i}` : i, ctx)
   );
 
   switch (node.type) {
@@ -1450,9 +1522,9 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
     case "heading-one":
     case "heading-two":
     case "heading-three": {
-      const el = node;
+      const el = node as any;
 
-      // 아이콘 처리 (기존 그대로)
+      // 아이콘 처리
       let iconHtml: React.ReactNode = null;
       if (el.icon) {
         if (typeof el.icon === "string" && el.icon.startsWith("http")) {
@@ -1478,7 +1550,7 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
             <span
               style={{
                 fontSize: "1.5em",
-                fontWeight: "600",
+                fontWeight: 600,
                 marginRight: 6,
                 display: "inline-block",
               }}
@@ -1489,13 +1561,18 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
         }
       }
 
-      // ⬇⬇ heading 자식에서 fontSize 마크 제거한 뒤 렌더링
+      // heading 자식에서 fontSize 마크 제거한 뒤 렌더링
       const safeChildren = (el.children ?? []).map((child: any, i: number) =>
-        renderNode(stripFontSizeFromDescendants(child), key ? `${key}-${i}` : i)
+        renderNode(
+          stripFontSizeFromDescendants(child),
+          key ? `${key}-${i}` : i,
+          ctx
+        )
       );
 
       const textContent = stripReact(safeChildren).trim();
       const id = toHeadingIdFromText(textContent);
+
       const level =
         node.type === "heading-one"
           ? 1
@@ -1506,12 +1583,10 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
         level === 1 ? "28px" : node.type === "heading-two" ? "22px" : "18px";
       const Tag = `h${level}` as keyof JSX.IntrinsicElements;
 
-      const justify =
-        el.textAlign === "center"
-          ? "center"
-          : el.textAlign === "right"
-          ? "flex-end"
-          : "flex-start";
+      const align = el.textAlign || "left";
+      const textJustify = flexJustifyFromAlign(align);
+
+      const isCopied = id && ctx?.copiedHeadingId === id;
 
       return (
         <Tag
@@ -1520,16 +1595,53 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
           suppressHydrationWarning
           style={{
             fontSize,
-            textAlign: el.textAlign || "left",
+            textAlign: align,
             display: "flex",
             alignItems: "center",
-            gap: 8,
-            justifyContent: justify,
             width: "100%",
           }}
         >
-          {iconHtml}
-          <span style={{ display: "inline" }}>{safeChildren}</span>
+          {/* 왼쪽: 아이콘 + 텍스트 (정렬 유지) */}
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              flex: 1,
+              justifyContent: textJustify,
+              minWidth: 0,
+            }}
+          >
+            {iconHtml}
+            <span style={{ display: "inline" }}>{safeChildren}</span>
+          </span>
+
+          {/* 오른쪽: 링크 복사 버튼 */}
+          {ctx && (
+            <button
+              type="button"
+              onClick={() => ctx.onCopyHeading(id)}
+              title="이 위치 링크 복사"
+              style={{
+                marginLeft: 8,
+                width: 24,
+                height: 24,
+                borderRadius: 999,
+                border: "1px solid #e5e7eb",
+                background: isCopied ? "#dcfce7" : "#f9fafb",
+                color: isCopied ? "#16a34a" : "#9ca3af",
+                fontSize: 12,
+                fontWeight: 700,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                flexShrink: 0,
+              }}
+            >
+              {isCopied ? "✔" : "🔗"}
+            </button>
+          )}
         </Tag>
       );
     }
@@ -1752,10 +1864,7 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
 
     // 이미지 블록 (SmartImage로 최적화 + CDN/버전)
     case "image": {
-      let justify: "flex-start" | "center" | "flex-end" = "center";
-      if (node.textAlign === "left") justify = "flex-start";
-      else if (node.textAlign === "right") justify = "flex-end";
-
+      const justify = flexJustifyFromAlign(node.textAlign);
       const v = (node.updatedAt || node.version) as
         | string
         | number
@@ -1794,10 +1903,7 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
 
     // 영상 블록: 이미지와 동일한 정렬(textAlign) + CDN/버전 적용
     case "video": {
-      let justify: "flex-start" | "center" | "flex-end" = "center";
-      if (node.textAlign === "left") justify = "flex-start";
-      else if (node.textAlign === "right") justify = "flex-end";
-
+      const justify = flexJustifyFromAlign(node.textAlign);
       const v = (node.updatedAt || node.version) as
         | string
         | number
@@ -1889,16 +1995,11 @@ function renderNode(node: any, key?: React.Key): React.ReactNode {
     }
 
     case "table": {
+      const align = node.align || "left";
+      const justify = flexJustifyFromAlign(align);
+
       const widthPx =
         typeof node.maxWidth === "number" ? node.maxWidth : undefined;
-      const align = node.align || "left";
-      const justify =
-        align === "center"
-          ? "center"
-          : align === "right"
-          ? "flex-end"
-          : "flex-start";
-
       const tableWidth = widthPx
         ? `${widthPx}px`
         : node.fullWidth

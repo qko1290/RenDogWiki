@@ -1,7 +1,7 @@
 // =============================================
 // File: app/components/wiki/TableOfContents.tsx
-// - 목차 항목 왼쪽 링크 복사 버튼 제거
 // - 해시 포함 링크로 진입했을 때 스크롤 재시도 로직 유지
+// - 사이드바(목차 영역)에서는 링크 복사 버튼 제거
 // =============================================
 'use client';
 
@@ -187,7 +187,7 @@ export default function TableOfContents({
       },
       {
         root: getRootForObserver(),
-        rootMargin: `-${headerOffset + 8}px 0px -70% 0px`,
+        rootMargin = `-${headerOffset + 8}px 0px -70% 0px`,
         threshold: [0, 1],
       },
     );
@@ -312,84 +312,69 @@ export default function TableOfContents({
         {indexed.map((h, i) => {
           const active = h.id === activeId;
           const padLeft = h.level === 1 ? 8 : h.level === 2 ? 26 : 44;
+
           return (
             <li key={`${h.id}-${h.__occ}-${i}`}>
-              <div
-                className="wiki-toc-row"
+              <button
+                type="button"
+                onClick={() => scrollToId(h.id, h.__occ)}
+                title={h.text}
+                aria-current={active ? 'true' : undefined}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 4,
-                  paddingLeft: padLeft - 4,
+                  gap: 8,
+                  width: '100%',
+                  cursor: 'pointer',
+                  border: 0,
+                  background: active ? '#eff6ff' : 'transparent',
+                  borderLeft: `3px solid ${
+                    active ? '#2563eb' : 'transparent'
+                  }`,
+                  color: active ? '#2563eb' : '#4b5563',
+                  padding: '6px 8px',
+                  paddingLeft: padLeft,
+                  borderRadius: 8,
+                  textAlign: 'left',
+                  transition:
+                    'background .12s, color .12s, border-color .12s',
                 }}
               >
-                <button
-                  type="button"
-                  onClick={() => scrollToId(h.id, h.__occ)}
-                  title={h.text}
-                  aria-current={active ? 'true' : undefined}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    width: '100%',
-                    cursor: 'pointer',
-                    border: 0,
-                    background: active ? '#eff6ff' : 'transparent',
-                    borderLeft: `3px solid ${
-                      active ? '#2563eb' : 'transparent'
-                    }`,
-                    color: active ? '#2563eb' : '#4b5563',
-                    padding: '6px 8px',
-                    borderRadius: 8,
-                    textAlign: 'left',
-                    transition:
-                      'background .12s, color .12s, border-color .12s',
-                  }}
-                >
-                  <span style={iconBox} aria-hidden>
-                    {h.icon?.startsWith('http') ? (
-                      <img
-                        src={toProxyUrl(h.icon)}
-                        alt=""
-                        width={16}
-                        height={16}
-                        loading="lazy"
-                        decoding="async"
-                        draggable={false}
-                        style={{
-                          width: 16,
-                          height: 16,
-                          objectFit: 'contain',
-                          display: 'block',
-                        }}
-                      />
-                    ) : h.icon ? (
-                      <span
-                        style={{
-                          fontSize: 14,
-                          lineHeight: 1,
-                          display: 'block',
-                        }}
-                      >
-                        {h.icon}
-                      </span>
-                    ) : null}
-                  </span>
-                  <span style={textStyle}>{h.text}</span>
-                </button>
-              </div>
+                <span style={iconBox} aria-hidden>
+                  {h.icon?.startsWith('http') ? (
+                    <img
+                      src={toProxyUrl(h.icon)}
+                      alt=""
+                      width={16}
+                      height={16}
+                      loading="lazy"
+                      decoding="async"
+                      draggable={false}
+                      style={{
+                        width: 16,
+                        height: 16,
+                        objectFit: 'contain',
+                        display: 'block',
+                      }}
+                    />
+                  ) : h.icon ? (
+                    <span
+                      style={{
+                        fontSize: 14,
+                        lineHeight: 1,
+                        display: 'block',
+                      }}
+                    >
+                      {h.icon}
+                    </span>
+                  ) : null}
+                </span>
+                <span style={textStyle}>{h.text}</span>
+              </button>
             </li>
           );
         })}
       </ul>
-
-      {/* 기존 wiki-toc-row 관련 글로벌 스타일은 남겨둬도 되고, 필요 없으면 비워둬도 됨 */}
-      <style jsx global>{`
-        .wiki-toc-row {
-          position: relative;
-        }
-      `}</style>
     </aside>
   );
 }
