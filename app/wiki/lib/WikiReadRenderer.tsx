@@ -36,27 +36,6 @@ const setWikiDocsAll = (rows: any[]) => {
 type WikiDocHeadingMeta = { id: string; icon?: string | null };
 type WikiDocDetail = { icon?: string | null; headings: WikiDocHeadingMeta[] };
 
-const wikiDocDetailCache: Map<string, WikiDocDetail> =
-  (globalThis as any)[WIKI_DOC_DETAIL_CACHE_KEY] ??
-  new Map<string, WikiDocDetail>();
-(globalThis as any)[WIKI_DOC_DETAIL_CACHE_KEY] = wikiDocDetailCache;
-
-type WikiDocHeadingMeta = {
-  id: string;
-  icon: string | null;
-};
-
-type WikiDocDetail = {
-  icon: string | null;            // 문서 전체 아이콘(이모지/이미지)
-  headings: WikiDocHeadingMeta[]; // 각 heading별 아이콘 메타
-};
-
-const wikiDocDetailCache: Map<string, WikiDocDetail> =
-  (globalThis as any)[WIKI_DOC_DETAIL_CACHE_KEY] ??
-  new Map<string, WikiDocDetail>();
-
-(globalThis as any)[WIKI_DOC_DETAIL_CACHE_KEY] = wikiDocDetailCache;
-
 // ───────────────────────────────────────────────────────────────
 
 function toHeadingIdFromText(text: string) {
