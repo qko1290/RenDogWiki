@@ -1101,6 +1101,7 @@ export default function WikiPageInner({ user }: Props) {
                 gap: 6px;
                 line-height: 1;
                 padding-bottom: 10px;
+                height: 30px;
               }
 
               .wiki-doc-icon-img {
