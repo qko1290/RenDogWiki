@@ -277,11 +277,58 @@ export default function WikiPageInner({ user }: Props) {
   };
 
   // 🔗 현재 문서 링크 복사 (✔ 애니메이션)
+  // - window.location.search는 %EC... 형태로 인코딩되어 있으므로
+  //   클립보드에 복사할 때는 한글이 그대로 보이도록 쿼리를 재구성한다.
   const handleCopyDocLink = async () => {
     if (typeof window === 'undefined') return;
     try {
-      const { origin, pathname, search } = window.location;
-      const url = `${origin}${pathname}${search}`; // 해시는 제외
+      const { origin, pathname, search, hash } = window.location;
+      const params = new URLSearchParams(search);
+
+      // path는 대부분 숫자라 그대로 사용해도 되고,
+      // 없으면 현재 선택된 경로나 루트(0)로 보정
+      let path = params.get('path') ?? undefined;
+      if (!path) {
+        if (Array.isArray(selectedDocPath) && selectedDocPath.length > 0) {
+          path = String(selectedDocPath[selectedDocPath.length - 1]);
+        } else {
+          path = '0';
+        }
+      }
+
+      // title은 DB에서 가져온 selectedDocTitle이 우선 (이미 디코딩 상태)
+      // 없으면 URL 쿼리에서 가져오되, 디코딩을 시도
+      let titleForShare = selectedDocTitle || '';
+      if (!titleForShare) {
+        const fromUrl = params.get('title');
+        if (fromUrl) {
+          try {
+            titleForShare = decodeURIComponent(fromUrl);
+          } catch {
+            // 잘못된 % 시퀀스가 있으면 그냥 원본 사용
+            titleForShare = fromUrl;
+          }
+        }
+      }
+
+      // mode(예: 뉴비 모드)도 있으면 같이 넣되, 디코딩 시도
+      let modeForShare = params.get(MODE_PARAM) || '';
+      if (modeForShare) {
+        try {
+          modeForShare = decodeURIComponent(modeForShare);
+        } catch {
+          // 그대로 둠
+        }
+      }
+
+      const queryParts: string[] = [];
+      if (path) queryParts.push(`path=${path}`);
+      if (titleForShare) queryParts.push(`title=${titleForShare}`);
+      if (modeForShare) queryParts.push(`${MODE_PARAM}=${modeForShare}`);
+
+      const query = queryParts.length ? `?${queryParts.join('&')}` : '';
+      const url = `${origin}${pathname}${query}${hash || ''}`;
+
       await navigator.clipboard?.writeText(url);
       setCopiedDocLink(true);
       setTimeout(() => setCopiedDocLink(false), 1500);
