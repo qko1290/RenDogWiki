@@ -1,7 +1,7 @@
 // =============================================
 // File: app/components/wiki/TableOfContents.tsx
-// - 목차 항목 왼쪽 숨겨진 링크 복사 버튼
-// - 해시 포함 링크로 진입했을 때 스크롤 재시도 로직 추가
+// - 목차 항목 왼쪽 링크 복사 버튼 제거
+// - 해시 포함 링크로 진입했을 때 스크롤 재시도 로직 유지
 // =============================================
 'use client';
 
@@ -38,7 +38,6 @@ export default function TableOfContents({
   scrollRootSelector,
 }: Props) {
   const [activeId, setActiveId] = useState<string>('');
-  const [copiedId, setCopiedId] = useState<string | null>(null); // 🔗 최근 복사한 heading id
   const rootRef = useRef<HTMLElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const [rootKey, setRootKey] = useState(0); // 루트 변경 트리거 키
@@ -122,11 +121,11 @@ export default function TableOfContents({
     return findScrollableAncestor(target);
   };
 
-  // 컨테이너 기준 스무스 스크롤 (성공 여부 반환)
+  // 컨테이너 기준 스무스 스크롤
   const scrollToId = (
     id: string,
     occ: number,
-    behavior: ScrollBehavior = 'smooth'
+    behavior: ScrollBehavior = 'smooth',
   ): boolean => {
     const target = getTarget(id, occ);
     if (!target) return false;
@@ -161,36 +160,13 @@ export default function TableOfContents({
 
     try {
       window.dispatchEvent(
-        new CustomEvent('editor:toc-jump', { detail: { id, occ } })
+        new CustomEvent('editor:toc-jump', { detail: { id, occ } }),
       );
     } catch {
       // ignore
     }
 
     return true;
-  };
-
-  // 🔗 퍼머링크 생성 (문서 + 선택 헤딩)
-  const buildPermalink = (headingId?: string) => {
-    if (typeof window === 'undefined') return '';
-    const { origin, pathname, search } = window.location;
-    const hash = headingId ? `#${encodeURIComponent(headingId)}` : '';
-    return `${origin}${pathname}${search}${hash}`;
-  };
-
-  // 🔗 링크 복사
-  const handleCopyLink = async (headingId: string) => {
-    if (typeof window === 'undefined') return;
-    const url = buildPermalink(headingId);
-    try {
-      await navigator.clipboard?.writeText(url);
-      setCopiedId(headingId);
-      setTimeout(() => {
-        setCopiedId(prev => (prev === headingId ? null : prev));
-      }, 1500);
-    } catch (e) {
-      console.error('Failed to copy permalink', e);
-    }
   };
 
   // 스크롤 스파이(컨테이너 기준)
@@ -203,7 +179,7 @@ export default function TableOfContents({
         const visible = entries
           .filter(e => e.isIntersecting)
           .sort((a, b) =>
-            a.boundingClientRect.top > b.boundingClientRect.top ? 1 : -1
+            a.boundingClientRect.top > b.boundingClientRect.top ? 1 : -1,
           );
         if (visible[0]) {
           setActiveId((visible[0].target as HTMLElement).id);
@@ -213,7 +189,7 @@ export default function TableOfContents({
         root: getRootForObserver(),
         rootMargin: `-${headerOffset + 8}px 0px -70% 0px`,
         threshold: [0, 1],
-      }
+      },
     );
     observerRef.current = obs;
 
@@ -327,157 +303,93 @@ export default function TableOfContents({
 
   // ----- 실제 렌더 -----
   return (
-    <>
-      <aside
-        role="navigation"
-        aria-label="Table of contents"
-        style={boxStyle}
-      >
-        <p style={titleStyle}>
-          <FontAwesomeIcon icon={faAlignLeft} />
-          &nbsp;&nbsp;{title}
-        </p>
-        <ul style={listStyle}>
-          {indexed.map((h, i) => {
-            const active = h.id === activeId;
-            const padLeft = h.level === 1 ? 8 : h.level === 2 ? 26 : 44;
-            const isCopied = copiedId === h.id;
-            return (
-              <li key={`${h.id}-${h.__occ}-${i}`}>
-                <div
-                  className="wiki-toc-row"
+    <aside role="navigation" aria-label="Table of contents" style={boxStyle}>
+      <p style={titleStyle}>
+        <FontAwesomeIcon icon={faAlignLeft} />
+        &nbsp;&nbsp;{title}
+      </p>
+      <ul style={listStyle}>
+        {indexed.map((h, i) => {
+          const active = h.id === activeId;
+          const padLeft = h.level === 1 ? 8 : h.level === 2 ? 26 : 44;
+          return (
+            <li key={`${h.id}-${h.__occ}-${i}`}>
+              <div
+                className="wiki-toc-row"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  paddingLeft: padLeft - 4,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => scrollToId(h.id, h.__occ)}
+                  title={h.text}
+                  aria-current={active ? 'true' : undefined}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 4,
-                    paddingLeft: padLeft - 4,
+                    gap: 8,
+                    width: '100%',
+                    cursor: 'pointer',
+                    border: 0,
+                    background: active ? '#eff6ff' : 'transparent',
+                    borderLeft: `3px solid ${
+                      active ? '#2563eb' : 'transparent'
+                    }`,
+                    color: active ? '#2563eb' : '#4b5563',
+                    padding: '6px 8px',
+                    borderRadius: 8,
+                    textAlign: 'left',
+                    transition:
+                      'background .12s, color .12s, border-color .12s',
                   }}
                 >
-                  {/* 🔗 링크 복사 버튼 (hover 시 등장) */}
-                  <button
-                    type="button"
-                    className={`wiki-toc-link-btn${
-                      isCopied ? ' wiki-toc-link-btn--copied' : ''
-                    }`}
-                    onClick={e => {
-                      e.stopPropagation();
-                      handleCopyLink(h.id);
-                    }}
-                    title="이 위치 링크 복사"
-                    aria-label="이 위치 링크 복사"
-                  >
-                    {isCopied ? '✔' : '🔗'}
-                  </button>
+                  <span style={iconBox} aria-hidden>
+                    {h.icon?.startsWith('http') ? (
+                      <img
+                        src={toProxyUrl(h.icon)}
+                        alt=""
+                        width={16}
+                        height={16}
+                        loading="lazy"
+                        decoding="async"
+                        draggable={false}
+                        style={{
+                          width: 16,
+                          height: 16,
+                          objectFit: 'contain',
+                          display: 'block',
+                        }}
+                      />
+                    ) : h.icon ? (
+                      <span
+                        style={{
+                          fontSize: 14,
+                          lineHeight: 1,
+                          display: 'block',
+                        }}
+                      >
+                        {h.icon}
+                      </span>
+                    ) : null}
+                  </span>
+                  <span style={textStyle}>{h.text}</span>
+                </button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
 
-                  {/* 기존: 헤딩으로 스크롤 이동하는 버튼 */}
-                  <button
-                    type="button"
-                    onClick={() => scrollToId(h.id, h.__occ)}
-                    title={h.text}
-                    aria-current={active ? 'true' : undefined}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      width: '100%',
-                      cursor: 'pointer',
-                      border: 0,
-                      background: active ? '#eff6ff' : 'transparent',
-                      borderLeft: `3px solid ${
-                        active ? '#2563eb' : 'transparent'
-                      }`,
-                      color: active ? '#2563eb' : '#4b5563',
-                      padding: '6px 8px',
-                      borderRadius: 8,
-                      textAlign: 'left',
-                      transition:
-                        'background .12s, color .12s, border-color .12s',
-                    }}
-                  >
-                    <span style={iconBox} aria-hidden>
-                      {h.icon?.startsWith('http') ? (
-                        <img
-                          src={toProxyUrl(h.icon)}
-                          alt=""
-                          width={16}
-                          height={16}
-                          loading="lazy"
-                          decoding="async"
-                          draggable={false}
-                          style={{
-                            width: 16,
-                            height: 16,
-                            objectFit: 'contain',
-                            display: 'block',
-                          }}
-                        />
-                      ) : h.icon ? (
-                        <span
-                          style={{
-                            fontSize: 14,
-                            lineHeight: 1,
-                            display: 'block',
-                          }}
-                        >
-                          {h.icon}
-                        </span>
-                      ) : null}
-                    </span>
-                    <span style={textStyle}>{h.text}</span>
-                  </button>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      </aside>
-
-      {/* 목차 링크 버튼 전용 스타일 */}
+      {/* 기존 wiki-toc-row 관련 글로벌 스타일은 남겨둬도 되고, 필요 없으면 비워둬도 됨 */}
       <style jsx global>{`
         .wiki-toc-row {
           position: relative;
         }
-
-        .wiki-toc-link-btn {
-          width: 22px;
-          height: 22px;
-          border-radius: 999px;
-          border: none;
-          font-size: 11px;
-          display: grid;
-          place-items: center;
-          cursor: pointer;
-          margin-right: 2px;
-          background: transparent;
-          color: #9ca3af;
-          opacity: 0;
-          transform: translateX(-4px);
-          pointer-events: none;
-          transition:
-            opacity 0.15s ease,
-            transform 0.15s ease,
-            background-color 0.15s ease,
-            color 0.15s ease;
-        }
-
-        .wiki-toc-row:hover .wiki-toc-link-btn {
-          opacity: 1;
-          transform: translateX(0);
-          pointer-events: auto;
-        }
-
-        .wiki-toc-link-btn:hover {
-          background: #eef2ff;
-          color: #4f46e5;
-        }
-
-        .wiki-toc-link-btn--copied {
-          background: #dcfce7;
-          color: #16a34a;
-          opacity: 1;
-          transform: translateX(0);
-        }
       `}</style>
-    </>
+    </aside>
   );
 }

@@ -1,7 +1,7 @@
 // =============================================
 // File: app/wiki/WikiPageInner.tsx
 // (이미지 lazy/async 적용 유지, 로더 포함 / 전환 딜레이 적용
-//  + 문서 제목 오른쪽 링크 복사 버튼 추가)
+//  + 문서 제목 오른쪽 링크 복사 버튼: 클릭 시 ✔ 애니메이션)
 // =============================================
 'use client';
 
@@ -217,7 +217,7 @@ export default function WikiPageInner({ user }: Props) {
 
   const [showNewFaq, setShowNewFaq] = useState(false);
 
-  // 🔗 문서 링크 복사 상태
+  // 🔗 문서 링크 복사 상태 (✔ 표시용)
   const [copiedDocLink, setCopiedDocLink] = useState(false);
 
   // ⭐ 루트 문서는 문서 크롬(제목/브레드크럼) 숨김
@@ -276,7 +276,7 @@ export default function WikiPageInner({ user }: Props) {
     router.replace(nextUrl);
   };
 
-  // 🔗 현재 문서 링크 복사
+  // 🔗 현재 문서 링크 복사 (✔ 애니메이션)
   const handleCopyDocLink = async () => {
     if (typeof window === 'undefined') return;
     try {
@@ -429,12 +429,10 @@ export default function WikiPageInner({ user }: Props) {
 
     const openByIdIfFound = (isRoot: boolean, id?: number) => {
       if (id != null) {
-        fetchDoc(
-          isRoot ? [] : [/*unused*/],
-          titleParam,
-          id,
-          { clearCategoryPath: true, forceRoot: isRoot },
-        );
+        fetchDoc(isRoot ? [] : [/*unused*/], titleParam, id, {
+          clearCategoryPath: true,
+          forceRoot: isRoot,
+        });
         return true;
       }
       return false;
@@ -529,10 +527,9 @@ export default function WikiPageInner({ user }: Props) {
       (!isSamePath || !isSameDoc)
     ) {
       try {
-        const res = await fetch(
-          `/api/documents?id=${docId}`,
-          { cache: 'no-store' },
-        );
+        const res = await fetch(`/api/documents?id=${docId}`, {
+          cache: 'no-store',
+        });
         if (!res.ok) throw new Error('대표 문서를 찾을 수 없습니다');
         const doc = await res.json();
         if (!doc || !doc.title) {
@@ -818,10 +815,7 @@ export default function WikiPageInner({ user }: Props) {
     const reqId = ++docReqIdRef.current;
     setLoadingDoc(true);
     try {
-      const r = await fetch(
-        withTs(`/api/documents?id=${docId}`),
-        NC,
-      );
+      const r = await fetch(withTs(`/api/documents?id=${docId}`), NC);
       if (!r.ok) throw 0;
       const data = await r.json();
       if (!mountedRef.current || reqId !== docReqIdRef.current) return;
@@ -968,9 +962,7 @@ export default function WikiPageInner({ user }: Props) {
         setHeadList([]);
         setHeadPage(0);
         const v = await findVillage(
-          [meta.village, selectedDocTitle].filter(
-            Boolean,
-          ) as string[],
+          [meta.village, selectedDocTitle].filter(Boolean) as string[],
         );
         if (!v) {
           if (!cancelled) {
@@ -1002,9 +994,7 @@ export default function WikiPageInner({ user }: Props) {
       setNpcList([]);
       setNpcPage(0);
       const v = await findVillage(
-        [meta.village, selectedDocTitle].filter(
-          Boolean,
-        ) as string[],
+        [meta.village, selectedDocTitle].filter(Boolean) as string[],
       );
       if (!v) {
         if (!cancelled) setNpcLoading(false);
@@ -1185,7 +1175,7 @@ export default function WikiPageInner({ user }: Props) {
                         {selectedDocTitle || '렌독 위키'}
                       </span>
 
-                      {/* 🔗 제목 오른쪽 링크 버튼 */}
+                      {/* 🔗 제목 오른쪽 링크 버튼 (클릭 시 ✔ 로 잠깐 변경) */}
                       <button
                         type="button"
                         className={
@@ -1197,7 +1187,7 @@ export default function WikiPageInner({ user }: Props) {
                         onClick={handleCopyDocLink}
                         title="문서 링크 복사"
                       >
-                        🔗
+                        {copiedDocLink ? '✔' : '🔗'}
                       </button>
                     </h2>
                   </div>
