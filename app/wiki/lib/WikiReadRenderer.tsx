@@ -70,6 +70,104 @@ const ExternalLinkIcon: React.FC<{ size?: number }> = ({ size = 18 }) => (
   </svg>
 );
 
+/** 제목/헤딩 공통 스타일의 링크 아이콘 (체인) */
+const HeadingLinkIcon: React.FC<{ size?: number }> = ({ size = 14 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    aria-hidden
+    focusable="false"
+  >
+    <path
+      d="M9.5 13.5a3 3 0 0 0 4.24 0l2.12-2.12a3 3 0 0 0-4.24-4.24L10 8"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M14.5 10.5a3 3 0 0 0-4.24 0L8.14 12.6a3 3 0 0 0 4.24 4.24L14 15"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+/** 제목/헤딩 공통 스타일의 체크 아이콘 */
+const HeadingCheckIcon: React.FC<{ size?: number }> = ({ size = 14 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    aria-hidden
+    focusable="false"
+  >
+    <path
+      d="M5 13.5 9.2 17 19 7"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+type HeadingAnchorButtonProps = {
+  anchorId: string;
+};
+
+const HeadingAnchorButton: React.FC<HeadingAnchorButtonProps> = ({
+  anchorId,
+}) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    const hash = anchorId ? `#${anchorId}` : "";
+    const url =
+      typeof window !== "undefined"
+        ? `${window.location.origin}${window.location.pathname}${window.location.search}${hash}`
+        : hash;
+
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {
+      if (typeof window !== "undefined" && hash) {
+        window.location.hash = hash;
+      }
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className="wiki-heading-anchor-btn"
+      aria-label="이 제목 링크 복사"
+    >
+      <span
+        className={
+          "wiki-heading-anchor-pill" + (copied ? " wiki-heading-anchor-pill--copied" : "")
+        }
+      >
+        {copied ? <HeadingCheckIcon /> : <HeadingLinkIcon />}
+      </span>
+    </button>
+  );
+};
+
 /** infobox 인라인 스타일 preset */
 function getInfoboxPreset(
   boxType: string
@@ -1524,7 +1622,7 @@ function renderNode(
     case "heading-three": {
       const el = node;
 
-      // 아이콘 처리 (기존 그대로)
+      // 아이콘 처리 (기존 로직 그대로)
       let iconHtml: React.ReactNode = null;
       if (el.icon) {
         if (typeof el.icon === "string" && el.icon.startsWith("http")) {
@@ -1561,7 +1659,7 @@ function renderNode(
         }
       }
 
-      // heading 내부의 fontSize 마크 제거 후 렌더링
+      // ⬇ fontSize 마크 제거 + 텍스트 추출 (기존 로직 유지)
       const safeChildren = (el.children ?? []).map((child: any, i: number) =>
         renderNode(stripFontSizeFromDescendants(child), key ? `${key}-${i}` : i)
       );
@@ -1575,56 +1673,26 @@ function renderNode(
           : node.type === "heading-two"
           ? 2
           : 3;
-
       const fontSize =
         level === 1 ? "28px" : node.type === "heading-two" ? "22px" : "18px";
-
       const Tag = `h${level}` as keyof JSX.IntrinsicElements;
-
-      const justify =
-        el.textAlign === "center"
-          ? "center"
-          : el.textAlign === "right"
-          ? "flex-end"
-          : "flex-start";
-
-      // 🔗 링크 복사 버튼 클릭 시 동작
-      const handleCopyLink = (e: React.MouseEvent<HTMLButtonElement>) => {
-        e.preventDefault();
-        if (typeof window === "undefined") return;
-
-        try {
-          const url = new URL(window.location.href);
-          url.hash = id;
-          const full = url.toString();
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(full).catch(() => {
-              // 실패해도 조용히 무시
-            });
-          }
-        } catch {
-          // URL 생성 실패시 무시
-        }
-      };
 
       return (
         <Tag
           key={key}
           id={id}
           suppressHydrationWarning
-          className="rdw-heading"
+          className="wiki-heading-with-anchor"
           style={{
             fontSize,
             textAlign: el.textAlign || "left",
             display: "flex",
             alignItems: "center",
-            gap: 0, // iconHtml 쪽에서 marginRight를 쓰므로 gap은 0
-            justifyContent: justify,
+            gap: 8,
             width: "100%",
           }}
         >
           {iconHtml}
-          {/* 텍스트 + 링크 버튼을 한 덩어리로 묶어서 바로 옆에 붙게 처리 */}
           <span
             style={{
               display: "inline-flex",
@@ -1633,31 +1701,8 @@ function renderNode(
             }}
           >
             <span>{safeChildren}</span>
-
-            {/* 🔗 제목 링크 버튼 (텍스트 바로 옆) */}
-            <button
-              type="button"
-              className="rdw-heading-link-button"
-              onClick={handleCopyLink}
-              aria-label="이 제목 링크 복사"
-              style={{
-                marginLeft: 4,
-                width: 26,
-                height: 26,
-                borderRadius: "999px",
-                border: "1px solid rgba(148,163,184,0.6)",
-                background: "#ffffff",
-                color: "#a855f7",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 12,
-                cursor: "pointer",
-                boxShadow: "0 1px 3px rgba(148,163,184,0.4)",
-              }}
-            >
-              <ExternalLinkIcon size={14} />
-            </button>
+            {/* 🔗 제목과 동일 디자인의 링크 버튼 */}
+            <HeadingAnchorButton anchorId={id} />
           </span>
         </Tag>
       );
