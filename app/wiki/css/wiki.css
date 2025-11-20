@@ -722,6 +722,7 @@
 /* 헤딩에 마우스를 올렸을 때만 표시 (focus-within 제거) */
 .wiki-heading-with-anchor:hover .wiki-heading-anchor-btn {
   opacity: 1;
+  background: #eef2ff;
   pointer-events: auto;
 }
 
