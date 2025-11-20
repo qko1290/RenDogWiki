@@ -32,7 +32,10 @@ const setWikiDocsAll = (rows: any[]) => {
 // ───────────────────────────────────────────────────────────────
 
 function toHeadingIdFromText(text: string) {
-  const cleaned = text.replace(/^[^\w\s]|[\u{1F300}-\u{1F6FF}]/gu, "").trim();
+  const cleaned = text
+    .replace(/[\u{1F300}-\u{1FAFF}]/gu, "")
+    .trim();
+
   const slug =
     cleaned.toLowerCase().replace(/\s+/g, "-") ||
     `untitled-${Math.random().toString(36).slice(2, 6)}`;

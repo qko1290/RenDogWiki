@@ -8,7 +8,7 @@
  * - icon은 항상 string으로 반환(없으면 빈 문자열)
  */
 
-import { Descendant, Element as SlateElement, Node } from 'slate';
+import { Descendant, Element as SlateElement, Node } from "slate";
 
 export type Heading = {
   id: string;
@@ -18,10 +18,20 @@ export type Heading = {
 };
 
 function toHeadingIdFromText(text: string): string {
-  const cleaned = text.replace(/^[^\w\s]|[\u{1F300}-\u{1F6FF}]/gu, '').trim();
+  // ❗ 한글 첫 글자를 잘라먹던 부분 수정
+  //  - 예전: /^[^\w\s]|[\u{1F300}-\u{1F6FF}]/
+  //    → \w 에 한글이 포함되지 않아 "강화석" → "화석"
+  //
+  //  - 지금: 이모지(1F300~1FAFF)만 지우고, 나머지 글자는 그대로 둠
+  //    → "강화석" 그대로 유지
+  const cleaned = text
+    .replace(/[\u{1F300}-\u{1FAFF}]/gu, "") // 이모지만 제거
+    .trim();
+
   const slug =
-    cleaned.toLowerCase().replace(/\s+/g, '-') ||
+    cleaned.toLowerCase().replace(/\s+/g, "-") ||
     `untitled-${Math.random().toString(36).slice(2, 6)}`;
+
   return `heading-${slug}`;
 }
 
@@ -33,23 +43,26 @@ export function extractHeadings(value: Descendant[]): Heading[] {
       if (!SlateElement.isElement(node)) continue;
 
       if (
-        node.type === 'heading-one' ||
-        node.type === 'heading-two' ||
-        node.type === 'heading-three'
+        node.type === "heading-one" ||
+        node.type === "heading-two" ||
+        node.type === "heading-three"
       ) {
         const level: 1 | 2 | 3 =
-          node.type === 'heading-one' ? 1 :
-          node.type === 'heading-two' ? 2 : 3;
+          node.type === "heading-one"
+            ? 1
+            : node.type === "heading-two"
+            ? 2
+            : 3;
 
         const text = Node.string(node).trim();
         const id = toHeadingIdFromText(text);
-        const icon = String((node as any).icon ?? ''); // ✅ 항상 string
+        const icon = String((node as any).icon ?? ""); // ✅ 항상 string
 
         result.push({ id, level, text, icon });
       }
 
-      if (node.children) {
-        visit(node.children as Descendant[]);
+      if ((node as any).children) {
+        visit((node as any).children as Descendant[]);
       }
     }
   };
