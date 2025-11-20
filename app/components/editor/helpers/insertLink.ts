@@ -125,8 +125,9 @@ export const insertLink = (editor: Editor, url: string, text?: string) => {
  * - 내부 위키/외부 URL 구분하여 sitename, favicon 자동 세팅
  * - 링크 카드 뒤에 빈 단락 추가(입력 UX 개선)
  *
- * ✅ opts.size가 'small' | 'half' 인 경우에는 자동으로 반띵 로직(insertHalfLinkBlock)으로 라우팅
- *    → 연속 삽입 시 자동으로 link-block-row로 묶임.
+ * ✅ opts.size가 'small' | 'half' 인 경우에는 명시적으로 반띵 로직(insertHalfLinkBlock)으로 라우팅
+ *    → 연속 삽입 시 자동으로 link-block-row로 묶이는 건 "half 버튼"에서만 발생.
+ *    → 일반 링크 블럭 버튼은 항상 독립된 link-block 한 개만 삽입.
  */
 export const insertLinkBlock = (
   editor: Editor,
@@ -136,7 +137,7 @@ export const insertLinkBlock = (
   const trimmed = (url ?? '').trim();
   if (!trimmed) return;
 
-  // half/small 명시되면 반띵 로직으로 위임
+  // half/small 명시되면 반띵 로직으로 위임 (명시적인 경우만)
   if (opts?.size === 'small' || (opts as any)?.size === 'half') {
     insertHalfLinkBlock(editor, trimmed, { ...opts, size: 'small' } as any);
     return;
@@ -149,59 +150,8 @@ export const insertLinkBlock = (
     Transforms.select(editor, insertPoint);
   }
 
-  // ✅ 바로 위 형제가 "row(자식 1개)" 또는 "단일 link-block"이면
-  //    두 번째 삽입부터는 자동으로 반띵으로 합쳐준다.
-  try {
-    const blockEntry = Editor.above(editor, {
-      at: editor.selection ?? undefined,
-      match: n => SlateElement.isElement(n) && Editor.isBlock(editor, n),
-    });
-    if (blockEntry) {
-      const [, blockPath] = blockEntry;
-      const prevPath = Path.previous(blockPath);
-      const prevNode = Node.get(editor, prevPath) as any;
-
-      if (SlateElement.isElement(prevNode)) {
-        // row에 카드가 하나만 있는 경우 → 그 row에 두 번째를 small로 추가
-        if (
-          prevNode.type === 'link-block-row' &&
-          Array.isArray(prevNode.children) &&
-          prevNode.children.filter(SlateElement.isElement).length === 1
-        ) {
-          insertHalfLinkBlock(editor, trimmed, { ...opts, size: 'small' } as any);
-          return;
-        }
-
-        // 바로 위가 단일 link-block인 경우 → 두 개를 row로 묶어서 small로 변환
-        if (prevNode.type === 'link-block') {
-          const leftSmall = { ...prevNode, size: 'small' as const };
-          const rightSmall = buildLinkBlock(trimmed, 'small', opts);
-
-          // 이전 단일 블럭 제거
-          Transforms.removeNodes(editor, { at: prevPath });
-
-          // 현재 빈 문단이면 제거(라인 사이에 문단 끼는 것 방지)
-          try {
-            const curNode = Node.get(editor, blockPath) as any;
-            if (SlateElement.isElement(curNode) && curNode.type === 'paragraph' && Editor.isEmpty(editor, curNode)) {
-              Transforms.removeNodes(editor, { at: blockPath });
-            }
-          } catch {}
-
-          // row + 빈 문단 삽입
-          const row = { type: 'link-block-row', children: [leftSmall, rightSmall] } as any;
-          Transforms.insertNodes(editor, [row, { type: 'paragraph', children: [{ text: '' }] } as any], {
-            at: prevPath,
-            select: true,
-          });
-          ReactEditor.focus(editor);
-          return;
-        }
-      }
-    }
-  } catch {}
-
-  // 위 조건에 안 걸리면 일반(large) 삽입
+  // ✅ 이제는 위/아래 링크 블럭을 자동 병합하지 않고
+  //    항상 "단일 large 링크 블럭 + 빈 문단"만 삽입
   const linkBlock = buildLinkBlock(trimmed, 'large', opts);
   const afterBlock: ParagraphElement = { type: 'paragraph', children: [{ text: '' }] };
   Transforms.insertNodes(editor, [linkBlock as any, afterBlock as any], { select: true });
@@ -214,6 +164,11 @@ export const insertLinkBlock = (
  * - 같은 줄/바로 위에 단일 small link-block만 있는 경우 → 둘을 묶어 link-block-row로 변환
  * - 아니면 새 link-block-row를 만들어 한 줄 아래에 삽입
  * - 내부 문서/외부 URL 모두 지원(opts.isWiki 등으로 구분)
+ *
+ * ⚠️ 이 함수는 "반띵/2개짜리" 용도로만 사용.
+ *    일반 링크 블럭 버튼은 insertLinkBlock만 사용하므로
+ *    사용자가 명시적으로 half/small을 선택한 경우에만
+ *    자동 병합/row 로직이 동작함.
  */
 export function insertHalfLinkBlock(
   editor: Editor,
@@ -258,10 +213,18 @@ export function insertHalfLinkBlock(
       try {
         const nextNode = Node.get(editor, afterRow) as any;
         if (!(SlateElement.isElement(nextNode) && nextNode.type === 'paragraph')) {
-          Transforms.insertNodes(editor, { type: 'paragraph', children: [{ text: '' }] } as any, { at: afterRow });
+          Transforms.insertNodes(
+            editor,
+            { type: 'paragraph', children: [{ text: '' }] } as any,
+            { at: afterRow }
+          );
         }
       } catch {
-        Transforms.insertNodes(editor, { type: 'paragraph', children: [{ text: '' }] } as any, { at: afterRow });
+        Transforms.insertNodes(
+          editor,
+          { type: 'paragraph', children: [{ text: '' }] } as any,
+          { at: afterRow }
+        );
       }
     } else {
       const insertPath = Path.next(blockPath);
@@ -296,7 +259,7 @@ export function insertHalfLinkBlock(
       return;
     }
 
-    // ✅ 바로 위 형제가 "단일 link-block(large/small 무관)"이면 강제로 row로 병합
+    // 바로 위 형제가 "단일 link-block(large/small 무관)"이면 강제로 row로 병합
     try {
       const prevPath = Path.previous(blockPath);
       const prevNode = Node.get(editor, prevPath) as any;
@@ -308,7 +271,11 @@ export function insertHalfLinkBlock(
         Transforms.removeNodes(editor, { at: prevPath });
 
         // 현재 블록이 빈 문단이면 제거
-        if (SlateElement.isElement(blockNode) && blockNode.type === 'paragraph' && Editor.isEmpty(editor, blockNode as any)) {
+        if (
+          SlateElement.isElement(blockNode) &&
+          blockNode.type === 'paragraph' &&
+          Editor.isEmpty(editor, blockNode as any)
+        ) {
           Transforms.removeNodes(editor, { at: blockPath });
         }
 
