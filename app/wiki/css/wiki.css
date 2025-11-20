@@ -552,3 +552,23 @@
   padding-top: 6px;      /* ⬅️ 이게 위쪽 검은 여백 */
   overflow: hidden;
 }
+
+/* 위키 본문 헤딩 링크 버튼: 기본은 숨김 */
+.rdw-heading-link-button {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease-out, transform 0.1s ease-out,
+    box-shadow 0.1s ease-out;
+}
+
+/* 헤딩에 마우스를 올렸을 때만 보이게 */
+.rdw-heading:hover .rdw-heading-link-button {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* 버튼 자체 hover 살짝 효과 (선택 사항) */
+.rdw-heading-link-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(148, 163, 184, 0.6);
+}

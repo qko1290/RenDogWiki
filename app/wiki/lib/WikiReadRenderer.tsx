@@ -1522,9 +1522,9 @@ function renderNode(
     case "heading-one":
     case "heading-two":
     case "heading-three": {
-      const el = node as any;
+      const el = node;
 
-      // 아이콘 처리
+      // 아이콘 처리 (기존 그대로)
       let iconHtml: React.ReactNode = null;
       if (el.icon) {
         if (typeof el.icon === "string" && el.icon.startsWith("http")) {
@@ -1561,13 +1561,9 @@ function renderNode(
         }
       }
 
-      // heading 자식에서 fontSize 마크 제거한 뒤 렌더링
+      // heading 내부의 fontSize 마크 제거 후 렌더링
       const safeChildren = (el.children ?? []).map((child: any, i: number) =>
-        renderNode(
-          stripFontSizeFromDescendants(child),
-          key ? `${key}-${i}` : i,
-          ctx
-        )
+        renderNode(stripFontSizeFromDescendants(child), key ? `${key}-${i}` : i)
       );
 
       const textContent = stripReact(safeChildren).trim();
@@ -1579,69 +1575,90 @@ function renderNode(
           : node.type === "heading-two"
           ? 2
           : 3;
+
       const fontSize =
         level === 1 ? "28px" : node.type === "heading-two" ? "22px" : "18px";
+
       const Tag = `h${level}` as keyof JSX.IntrinsicElements;
 
-      const align = el.textAlign || "left";
-      const textJustify = flexJustifyFromAlign(align);
+      const justify =
+        el.textAlign === "center"
+          ? "center"
+          : el.textAlign === "right"
+          ? "flex-end"
+          : "flex-start";
 
-      const isCopied = id && ctx?.copiedHeadingId === id;
+      // 🔗 링크 복사 버튼 클릭 시 동작
+      const handleCopyLink = (e: React.MouseEvent<HTMLButtonElement>) => {
+        e.preventDefault();
+        if (typeof window === "undefined") return;
+
+        try {
+          const url = new URL(window.location.href);
+          url.hash = id;
+          const full = url.toString();
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(full).catch(() => {
+              // 실패해도 조용히 무시
+            });
+          }
+        } catch {
+          // URL 생성 실패시 무시
+        }
+      };
 
       return (
         <Tag
           key={key}
           id={id}
           suppressHydrationWarning
+          className="rdw-heading"
           style={{
             fontSize,
-            textAlign: align,
+            textAlign: el.textAlign || "left",
             display: "flex",
             alignItems: "center",
+            gap: 0, // iconHtml 쪽에서 marginRight를 쓰므로 gap은 0
+            justifyContent: justify,
             width: "100%",
           }}
         >
-          {/* 왼쪽: 아이콘 + 텍스트 (정렬 유지) */}
+          {iconHtml}
+          {/* 텍스트 + 링크 버튼을 한 덩어리로 묶어서 바로 옆에 붙게 처리 */}
           <span
             style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: 8,
-              flex: 1,
-              justifyContent: textJustify,
-              minWidth: 0,
+              gap: 6,
             }}
           >
-            {iconHtml}
-            <span style={{ display: "inline" }}>{safeChildren}</span>
-          </span>
+            <span>{safeChildren}</span>
 
-          {/* 오른쪽: 링크 복사 버튼 */}
-          {ctx && (
+            {/* 🔗 제목 링크 버튼 (텍스트 바로 옆) */}
             <button
               type="button"
-              onClick={() => ctx.onCopyHeading(id)}
-              title="이 위치 링크 복사"
+              className="rdw-heading-link-button"
+              onClick={handleCopyLink}
+              aria-label="이 제목 링크 복사"
               style={{
-                marginLeft: 8,
-                width: 24,
-                height: 24,
-                borderRadius: 999,
-                border: "1px solid #e5e7eb",
-                background: isCopied ? "#dcfce7" : "#f9fafb",
-                color: isCopied ? "#16a34a" : "#9ca3af",
-                fontSize: 12,
-                fontWeight: 700,
+                marginLeft: 4,
+                width: 26,
+                height: 26,
+                borderRadius: "999px",
+                border: "1px solid rgba(148,163,184,0.6)",
+                background: "#ffffff",
+                color: "#a855f7",
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
+                fontSize: 12,
                 cursor: "pointer",
-                flexShrink: 0,
+                boxShadow: "0 1px 3px rgba(148,163,184,0.4)",
               }}
             >
-              {isCopied ? "✔" : "🔗"}
+              <ExternalLinkIcon size={14} />
             </button>
-          )}
+          </span>
         </Tag>
       );
     }
