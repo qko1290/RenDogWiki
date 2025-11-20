@@ -114,7 +114,7 @@ const HeadingAnchorButton: React.FC<HeadingAnchorButtonProps> = ({
           "wiki-heading-anchor-pill" + (copied ? " wiki-heading-anchor-pill--copied" : "")
         }
       >
-        {copied ? ✔ : 🔗}
+        {copied ? "✔" : "🔗"}
       </span>
     </button>
   );
