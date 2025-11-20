@@ -40,6 +40,27 @@ const wikiDocDetailCache: Map<string, WikiDocDetail> =
   (globalThis as any)[WIKI_DOC_DETAIL_CACHE_KEY] ??
   new Map<string, WikiDocDetail>();
 (globalThis as any)[WIKI_DOC_DETAIL_CACHE_KEY] = wikiDocDetailCache;
+
+type WikiDocHeadingMeta = {
+  id: string;
+  icon: string | null;
+};
+
+type WikiDocDetail = {
+  icon: string | null;            // 문서 전체 아이콘(이모지/이미지)
+  headings: WikiDocHeadingMeta[]; // 각 heading별 아이콘 메타
+};
+
+const wikiDocDetailCache: Map<string, WikiDocDetail> =
+  (globalThis as any)[WIKI_DOC_DETAIL_CACHE_KEY] ??
+  new Map<string, WikiDocDetail>();
+
+(globalThis as any)[WIKI_DOC_DETAIL_CACHE_KEY] = wikiDocDetailCache;
+
+// 🔎 heading id/icon을 뽑는 유틸
+// (이미 프로젝트에서 쓰는 경로 그대로 맞춰줘야 함)
+import extractHeadings from "@/lib/extractHeadings";
+
 // ───────────────────────────────────────────────────────────────
 
 function toHeadingIdFromText(text: string) {
@@ -254,7 +275,7 @@ function LinkBlockView({
     node.isWiki ? node.docIcon ?? null : null
   );
 
-  // 🔹 외부 링크 파비콘 (추가 네트워크 호출 없이 node.favicon만 사용)
+  // 🔹 외부 링크 파비콘 (지금은 node.favicon만 사용 – 필요하면 cdn/withVersion 감싸기)
   const externalFavicon: string | null =
     !node.isWiki && node.favicon ? node.favicon : null;
 
@@ -275,8 +296,7 @@ function LinkBlockView({
     const urlTitleParam = urlObj.searchParams.get("title");
 
     const pathParam =
-      urlPathParam ??
-      (node.wikiPath != null ? String(node.wikiPath) : null);
+      urlPathParam ?? (node.wikiPath != null ? String(node.wikiPath) : null);
     const titleParam = urlTitleParam ?? node.wikiTitle ?? null;
 
     const hash = urlObj.hash ? urlObj.hash.slice(1) : ""; // '#heading-...' → 'heading-...'
@@ -290,9 +310,18 @@ function LinkBlockView({
     // 링크별 최종 아이콘 캐시 키 (문서 + 해시)
     const cacheKey = `${baseDocKey}#${hash || "root"}`;
 
-    if (wikiDocIconCache.has(cacheKey)) {
-      const cached = wikiDocIconCache.get(cacheKey) || null;
-      setWikiIcon(cached);
+    // 이미 이 링크에 대한 아이콘이 캐시되어 있으면 그대로 사용
+    if (wikiDocDetailCache.has(baseDocKey)) {
+      const detail = wikiDocDetailCache.get(baseDocKey)!;
+
+      let iconCandidate: string | null = null;
+      if (hash && detail.headings.length > 0) {
+        const hMeta = detail.headings.find((h) => h.id === hash);
+        if (hMeta?.icon) iconCandidate = hMeta.icon;
+      }
+      if (!iconCandidate) iconCandidate = detail.icon || null;
+
+      setWikiIcon(iconCandidate || null);
       return;
     }
 
@@ -300,54 +329,51 @@ function LinkBlockView({
 
     (async () => {
       try {
-        let detail = wikiDocDetailCache.get(baseDocKey);
-        if (!detail) {
-          // path/title이 있으면 해당 문서 상세 요청
-          let res: Response | null = null;
-          if (pathParam || titleParam) {
-            const qs: string[] = [];
-            if (pathParam)
-              qs.push(`path=${encodeURIComponent(pathParam)}`);
-            if (titleParam)
-              qs.push(`title=${encodeURIComponent(titleParam)}`);
-            const query = qs.join("&");
-            res = await fetch(`/api/documents?${query}`, {
-              cache: "force-cache",
-            });
-          }
+        // 문서 상세 가져오기 (Element.tsx에서 쓰던 것과 동일한 API 규약으로 맞춰야 함)
+        let res: Response | null = null;
 
-          if (!res || !res.ok) {
-            wikiDocIconCache.set(cacheKey, "");
-            return;
-          }
-
-          const data = await res.json();
-          const rawContent = data.content;
-          const slateContent =
-            typeof rawContent === "string"
-              ? JSON.parse(rawContent)
-              : rawContent;
-
-          // 목차 추출 (heading id + icon)
-          let headingsMeta: WikiDocHeadingMeta[] = [];
-          try {
-            const hs = extractHeadings(
-              Array.isArray(slateContent) ? slateContent : []
-            );
-            headingsMeta = hs.map((h: any) => ({
-              id: h.id,
-              icon: h.icon ?? null,
-            }));
-          } catch {
-            headingsMeta = [];
-          }
-
-          detail = {
-            icon: (data.icon ?? "").trim() || null,
-            headings: headingsMeta,
-          };
-          wikiDocDetailCache.set(baseDocKey, detail);
+        if (pathParam || titleParam) {
+          const qs: string[] = [];
+          if (pathParam)
+            qs.push(`path=${encodeURIComponent(String(pathParam))}`);
+          if (titleParam)
+            qs.push(`title=${encodeURIComponent(String(titleParam))}`);
+          const query = qs.join("&");
+          res = await fetch(`/api/documents?${query}`, {
+            cache: "force-cache",
+          });
         }
+
+        if (!res || !res.ok) {
+          if (!cancelled) setWikiIcon(null);
+          return;
+        }
+
+        const data = await res.json();
+        const rawContent = data.content;
+        const slateContent =
+          typeof rawContent === "string" ? JSON.parse(rawContent) : rawContent;
+
+        // 목차 추출 (heading id + icon)
+        let headingsMeta: WikiDocHeadingMeta[] = [];
+        try {
+          const hs = extractHeadings(
+            Array.isArray(slateContent) ? slateContent : []
+          );
+          headingsMeta = hs.map((h: any) => ({
+            id: h.id,
+            icon: h.icon ?? null,
+          }));
+        } catch {
+          headingsMeta = [];
+        }
+
+        const detail: WikiDocDetail = {
+          icon: (data.icon ?? "").trim() || null,
+          headings: headingsMeta,
+        };
+
+        wikiDocDetailCache.set(baseDocKey, detail);
 
         // 1) 해시가 있으면 해당 heading 아이콘 우선
         let iconCandidate: string | null = null;
@@ -361,12 +387,10 @@ function LinkBlockView({
 
         if (!cancelled) {
           setWikiIcon(iconCandidate || null);
-          wikiDocIconCache.set(cacheKey, iconCandidate || "");
         }
       } catch {
         if (!cancelled) {
           setWikiIcon(null);
-          wikiDocIconCache.set(cacheKey, "");
         }
       }
     })();
@@ -398,6 +422,7 @@ function LinkBlockView({
             height: 24,
             marginRight: 8,
             objectFit: "contain",
+            display: "block",
           }}
         />
       ) : (
