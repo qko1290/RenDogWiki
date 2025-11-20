@@ -712,40 +712,61 @@
   position: relative;
 }
 
-/* 🔗 헤딩 링크 버튼 본체 (제목 링크 버튼과 동일) */
-.wiki-heading-anchor-btn {
-  width: 20px;
-  height: 20px;
-  margin-left: 6px;
-  display: grid;
-  place-items: center;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: #9ca3af;
-  font-size: 12px;
+/* 기본: 버튼은 숨김 */
+.wiki-heading-with-anchor .wiki-heading-anchor-btn {
   opacity: 0;
   pointer-events: none;
-  cursor: pointer;
-  transition: all 0.15s ease;
+  transition: opacity 0.15s ease-out;
 }
 
-/* 헤딩에 마우스를 올렸을 때만 버튼 표시 */
+/* 헤딩에 마우스를 올렸을 때만 표시 (focus-within 제거) */
 .wiki-heading-with-anchor:hover .wiki-heading-anchor-btn {
   opacity: 1;
   pointer-events: auto;
 }
 
-/* hover 시 살짝 배경/색 강조 – 제목 버튼과 동일 */
-.wiki-heading-anchor-btn:hover {
-  background: #eef2ff;
+/* 버튼 자체 – 시스템 기본 스타일 제거 + 크기 최소화 */
+.wiki-heading-anchor-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin-left: 4px;
+  cursor: pointer;
+  line-height: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 아이콘만 보이게 하는 래퍼 (제목 링크 버튼과 동일 크기) */
+.wiki-heading-anchor-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  /* 제목 버튼과 비슷한 크기의 이모지 */
+  font-size: 12px;
+  line-height: 1;
+  color: #9ca3af;
+  transition: transform 0.15s ease-out, color 0.15s ease-out;
+}
+
+/* hover 모션: 살짝 띄우고 색만 진하게 */
+.wiki-heading-anchor-btn:hover .wiki-heading-anchor-pill {
+  transform: translateY(-1px) scale(1.05);
   color: #4f46e5;
 }
 
-/* 복사 완료 상태 – 초록 ✔ 표시 */
-.wiki-heading-anchor-btn--copied {
-  background: #dcfce7;
+/* 클릭 순간 살짝 눌리는 느낌 */
+.wiki-heading-anchor-btn:active .wiki-heading-anchor-pill {
+  transform: translateY(0) scale(0.95);
+}
+
+/* 복사 완료 상태: 초록색 체크 (배경 X, 색만 변경) */
+.wiki-heading-anchor-pill--copied {
   color: #16a34a;
-  opacity: 1;
-  pointer-events: auto;
 }
