@@ -187,7 +187,7 @@ export default function TableOfContents({
       },
       {
         root: getRootForObserver(),
-        rootMargin = `-${headerOffset + 8}px 0px -70% 0px`,
+        rootMargin: `-${headerOffset + 8}px 0px -70% 0px`,
         threshold: [0, 1],
       },
     );
