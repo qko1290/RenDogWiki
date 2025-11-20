@@ -84,9 +84,15 @@ const HeadingAnchorButton: React.FC<HeadingAnchorButtonProps> = ({
     e.preventDefault();
 
     const hash = anchorId ? `#${anchorId}` : "";
+
     const url =
       typeof window !== "undefined"
-        ? `${window.location.origin}${window.location.pathname}${window.location.search}${hash}`
+        ? (() => {
+            const { origin, pathname, search } = window.location;
+            // 🔽 쿼리스트링을 한글로 디코딩해서 사용
+            const decodedSearch = search ? decodeURIComponent(search) : "";
+            return `${origin}${pathname}${decodedSearch}${hash}`;
+          })()
         : hash;
 
     try {
@@ -676,7 +682,8 @@ export default function WikiReadRenderer({
     }
     try {
       const { origin, pathname, search } = window.location;
-      const url = `${origin}${pathname}${search}#${encodeURIComponent(
+      const decodedSearch = search ? decodeURIComponent(search) : "";
+      const url = `${origin}${pathname}${decodedSearch}#${encodeURIComponent(
         headingId
       )}`;
       await navigator.clipboard.writeText(url);
