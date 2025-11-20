@@ -232,86 +232,106 @@ function getInfoboxPreset(
   return { container, icon, role: sel.role };
 }
 
-// ── 링크 블록 (읽기 전용) : Element.tsx와 동일 동작 + heading 아이콘 감지 ───────
-function LinkBlockView({
-  node,
-  keyProp,
-  children,
-}: {
-  node: any;
-  keyProp: React.Key;
-  children?: React.ReactNode;
-}) {
-  // 외부 링크: sitename 추론
-  let displaySitename: string | undefined = node.sitename;
+type LinkBlockNode = {
+  type: 'link-block';
+  url?: string;
+  isWiki?: boolean;
+  wikiPath?: string | number | null;
+  wikiTitle?: string | null;
+  sitename?: string | null;
+  size?: 'small' | 'half' | 'full';
+  docIcon?: string | null;
+  children?: Descendant[];
+};
 
-  if (!node.isWiki && !displaySitename) {
+// 내부 텍스트 추출 함수 (Element 쪽에서 Node.string 대신 사용하는 버전)
+function nodeToPlainText(node: any): string {
+  if (!node) return '';
+  if (Text.isText(node)) return node.text ?? '';
+  if (Array.isArray(node)) return node.map(nodeToPlainText).join('');
+  if (Array.isArray(node.children)) return node.children.map(nodeToPlainText).join('');
+  return '';
+}
+
+const LinkBlockView: React.FC<{ node: LinkBlockNode }> = ({ node }) => {
+  const el = node;
+
+  // URL 파싱
+  const parsedUrl = React.useMemo(() => {
+    if (!el.url) return null;
     try {
-      const u = new URL(node.url);
-      displaySitename = u.hostname.replace(/^www\./, "");
-    } catch {}
+      const base =
+        typeof window !== 'undefined'
+          ? window.location.origin
+          : 'https://dummy.local';
+      return new URL(el.url, base);
+    } catch {
+      return null;
+    }
+  }, [el.url]);
+
+  // 내부 위키 링크 판별
+  const isWikiLink = React.useMemo(() => {
+    if (el.isWiki) return true;
+    if (!parsedUrl) return false;
+
+    if (typeof window === 'undefined') {
+      return parsedUrl.pathname.startsWith('/wiki');
+    }
+
+    const sameHost = parsedUrl.host === window.location.host;
+    return sameHost && parsedUrl.pathname.startsWith('/wiki');
+  }, [el.isWiki, parsedUrl]);
+
+  // 표시용 사이트 이름
+  let displaySitename = el.sitename ?? '';
+  if (!isWikiLink && !displaySitename && parsedUrl) {
+    const host = parsedUrl.hostname.replace(/^www\./, '');
+    displaySitename = host;
   }
 
-  // 내부 문서/heading 아이콘
+  // 위키 아이콘 상태
   const [wikiIcon, setWikiIcon] = useState<string | null>(
-    node.isWiki ? node.docIcon ?? null : null
+    isWikiLink ? (el.docIcon ?? null) : null,
   );
 
-  // 🔹 외부 링크 파비콘 (지금은 node.favicon만 사용 – 필요하면 cdn/withVersion 감싸기)
-  const externalFavicon: string | null =
-    !node.isWiki && node.favicon ? node.favicon : null;
-
-  // ✅ 내부 위키 링크면: path/title/hash 기준으로 문서/목차 아이콘 자동 선택
+  // ✅ Element.tsx와 동일한 아이콘 결정 로직
   useEffect(() => {
-    if (!node.isWiki || !node.url) return;
-    if (typeof window === "undefined") return;
+    if (!isWikiLink || !parsedUrl) return;
+    if (typeof window === 'undefined') return;
 
-    let urlObj: URL;
-    try {
-      urlObj = new URL(node.url, window.location.origin);
-    } catch {
-      return;
-    }
+    const urlObj = parsedUrl;
 
-    const urlPathParam = urlObj.searchParams.get("path");
-    const urlTitleParam = urlObj.searchParams.get("title");
+    const urlPathParam = urlObj.searchParams.get('path');
+    const urlTitleParam = urlObj.searchParams.get('title');
 
     const pathParam =
-      urlPathParam ?? (node.wikiPath != null ? String(node.wikiPath) : null);
-    const titleParam = urlTitleParam ?? node.wikiTitle ?? null;
+      urlPathParam ?? (el.wikiPath != null ? String(el.wikiPath) : null);
+    const titleParam = urlTitleParam ?? el.wikiTitle ?? null;
 
-    // 🔹 해시(제목 anchor) 정규화: 인코딩된 것도 복구
-    const hashRaw = urlObj.hash ? urlObj.hash.slice(1) : ""; // '#heading-...' → 'heading-...'
-    let hash = hashRaw;
-    try {
-      if (hashRaw) {
-        const decoded = decodeURIComponent(hashRaw);
-        hash = decoded || hashRaw;
-      }
-    } catch {
-      // decode 실패하면 그냥 raw 값 사용
-      hash = hashRaw;
-    }
+    const rawHash = urlObj.hash ? urlObj.hash.slice(1) : '';
+    const decodedHash = rawHash
+      ? (() => {
+          try {
+            return decodeURIComponent(rawHash);
+          } catch {
+            return rawHash;
+          }
+        })()
+      : '';
 
+    // 문서 키 (path + title 조합, 없으면 pathname)
     const docKeyParts: string[] = [];
     if (pathParam) docKeyParts.push(`p:${pathParam}`);
     if (titleParam) docKeyParts.push(`t:${titleParam}`);
-    const baseDocKey = docKeyParts.join("|") || urlObj.pathname;
+    const baseDocKey = docKeyParts.join('|') || urlObj.pathname;
 
-    // 이미 캐시에 있으면 그걸로 처리
-    if (wikiDocDetailCache.has(baseDocKey)) {
-      const detail = wikiDocDetailCache.get(baseDocKey)!;
+    // 링크별 최종 아이콘 캐시 키
+    const cacheKey = `${baseDocKey}#${decodedHash || 'root'}`;
 
-      let iconCandidate: string | null = null;
-      if (hash && detail.headings.length > 0) {
-        const hMeta = detail.headings.find(
-          (h) => h.id === hash || h.id === hashRaw // 둘 다 비교
-        );
-        if (hMeta?.icon) iconCandidate = hMeta.icon;
-      }
-      if (!iconCandidate) iconCandidate = detail.icon || null;
-
-      setWikiIcon(iconCandidate || null);
+    if (wikiDocIconCache.has(cacheKey)) {
+      const cached = wikiDocIconCache.get(cacheKey)!;
+      if (cached) setWikiIcon(cached);
       return;
     }
 
@@ -319,69 +339,90 @@ function LinkBlockView({
 
     (async () => {
       try {
-        let res: Response | null = null;
+        let detail = wikiDocDetailCache.get(baseDocKey);
 
-        if (pathParam || titleParam) {
-          const qs: string[] = [];
-          if (pathParam)
-            qs.push(`path=${encodeURIComponent(String(pathParam))}`);
-          if (titleParam)
-            qs.push(`title=${encodeURIComponent(String(titleParam))}`);
-          const query = qs.join("&");
-          res = await fetch(`/api/documents?${query}`, {
-            cache: "force-cache",
-          });
+        // 아직 문서 디테일이 없으면 /api/documents 에서 가져오기
+        if (!detail) {
+          let res: Response | null = null;
+
+          if (pathParam || titleParam) {
+            const qs: string[] = [];
+            if (pathParam) qs.push(`path=${encodeURIComponent(pathParam)}`);
+            if (titleParam) qs.push(`title=${encodeURIComponent(titleParam)}`);
+            const query = qs.join('&');
+            res = await fetch(`/api/documents?${query}`, {
+              cache: 'force-cache',
+            });
+          }
+
+          if (!res || !res.ok) {
+            wikiDocIconCache.set(cacheKey, '');
+            return;
+          }
+
+          const data = await res.json();
+          const rawContent = (data as any).content;
+          const slateContent =
+            typeof rawContent === 'string'
+              ? JSON.parse(rawContent)
+              : rawContent;
+
+          let headingsMeta: WikiDocHeadingMeta[] = [];
+          try {
+            const hs = extractHeadings(
+              Array.isArray(slateContent) ? slateContent : [],
+            );
+            headingsMeta = hs.map((h: any) => ({
+              id: String(h.id ?? ''),
+              icon: h.icon ?? null,
+            }));
+          } catch {
+            headingsMeta = [];
+          }
+
+          detail = {
+            icon: ((data as any).icon ?? '').trim() || null,
+            headings: headingsMeta,
+          };
+          wikiDocDetailCache.set(baseDocKey, detail);
         }
 
-        if (!res || !res.ok) {
-          if (!cancelled) setWikiIcon(null);
-          return;
-        }
-
-        const data = await res.json();
-        const rawContent = data.content;
-        const slateContent =
-          typeof rawContent === "string" ? JSON.parse(rawContent) : rawContent;
-
-        let headingsMeta: WikiDocHeadingMeta[] = [];
-        try {
-          const hs = extractHeadings(
-            Array.isArray(slateContent) ? slateContent : []
-          );
-          headingsMeta = hs.map((h: any) => ({
-            id: h.id,
-            icon: h.icon ?? null,
-          }));
-        } catch {
-          headingsMeta = [];
-        }
-
-        const detail: WikiDocDetail = {
-          icon: (data.icon ?? "").trim() || null,
-          headings: headingsMeta,
-        };
-
-        wikiDocDetailCache.set(baseDocKey, detail);
-
+        // 1) 해시가 있으면 해당 heading 아이콘 우선
         let iconCandidate: string | null = null;
+        if (decodedHash && detail.headings.length > 0) {
+          const target = decodedHash;
+          const normalizedTarget = target.startsWith('heading-')
+            ? target
+            : `heading-${target}`;
 
-        // 🔹 해시가 있으면 해당 제목 아이콘 우선
-        if (hash && detail.headings.length > 0) {
-          const hMeta = detail.headings.find(
-            (h) => h.id === hash || h.id === hashRaw
-          );
-          if (hMeta?.icon) iconCandidate = hMeta.icon;
+          const matched = detail.headings.find((h) => {
+            const hid = h.id || '';
+            const hidNorm = hid.startsWith('heading-') ? hid : `heading-${hid}`;
+            return (
+              hid === target ||
+              hid === normalizedTarget ||
+              hidNorm === target ||
+              hidNorm === normalizedTarget
+            );
+          });
+
+          if (matched?.icon) iconCandidate = matched.icon || null;
         }
 
-        // 🔹 없으면 문서 아이콘
+        // 2) 못 찾으면 문서 아이콘
         if (!iconCandidate) iconCandidate = detail.icon || null;
 
         if (!cancelled) {
-          setWikiIcon(iconCandidate || null);
+          if (iconCandidate) {
+            setWikiIcon(iconCandidate);
+            wikiDocIconCache.set(cacheKey, iconCandidate);
+          } else {
+            wikiDocIconCache.set(cacheKey, '');
+          }
         }
       } catch {
         if (!cancelled) {
-          setWikiIcon(null);
+          wikiDocIconCache.set(cacheKey, '');
         }
       }
     })();
@@ -389,136 +430,151 @@ function LinkBlockView({
     return () => {
       cancelled = true;
     };
-  }, [node.isWiki, node.url, node.wikiPath, node.wikiTitle]);
+  }, [isWikiLink, parsedUrl, el.wikiPath, el.wikiTitle]);
 
-  const isSmall = node.size === "small";
-  const flexStyle: React.CSSProperties = isSmall
-    ? { flex: "0 0 calc(50% - 6px)", maxWidth: "calc(50% - 6px)" }
-    : { flex: "0 0 100%", maxWidth: "100%" };
-
-  let iconNode: React.ReactNode = null;
-
-  if (node.isWiki) {
-    // 내부 문서 아이콘 (이모지 or 이미지)
-    if (wikiIcon) {
-      iconNode = wikiIcon.startsWith("http") ? (
-        <img
-          src={cdn(wikiIcon)}
-          alt="doc icon"
-          loading="lazy"
-          decoding="async"
-          fetchPriority="low"
-          style={{
-            width: 24,
-            height: 24,
-            marginRight: 8,
-            objectFit: "contain",
-            display: "block",
-          }}
-        />
-      ) : (
-        <span style={{ fontSize: 20, marginRight: 8, lineHeight: 1 }}>
-          {wikiIcon}
-        </span>
-      );
-    } else {
-      // 위키 링크인데 아직 아이콘을 못 가져온 경우: 기본 문서 아이콘
-      iconNode = (
-        <span
-          style={{
-            width: 24,
-            height: 24,
-            marginRight: 8,
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 18,
-          }}
-          aria-hidden
-        >
-          📄
-        </span>
-      );
-    }
-  } else {
-    // 🔹 외부 링크: 파비콘 있으면 파비콘, 없으면 기본 ExternalLinkIcon
-    iconNode = (
-      <span
-        style={{
-          width: 24,
-          height: 24,
-          marginRight: 8,
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "#64748b",
-        }}
-      >
-        {externalFavicon ? (
-          <img
-            src={externalFavicon}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            fetchPriority="low"
-            style={{
-              width: 16,
-              height: 16,
-              borderRadius: 4,
-              objectFit: "contain",
-              display: "block",
-            }}
-          />
-        ) : (
-          <ExternalLinkIcon size={18} />
-        )}
-      </span>
-    );
+  // 외부 링크 파비콘
+  let externalFavicon: string | null = null;
+  if (!isWikiLink && parsedUrl) {
+    externalFavicon = `${parsedUrl.origin}/favicon.ico`;
   }
 
-  // 👉 children(에디터 텍스트)이 있으면 우선 사용
-  const hasChildrenText =
-    children != null &&
-    stripReact(children).replace(/\u200B/g, "").trim().length > 0;
+  const isSmall = el.size === 'small' || el.size === 'half';
+
+  const wrapperStyle: React.CSSProperties = isSmall
+    ? {
+        display: 'inline-block',
+        verticalAlign: 'top',
+        width: 'calc(50% - 6px)',
+        maxWidth: 'calc(50% - 6px)',
+        marginRight: 12,
+      }
+    : { display: 'block', width: '100%', maxWidth: '100%' };
+
+  const labelText =
+    nodeToPlainText(node.children) ||
+    (isWikiLink
+      ? el.wikiTitle || el.sitename || '문서'
+      : displaySitename || el.url || '링크');
 
   return (
-    <div key={keyProp} style={{ position: "relative", ...flexStyle }}>
-      <div
+    <div style={{ position: 'relative', ...wrapperStyle }}>
+      <a
+        href={el.url}
+        target={isWikiLink ? undefined : '_blank'}
+        rel={isWikiLink ? undefined : 'noopener noreferrer nofollow'}
         style={{
-          position: "relative",
-          display: "flex",
-          alignItems: "center",
-          padding: 12,
-          border: "1px solid #ddd",
-          borderRadius: 6,
-          marginBottom: 8,
-          width: "100%",
-          boxSizing: "border-box",
+          textDecoration: 'none',
+          color: 'inherit',
+          display: 'block',
         }}
       >
-        {iconNode}
-        <a
-          href={node.url}
-          target={node.isWiki ? undefined : "_blank"}
-          rel={node.isWiki ? undefined : "noopener noreferrer nofollow"}
+        <div
           style={{
-            color: "#0070f3",
-            textDecoration: "none",
-            flexGrow: 1,
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-word",
+            position: 'relative',
+            display: 'flex',
+            alignItems: 'center',
+            padding: 15,
+            fontSize: 16,
+            border: '1px solid #ddd',
+            borderRadius: 6,
+            marginBottom: 8,
+            width: '100%',
+            boxSizing: 'border-box',
           }}
         >
-          {hasChildrenText
-            ? children
-            : node.isWiki
-            ? node.wikiTitle || node.sitename || "문서"
-            : displaySitename || node.url}
-        </a>
-      </div>
+          {/* 아이콘 영역 */}
+          {isWikiLink ? (
+            wikiIcon ? (
+              wikiIcon.startsWith('http') ? (
+                <SmartImage
+                  src={withVersion(cdn(wikiIcon))}
+                  alt="doc icon"
+                  width={24}
+                  height={24}
+                  style={{
+                    width: 24,
+                    height: 24,
+                    marginRight: 8,
+                    objectFit: 'contain',
+                    display: 'block',
+                  }}
+                />
+              ) : (
+                <span
+                  style={{
+                    fontSize: 20,
+                    marginRight: 8,
+                    lineHeight: 1,
+                  }}
+                >
+                  {wikiIcon}
+                </span>
+              )
+            ) : (
+              <span
+                style={{
+                  width: 24,
+                  height: 24,
+                  marginRight: 8,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 18,
+                }}
+                aria-hidden
+              >
+                📄
+              </span>
+            )
+          ) : externalFavicon ? (
+            <SmartImage
+              src={withVersion(cdn(externalFavicon))}
+              alt=""
+              width={20}
+              height={20}
+              style={{
+                width: 20,
+                height: 20,
+                marginRight: 8,
+                objectFit: 'contain',
+                display: 'block',
+              }}
+            />
+          ) : (
+            <span
+              style={{
+                width: 24,
+                height: 24,
+                marginRight: 8,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#64748b',
+              }}
+              aria-hidden
+            >
+              {/* 간단한 외부 링크 아이콘 */}
+              ↗️
+            </span>
+          )}
+
+          {/* 텍스트 */}
+          <span
+            style={{
+              flexGrow: 1,
+              color: '#0070f3',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {labelText}
+          </span>
+        </div>
+      </a>
     </div>
   );
-}
+};
 
 /** 길이에 따라 폰트 자동 축소(대략치) */
 function autoFont(base: number, text: string, steps?: Array<[number, number]>) {
