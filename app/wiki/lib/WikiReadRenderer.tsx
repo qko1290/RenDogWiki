@@ -36,6 +36,13 @@ const setWikiDocsAll = (rows: any[]) => {
 type WikiDocHeadingMeta = { id: string; icon?: string | null };
 type WikiDocDetail = { icon?: string | null; headings: WikiDocHeadingMeta[] };
 
+// 🔹 문서/헤딩 아이콘 캐시 (Element.tsx와 동일한 패턴)
+const wikiDocDetailCache: Map<string, WikiDocDetail> =
+  (globalThis as any)[WIKI_DOC_DETAIL_CACHE_KEY] ??
+  new Map<string, WikiDocDetail>();
+
+(globalThis as any)[WIKI_DOC_DETAIL_CACHE_KEY] = wikiDocDetailCache;
+
 // ───────────────────────────────────────────────────────────────
 
 function toHeadingIdFromText(text: string) {
