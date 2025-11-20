@@ -273,7 +273,6 @@ function LinkBlockView({
       return;
     }
 
-    // URL 파라미터에서 path/title 추출 + node.wikiPath/wikiTitle 보정
     const urlPathParam = urlObj.searchParams.get("path");
     const urlTitleParam = urlObj.searchParams.get("title");
 
@@ -281,24 +280,33 @@ function LinkBlockView({
       urlPathParam ?? (node.wikiPath != null ? String(node.wikiPath) : null);
     const titleParam = urlTitleParam ?? node.wikiTitle ?? null;
 
-    const hash = urlObj.hash ? urlObj.hash.slice(1) : ""; // '#heading-...' → 'heading-...'
+    // 🔹 해시(제목 anchor) 정규화: 인코딩된 것도 복구
+    const hashRaw = urlObj.hash ? urlObj.hash.slice(1) : ""; // '#heading-...' → 'heading-...'
+    let hash = hashRaw;
+    try {
+      if (hashRaw) {
+        const decoded = decodeURIComponent(hashRaw);
+        hash = decoded || hashRaw;
+      }
+    } catch {
+      // decode 실패하면 그냥 raw 값 사용
+      hash = hashRaw;
+    }
 
-    // 문서 식별 키 (path + title 조합, 없으면 pathname)
     const docKeyParts: string[] = [];
     if (pathParam) docKeyParts.push(`p:${pathParam}`);
     if (titleParam) docKeyParts.push(`t:${titleParam}`);
     const baseDocKey = docKeyParts.join("|") || urlObj.pathname;
 
-    // 링크별 최종 아이콘 캐시 키 (문서 + 해시)
-    const cacheKey = `${baseDocKey}#${hash || "root"}`;
-
-    // 이미 이 링크에 대한 아이콘이 캐시되어 있으면 그대로 사용
+    // 이미 캐시에 있으면 그걸로 처리
     if (wikiDocDetailCache.has(baseDocKey)) {
       const detail = wikiDocDetailCache.get(baseDocKey)!;
 
       let iconCandidate: string | null = null;
       if (hash && detail.headings.length > 0) {
-        const hMeta = detail.headings.find((h) => h.id === hash);
+        const hMeta = detail.headings.find(
+          (h) => h.id === hash || h.id === hashRaw // 둘 다 비교
+        );
         if (hMeta?.icon) iconCandidate = hMeta.icon;
       }
       if (!iconCandidate) iconCandidate = detail.icon || null;
@@ -311,7 +319,6 @@ function LinkBlockView({
 
     (async () => {
       try {
-        // 문서 상세 가져오기 (Element.tsx에서 쓰던 것과 동일한 API 규약으로 맞춰야 함)
         let res: Response | null = null;
 
         if (pathParam || titleParam) {
@@ -336,7 +343,6 @@ function LinkBlockView({
         const slateContent =
           typeof rawContent === "string" ? JSON.parse(rawContent) : rawContent;
 
-        // 목차 추출 (heading id + icon)
         let headingsMeta: WikiDocHeadingMeta[] = [];
         try {
           const hs = extractHeadings(
@@ -357,14 +363,17 @@ function LinkBlockView({
 
         wikiDocDetailCache.set(baseDocKey, detail);
 
-        // 1) 해시가 있으면 해당 heading 아이콘 우선
         let iconCandidate: string | null = null;
+
+        // 🔹 해시가 있으면 해당 제목 아이콘 우선
         if (hash && detail.headings.length > 0) {
-          const hMeta = detail.headings.find((h) => h.id === hash);
+          const hMeta = detail.headings.find(
+            (h) => h.id === hash || h.id === hashRaw
+          );
           if (hMeta?.icon) iconCandidate = hMeta.icon;
         }
 
-        // 2) heading 아이콘이 없거나 못 찾으면 문서 아이콘 사용
+        // 🔹 없으면 문서 아이콘
         if (!iconCandidate) iconCandidate = detail.icon || null;
 
         if (!cancelled) {
