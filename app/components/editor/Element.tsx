@@ -99,38 +99,39 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
   const el = element;
   const isReadOnly = ReactEditor.isReadOnly(editor);
 
-  // URL 기준으로 내부 위키 링크 여부 자동 판별
-  const isWikiLink = useMemo(() => {
-    if (el.isWiki) return true;
-    if (!el.url) return false;
+  // URL 파싱 (client / server 모두 안전하게)
+  const parsedUrl = useMemo(() => {
+    if (!el.url) return null;
     try {
       const base =
         typeof window !== 'undefined'
           ? window.location.origin
           : 'https://dummy.local';
-      const u = new URL(el.url, base);
-      const sameHost =
-        typeof window !== 'undefined'
-          ? u.host === window.location.host
-          : true;
-      return sameHost && u.pathname.startsWith('/wiki');
+      return new URL(el.url, base);
     } catch {
-      return false;
+      return null;
     }
-  }, [el.isWiki, el.url]);
+  }, [el.url]);
+
+  // 내부 위키 링크 여부 자동 판별
+  const isWikiLink = useMemo(() => {
+    if (el.isWiki) return true;
+    if (!parsedUrl) return false;
+
+    // 서버 렌더에서는 host 비교를 못 하니, 일단 /wiki 경로만 보고 판단
+    if (typeof window === 'undefined') {
+      return parsedUrl.pathname.startsWith('/wiki');
+    }
+
+    const sameHost = parsedUrl.host === window.location.host;
+    return sameHost && parsedUrl.pathname.startsWith('/wiki');
+  }, [el.isWiki, parsedUrl]);
 
   // 표시용 사이트 이름 (초기값용)
   let displaySitename = el.sitename;
-  if (!isWikiLink && !displaySitename && el.url) {
-    try {
-      const base =
-        typeof window !== 'undefined'
-          ? window.location.origin
-          : 'https://dummy.local';
-      const u = new URL(el.url, base);
-      const host = u.hostname.replace(/^www\./, '');
-      displaySitename = host;
-    } catch {}
+  if (!isWikiLink && !displaySitename && parsedUrl) {
+    const host = parsedUrl.hostname.replace(/^www\./, '');
+    displaySitename = host;
   }
 
   // 위키 아이콘 (문서/목차 아이콘)
@@ -140,19 +141,15 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
 
   // ✅ 내부 위키 링크면: path/title/hash 기준으로 문서/목차 아이콘 자동 선택
   useEffect(() => {
-    if (!isWikiLink || !el.url) return;
+    if (!isWikiLink || !parsedUrl) return;
     if (typeof window === 'undefined') return;
 
-    let urlObj: URL;
-    try {
-      urlObj = new URL(el.url, window.location.origin);
-    } catch {
-      return;
-    }
-
+    const urlObj = parsedUrl;
     const pathParam = urlObj.searchParams.get('path');
     const titleParam = urlObj.searchParams.get('title');
-    const hash = urlObj.hash ? urlObj.hash.slice(1) : ''; // '#heading-...' → 'heading-...'
+
+    const rawHash = urlObj.hash ? urlObj.hash.slice(1) : '';
+    const decodedHash = rawHash ? decodeURIComponent(rawHash) : '';
 
     // 문서 식별 키 (path + title 조합, 없으면 pathname)
     const docKeyParts: string[] = [];
@@ -161,7 +158,7 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
     const baseDocKey = docKeyParts.join('|') || urlObj.pathname;
 
     // 링크별 최종 아이콘 캐시 키 (문서 + 해시)
-    const cacheKey = `${baseDocKey}#${hash || 'root'}`;
+    const cacheKey = `${baseDocKey}#${decodedHash || 'root'}`;
 
     if (wikiDocIconCache.has(cacheKey)) {
       const cached = wikiDocIconCache.get(cacheKey);
@@ -179,10 +176,8 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
           let res: Response | null = null;
           if (pathParam || titleParam) {
             const qs: string[] = [];
-            if (pathParam)
-              qs.push(`path=${encodeURIComponent(pathParam)}`);
-            if (titleParam)
-              qs.push(`title=${encodeURIComponent(titleParam)}`);
+            if (pathParam) qs.push(`path=${encodeURIComponent(pathParam)}`);
+            if (titleParam) qs.push(`title=${encodeURIComponent(titleParam)}`);
             const query = qs.join('&');
             res = await fetch(`/api/documents?${query}`, {
               cache: 'force-cache',
@@ -195,7 +190,7 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
           }
 
           const data = await res.json();
-          const rawContent = data.content;
+          const rawContent = (data as any).content;
           const slateContent =
             typeof rawContent === 'string'
               ? JSON.parse(rawContent)
@@ -208,7 +203,7 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
               Array.isArray(slateContent) ? slateContent : [],
             );
             headingsMeta = hs.map((h: any) => ({
-              id: h.id,
+              id: String(h.id ?? ''),
               icon: h.icon ?? null,
             }));
           } catch {
@@ -216,7 +211,7 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
           }
 
           detail = {
-            icon: (data.icon ?? '').trim() || null,
+            icon: ((data as any).icon ?? '').trim() || null,
             headings: headingsMeta,
           };
           wikiDocDetailCache.set(baseDocKey, detail);
@@ -224,9 +219,24 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
 
         // 1) 해시가 있으면 해당 heading 아이콘 우선
         let iconCandidate: string | null = null;
-        if (hash && detail.headings.length > 0) {
-          const h = detail.headings.find(h => h.id === hash);
-          if (h?.icon) iconCandidate = h.icon;
+        if (decodedHash && detail.headings.length > 0) {
+          const target = decodedHash;
+          const normalizedTarget = target.startsWith('heading-')
+            ? target
+            : `heading-${target}`;
+
+          const matched = detail.headings.find((h) => {
+            const hid = h.id || '';
+            const hidNorm = hid.startsWith('heading-') ? hid : `heading-${hid}`;
+            return (
+              hid === target ||
+              hid === normalizedTarget ||
+              hidNorm === target ||
+              hidNorm === normalizedTarget
+            );
+          });
+
+          if (matched?.icon) iconCandidate = matched.icon || null;
         }
 
         // 2) 목차 아이콘이 없거나 못 찾으면 문서 아이콘 사용
@@ -250,27 +260,17 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
     return () => {
       cancelled = true;
     };
-  }, [isWikiLink, el.url]);
+  }, [isWikiLink, parsedUrl]);
 
   // 외부 링크 파비콘 (https://사이트/favicon.ico 형태)
   let externalFavicon: string | null = null;
-  if (!isWikiLink && el.url) {
-    try {
-      const base =
-        typeof window !== 'undefined'
-          ? window.location.origin
-          : 'https://dummy.local';
-      const u = new URL(el.url, base);
-      externalFavicon = `${u.origin}/favicon.ico`;
-    } catch {
-      externalFavicon = null;
-    }
+  if (!isWikiLink && parsedUrl) {
+    externalFavicon = `${parsedUrl.origin}/favicon.ico`;
   }
 
-  const isSmall =
-    el.size === 'small' || (el as any).size === 'half';
+  const isSmall = el.size === 'small' || (el as any).size === 'half';
 
-  // 부모가 link-block-row인지 여부
+  // 부모가 link-block-row인지 여부 (기존 레이아웃 유지)
   let inRow = false;
   try {
     const path = ReactEditor.findPath(editor, element);
@@ -406,7 +406,7 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
             display: 'block',
           }}
           draggable={false}
-          onError={e => {
+          onError={(e) => {
             // 파비콘 로드 실패 시 그냥 숨김
             (e.currentTarget as HTMLImageElement).style.display = 'none';
           }}
@@ -467,18 +467,11 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
   // 🔹 읽기 모드: 카드 전체를 링크로 감싸서 클릭 시 이동
   if (isReadOnly) {
     return (
-      <div
-        {...attributes}
-        style={{ position: 'relative', ...wrapperStyle }}
-      >
+      <div {...attributes} style={{ position: 'relative', ...wrapperStyle }}>
         <a
           href={el.url}
           target={isWikiLink ? undefined : '_blank'}
-          rel={
-            isWikiLink
-              ? undefined
-              : 'noopener noreferrer nofollow'
-          }
+          rel={isWikiLink ? undefined : 'noopener noreferrer nofollow'}
           style={{
             textDecoration: 'none',
             color: 'inherit',
@@ -494,10 +487,7 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
 
   // 🔹 편집 모드: 그냥 카드만 렌더 (앵커 없음 → 클릭해도 이동 X)
   return (
-    <div
-      {...attributes}
-      style={{ position: 'relative', ...wrapperStyle }}
-    >
+    <div {...attributes} style={{ position: 'relative', ...wrapperStyle }}>
       {CardInner}
     </div>
   );
@@ -519,28 +509,17 @@ const ImageBlock: React.FC<BlockComponentProps<CustomElement>> = ({
   const [initSize, setInitSize] = useState<{ w?: number; h?: number }>({});
 
   const EditIcon = ({ size = 18, color = '#2a90ff' }) => (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 20 20"
-      fill="none"
-      aria-hidden
-    >
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden>
       <path
         d="M3 17h3.8a1 1 0 0 0 .7-.3l8.4-8.4a2 2 0 0 0 0-2.8l-1.7-1.7a2 2 0 0 0-2.8 0L3.3 12.2a1 1 0 0 0-.3.7V17z"
         stroke={color}
         strokeWidth="1.7"
       />
-      <path
-        d="M11.7 6.3l2.5 2.5"
-        stroke={color}
-        strokeWidth="1.7"
-      />
+      <path d="M11.7 6.3l2.5 2.5" stroke={color} strokeWidth="1.7" />
     </svg>
   );
 
-  let justifyContent: 'flex-start' | 'center' | 'flex-end' =
-    'center';
+  let justifyContent: 'flex-start' | 'center' | 'flex-end' = 'center';
   if (el.textAlign === 'left') justifyContent = 'flex-start';
   else if (el.textAlign === 'right') justifyContent = 'flex-end';
 
@@ -568,12 +547,7 @@ const ImageBlock: React.FC<BlockComponentProps<CustomElement>> = ({
           minHeight: 40,
         }}
       >
-        <div
-          style={{
-            position: 'relative',
-            display: 'inline-block',
-          }}
-        >
+        <div style={{ position: 'relative', display: 'inline-block' }}>
           <img
             ref={imgRef}
             src={imgSrc}
@@ -589,10 +563,7 @@ const ImageBlock: React.FC<BlockComponentProps<CustomElement>> = ({
               boxShadow: '0 2px 12px 0 #0001',
               background: '#fff',
               display: 'block',
-              border:
-                selected && focused
-                  ? '2px solid #2a90ff'
-                  : 'none',
+              border: selected && focused ? '2px solid #2a90ff' : 'none',
               transition: 'border 0.1s',
             }}
           />
@@ -600,16 +571,12 @@ const ImageBlock: React.FC<BlockComponentProps<CustomElement>> = ({
             <button
               type="button"
               aria-label="이미지 크기 편집"
-              onMouseDown={e => {
+              onMouseDown={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 const img = imgRef.current;
-                const rectW = Math.round(
-                  img?.getBoundingClientRect().width || 0,
-                );
-                const rectH = Math.round(
-                  img?.getBoundingClientRect().height || 0,
-                );
+                const rectW = Math.round(img?.getBoundingClientRect().width || 0);
+                const rectH = Math.round(img?.getBoundingClientRect().height || 0);
                 const natW = img?.naturalWidth || 0;
                 const natH = img?.naturalHeight || 0;
 
@@ -669,8 +636,7 @@ const VideoBlock: React.FC<BlockComponentProps<VideoElement>> = ({
   const focused = useFocused();
   const [modalOpen, setModalOpen] = useState(false);
 
-  let justifyContent: 'flex-start' | 'center' | 'flex-end' =
-    'center';
+  let justifyContent: 'flex-start' | 'center' | 'flex-end' = 'center';
   if (el.textAlign === 'left') justifyContent = 'flex-start';
   else if (el.textAlign === 'right') justifyContent = 'flex-end';
 
@@ -697,12 +663,7 @@ const VideoBlock: React.FC<BlockComponentProps<VideoElement>> = ({
           minHeight: 40,
         }}
       >
-        <div
-          style={{
-            position: 'relative',
-            display: 'inline-block',
-          }}
-        >
+        <div style={{ position: 'relative', display: 'inline-block' }}>
           <video
             src={src}
             controls
@@ -715,10 +676,7 @@ const VideoBlock: React.FC<BlockComponentProps<VideoElement>> = ({
               boxShadow: '0 2px 12px 0 #0001',
               background: '#000',
               display: 'block',
-              outline:
-                selected && focused
-                  ? '2px solid #2a90ff'
-                  : 'none',
+              outline: selected && focused ? '2px solid #2a90ff' : 'none',
               transition: 'outline 0.1s',
             }}
           />
@@ -726,7 +684,7 @@ const VideoBlock: React.FC<BlockComponentProps<VideoElement>> = ({
             <button
               type="button"
               aria-label="영상 크기 편집"
-              onMouseDown={e => {
+              onMouseDown={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 setModalOpen(true);
@@ -879,9 +837,7 @@ const Element: React.FC<ElementRenderProps> = ({
                 draggable={false}
               />
             ) : (
-              <span
-                style={{ fontSize: '1.5em', marginRight: 6 }}
-              >
+              <span style={{ fontSize: '1.5em', marginRight: 6 }}>
                 {el.icon ||
                   (level === 1
                     ? '📌'
@@ -898,8 +854,7 @@ const Element: React.FC<ElementRenderProps> = ({
 
     // -------------------- Divider (void) --------------------
     case 'divider': {
-      const styleType =
-        (element as any).style || 'default';
+      const styleType = (element as any).style || 'default';
       const borderColor = '#e0e0e0';
 
       return (
@@ -960,12 +915,7 @@ const Element: React.FC<ElementRenderProps> = ({
               </div>
             )}
             {styleType === 'diamond' && (
-              <div
-                style={{
-                  textAlign: 'center',
-                  margin: '14px 0',
-                }}
-              >
+              <div style={{ textAlign: 'center', margin: '14px 0' }}>
                 <span
                   style={{
                     fontSize: 24,
@@ -978,12 +928,7 @@ const Element: React.FC<ElementRenderProps> = ({
               </div>
             )}
             {styleType === 'diamonddot' && (
-              <div
-                style={{
-                  textAlign: 'center',
-                  margin: '14px 0',
-                }}
-              >
+              <div style={{ textAlign: 'center', margin: '14px 0' }}>
                 <span
                   style={{
                     fontSize: 22,
@@ -1041,11 +986,7 @@ const Element: React.FC<ElementRenderProps> = ({
                   textAlign: 'center',
                 }}
               >
-                <span
-                  style={{ fontSize: 22, color: borderColor }}
-                >
-                  |
-                </span>
+                <span style={{ fontSize: 22, color: borderColor }}>|</span>
               </div>
             )}
             {styleType === 'default' && (
@@ -1079,26 +1020,17 @@ const Element: React.FC<ElementRenderProps> = ({
 
       let extraClass = '';
       if (indentLine) {
-        const path = ReactEditor.findPath(
-          slateEditor,
-          element,
-        );
+        const path = ReactEditor.findPath(slateEditor, element);
         let isFirst = true,
           isLast = true;
         try {
           const prevPath = Path.previous(path);
-          const prevNode = Node.get(
-            slateEditor,
-            prevPath,
-          ) as any;
+          const prevNode = Node.get(slateEditor, prevPath) as any;
           if (prevNode && prevNode.indentLine) isFirst = false;
         } catch {}
         try {
           const nextPath = Path.next(path);
-          const nextNode = Node.get(
-            slateEditor,
-            nextPath,
-          ) as any;
+          const nextNode = Node.get(slateEditor, nextPath) as any;
           if (nextNode && nextNode.indentLine) isLast = false;
         } catch {}
         if (isFirst) extraClass += ' start';
@@ -1110,17 +1042,11 @@ const Element: React.FC<ElementRenderProps> = ({
           {...attributes}
           style={{
             textAlign: el.textAlign || 'left',
-            borderLeft: indentLine
-              ? '2px solid #D5D9E0'
-              : undefined,
+            borderLeft: indentLine ? '2px solid #D5D9E0' : undefined,
             paddingLeft: indentLine ? 16 : undefined,
             margin: 0,
           }}
-          className={
-            indentLine
-              ? `slate-indent-line${extraClass}`
-              : undefined
-          }
+          className={indentLine ? `slate-indent-line${extraClass}` : undefined}
         >
           {children}
         </p>
@@ -1146,10 +1072,7 @@ const Element: React.FC<ElementRenderProps> = ({
           : 'note';
 
       return (
-        <div
-          {...attributes}
-          className={`infobox infobox--${tone}`}
-        >
+        <div {...attributes} className={`infobox infobox--${tone}`}>
           <span
             className="infobox__icon"
             aria-hidden="true"
@@ -1163,11 +1086,7 @@ const Element: React.FC<ElementRenderProps> = ({
     // -------------------- 본문 이미지 (void) --------------------
     case 'image': {
       return (
-        <ImageBlock
-          attributes={attributes}
-          element={element as any}
-          editor={editor}
-        >
+        <ImageBlock attributes={attributes} element={element as any} editor={editor}>
           {children}
         </ImageBlock>
       );
@@ -1176,17 +1095,12 @@ const Element: React.FC<ElementRenderProps> = ({
     // -------------------- 인라인 이미지 --------------------
     case 'inline-image': {
       const el = element as InlineImageElement;
-      const src = el.url?.startsWith('http')
-        ? toProxyUrl(el.url)
-        : el.url;
+      const src = el.url?.startsWith('http') ? toProxyUrl(el.url) : el.url;
       return (
         <span
           {...attributes}
           contentEditable={false}
-          style={{
-            display: 'inline-block',
-            verticalAlign: 'middle',
-          }}
+          style={{ display: 'inline-block', verticalAlign: 'middle' }}
         >
           <img
             src={src}
@@ -1284,10 +1198,7 @@ const Element: React.FC<ElementRenderProps> = ({
 
     case 'table-row': {
       return (
-        <TableRowRenderer
-          attributes={attributes}
-          element={element}
-        >
+        <TableRowRenderer attributes={attributes} element={element}>
           {children}
         </TableRowRenderer>
       );
@@ -1334,8 +1245,7 @@ const Element: React.FC<ElementRenderProps> = ({
     // -------------------- 기본 fallback --------------------
     default: {
       const el = element as any;
-      const textAlign =
-        'textAlign' in el ? el.textAlign : 'left';
+      const textAlign = 'textAlign' in el ? el.textAlign : 'left';
       if (
         Array.isArray(children) &&
         children.length === 1 &&
