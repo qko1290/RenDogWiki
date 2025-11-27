@@ -297,7 +297,6 @@ export default function TableOfContents({
   const textStyle: React.CSSProperties = {
     fontSize: 13.5,
     fontWeight: 600,
-    letterSpacing: '-0.15px',
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
