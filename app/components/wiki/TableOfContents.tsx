@@ -2,6 +2,7 @@
 // File: app/components/wiki/TableOfContents.tsx
 // - 해시 포함 링크로 진입했을 때 스크롤 재시도 로직 유지
 // - 사이드바(목차 영역)에서는 링크 복사 버튼 제거
+// - 문서 제목/아이콘(docTitle/docIcon) 목차 맨 위에 표시
 // =============================================
 'use client';
 
@@ -23,7 +24,12 @@ type Props = {
   right?: number;
   top?: number;
   width?: number;
+  /** 목차 박스 상단 라벨 (기본: '목차') */
   title?: string;
+  /** 문서 제목 (DB 메타에서 오는, 실제 글 제목) */
+  docTitle?: string;
+  /** 문서 아이콘(이모지 or 이미지 URL). 없으면 첫 heading 아이콘으로 fallback */
+  docIcon?: string;
   /** 문서 뷰의 스크롤 컨테이너 선택자(예: '#wiki-scroll-root') */
   scrollRootSelector?: string;
 };
@@ -35,6 +41,8 @@ export default function TableOfContents({
   top = 100,
   width = 230,
   title = '목차',
+  docTitle,
+  docIcon,
   scrollRootSelector,
 }: Props) {
   const [activeId, setActiveId] = useState<string>('');
@@ -52,14 +60,17 @@ export default function TableOfContents({
     });
   }, [headings]);
 
-  // 🔹 문서 제목으로 쓸 heading-one (level === 1) 중 가장 첫 번째
-  const docHeading = useMemo(
-    () => indexed.find(h => h.level === 1) ?? null,
-    [indexed],
-  );
+  const hasDocTitle = !!(docTitle && docTitle.trim());
+  // 문서 제목을 클릭했을 때 점프할 기준 heading (없으면 null)
+  const docTitleAnchor = indexed[0] ?? null;
+  const resolvedDocIcon = docIcon ?? docTitleAnchor?.icon ?? undefined;
+  const isDocTitleActive =
+    !!docTitleAnchor && activeId === docTitleAnchor.id;
 
   // 스크롤 가능한 조상 자동 탐색
-  const findScrollableAncestor = (el: HTMLElement | null): HTMLElement | null => {
+  const findScrollableAncestor = (
+    el: HTMLElement | null,
+  ): HTMLElement | null => {
     let cur: HTMLElement | null = el?.parentElement ?? null;
     while (cur) {
       const { overflowY } = getComputedStyle(cur);
@@ -75,7 +86,9 @@ export default function TableOfContents({
   // root 결정(명시 selector > 자동 > null), 변경 시 rootKey 갱신
   useEffect(() => {
     if (scrollRootSelector) {
-      rootRef.current = document.querySelector<HTMLElement>(scrollRootSelector);
+      rootRef.current = document.querySelector<HTMLElement>(
+        scrollRootSelector,
+      );
       setRootKey(k => k + 1);
       return;
     }
@@ -119,7 +132,8 @@ export default function TableOfContents({
       const { overflowY } = getComputedStyle(rootRef.current);
       const canScroll =
         /(auto|scroll)/.test(overflowY) &&
-        rootRef.current.scrollHeight > rootRef.current.clientHeight + 1;
+        rootRef.current.scrollHeight >
+          rootRef.current.clientHeight + 1;
       if (canScroll) return rootRef.current;
     }
 
@@ -288,6 +302,8 @@ export default function TableOfContents({
     overflow: 'hidden',
     textOverflow: 'ellipsis',
   };
+
+  // 문서 제목용 스타일 (heading-one 느낌)
   const docTitleIconBox: React.CSSProperties = {
     width: 22,
     height: 22,
@@ -298,7 +314,7 @@ export default function TableOfContents({
   };
 
   const docTitleTextStyle: React.CSSProperties = {
-    fontSize: 18,           // heading-one 과 비슷한 느낌 (본문 28px → 사이드바 18px 정도)
+    fontSize: 18, // heading-one 대비 사이드바용 축소
     fontWeight: 800,
     letterSpacing: '-0.3px',
     lineHeight: 1.3,
@@ -310,8 +326,8 @@ export default function TableOfContents({
     WebkitBoxOrient: 'vertical',
   };
 
-  // ----- headings 없을 때 -----
-  if (!indexed.length) {
+  // ----- headings/제목 둘 다 없을 때 -----
+  if (!indexed.length && !hasDocTitle) {
     return (
       <aside
         role="navigation"
@@ -338,86 +354,84 @@ export default function TableOfContents({
       </p>
 
       <ul style={listStyle}>
-        {/* 🔹 문서 제목(heading-one) – 목차 맨 위에 한 번만 표시 */}
-        {docHeading && (
-          <li
-            key={`__doc-title-${docHeading.id}-${docHeading.__occ}`}
-            style={{ marginBottom: 6 }}
-          >
-            {(() => {
-              const active = docHeading.id === activeId;
-              return (
-                <button
-                  type="button"
-                  onClick={() => scrollToId(docHeading.id, docHeading.__occ)}
-                  title={docHeading.text}
-                  aria-current={active ? 'true' : undefined}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    width: '100%',
-                    cursor: 'pointer',
-                    border: 0,
-                    background: active ? '#eff6ff' : 'transparent',
-                    borderLeft: `3px solid ${
-                      active ? '#2563eb' : 'transparent'
-                    }`,
-                    color: active ? '#111827' : '#0f172a',
-                    padding: '8px 8px',
-                    paddingLeft: 8,
-                    borderRadius: 10,
-                    textAlign: 'left',
-                    marginBottom: 4,
-                    transition:
-                      'background .12s, color .12s, border-color .12s',
-                  }}
-                >
-                  <span style={docTitleIconBox} aria-hidden>
-                    {docHeading.icon?.startsWith('http') ? (
-                      <img
-                        src={toProxyUrl(docHeading.icon)}
-                        alt=""
-                        width={20}
-                        height={20}
-                        loading="lazy"
-                        decoding="async"
-                        draggable={false}
-                        style={{
-                          width: 20,
-                          height: 20,
-                          objectFit: 'contain',
-                          display: 'block',
-                        }}
-                      />
-                    ) : docHeading.icon ? (
-                      <span
-                        style={{
-                          fontSize: 18,
-                          lineHeight: 1,
-                          display: 'block',
-                        }}
-                      >
-                        {docHeading.icon}
-                      </span>
-                    ) : null}
+        {/* 🔹 문서 제목(현재 글의 title/icon) – 목차 맨 위에 한 번 표시 */}
+        {hasDocTitle && (
+          <li key="__doc-title" style={{ marginBottom: 6 }}>
+            <button
+              type="button"
+              onClick={() => {
+                if (docTitleAnchor) {
+                  // 첫 heading 위치로 이동
+                  scrollToId(docTitleAnchor.id, docTitleAnchor.__occ);
+                } else {
+                  // heading 이 하나도 없으면 상단으로 스크롤
+                  const root = rootRef.current;
+                  if (!root) {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  } else {
+                    root.scrollTo({ top: 0, behavior: 'smooth' });
+                  }
+                }
+              }}
+              title={docTitle}
+              aria-current={isDocTitleActive ? 'true' : undefined}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                width: '100%',
+                cursor: 'pointer',
+                border: 0,
+                background: isDocTitleActive ? '#eff6ff' : 'transparent',
+                borderLeft: `3px solid ${
+                  isDocTitleActive ? '#2563eb' : 'transparent'
+                }`,
+                color: isDocTitleActive ? '#111827' : '#0f172a',
+                padding: '8px 8px',
+                paddingLeft: 8,
+                borderRadius: 10,
+                textAlign: 'left',
+                marginBottom: 4,
+                transition:
+                  'background .12s, color .12s, border-color .12s',
+              }}
+            >
+              <span style={docTitleIconBox} aria-hidden>
+                {resolvedDocIcon?.startsWith('http') ? (
+                  <img
+                    src={toProxyUrl(resolvedDocIcon)}
+                    alt=""
+                    width={20}
+                    height={20}
+                    loading="lazy"
+                    decoding="async"
+                    draggable={false}
+                    style={{
+                      width: 20,
+                      height: 20,
+                      objectFit: 'contain',
+                      display: 'block',
+                    }}
+                  />
+                ) : resolvedDocIcon ? (
+                  <span
+                    style={{
+                      fontSize: 18,
+                      lineHeight: 1,
+                      display: 'block',
+                    }}
+                  >
+                    {resolvedDocIcon}
                   </span>
-                  <span style={docTitleTextStyle}>{docHeading.text}</span>
-                </button>
-              );
-            })()}
+                ) : null}
+              </span>
+              <span style={docTitleTextStyle}>{docTitle}</span>
+            </button>
           </li>
         )}
 
-        {/* 🔹 실제 목차 항목들 (문서 제목으로 쓴 heading-one 은 여기서 제외) */}
+        {/* 🔹 실제 목차 항목들 (본문 heading 들) */}
         {indexed.map((h, i) => {
-          const isDocHeading =
-            docHeading &&
-            h.id === docHeading.id &&
-            (h as any).__occ === docHeading.__occ;
-
-          if (isDocHeading) return null; // 위에서 이미 한 번 렌더했으니 스킵
-
           const active = h.id === activeId;
           const padLeft = h.level === 1 ? 8 : h.level === 2 ? 26 : 44;
 

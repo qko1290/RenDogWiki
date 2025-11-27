@@ -1400,6 +1400,8 @@ export default function WikiPageInner({ user }: Props) {
           <TableOfContents
             headings={tableOfContents}
             scrollRootSelector="#wiki-scroll-root"
+            docTitle={currentDoc?.title}
+            docIcon={currentDoc?.icon}
           />
         </aside>
       </div>
