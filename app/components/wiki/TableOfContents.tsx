@@ -52,6 +52,12 @@ export default function TableOfContents({
     });
   }, [headings]);
 
+  // 🔹 문서 제목으로 쓸 heading-one (level === 1) 중 가장 첫 번째
+  const docHeading = useMemo(
+    () => indexed.find(h => h.level === 1) ?? null,
+    [indexed],
+  );
+
   // 스크롤 가능한 조상 자동 탐색
   const findScrollableAncestor = (el: HTMLElement | null): HTMLElement | null => {
     let cur: HTMLElement | null = el?.parentElement ?? null;
@@ -282,6 +288,27 @@ export default function TableOfContents({
     overflow: 'hidden',
     textOverflow: 'ellipsis',
   };
+  const docTitleIconBox: React.CSSProperties = {
+    width: 22,
+    height: 22,
+    display: 'grid',
+    placeItems: 'center',
+    flex: '0 0 auto',
+    marginRight: 8,
+  };
+
+  const docTitleTextStyle: React.CSSProperties = {
+    fontSize: 18,           // heading-one 과 비슷한 느낌 (본문 28px → 사이드바 18px 정도)
+    fontWeight: 800,
+    letterSpacing: '-0.3px',
+    lineHeight: 1.3,
+    whiteSpace: 'normal',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    display: '-webkit-box',
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: 'vertical',
+  };
 
   // ----- headings 없을 때 -----
   if (!indexed.length) {
@@ -304,12 +331,93 @@ export default function TableOfContents({
   // ----- 실제 렌더 -----
   return (
     <aside role="navigation" aria-label="Table of contents" style={boxStyle}>
+      {/* 상단 "목차" 라벨 */}
       <p style={titleStyle}>
         <FontAwesomeIcon icon={faAlignLeft} />
         &nbsp;&nbsp;{title}
       </p>
+
       <ul style={listStyle}>
+        {/* 🔹 문서 제목(heading-one) – 목차 맨 위에 한 번만 표시 */}
+        {docHeading && (
+          <li
+            key={`__doc-title-${docHeading.id}-${docHeading.__occ}`}
+            style={{ marginBottom: 6 }}
+          >
+            {(() => {
+              const active = docHeading.id === activeId;
+              return (
+                <button
+                  type="button"
+                  onClick={() => scrollToId(docHeading.id, docHeading.__occ)}
+                  title={docHeading.text}
+                  aria-current={active ? 'true' : undefined}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    width: '100%',
+                    cursor: 'pointer',
+                    border: 0,
+                    background: active ? '#eff6ff' : 'transparent',
+                    borderLeft: `3px solid ${
+                      active ? '#2563eb' : 'transparent'
+                    }`,
+                    color: active ? '#111827' : '#0f172a',
+                    padding: '8px 8px',
+                    paddingLeft: 8,
+                    borderRadius: 10,
+                    textAlign: 'left',
+                    marginBottom: 4,
+                    transition:
+                      'background .12s, color .12s, border-color .12s',
+                  }}
+                >
+                  <span style={docTitleIconBox} aria-hidden>
+                    {docHeading.icon?.startsWith('http') ? (
+                      <img
+                        src={toProxyUrl(docHeading.icon)}
+                        alt=""
+                        width={20}
+                        height={20}
+                        loading="lazy"
+                        decoding="async"
+                        draggable={false}
+                        style={{
+                          width: 20,
+                          height: 20,
+                          objectFit: 'contain',
+                          display: 'block',
+                        }}
+                      />
+                    ) : docHeading.icon ? (
+                      <span
+                        style={{
+                          fontSize: 18,
+                          lineHeight: 1,
+                          display: 'block',
+                        }}
+                      >
+                        {docHeading.icon}
+                      </span>
+                    ) : null}
+                  </span>
+                  <span style={docTitleTextStyle}>{docHeading.text}</span>
+                </button>
+              );
+            })()}
+          </li>
+        )}
+
+        {/* 🔹 실제 목차 항목들 (문서 제목으로 쓴 heading-one 은 여기서 제외) */}
         {indexed.map((h, i) => {
+          const isDocHeading =
+            docHeading &&
+            h.id === docHeading.id &&
+            (h as any).__occ === docHeading.__occ;
+
+          if (isDocHeading) return null; // 위에서 이미 한 번 렌더했으니 스킵
+
           const active = h.id === activeId;
           const padLeft = h.level === 1 ? 8 : h.level === 2 ? 26 : 44;
 
