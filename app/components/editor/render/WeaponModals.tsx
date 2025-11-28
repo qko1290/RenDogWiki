@@ -8,7 +8,6 @@ import type {
 } from '@/types/slate';
 import {
   WEAPON_TYPES_META,
-  WEAPON_STAT_PRESET,
   ensureWeaponStats,
   createEmptyWeaponStat,
   normalizeStatLevels,
@@ -647,11 +646,7 @@ export const WeaponStatSelectModal: React.FC<WeaponStatSelectModalProps> = ({
               lineHeight: 1.5,
             }}
           >
-            무기 카드에 표시할 <b>정보 항목의 개수</b>만 정합니다.
-            <br />
-            각 항목의 <b>이름 / 요약값 / 단위 / 강화별 값</b>은
-            <br />
-            카드에서 항목별 <b>정보 편집</b> 모달로 들어가서 직접 수정하면 돼요.
+            무기 카드에 표시할 <b>정보 항목의 개수</b>를 설정합니다.
           </div>
 
           <div

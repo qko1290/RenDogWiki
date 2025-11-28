@@ -83,12 +83,11 @@ export function createEmptyWeaponStat(
   type: WeaponType,
   enabled: boolean,
 ): WeaponStatConfig {
-  const preset = WEAPON_STAT_PRESET[key];
   return {
     key,
-    label: preset.label,
+    label: '',
     summary: '',
-    unit: preset.defaultUnit,
+    unit: '',
     enabled,
     levels: normalizeStatLevels([], type),
   };
@@ -105,14 +104,11 @@ export function ensureWeaponStats(
   return ALL_WEAPON_STAT_KEYS.map((key) => {
     const existing = map.get(key);
     if (!existing) {
-      // 기본은 데미지 / 쿨타임만 on, 나머지는 off
-      const enabled = key === 'damage' || key === 'cooldown';
+      const enabled = false;
       return createEmptyWeaponStat(key, type, enabled);
     }
     return {
       ...existing,
-      label: existing.label || WEAPON_STAT_PRESET[key].label,
-      unit: existing.unit ?? WEAPON_STAT_PRESET[key].defaultUnit,
       levels: normalizeStatLevels(existing.levels, type),
     };
   });
