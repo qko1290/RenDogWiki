@@ -1,6 +1,5 @@
 // =============================================
 // File: app/components/wiki/TableOfContents.tsx
-// (전체 코드)
 // - 해시 포함 링크로 진입했을 때 스크롤 재시도 로직 유지
 // - 사이드바(목차 영역)에서는 링크 복사 버튼 제거
 // - 문서 제목/아이콘(docTitle/docIcon) 목차 맨 위에 표시
@@ -50,12 +49,12 @@ export default function TableOfContents({
   const observerRef = useRef<IntersectionObserver | null>(null);
   const [rootKey, setRootKey] = useState(0);
 
-  // TOC 자체 ref
+  // TOC 전체 박스
   const tocRef = useRef<HTMLElement | null>(null);
-  // heading 버튼들을 담는 UL ref
+  // heading 버튼이 들어있는 UL
   const headingsListRef = useRef<HTMLUListElement | null>(null);
 
-  // 하이라이트 바 상태
+  // 슬라이딩 하이라이트 상태
   const prevTopRef = useRef<number | null>(null);
   const [indicatorTop, setIndicatorTop] = useState(0);
   const [indicatorHeight, setIndicatorHeight] = useState(0);
@@ -74,8 +73,6 @@ export default function TableOfContents({
   const hasDocTitle = !!(docTitle && docTitle.trim());
   const docTitleAnchor = indexed[0] ?? null;
   const resolvedDocIcon = docIcon ?? docTitleAnchor?.icon ?? undefined;
-  const isDocTitleActive =
-    !!docTitleAnchor && activeId === docTitleAnchor.id;
 
   // ===== 유틸 =====
 
@@ -98,6 +95,7 @@ export default function TableOfContents({
     return parent ?? tocRef.current;
   };
 
+  // 문서 스크롤 root 결정
   useEffect(() => {
     if (scrollRootSelector) {
       rootRef.current = document.querySelector<HTMLElement>(scrollRootSelector);
@@ -261,7 +259,7 @@ export default function TableOfContents({
     return () => cancelAnimationFrame(raf);
   }, [headings, rootKey]);
 
-  // ===== 하이라이트 + TOC 스크롤 따라가기 =====
+  // ===== 하이라이트 + TOC 자동 스크롤 =====
   useEffect(() => {
     if (activeIndex < 0) return;
     if (!headingsListRef.current) return;
@@ -275,7 +273,6 @@ export default function TableOfContents({
     const listRect = list.getBoundingClientRect();
     const itemRect = btn.getBoundingClientRect();
 
-    // 리스트 내부 기준 top/height
     const newTop = itemRect.top - listRect.top;
     const newHeight = itemRect.height;
 
@@ -291,13 +288,11 @@ export default function TableOfContents({
     setIndicatorHeight(newHeight);
     setIndicatorDuration(`${duration}ms`);
 
-    // TOC 스크롤
     const container = getTocScrollContainer();
     if (!container) return;
 
     const containerRect = container.getBoundingClientRect();
 
-    // 아이템의 top/bottom을 container 좌표 + scrollTop 기준으로 환산
     const elementTop =
       itemRect.top - containerRect.top + container.scrollTop;
     const elementBottom =
@@ -421,26 +416,22 @@ export default function TableOfContents({
         &nbsp;&nbsp;{title}
       </p>
 
-      {/* 문서 제목 블록 */}
+      {/* 문서 제목 블록 (항상 고정 스타일, 활성화 없음) */}
       <ul style={listStyle}>
         {hasDocTitle && (
           <li key="__doc-title" style={{ marginBottom: 6 }}>
             <button
               type="button"
               onClick={() => {
-                if (docTitleAnchor) {
-                  scrollToId(docTitleAnchor.id, docTitleAnchor.__occ);
+                // ✅ 무조건 문서 맨 위로 스크롤
+                const root = rootRef.current;
+                if (!root) {
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
                 } else {
-                  const root = rootRef.current;
-                  if (!root) {
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  } else {
-                    root.scrollTo({ top: 0, behavior: 'smooth' });
-                  }
+                  root.scrollTo({ top: 0, behavior: 'smooth' });
                 }
               }}
               title={docTitle}
-              aria-current={isDocTitleActive ? 'true' : undefined}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -448,18 +439,14 @@ export default function TableOfContents({
                 width: '100%',
                 cursor: 'pointer',
                 border: 0,
-                background: isDocTitleActive ? '#eff6ff' : 'transparent',
-                borderLeft: `3px solid ${
-                  isDocTitleActive ? '#2563eb' : 'transparent'
-                }`,
-                color: isDocTitleActive ? '#111827' : '#0f172a',
+                background: 'transparent',
+                borderLeft: '3px solid transparent',
+                color: '#0f172a',
                 padding: '8px 8px',
                 paddingLeft: 8,
                 borderRadius: 10,
                 textAlign: 'left',
                 marginBottom: 4,
-                transition:
-                  'background .12s, color .12s, border-color .12s',
               }}
             >
               <span style={docTitleIconBox} aria-hidden>
