@@ -423,16 +423,28 @@ export default function TableOfContents({
             <button
               type="button"
               onClick={() => {
-                // ✅ 제목 클릭 시: 항상 문서 맨 위로 스크롤
-                const root = rootRef.current;
-                if (!root) {
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                // ✅ 1순위: scrollRootSelector로 전달된 본문 스크롤 컨테이너
+                let scrollRoot: HTMLElement | null = null;
+
+                if (scrollRootSelector) {
+                  scrollRoot = document.querySelector<HTMLElement>(scrollRootSelector);
+                }
+
+                // ✅ 2순위: 이미 계산해 둔 rootRef (본문 스크롤 루트)
+                if (!scrollRoot && rootRef.current) {
+                  scrollRoot = rootRef.current;
+                }
+
+                // ✅ 실제 스크롤: 항상 "본문" 영역을 맨 위로
+                if (scrollRoot) {
+                  scrollRoot.scrollTo({ top: 0, behavior: 'smooth' });
                 } else {
-                  root.scrollTo({ top: 0, behavior: 'smooth' });
+                  // 그래도 없으면 마지막 fallback 윈도우 전체
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
                 }
               }}
               title={docTitle}
-              // ⬇️ 제목은 이제 활성 상태와 상관없으니 aria-current 제거
+              // 제목은 더 이상 active 상태 표시 안 함
               style={{
                 display: 'flex',
                 alignItems: 'center',
