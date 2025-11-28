@@ -111,12 +111,21 @@ export default function TableOfContents({
       root = rootRef.current;
     }
 
-    // 3순위: 그래도 없으면 window 전체 스크롤
+    // ⚠ root가 있어도 실제로 스크롤이 안 걸려 있을 수 있으니 검사
     if (root) {
-      root.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      const { overflowY } = getComputedStyle(root);
+      const canScroll =
+        /(auto|scroll)/.test(overflowY) &&
+        root.scrollHeight > root.clientHeight + 1;
+
+      if (canScroll) {
+        root.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
     }
+
+    // 여기까지 왔다는 건 root가 없거나, 있어도 스크롤 컨테이너가 아님
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [scrollRootSelector]);
   
   // 문서 스크롤 root 결정
@@ -441,27 +450,7 @@ export default function TableOfContents({
           <li key="__doc-title" style={{ marginBottom: 6 }}>
             <button
               type="button"
-              onClick={() => {
-                if (typeof window === 'undefined') return;
-
-                // 1순위: scrollRootSelector 로 받은 본문 스크롤 컨테이너
-                let root: HTMLElement | null = null;
-                if (scrollRootSelector) {
-                  root = document.querySelector<HTMLElement>(scrollRootSelector);
-                }
-
-                // 2순위: IntersectionObserver 설정하면서 잡아 둔 루트
-                if (!root && rootRef.current) {
-                  root = rootRef.current;
-                }
-
-                // 3순위: 그래도 없으면 window 전체
-                if (root) {
-                  root.scrollTo({ top: 0, behavior: 'smooth' });
-                } else {
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }
-              }}
+              onClick={scrollToTopOfDocument}
               title={docTitle}
               // ✅ 제목은 강조/라인 없음: 그냥 정보용 헤더 느낌
               style={{
