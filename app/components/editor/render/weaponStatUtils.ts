@@ -29,6 +29,8 @@ export const ALL_WEAPON_STAT_KEYS: WeaponStatKey[] = [
 ];
 
 // 각 스탯 키별 기본 라벨/단위
+// 👉 새로 생성할 때 “디폴트 이름/단위”로 쓸 수도 있고,
+//    레거시 데이터인지 판별할 때도 사용.
 export const WEAPON_STAT_PRESET: Record<
   WeaponStatKey,
   { label: string; defaultUnit?: string }
@@ -51,9 +53,11 @@ export function getWeaponLevelLabels(type: WeaponType): string[] {
     case 'divine':
     case 'superior':
       return ['1강', '2강', '3강', '4강', 'MAX'];
+
     // 1강 ~ MAX(9강)
     case 'class':
       return ['1강', '2강', '3강', '4강', '5강', '6강', '7강', '8강', 'MAX'];
+
     // 나머지는 단일 단계
     case 'block':
     case 'hidden':
@@ -78,6 +82,7 @@ export function normalizeStatLevels(
 }
 
 // 빈 스탯 하나 생성 (enabled 여부 포함)
+// 👉 label / unit / summary 는 “완전 빈 상태”로 둔다.
 export function createEmptyWeaponStat(
   key: WeaponStatKey,
   type: WeaponType,
@@ -93,7 +98,12 @@ export function createEmptyWeaponStat(
   };
 }
 
-// 현재 stats 배열을 기준으로, 모든 stat 키를 채우고 단계 구조를 유형에 맞게 정규화
+/**
+ * 현재 stats 배열을 기준으로,
+ * - 모든 stat 키를 포함하도록 채우고
+ * - weaponType 에 맞게 levels 길이를 맞추고
+ * - “예전 기본값만 남아 있는 비활성 스탯”은 깨끗이 초기화한다.
+ */
 export function ensureWeaponStats(
   stats: WeaponStatConfig[] | undefined,
   type: WeaponType,
@@ -103,10 +113,32 @@ export function ensureWeaponStats(
 
   return ALL_WEAPON_STAT_KEYS.map((key) => {
     const existing = map.get(key);
+
+    // 아예 없는 stat → 완전 빈 상태로 생성
     if (!existing) {
-      const enabled = false;
-      return createEmptyWeaponStat(key, type, enabled);
+      return createEmptyWeaponStat(key, type, false);
     }
+
+    // ✅ 비활성 + 옛날 기본값 그대로인 경우 → 새 stat 으로 리셋
+    if (!existing.enabled) {
+      const preset = WEAPON_STAT_PRESET[key];
+      const levels = existing.levels ?? [];
+      const allLevelEmpty =
+        !levels.length ||
+        levels.every((lv) => !lv.value || String(lv.value).trim() === '');
+
+      const looksLikeLegacyPreset =
+        (!existing.label || existing.label === preset.label) &&
+        (!existing.unit || existing.unit === preset.defaultUnit) &&
+        (!existing.summary || existing.summary.trim() === '') &&
+        allLevelEmpty;
+
+      if (looksLikeLegacyPreset) {
+        return createEmptyWeaponStat(key, type, false);
+      }
+    }
+
+    // 나머지는 값 유지 + 단계만 정규화
     return {
       ...existing,
       levels: normalizeStatLevels(existing.levels, type),
@@ -114,7 +146,10 @@ export function ensureWeaponStats(
   });
 }
 
-// stats 전체를 weaponType에 맞게 강제 정규화
+/**
+ * stats 전체를 weaponType 에 맞게 강제 정규화
+ * (ensureWeaponStats + levels 정규화)
+ */
 export function normalizeStatsForWeaponType(
   stats: WeaponStatConfig[] | undefined,
   type: WeaponType,

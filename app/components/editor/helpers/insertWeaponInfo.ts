@@ -7,7 +7,7 @@
 // 1) 무기 유형(weaponType)에 따라 강화 단계 개수가 달라짐.
 //    - epic / unique / legendary / divine / superior : 1강 ~ MAX(5강)
 //    - class                                         : 1강 ~ MAX(9강)
-//    - hidden / limited / ancient                    : 단일 단계("기본")
+//    - hidden / limited / ancient / block           : 단일 단계("기본")
 // 2) 데미지/쿨타임/타수/범위/지속시간/회복량 중
 //    기본으로는 데미지·쿨타임만 표시(enabled=true), 나머지는 off.
 // 3) stats가 initial로 넘어오면, 현재 weaponType에 맞게
@@ -21,129 +21,13 @@ import type {
   WeaponType,
   WeaponStatKey,
 } from '@/types/slate';
+import {
+  normalizeStatsForWeaponType,
+  WEAPON_STAT_PRESET,
+} from '@/components/editor/render/weaponStatUtils';
 
-// 사용할 모든 스탯 키
-const ALL_WEAPON_STAT_KEYS: WeaponStatKey[] = [
-  'damage',
-  'cooldown',
-  'hitCount',
-  'range',
-  'duration',
-  'heal',
-];
-
-// 각 스탯 키별 기본 라벨/단위
-const WEAPON_STAT_PRESET: Record<
-  WeaponStatKey,
-  { label: string; defaultUnit?: string }
-> = {
-  damage:   { label: '데미지' },
-  cooldown: { label: '쿨타임', defaultUnit: '초' },
-  hitCount: { label: '타수',   defaultUnit: '타' },
-  range:    { label: '범위' },
-  duration: { label: '지속시간', defaultUnit: '초' },
-  heal:     { label: '회복량' },
-};
-
-/**
- * 무기 유형에 따라 강화 단계 라벨 목록 반환
- */
-function getWeaponLevelLabels(type: WeaponType): string[] {
-  switch (type) {
-    // 1강 ~ MAX(5강)
-    case 'epic':
-    case 'unique':
-    case 'legendary':
-    case 'divine':
-    case 'superior':
-      return ['1강', '2강', '3강', '4강', 'MAX'];
-
-    // 1강 ~ MAX(9강)
-    case 'class':
-      return ['1강', '2강', '3강', '4강', '5강', '6강', '7강', '8강', 'MAX'];
-
-    // 나머지는 단일 단계
-    case 'hidden':
-    case 'limited':
-    case 'ancient':
-    default:
-      return ['기본'];
-  }
-}
-
-/**
- * levels 배열을 weaponType 에 맞게 강제 정규화
- * (라벨 개수/순서를 유형에 맞추고, 부족한 값은 빈 문자열로 채움)
- */
-function normalizeStatLevels(
-  levels: WeaponStatConfig['levels'] | undefined,
-  type: WeaponType,
-): WeaponStatConfig['levels'] {
-  const labels = getWeaponLevelLabels(type);
-  const list = levels ?? [];
-
-  return labels.map((label, idx) => ({
-    levelLabel: label,
-    value: list[idx]?.value ?? '',
-  }));
-}
-
-/**
- * 비어있는 WeaponStatConfig 생성
- */
-function createEmptyWeaponStat(
-  key: WeaponStatKey,
-  type: WeaponType,
-  enabled: boolean,
-): WeaponStatConfig {
-  const preset = WEAPON_STAT_PRESET[key];
-
-  return {
-    key,
-    label: preset.label,
-    summary: '',
-    unit: preset.defaultUnit,
-    enabled,
-    levels: normalizeStatLevels([], type),
-  };
-}
-
-/**
- * stats 배열을 기준으로
- * - 모든 스탯 키(데미지/쿨타임/...)를 포함하도록 채워넣고
- * - weaponType 에 맞게 levels 구조를 맞춰 줌
- * - label/unit 이 비어 있으면 preset 값으로 채움
- * - 새로 생성되는 스탯의 enabled 기본값은
- *   damage, cooldown => true  / 그 외 => false
- */
-function normalizeStatsForWeaponType(
-  stats: WeaponStatConfig[] | undefined,
-  type: WeaponType,
-): WeaponStatConfig[] {
-  const byKey = new Map<WeaponStatKey, WeaponStatConfig>();
-  (stats ?? []).forEach((s) => byKey.set(s.key, s));
-
-  return ALL_WEAPON_STAT_KEYS.map((key) => {
-    const existing = byKey.get(key);
-    if (!existing) {
-      const enabled = key === 'damage' || key === 'cooldown';
-      return createEmptyWeaponStat(key, type, enabled);
-    }
-
-    const preset = WEAPON_STAT_PRESET[key];
-
-    return {
-      ...existing,
-      label: existing.label || preset.label,
-      unit: existing.unit ?? preset.defaultUnit,
-      enabled:
-        typeof existing.enabled === 'boolean'
-          ? existing.enabled
-          : key === 'damage' || key === 'cooldown',
-      levels: normalizeStatLevels(existing.levels, type),
-    };
-  });
-}
+// 처음 생성 시 기본으로 켤 스탯 키
+const DEFAULT_ENABLED_KEYS: WeaponStatKey[] = ['damage', 'cooldown'];
 
 // initial 로 허용할 필드만 좁혀서 타입 정의
 type WeaponCardInitial = Partial<
@@ -166,11 +50,35 @@ export const insertWeaponInfo = (
   const weaponType: WeaponType =
     initial?.weaponType ?? ('epic' as WeaponType);
 
-  // stats 초기값 정규화
-  const stats: WeaponStatConfig[] = normalizeStatsForWeaponType(
-    initial?.stats,
-    weaponType,
-  );
+  let stats: WeaponStatConfig[];
+
+  if (initial?.stats && initial.stats.length > 0) {
+    // 외부에서 stats 를 넘겨준 경우 → 그대로 정규화만
+    stats = normalizeStatsForWeaponType(initial.stats, weaponType);
+  } else {
+    // 새 카드 기본 생성
+    // 1) 일단 모든 키에 대해 “빈 스탯 + disabled” 형태로 세트를 만들고
+    // 2) damage / cooldown 만 기본 라벨·단위 + enabled=true 로 세팅
+    stats = normalizeStatsForWeaponType(undefined, weaponType).map((s) => {
+      if (DEFAULT_ENABLED_KEYS.includes(s.key)) {
+        const preset = WEAPON_STAT_PRESET[s.key];
+        return {
+          ...s,
+          label: preset.label,
+          unit: preset.defaultUnit ?? '',
+          enabled: true,
+        };
+      }
+      // 나머지는 완전히 비운 채로 비활성
+      return {
+        ...s,
+        label: '',
+        unit: '',
+        summary: '',
+        enabled: false,
+      };
+    });
+  }
 
   const card: WeaponCardElement = {
     type: 'weapon-card',
@@ -190,6 +98,5 @@ export const insertWeaponInfo = (
   } as any;
 
   // selection 위치에 카드 + 빈 단락을 한 번에 삽입
-  // (Path.next 같은 건 전혀 안 씀)
   Transforms.insertNodes(editor, [card as any, paragraph] as any);
 };
