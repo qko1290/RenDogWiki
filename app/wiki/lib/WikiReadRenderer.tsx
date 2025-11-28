@@ -438,10 +438,8 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
   }, [isWikiLink, parsedUrl, el.wikiPath, el.wikiTitle]);
 
   // 외부 링크 파비콘
-  let externalFavicon: string | null = null;
-  if (!isWikiLink && parsedUrl) {
-    externalFavicon = `${parsedUrl.origin}/favicon.ico`;
-  }
+  const externalFavicon: string | null =
+    !isWikiLink && parsedUrl ? `${parsedUrl.origin}/favicon.ico` : null;
 
   const isSmall = el.size === 'small' || el.size === 'half';
 
@@ -532,9 +530,11 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
               </span>
             )
           ) : externalFavicon ? (
-            <SmartImage
-              src={withVersion(cdn(externalFavicon))}
+            <img
+              src={externalFavicon}
               alt=""
+              loading="lazy"
+              decoding="async"
               width={20}
               height={20}
               style={{
@@ -558,7 +558,6 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
               }}
               aria-hidden
             >
-              {/* 간단한 외부 링크 아이콘 */}
               ↗️
             </span>
           )}
