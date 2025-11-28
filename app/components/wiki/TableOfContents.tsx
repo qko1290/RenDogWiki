@@ -423,7 +423,7 @@ export default function TableOfContents({
             <button
               type="button"
               onClick={() => {
-                // ✅ 무조건 문서 맨 위로 스크롤
+                // ✅ 제목 클릭 시: 항상 문서 맨 위로 스크롤
                 const root = rootRef.current;
                 if (!root) {
                   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -432,6 +432,7 @@ export default function TableOfContents({
                 }
               }}
               title={docTitle}
+              // ⬇️ 제목은 이제 활성 상태와 상관없으니 aria-current 제거
               style={{
                 display: 'flex',
                 alignItems: 'center',
