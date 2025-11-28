@@ -95,39 +95,6 @@ export default function TableOfContents({
     return parent ?? tocRef.current;
   };
 
-  // ✅ 문서 제목 클릭 시: 본문 스크롤 루트를 맨 위로 올리는 헬퍼
-  const scrollToTopOfDocument = React.useCallback(() => {
-    if (typeof window === 'undefined') return;
-
-    let root: HTMLElement | null = null;
-
-    // 1순위: props로 받은 scrollRootSelector (예: '#wiki-scroll-root')
-    if (scrollRootSelector) {
-      root = document.querySelector<HTMLElement>(scrollRootSelector);
-    }
-
-    // 2순위: 이미 찾아둔 rootRef (본문 스크롤 컨테이너)
-    if (!root && rootRef.current) {
-      root = rootRef.current;
-    }
-
-    // ⚠ root가 있어도 실제로 스크롤이 안 걸려 있을 수 있으니 검사
-    if (root) {
-      const { overflowY } = getComputedStyle(root);
-      const canScroll =
-        /(auto|scroll)/.test(overflowY) &&
-        root.scrollHeight > root.clientHeight + 1;
-
-      if (canScroll) {
-        root.scrollTo({ top: 0, behavior: 'smooth' });
-        return;
-      }
-    }
-
-    // 여기까지 왔다는 건 root가 없거나, 있어도 스크롤 컨테이너가 아님
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [scrollRootSelector]);
-  
   // 문서 스크롤 root 결정
   useEffect(() => {
     if (scrollRootSelector) {
@@ -438,21 +405,33 @@ export default function TableOfContents({
 
   // ===== 렌더 =====
   return (
-    <aside role="navigation" aria-label="Table of contents" style={boxStyle}>
+    <aside
+      ref={tocRef}
+      role="navigation"
+      aria-label="Table of contents"
+      style={boxStyle}
+    >
       <p style={titleStyle}>
         <FontAwesomeIcon icon={faAlignLeft} />
         &nbsp;&nbsp;{title}
       </p>
 
+      {/* 문서 제목 블록 (항상 고정 스타일, 활성화 없음) */}
       <ul style={listStyle}>
-        {/* 🔹 문서 제목 버튼 */}
         {hasDocTitle && (
           <li key="__doc-title" style={{ marginBottom: 6 }}>
             <button
               type="button"
-              onClick={scrollToTopOfDocument}
+              onClick={() => {
+                // ✅ 무조건 문서 맨 위로 스크롤
+                const root = rootRef.current;
+                if (!root) {
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                } else {
+                  root.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+              }}
               title={docTitle}
-              // ✅ 제목은 강조/라인 없음: 그냥 정보용 헤더 느낌
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -503,16 +482,49 @@ export default function TableOfContents({
             </button>
           </li>
         )}
+      </ul>
 
-        {/* 🔹 실제 목차 항목들 (본문 heading 들) */}
+      {/* 실제 목차 항목들 + 슬라이딩 하이라이트 */}
+      <ul
+        ref={headingsListRef}
+        style={{
+          ...listStyle,
+          position: 'relative',
+          marginTop: hasDocTitle ? 4 : 0,
+        }}
+      >
+        {indicatorHeight > 0 && (
+          <div
+            aria-hidden
+            style={{
+              position: 'absolute',
+              left: 4,
+              right: 4,
+              top: indicatorTop,
+              height: indicatorHeight,
+              borderRadius: 8,
+              background: '#eff6ff',
+              borderLeft: '3px solid #2563eb',
+              zIndex: 0,
+              transitionProperty: 'top, height',
+              transitionDuration: indicatorDuration,
+              transitionTimingFunction: 'cubic-bezier(0.25,0.8,0.25,1)',
+            }}
+          />
+        )}
+
         {indexed.map((h, i) => {
           const active = h.id === activeId;
           const padLeft = h.level === 1 ? 8 : h.level === 2 ? 26 : 44;
 
           return (
-            <li key={`${h.id}-${h.__occ}-${i}`}>
+            <li
+              key={`${h.id}-${h.__occ}-${i}`}
+              style={{ position: 'relative', zIndex: 1 }}
+            >
               <button
                 type="button"
+                data-toc-index={i}
                 onClick={() => scrollToId(h.id, h.__occ)}
                 title={h.text}
                 aria-current={active ? 'true' : undefined}
@@ -523,17 +535,14 @@ export default function TableOfContents({
                   width: '100%',
                   cursor: 'pointer',
                   border: 0,
-                  background: active ? '#eff6ff' : 'transparent',
-                  borderLeft: `3px solid ${
-                    active ? '#2563eb' : 'transparent'
-                  }`,
+                  background: 'transparent',
+                  borderLeft: '3px solid transparent',
                   color: active ? '#2563eb' : '#4b5563',
                   padding: '6px 8px',
                   paddingLeft: padLeft,
                   borderRadius: 8,
                   textAlign: 'left',
-                  transition:
-                    'background .12s, color .12s, border-color .12s',
+                  transition: 'color .12s',
                 }}
               >
                 <span style={iconBox} aria-hidden>
