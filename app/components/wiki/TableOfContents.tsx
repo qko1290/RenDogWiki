@@ -3,7 +3,7 @@
 // - 해시 포함 링크로 진입했을 때 스크롤 재시도 로직 유지
 // - 사이드바(목차 영역)에서는 링크 복사 버튼 제거
 // - 문서 제목/아이콘(docTitle/docIcon) 목차 맨 위에 표시
-// - 활성 목차 하이라이트 바 + 목차 패널 자동 스크롤
+// - 활성 목차 슬라이딩 하이라이트 + TOC 자동 스크롤
 // =============================================
 'use client';
 
@@ -47,19 +47,22 @@ export default function TableOfContents({
   scrollRootSelector,
 }: Props) {
   const [activeId, setActiveId] = useState<string>('');
+  const [activeIndex, setActiveIndex] = useState<number>(-1);
+
   const rootRef = useRef<HTMLElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const [rootKey, setRootKey] = useState(0); // 루트 변경 트리거 키
 
-  // ✅ TOC 컨테이너
+  // ✅ TOC 자체 ref
   const tocRef = useRef<HTMLElement | null>(null);
-
-  // ✅ 활성 하이라이트 바
+  // ✅ headings 리스트 ref (실제 항목들)
   const headingsListRef = useRef<HTMLUListElement | null>(null);
+
+  // ✅ 하이라이트 바 위치/크기
   const prevTopRef = useRef<number | null>(null);
   const [indicatorTop, setIndicatorTop] = useState(0);
   const [indicatorHeight, setIndicatorHeight] = useState(0);
-  const [indicatorDuration, setIndicatorDuration] = useState('160ms');
+  const [indicatorDuration, setIndicatorDuration] = useState('140ms');
 
   // 동일 id에 발생 순번 부여
   const indexed = useMemo(() => {
@@ -78,7 +81,9 @@ export default function TableOfContents({
   const isDocTitleActive =
     !!docTitleAnchor && activeId === docTitleAnchor.id;
 
-  // 스크롤 가능한 조상 자동 탐색
+  // ===== 공통 유틸 =====
+
+  // 스크롤 가능한 조상 자동 탐색 (자기 자신은 제외)
   const findScrollableAncestor = (
     el: HTMLElement | null,
   ): HTMLElement | null => {
@@ -94,12 +99,11 @@ export default function TableOfContents({
     return null;
   };
 
-  // TOC 패널에서 실제 스크롤이 발생하는 엘리먼트
+  // TOC 스크롤 컨테이너 (부모 중 스크롤 가능 or 자기 자신)
   const getTocScrollContainer = (): HTMLElement | null => {
     if (!tocRef.current) return null;
-    // 부모 중 스크롤 가능한 요소가 있으면 우선 사용
-    const parentScrollable = findScrollableAncestor(tocRef.current);
-    return parentScrollable ?? tocRef.current;
+    const parent = findScrollableAncestor(tocRef.current);
+    return parent ?? tocRef.current;
   };
 
   // root 결정(명시 selector > 자동 > null), 변경 시 rootKey 갱신
@@ -208,7 +212,7 @@ export default function TableOfContents({
     return true;
   };
 
-  // 스크롤 스파이(컨테이너 기준)
+  // ===== 스크롤 스파이(IntersectionObserver) =====
   useEffect(() => {
     if (!indexed.length) return;
 
@@ -221,7 +225,13 @@ export default function TableOfContents({
             a.boundingClientRect.top > b.boundingClientRect.top ? 1 : -1,
           );
         if (visible[0]) {
-          setActiveId((visible[0].target as HTMLElement).id);
+          const id = (visible[0].target as HTMLElement).id;
+          setActiveId(id);
+
+          const idx = indexed.findIndex(h => h.id === id);
+          if (idx !== -1) {
+            setActiveIndex(idx);
+          }
         }
       },
       {
@@ -276,14 +286,15 @@ export default function TableOfContents({
     return () => cancelAnimationFrame(raf);
   }, [headings, rootKey]);
 
-  // ✅ [1] 활성 목차 하이라이트 바 + ✅ [2] TOC 자동 스크롤
+  // ===== [1] 활성 하이라이트 바 이동 + [2] TOC 스크롤 따라가기 =====
   useEffect(() => {
+    if (activeIndex < 0) return;
     if (!headingsListRef.current) return;
 
-    // 현재 파란 글자가 들어간 버튼(aria-current="true")을 직접 찾는다.
+    // 현재 활성 heading 버튼 (data-toc-index 로 찾기)
     const activeBtn =
       headingsListRef.current.querySelector<HTMLButtonElement>(
-        'button[aria-current="true"]',
+        `button[data-toc-index="${activeIndex}"]`,
       );
     if (!activeBtn) return;
 
@@ -293,22 +304,20 @@ export default function TableOfContents({
     const prevTop = prevTopRef.current ?? newTop;
     prevTopRef.current = newTop;
 
-    // 거리(px)에 비례해서 속도 조정
     const distance = Math.abs(newTop - prevTop);
-    const base = 90; // ms
-    const perPx = 0.4; // px당 추가 시간
-    const duration = Math.min(650, base + distance * perPx);
+    const base = 100; // ms
+    const perPx = 0.45; // px 당 가산
+    const duration = Math.min(700, base + distance * perPx);
 
     setIndicatorTop(newTop);
     setIndicatorHeight(newHeight);
     setIndicatorDuration(`${duration}ms`);
 
-    // ✅ TOC 패널 스크롤도 같이 맞춰준다.
+    // === TOC 스크롤 컨테이너 맞춰서 움직이기 ===
     const container = getTocScrollContainer();
     if (!container) return;
 
-    const padding = 24; // 위/아래 여유
-    // headingsListRef 자체의 offsetTop 을 포함해서, 컨테이너 기준 좌표로 환산
+    const padding = 24;
     const listOffset = headingsListRef.current.offsetTop || 0;
     const elementTop = listOffset + newTop;
     const elementBottom = elementTop + newHeight;
@@ -328,14 +337,11 @@ export default function TableOfContents({
         behavior: 'smooth',
       });
     }
-  }, [activeId]);
+  }, [activeIndex]);
 
   // ----- UI 스타일 -----
-  // 👉 여기서는 fixed/overflowY 는 최소한만 잡고,
-  // 실제 레이아웃/스크롤은 .wiki-toc-sidebar 같은 바깥 컨테이너가 담당해도 된다.
   const boxStyle: React.CSSProperties = {
-    // 레이아웃에서 독립적으로 쓰고 싶을 때를 대비해 기본값만 남겨둠
-    position: 'fixed',
+    position: 'fixed', // 지금 구조 그대로 쓰고 싶으면 유지
     right,
     top,
     width,
@@ -389,7 +395,7 @@ export default function TableOfContents({
   };
 
   const docTitleTextStyle: React.CSSProperties = {
-    fontSize: 18, // heading-one 대비 사이드바용 축소
+    fontSize: 18,
     fontWeight: 800,
     letterSpacing: '-0.3px',
     lineHeight: 1.3,
@@ -513,7 +519,7 @@ export default function TableOfContents({
         )}
       </ul>
 
-      {/* 🔹 실제 목차 항목들 (본문 heading 들) + 하이라이트 바 */}
+      {/* 🔹 실제 목차 항목들 (본문 heading 들) + 슬라이딩 하이라이트 */}
       <ul
         ref={headingsListRef}
         style={{
@@ -522,7 +528,7 @@ export default function TableOfContents({
           marginTop: hasDocTitle ? 4 : 0,
         }}
       >
-        {/* 활성 하이라이트 바 – 실제 활성 버튼 위치로 슬라이드 */}
+        {/* 슬라이딩 하이라이트 바 */}
         {indicatorHeight > 0 && (
           <div
             aria-hidden
@@ -536,7 +542,7 @@ export default function TableOfContents({
               background: '#eff6ff',
               borderLeft: '3px solid #2563eb',
               zIndex: 0,
-              transitionProperty: 'top,height',
+              transitionProperty: 'top, height',
               transitionDuration: indicatorDuration,
               transitionTimingFunction: 'cubic-bezier(0.25,0.8,0.25,1)',
             }}
@@ -565,6 +571,7 @@ export default function TableOfContents({
                   width: '100%',
                   cursor: 'pointer',
                   border: 0,
+                  // 배경/라인은 하이라이트 바가 담당하므로 여기선 색만 변경
                   background: 'transparent',
                   borderLeft: '3px solid transparent',
                   color: active ? '#2563eb' : '#4b5563',
