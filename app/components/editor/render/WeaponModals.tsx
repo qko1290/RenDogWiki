@@ -538,23 +538,74 @@ export const WeaponStatSelectModal: React.FC<WeaponStatSelectModalProps> = ({
 }) => {
   if (!open) return null;
 
-  const base = ensureWeaponStats(stats, weaponType);
-  const [local, setLocal] = React.useState<WeaponStatConfig[]>(base);
+  const base = React.useMemo(
+    () => ensureWeaponStats(stats, weaponType),
+    [stats, weaponType],
+  );
 
+  const maxCount = base.length;
+
+  // 현재 활성화(enabled=true) 된 항목 수
+  const getEnabledCount = () => base.filter((s) => s.enabled).length;
+
+  const [count, setCount] = React.useState<number>(() => getEnabledCount());
+
+  // 모달이 다시 열릴 때마다 현재 상태를 기준으로 초기값 리셋
   React.useEffect(() => {
-    if (open) setLocal(ensureWeaponStats(stats, weaponType));
+    if (open) {
+      setCount(getEnabledCount());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, stats, weaponType]);
 
-  const toggle = (key: WeaponStatKey) => {
-    setLocal((prev) =>
-      prev.map((s) =>
-        s.key === key ? { ...s, enabled: !s.enabled } : s,
-      ),
-    );
+  const clamp = (n: number) => {
+    if (Number.isNaN(n)) return 0;
+    if (n < 0) return 0;
+    if (n > maxCount) return maxCount;
+    return n;
+  };
+
+  const handleChange = (next: number) => {
+    setCount(clamp(next));
   };
 
   const handleSave = () => {
-    onSave(local);
+    // 기존 enabled 패턴을 기준으로 개수만 맞춰 조정
+    const originalEnabledIndices: number[] = [];
+    base.forEach((s, idx) => {
+      if (s.enabled) originalEnabledIndices.push(idx);
+    });
+
+    const oldCount = originalEnabledIndices.length;
+    const target = clamp(count);
+
+    // 깊은 복사(불변성 유지)
+    const nextStats = base.map((s) => ({ ...s }));
+
+    if (target === oldCount) {
+      // 개수 변화 없음 → 그대로 저장
+      onSave(nextStats);
+      return;
+    }
+
+    if (target < oldCount) {
+      // 줄어드는 경우: 현재 enabled 중 "뒤에서부터" 끄기
+      const toDisable = originalEnabledIndices.slice(target);
+      toDisable.forEach((idx) => {
+        nextStats[idx] = { ...nextStats[idx], enabled: false };
+      });
+    } else {
+      // 늘어나는 경우: 아직 disabled 인 것들 중 "앞에서부터" 켜기
+      let need = target - oldCount;
+      for (let i = 0; i < nextStats.length && need > 0; i++) {
+        if (!nextStats[i].enabled) {
+          nextStats[i] = { ...nextStats[i], enabled: true };
+          need--;
+        }
+      }
+    }
+
+    onSave(nextStats);
   };
 
   return (
@@ -585,47 +636,98 @@ export const WeaponStatSelectModal: React.FC<WeaponStatSelectModalProps> = ({
           }}
         >
           <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>
-            표시할 정보 선택
+            정보 항목 개수 설정
           </div>
+
           <div
             style={{
               fontSize: 12,
               color: '#9ca3af',
-              marginBottom: 10,
+              marginBottom: 12,
+              lineHeight: 1.5,
             }}
           >
-            데미지 / 쿨타임 / 타수 / 범위 / 지속시간 / 회복량 중에서 카드에
-            표시할 항목을 선택합니다.
+            무기 카드에 표시할 <b>정보 항목의 개수</b>만 정합니다.
+            <br />
+            각 항목의 <b>이름 / 요약값 / 단위 / 강화별 값</b>은
+            <br />
+            카드에서 항목별 <b>정보 편집</b> 모달로 들어가서 직접 수정하면 돼요.
           </div>
+
           <div
             style={{
               display: 'flex',
-              flexDirection: 'column',
-              gap: 4,
+              alignItems: 'center',
+              gap: 8,
+              marginBottom: 10,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => handleChange(count - 1)}
+              style={{
+                borderRadius: 999,
+                border: '1px solid #4b5563',
+                padding: '4px 10px',
+                background: '#020617',
+                color: '#e5e7eb',
+                fontSize: 14,
+                cursor: 'pointer',
+              }}
+            >
+              −
+            </button>
+
+            <input
+              type="number"
+              value={count}
+              min={0}
+              max={maxCount}
+              onChange={(e) => handleChange(Number(e.target.value))}
+              style={{
+                width: 80,
+                textAlign: 'center',
+                borderRadius: 8,
+                border: '1px solid #4b5563',
+                background: '#020617',
+                padding: '6px 8px',
+                color: '#e5e7eb',
+                fontSize: 14,
+                outline: 'none',
+              }}
+            />
+
+            <button
+              type="button"
+              onClick={() => handleChange(count + 1)}
+              style={{
+                borderRadius: 999,
+                border: '1px solid #4b5563',
+                padding: '4px 10px',
+                background: '#020617',
+                color: '#e5e7eb',
+                fontSize: 14,
+                cursor: 'pointer',
+              }}
+            >
+              +
+            </button>
+
+            <span style={{ fontSize: 11, color: '#9ca3af' }}>
+              최대 {maxCount}개
+            </span>
+          </div>
+
+          <div
+            style={{
+              fontSize: 11,
+              color: '#6b7280',
               marginBottom: 12,
             }}
           >
-            {local.map((s) => (
-              <label
-                key={s.key}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '4px 2px',
-                  fontSize: 13,
-                  cursor: 'pointer',
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={s.enabled}
-                  onChange={() => toggle(s.key)}
-                />
-                <span>{WEAPON_STAT_PRESET[s.key].label}</span>
-              </label>
-            ))}
+            현재 설정된 개수: <b>{count}개</b>
           </div>
+
           <div
             style={{
               display: 'flex',
