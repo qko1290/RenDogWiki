@@ -3,6 +3,7 @@
 // - 해시 포함 링크로 진입했을 때 스크롤 재시도 로직 유지
 // - 사이드바(목차 영역)에서는 링크 복사 버튼 제거
 // - 문서 제목/아이콘(docTitle/docIcon) 목차 맨 위에 표시
+// - ✅ 활성 목차 하이라이트 바 애니메이션 + TOC 자동 스크롤
 // =============================================
 'use client';
 
@@ -49,6 +50,16 @@ export default function TableOfContents({
   const rootRef = useRef<HTMLElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const [rootKey, setRootKey] = useState(0); // 루트 변경 트리거 키
+
+  // ✅ TOC 전용 ref (스크롤 제어용)
+  const tocRef = useRef<HTMLElement | null>(null);
+
+  // ✅ 활성 하이라이트 바를 위한 상태/참조
+  const headingsListRef = useRef<HTMLUListElement | null>(null);
+  const lastActiveIndexRef = useRef<number | null>(null);
+  const [indicatorTop, setIndicatorTop] = useState(0);
+  const [indicatorHeight, setIndicatorHeight] = useState(0);
+  const [indicatorDuration, setIndicatorDuration] = useState('160ms');
 
   // 동일 id에 발생 순번 부여
   const indexed = useMemo(() => {
@@ -257,6 +268,60 @@ export default function TableOfContents({
     return () => cancelAnimationFrame(raf);
   }, [headings, rootKey]);
 
+  // ✅ [1] 활성 목차 하이라이트 바 + TOC 자동 스크롤
+  useEffect(() => {
+    if (!indexed.length || !activeId) return;
+    if (!headingsListRef.current || !tocRef.current) return;
+
+    const index = indexed.findIndex(h => h.id === activeId);
+    if (index < 0) return;
+
+    const btn = headingsListRef.current.querySelector<HTMLButtonElement>(
+      `button[data-toc-index="${index}"]`,
+    );
+    if (!btn) return;
+
+    const prevIndex = lastActiveIndexRef.current;
+    lastActiveIndexRef.current = index;
+
+    const diff =
+      prevIndex == null ? 1 : Math.max(1, Math.abs(index - prevIndex));
+    // 이동한 목차 수에 비례해서 속도 조정
+    const base = 90; // ms
+    const perStep = 45; // 한칸당 추가 시간
+    const duration = Math.min(650, base + perStep * diff);
+
+    const top = btn.offsetTop;
+    const height = btn.offsetHeight;
+
+    setIndicatorTop(top);
+    setIndicatorHeight(height);
+    setIndicatorDuration(`${duration}ms`);
+
+    // ✅ [2] 현재 활성 목차가 항상 보이도록 TOC 패널 스크롤
+    const container = tocRef.current;
+    const padding = 24; // 위/아래 여유
+    const elTop = btn.offsetTop + (headingsListRef.current.offsetTop || 0);
+    const elBottom = elTop + height;
+    const viewTop = container.scrollTop;
+    const viewBottom = viewTop + container.clientHeight;
+
+    if (elTop < viewTop + padding) {
+      // 위쪽으로 벗어남 → 위로 스크롤
+      container.scrollTo({
+        top: Math.max(0, elTop - padding),
+        behavior: 'smooth',
+      });
+    } else if (elBottom > viewBottom - padding) {
+      // 아래쪽으로 벗어남 → 아래로 스크롤
+      const nextTop = elBottom - container.clientHeight + padding;
+      container.scrollTo({
+        top: Math.max(0, nextTop),
+        behavior: 'smooth',
+      });
+    }
+  }, [activeId, indexed]);
+
   // ----- UI 스타일 -----
   const boxStyle: React.CSSProperties = {
     position: 'fixed',
@@ -329,6 +394,7 @@ export default function TableOfContents({
   if (!indexed.length && !hasDocTitle) {
     return (
       <aside
+        ref={tocRef}
         role="navigation"
         aria-label="Table of contents"
         style={{
@@ -345,13 +411,19 @@ export default function TableOfContents({
 
   // ----- 실제 렌더 -----
   return (
-    <aside role="navigation" aria-label="Table of contents" style={boxStyle}>
+    <aside
+      ref={tocRef}
+      role="navigation"
+      aria-label="Table of contents"
+      style={{ ...boxStyle, position: 'fixed' }}
+    >
       {/* 상단 "목차" 라벨 */}
       <p style={titleStyle}>
         <FontAwesomeIcon icon={faAlignLeft} />
         &nbsp;&nbsp;{title}
       </p>
 
+      {/* 문서 제목 블록 */}
       <ul style={listStyle}>
         {/* 🔹 문서 제목(현재 글의 title/icon) – 목차 맨 위에 한 번 표시 */}
         {hasDocTitle && (
@@ -428,16 +500,50 @@ export default function TableOfContents({
             </button>
           </li>
         )}
+      </ul>
 
-        {/* 🔹 실제 목차 항목들 (본문 heading 들) */}
+      {/* 🔹 실제 목차 항목들 (본문 heading 들) + 하이라이트 바 */}
+      <ul
+        ref={headingsListRef}
+        style={{
+          ...listStyle,
+          position: 'relative',
+          marginTop: hasDocTitle ? 4 : 0,
+        }}
+      >
+        {/* 활성 하이라이트 바 (스크롤되듯이 부드럽게 이동) */}
+        {indicatorHeight > 0 && (
+          <div
+            aria-hidden
+            style={{
+              position: 'absolute',
+              left: 4,
+              right: 4,
+              top: indicatorTop,
+              height: indicatorHeight,
+              borderRadius: 8,
+              background: '#eff6ff',
+              borderLeft: '3px solid #2563eb',
+              zIndex: 0,
+              transitionProperty: 'top,height',
+              transitionDuration: indicatorDuration,
+              transitionTimingFunction: 'cubic-bezier(0.25,0.8,0.25,1)',
+            }}
+          />
+        )}
+
         {indexed.map((h, i) => {
           const active = h.id === activeId;
           const padLeft = h.level === 1 ? 8 : h.level === 2 ? 26 : 44;
 
           return (
-            <li key={`${h.id}-${h.__occ}-${i}`}>
+            <li
+              key={`${h.id}-${h.__occ}-${i}`}
+              style={{ position: 'relative', zIndex: 1 }}
+            >
               <button
                 type="button"
+                data-toc-index={i}
                 onClick={() => scrollToId(h.id, h.__occ)}
                 title={h.text}
                 aria-current={active ? 'true' : undefined}
@@ -448,17 +554,15 @@ export default function TableOfContents({
                   width: '100%',
                   cursor: 'pointer',
                   border: 0,
-                  background: active ? '#eff6ff' : 'transparent',
-                  borderLeft: `3px solid ${
-                    active ? '#2563eb' : 'transparent'
-                  }`,
+                  // 배경/라인은 하이라이트 바가 대신 처리 → 버튼은 텍스트 색만 변경
+                  background: 'transparent',
+                  borderLeft: '3px solid transparent',
                   color: active ? '#2563eb' : '#4b5563',
                   padding: '6px 8px',
                   paddingLeft: padLeft,
                   borderRadius: 8,
                   textAlign: 'left',
-                  transition:
-                    'background .12s, color .12s, border-color .12s',
+                  transition: 'color .12s',
                 }}
               >
                 <span style={iconBox} aria-hidden>
