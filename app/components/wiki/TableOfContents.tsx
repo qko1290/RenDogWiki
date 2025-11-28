@@ -95,6 +95,30 @@ export default function TableOfContents({
     return parent ?? tocRef.current;
   };
 
+  // ✅ 문서 제목 클릭 시: 본문 스크롤 루트를 맨 위로 올리는 헬퍼
+  const scrollToTopOfDocument = React.useCallback(() => {
+    if (typeof window === 'undefined') return;
+
+    let root: HTMLElement | null = null;
+
+    // 1순위: props로 받은 scrollRootSelector (예: '#wiki-scroll-root')
+    if (scrollRootSelector) {
+      root = document.querySelector<HTMLElement>(scrollRootSelector);
+    }
+
+    // 2순위: 이미 찾아둔 rootRef (본문 스크롤 컨테이너)
+    if (!root && rootRef.current) {
+      root = rootRef.current;
+    }
+
+    // 3순위: 그래도 없으면 window 전체 스크롤
+    if (root) {
+      root.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [scrollRootSelector]);
+  
   // 문서 스크롤 root 결정
   useEffect(() => {
     if (scrollRootSelector) {
@@ -422,29 +446,8 @@ export default function TableOfContents({
           <li key="__doc-title" style={{ marginBottom: 6 }}>
             <button
               type="button"
-              onClick={() => {
-                // ✅ 1순위: scrollRootSelector로 전달된 본문 스크롤 컨테이너
-                let scrollRoot: HTMLElement | null = null;
-
-                if (scrollRootSelector) {
-                  scrollRoot = document.querySelector<HTMLElement>(scrollRootSelector);
-                }
-
-                // ✅ 2순위: 이미 계산해 둔 rootRef (본문 스크롤 루트)
-                if (!scrollRoot && rootRef.current) {
-                  scrollRoot = rootRef.current;
-                }
-
-                // ✅ 실제 스크롤: 항상 "본문" 영역을 맨 위로
-                if (scrollRoot) {
-                  scrollRoot.scrollTo({ top: 0, behavior: 'smooth' });
-                } else {
-                  // 그래도 없으면 마지막 fallback 윈도우 전체
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }
-              }}
+              onClick={scrollToTopOfDocument}   // ⭐ 여기가 핵심
               title={docTitle}
-              // 제목은 더 이상 active 상태 표시 안 함
               style={{
                 display: 'flex',
                 alignItems: 'center',
