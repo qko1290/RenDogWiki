@@ -429,25 +429,41 @@ export default function TableOfContents({
 
   // ===== 렌더 =====
   return (
-    <aside
-      ref={tocRef}
-      role="navigation"
-      aria-label="Table of contents"
-      style={boxStyle}
-    >
+    <aside role="navigation" aria-label="Table of contents" style={boxStyle}>
       <p style={titleStyle}>
         <FontAwesomeIcon icon={faAlignLeft} />
         &nbsp;&nbsp;{title}
       </p>
 
-      {/* 문서 제목 블록 (항상 고정 스타일, 활성화 없음) */}
       <ul style={listStyle}>
+        {/* 🔹 문서 제목 버튼 */}
         {hasDocTitle && (
           <li key="__doc-title" style={{ marginBottom: 6 }}>
             <button
               type="button"
-              onClick={scrollToTopOfDocument}   // ⭐ 여기가 핵심
+              onClick={() => {
+                if (typeof window === 'undefined') return;
+
+                // 1순위: scrollRootSelector 로 받은 본문 스크롤 컨테이너
+                let root: HTMLElement | null = null;
+                if (scrollRootSelector) {
+                  root = document.querySelector<HTMLElement>(scrollRootSelector);
+                }
+
+                // 2순위: IntersectionObserver 설정하면서 잡아 둔 루트
+                if (!root && rootRef.current) {
+                  root = rootRef.current;
+                }
+
+                // 3순위: 그래도 없으면 window 전체
+                if (root) {
+                  root.scrollTo({ top: 0, behavior: 'smooth' });
+                } else {
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+              }}
               title={docTitle}
+              // ✅ 제목은 강조/라인 없음: 그냥 정보용 헤더 느낌
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -498,49 +514,16 @@ export default function TableOfContents({
             </button>
           </li>
         )}
-      </ul>
 
-      {/* 실제 목차 항목들 + 슬라이딩 하이라이트 */}
-      <ul
-        ref={headingsListRef}
-        style={{
-          ...listStyle,
-          position: 'relative',
-          marginTop: hasDocTitle ? 4 : 0,
-        }}
-      >
-        {indicatorHeight > 0 && (
-          <div
-            aria-hidden
-            style={{
-              position: 'absolute',
-              left: 4,
-              right: 4,
-              top: indicatorTop,
-              height: indicatorHeight,
-              borderRadius: 8,
-              background: '#eff6ff',
-              borderLeft: '3px solid #2563eb',
-              zIndex: 0,
-              transitionProperty: 'top, height',
-              transitionDuration: indicatorDuration,
-              transitionTimingFunction: 'cubic-bezier(0.25,0.8,0.25,1)',
-            }}
-          />
-        )}
-
+        {/* 🔹 실제 목차 항목들 (본문 heading 들) */}
         {indexed.map((h, i) => {
           const active = h.id === activeId;
           const padLeft = h.level === 1 ? 8 : h.level === 2 ? 26 : 44;
 
           return (
-            <li
-              key={`${h.id}-${h.__occ}-${i}`}
-              style={{ position: 'relative', zIndex: 1 }}
-            >
+            <li key={`${h.id}-${h.__occ}-${i}`}>
               <button
                 type="button"
-                data-toc-index={i}
                 onClick={() => scrollToId(h.id, h.__occ)}
                 title={h.text}
                 aria-current={active ? 'true' : undefined}
@@ -551,14 +534,17 @@ export default function TableOfContents({
                   width: '100%',
                   cursor: 'pointer',
                   border: 0,
-                  background: 'transparent',
-                  borderLeft: '3px solid transparent',
+                  background: active ? '#eff6ff' : 'transparent',
+                  borderLeft: `3px solid ${
+                    active ? '#2563eb' : 'transparent'
+                  }`,
                   color: active ? '#2563eb' : '#4b5563',
                   padding: '6px 8px',
                   paddingLeft: padLeft,
                   borderRadius: 8,
                   textAlign: 'left',
-                  transition: 'color .12s',
+                  transition:
+                    'background .12s, color .12s, border-color .12s',
                 }}
               >
                 <span style={iconBox} aria-hidden>
