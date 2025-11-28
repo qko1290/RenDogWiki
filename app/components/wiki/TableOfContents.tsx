@@ -3,7 +3,7 @@
 // - 해시 포함 링크로 진입했을 때 스크롤 재시도 로직 유지
 // - 사이드바(목차 영역)에서는 링크 복사 버튼 제거
 // - 문서 제목/아이콘(docTitle/docIcon) 목차 맨 위에 표시
-// - ✅ 활성 목차 하이라이트 바 애니메이션 + TOC 자동 스크롤
+// - 활성 목차 하이라이트 바 + 목차 패널 자동 스크롤
 // =============================================
 'use client';
 
@@ -51,12 +51,12 @@ export default function TableOfContents({
   const observerRef = useRef<IntersectionObserver | null>(null);
   const [rootKey, setRootKey] = useState(0); // 루트 변경 트리거 키
 
-  // ✅ TOC 전용 ref (스크롤 제어용)
+  // ✅ TOC 컨테이너
   const tocRef = useRef<HTMLElement | null>(null);
 
-  // ✅ 활성 하이라이트 바를 위한 상태/참조
+  // ✅ 활성 하이라이트 바
   const headingsListRef = useRef<HTMLUListElement | null>(null);
-  const lastActiveIndexRef = useRef<number | null>(null);
+  const prevTopRef = useRef<number | null>(null);
   const [indicatorTop, setIndicatorTop] = useState(0);
   const [indicatorHeight, setIndicatorHeight] = useState(0);
   const [indicatorDuration, setIndicatorDuration] = useState('160ms');
@@ -92,6 +92,14 @@ export default function TableOfContents({
       cur = cur.parentElement;
     }
     return null;
+  };
+
+  // TOC 패널에서 실제 스크롤이 발생하는 엘리먼트
+  const getTocScrollContainer = (): HTMLElement | null => {
+    if (!tocRef.current) return null;
+    // 부모 중 스크롤 가능한 요소가 있으면 우선 사용
+    const parentScrollable = findScrollableAncestor(tocRef.current);
+    return parentScrollable ?? tocRef.current;
   };
 
   // root 결정(명시 selector > 자동 > null), 변경 시 rootKey 갱신
@@ -268,62 +276,65 @@ export default function TableOfContents({
     return () => cancelAnimationFrame(raf);
   }, [headings, rootKey]);
 
-  // ✅ [1] 활성 목차 하이라이트 바 + TOC 자동 스크롤
+  // ✅ [1] 활성 목차 하이라이트 바 + ✅ [2] TOC 자동 스크롤
   useEffect(() => {
-    if (!indexed.length || !activeId) return;
-    if (!headingsListRef.current || !tocRef.current) return;
+    if (!headingsListRef.current) return;
 
-    const index = indexed.findIndex(h => h.id === activeId);
-    if (index < 0) return;
+    // 현재 파란 글자가 들어간 버튼(aria-current="true")을 직접 찾는다.
+    const activeBtn =
+      headingsListRef.current.querySelector<HTMLButtonElement>(
+        'button[aria-current="true"]',
+      );
+    if (!activeBtn) return;
 
-    const btn = headingsListRef.current.querySelector<HTMLButtonElement>(
-      `button[data-toc-index="${index}"]`,
-    );
-    if (!btn) return;
+    const newTop = activeBtn.offsetTop;
+    const newHeight = activeBtn.offsetHeight;
 
-    const prevIndex = lastActiveIndexRef.current;
-    lastActiveIndexRef.current = index;
+    const prevTop = prevTopRef.current ?? newTop;
+    prevTopRef.current = newTop;
 
-    const diff =
-      prevIndex == null ? 1 : Math.max(1, Math.abs(index - prevIndex));
-    // 이동한 목차 수에 비례해서 속도 조정
+    // 거리(px)에 비례해서 속도 조정
+    const distance = Math.abs(newTop - prevTop);
     const base = 90; // ms
-    const perStep = 45; // 한칸당 추가 시간
-    const duration = Math.min(650, base + perStep * diff);
+    const perPx = 0.4; // px당 추가 시간
+    const duration = Math.min(650, base + distance * perPx);
 
-    const top = btn.offsetTop;
-    const height = btn.offsetHeight;
-
-    setIndicatorTop(top);
-    setIndicatorHeight(height);
+    setIndicatorTop(newTop);
+    setIndicatorHeight(newHeight);
     setIndicatorDuration(`${duration}ms`);
 
-    // ✅ [2] 현재 활성 목차가 항상 보이도록 TOC 패널 스크롤
-    const container = tocRef.current;
+    // ✅ TOC 패널 스크롤도 같이 맞춰준다.
+    const container = getTocScrollContainer();
+    if (!container) return;
+
     const padding = 24; // 위/아래 여유
-    const elTop = btn.offsetTop + (headingsListRef.current.offsetTop || 0);
-    const elBottom = elTop + height;
+    // headingsListRef 자체의 offsetTop 을 포함해서, 컨테이너 기준 좌표로 환산
+    const listOffset = headingsListRef.current.offsetTop || 0;
+    const elementTop = listOffset + newTop;
+    const elementBottom = elementTop + newHeight;
+
     const viewTop = container.scrollTop;
     const viewBottom = viewTop + container.clientHeight;
 
-    if (elTop < viewTop + padding) {
-      // 위쪽으로 벗어남 → 위로 스크롤
+    if (elementTop < viewTop + padding) {
       container.scrollTo({
-        top: Math.max(0, elTop - padding),
+        top: Math.max(0, elementTop - padding),
         behavior: 'smooth',
       });
-    } else if (elBottom > viewBottom - padding) {
-      // 아래쪽으로 벗어남 → 아래로 스크롤
-      const nextTop = elBottom - container.clientHeight + padding;
+    } else if (elementBottom > viewBottom - padding) {
+      const nextTop = elementBottom - container.clientHeight + padding;
       container.scrollTo({
         top: Math.max(0, nextTop),
         behavior: 'smooth',
       });
     }
-  }, [activeId, indexed]);
+  }, [activeId]);
 
   // ----- UI 스타일 -----
+  // 👉 여기서는 fixed/overflowY 는 최소한만 잡고,
+  // 실제 레이아웃/스크롤은 .wiki-toc-sidebar 같은 바깥 컨테이너가 담당해도 된다.
   const boxStyle: React.CSSProperties = {
+    // 레이아웃에서 독립적으로 쓰고 싶을 때를 대비해 기본값만 남겨둠
     position: 'fixed',
     right,
     top,
@@ -415,7 +426,7 @@ export default function TableOfContents({
       ref={tocRef}
       role="navigation"
       aria-label="Table of contents"
-      style={{ ...boxStyle, position: 'fixed' }}
+      style={boxStyle}
     >
       {/* 상단 "목차" 라벨 */}
       <p style={titleStyle}>
@@ -511,7 +522,7 @@ export default function TableOfContents({
           marginTop: hasDocTitle ? 4 : 0,
         }}
       >
-        {/* 활성 하이라이트 바 (스크롤되듯이 부드럽게 이동) */}
+        {/* 활성 하이라이트 바 – 실제 활성 버튼 위치로 슬라이드 */}
         {indicatorHeight > 0 && (
           <div
             aria-hidden
@@ -554,7 +565,6 @@ export default function TableOfContents({
                   width: '100%',
                   cursor: 'pointer',
                   border: 0,
-                  // 배경/라인은 하이라이트 바가 대신 처리 → 버튼은 텍스트 색만 변경
                   background: 'transparent',
                   borderLeft: '3px solid transparent',
                   color: active ? '#2563eb' : '#4b5563',
