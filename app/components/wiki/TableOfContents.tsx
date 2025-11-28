@@ -1,5 +1,6 @@
 // =============================================
 // File: app/components/wiki/TableOfContents.tsx
+// (전체 코드)
 // - 해시 포함 링크로 진입했을 때 스크롤 재시도 로직 유지
 // - 사이드바(목차 영역)에서는 링크 복사 버튼 제거
 // - 문서 제목/아이콘(docTitle/docIcon) 목차 맨 위에 표시
@@ -25,13 +26,9 @@ type Props = {
   right?: number;
   top?: number;
   width?: number;
-  /** 목차 박스 상단 라벨 (기본: '목차') */
   title?: string;
-  /** 문서 제목 (DB 메타에서 오는, 실제 글 제목) */
   docTitle?: string;
-  /** 문서 아이콘(이모지 or 이미지 URL). 없으면 첫 heading 아이콘으로 fallback */
   docIcon?: string;
-  /** 문서 뷰의 스크롤 컨테이너 선택자(예: '#wiki-scroll-root') */
   scrollRootSelector?: string;
 };
 
@@ -51,14 +48,14 @@ export default function TableOfContents({
 
   const rootRef = useRef<HTMLElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
-  const [rootKey, setRootKey] = useState(0); // 루트 변경 트리거 키
+  const [rootKey, setRootKey] = useState(0);
 
-  // ✅ TOC 자체 ref
+  // TOC 자체 ref
   const tocRef = useRef<HTMLElement | null>(null);
-  // ✅ headings 리스트 ref (실제 항목들)
+  // heading 버튼들을 담는 UL ref
   const headingsListRef = useRef<HTMLUListElement | null>(null);
 
-  // ✅ 하이라이트 바 위치/크기
+  // 하이라이트 바 상태
   const prevTopRef = useRef<number | null>(null);
   const [indicatorTop, setIndicatorTop] = useState(0);
   const [indicatorHeight, setIndicatorHeight] = useState(0);
@@ -75,18 +72,14 @@ export default function TableOfContents({
   }, [headings]);
 
   const hasDocTitle = !!(docTitle && docTitle.trim());
-  // 문서 제목을 클릭했을 때 점프할 기준 heading (없으면 null)
   const docTitleAnchor = indexed[0] ?? null;
   const resolvedDocIcon = docIcon ?? docTitleAnchor?.icon ?? undefined;
   const isDocTitleActive =
     !!docTitleAnchor && activeId === docTitleAnchor.id;
 
-  // ===== 공통 유틸 =====
+  // ===== 유틸 =====
 
-  // 스크롤 가능한 조상 자동 탐색 (자기 자신은 제외)
-  const findScrollableAncestor = (
-    el: HTMLElement | null,
-  ): HTMLElement | null => {
+  const findScrollableAncestor = (el: HTMLElement | null): HTMLElement | null => {
     let cur: HTMLElement | null = el?.parentElement ?? null;
     while (cur) {
       const { overflowY } = getComputedStyle(cur);
@@ -99,19 +92,15 @@ export default function TableOfContents({
     return null;
   };
 
-  // TOC 스크롤 컨테이너 (부모 중 스크롤 가능 or 자기 자신)
   const getTocScrollContainer = (): HTMLElement | null => {
     if (!tocRef.current) return null;
     const parent = findScrollableAncestor(tocRef.current);
     return parent ?? tocRef.current;
   };
 
-  // root 결정(명시 selector > 자동 > null), 변경 시 rootKey 갱신
   useEffect(() => {
     if (scrollRootSelector) {
-      rootRef.current = document.querySelector<HTMLElement>(
-        scrollRootSelector,
-      );
+      rootRef.current = document.querySelector<HTMLElement>(scrollRootSelector);
       setRootKey(k => k + 1);
       return;
     }
@@ -128,7 +117,6 @@ export default function TableOfContents({
     }
   }, [scrollRootSelector, headings]);
 
-  // 🔍 IntersectionObserver용 root: 실제로 스크롤 가능한 경우에만 사용, 아니면 window 기준(null)
   const getRootForObserver = () => {
     const root = rootRef.current;
     if (!root) return null;
@@ -139,18 +127,15 @@ export default function TableOfContents({
     return canScroll ? root : null;
   };
 
-  // 타겟 찾기(동일 id의 n번째)
   const getTarget = (id: string, occ: number) => {
     const esc = id.replace(/"/g, '\\"');
     const list = document.querySelectorAll<HTMLElement>(`[id="${esc}"]`);
     return list[occ] ?? list[0] ?? null;
   };
 
-  // 🔥 실제로 스크롤에 사용할 루트 결정
   const getScrollRoot = (target: HTMLElement | null): HTMLElement | null => {
     if (!target) return rootRef.current;
 
-    // 1순위: rootRef.current 가 실제로 스크롤 가능한 경우
     if (rootRef.current) {
       const { overflowY } = getComputedStyle(rootRef.current);
       const canScroll =
@@ -160,11 +145,9 @@ export default function TableOfContents({
       if (canScroll) return rootRef.current;
     }
 
-    // 2순위: 타겟 기준으로 스크롤 가능한 조상 자동 탐색
     return findScrollableAncestor(target);
   };
 
-  // 컨테이너 기준 스무스 스크롤
   const scrollToId = (
     id: string,
     occ: number,
@@ -176,14 +159,12 @@ export default function TableOfContents({
     const root = getScrollRoot(target);
 
     if (!root) {
-      // window 스크롤
       const y =
         target.getBoundingClientRect().top +
         window.scrollY -
         headerOffset;
       window.scrollTo({ top: y, behavior });
     } else {
-      // 컨테이너 스크롤
       const rootRect = root.getBoundingClientRect();
       const y =
         target.getBoundingClientRect().top -
@@ -193,7 +174,6 @@ export default function TableOfContents({
       root.scrollTo({ top: y, behavior });
     }
 
-    // 🔁 URL 해시는 간단하게 '#id'만 갱신 (path/query는 그대로 유지)
     try {
       const hashId = target.id || id;
       history.replaceState(null, '', `#${hashId}`);
@@ -212,7 +192,7 @@ export default function TableOfContents({
     return true;
   };
 
-  // ===== 스크롤 스파이(IntersectionObserver) =====
+  // ===== 스크롤 스파이 =====
   useEffect(() => {
     if (!indexed.length) return;
 
@@ -227,11 +207,8 @@ export default function TableOfContents({
         if (visible[0]) {
           const id = (visible[0].target as HTMLElement).id;
           setActiveId(id);
-
           const idx = indexed.findIndex(h => h.id === id);
-          if (idx !== -1) {
-            setActiveIndex(idx);
-          }
+          if (idx !== -1) setActiveIndex(idx);
         }
       },
       {
@@ -242,7 +219,6 @@ export default function TableOfContents({
     );
     observerRef.current = obs;
 
-    // 동일 id 전부 observe
     const observed: HTMLElement[] = [];
     const seenIds = new Set<string>();
     indexed.forEach(({ id }) => {
@@ -263,7 +239,7 @@ export default function TableOfContents({
     };
   }, [indexed, headerOffset, rootKey]);
 
-  // 새 문서 로드 + 해시가 있을 때 해당 위치로 여러 번 재시도하며 스크롤
+  // ===== 해시 초기 스크롤 =====
   useEffect(() => {
     if (!headings.length) return;
 
@@ -274,7 +250,6 @@ export default function TableOfContents({
     if (!hash) return;
 
     const raf = requestAnimationFrame(() => {
-      // 한 번에 안 잡히는 경우를 대비해 약간의 딜레이를 두고 최대 3회 시도
       if (scrollToId(hash, 0, 'auto')) return;
       setTimeout(() => {
         if (scrollToId(hash, 0, 'auto')) return;
@@ -286,44 +261,51 @@ export default function TableOfContents({
     return () => cancelAnimationFrame(raf);
   }, [headings, rootKey]);
 
-  // ===== [1] 활성 하이라이트 바 이동 + [2] TOC 스크롤 따라가기 =====
+  // ===== 하이라이트 + TOC 스크롤 따라가기 =====
   useEffect(() => {
     if (activeIndex < 0) return;
     if (!headingsListRef.current) return;
 
-    // 현재 활성 heading 버튼 (data-toc-index 로 찾기)
-    const activeBtn =
-      headingsListRef.current.querySelector<HTMLButtonElement>(
-        `button[data-toc-index="${activeIndex}"]`,
-      );
-    if (!activeBtn) return;
+    const btn = headingsListRef.current.querySelector<HTMLButtonElement>(
+      `button[data-toc-index="${activeIndex}"]`,
+    );
+    if (!btn) return;
 
-    const newTop = activeBtn.offsetTop;
-    const newHeight = activeBtn.offsetHeight;
+    const list = headingsListRef.current;
+    const listRect = list.getBoundingClientRect();
+    const itemRect = btn.getBoundingClientRect();
+
+    // 리스트 내부 기준 top/height
+    const newTop = itemRect.top - listRect.top;
+    const newHeight = itemRect.height;
 
     const prevTop = prevTopRef.current ?? newTop;
     prevTopRef.current = newTop;
 
     const distance = Math.abs(newTop - prevTop);
-    const base = 100; // ms
-    const perPx = 0.45; // px 당 가산
+    const base = 100;
+    const perPx = 0.45;
     const duration = Math.min(700, base + distance * perPx);
 
     setIndicatorTop(newTop);
     setIndicatorHeight(newHeight);
     setIndicatorDuration(`${duration}ms`);
 
-    // === TOC 스크롤 컨테이너 맞춰서 움직이기 ===
+    // TOC 스크롤
     const container = getTocScrollContainer();
     if (!container) return;
 
-    const padding = 24;
-    const listOffset = headingsListRef.current.offsetTop || 0;
-    const elementTop = listOffset + newTop;
-    const elementBottom = elementTop + newHeight;
+    const containerRect = container.getBoundingClientRect();
+
+    // 아이템의 top/bottom을 container 좌표 + scrollTop 기준으로 환산
+    const elementTop =
+      itemRect.top - containerRect.top + container.scrollTop;
+    const elementBottom =
+      itemRect.bottom - containerRect.top + container.scrollTop;
 
     const viewTop = container.scrollTop;
     const viewBottom = viewTop + container.clientHeight;
+    const padding = 24;
 
     if (elementTop < viewTop + padding) {
       container.scrollTo({
@@ -331,7 +313,8 @@ export default function TableOfContents({
         behavior: 'smooth',
       });
     } else if (elementBottom > viewBottom - padding) {
-      const nextTop = elementBottom - container.clientHeight + padding;
+      const nextTop =
+        elementBottom - container.clientHeight + padding;
       container.scrollTo({
         top: Math.max(0, nextTop),
         behavior: 'smooth',
@@ -339,9 +322,9 @@ export default function TableOfContents({
     }
   }, [activeIndex]);
 
-  // ----- UI 스타일 -----
+  // ===== 스타일 =====
   const boxStyle: React.CSSProperties = {
-    position: 'fixed', // 지금 구조 그대로 쓰고 싶으면 유지
+    position: 'fixed',
     right,
     top,
     width,
@@ -384,7 +367,6 @@ export default function TableOfContents({
     textOverflow: 'ellipsis',
   };
 
-  // 문서 제목용 스타일 (heading-one 느낌)
   const docTitleIconBox: React.CSSProperties = {
     width: 22,
     height: 22,
@@ -407,7 +389,7 @@ export default function TableOfContents({
     WebkitBoxOrient: 'vertical',
   };
 
-  // ----- headings/제목 둘 다 없을 때 -----
+  // ===== 목차 없음 =====
   if (!indexed.length && !hasDocTitle) {
     return (
       <aside
@@ -426,7 +408,7 @@ export default function TableOfContents({
     );
   }
 
-  // ----- 실제 렌더 -----
+  // ===== 렌더 =====
   return (
     <aside
       ref={tocRef}
@@ -434,7 +416,6 @@ export default function TableOfContents({
       aria-label="Table of contents"
       style={boxStyle}
     >
-      {/* 상단 "목차" 라벨 */}
       <p style={titleStyle}>
         <FontAwesomeIcon icon={faAlignLeft} />
         &nbsp;&nbsp;{title}
@@ -442,17 +423,14 @@ export default function TableOfContents({
 
       {/* 문서 제목 블록 */}
       <ul style={listStyle}>
-        {/* 🔹 문서 제목(현재 글의 title/icon) – 목차 맨 위에 한 번 표시 */}
         {hasDocTitle && (
           <li key="__doc-title" style={{ marginBottom: 6 }}>
             <button
               type="button"
               onClick={() => {
                 if (docTitleAnchor) {
-                  // 첫 heading 위치로 이동
                   scrollToId(docTitleAnchor.id, docTitleAnchor.__occ);
                 } else {
-                  // heading 이 하나도 없으면 상단으로 스크롤
                   const root = rootRef.current;
                   if (!root) {
                     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -519,7 +497,7 @@ export default function TableOfContents({
         )}
       </ul>
 
-      {/* 🔹 실제 목차 항목들 (본문 heading 들) + 슬라이딩 하이라이트 */}
+      {/* 실제 목차 항목들 + 슬라이딩 하이라이트 */}
       <ul
         ref={headingsListRef}
         style={{
@@ -528,7 +506,6 @@ export default function TableOfContents({
           marginTop: hasDocTitle ? 4 : 0,
         }}
       >
-        {/* 슬라이딩 하이라이트 바 */}
         {indicatorHeight > 0 && (
           <div
             aria-hidden
@@ -571,7 +548,6 @@ export default function TableOfContents({
                   width: '100%',
                   cursor: 'pointer',
                   border: 0,
-                  // 배경/라인은 하이라이트 바가 담당하므로 여기선 색만 변경
                   background: 'transparent',
                   borderLeft: '3px solid transparent',
                   color: active ? '#2563eb' : '#4b5563',
