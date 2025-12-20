@@ -1734,6 +1734,7 @@ function renderNode(
         textAlign: node.textAlign || "left",
         margin: 0,
         lineHeight: 1.6,
+        fontSize: "19px",
         minHeight: isEmpty ? "1.6em" : undefined,
       };
       if (indentLine) {
