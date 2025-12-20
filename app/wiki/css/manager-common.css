@@ -1,7 +1,7 @@
 /* ========== Manager Common (모든 관리 페이지 공통) ========== */
 
 :root {
-  --mgr-font: 'Inter','Pretendard','Noto Sans KR', Arial, sans-serif;
+  --mgr-font: 'NanumSquareRound','Pretendard','Noto Sans KR', Arial, sans-serif;
   --mgr-accent: #1ec171;
   --mgr-accent-2: #2357b2;
   --mgr-muted: #888;

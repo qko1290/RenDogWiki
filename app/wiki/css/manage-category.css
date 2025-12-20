@@ -19,7 +19,7 @@
 .category-manager-container{
   display:flex; height:100vh; padding-top:64px;
   background:var(--rd-bg); color:var(--rd-text);
-  font-family:'Inter','Pretendard','Noto Sans KR',system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  font-family:'NanumSquareRound','Pretendard','Noto Sans KR',system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
   font-weight:400;
 }
 
