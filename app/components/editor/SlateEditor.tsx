@@ -908,7 +908,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
                 readOnly={false}
                 style={{
                   fontFamily: "'NanumSquareRound', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
-                  fontSize: '19pt',       // 기본 글자 크기
+                  fontSize: '19px',       // 기본 글자 크기
                 }}
                 onKeyDown={onKeyDown}
                 placeholder="문서를 작성하세요..."

@@ -1041,6 +1041,7 @@ const Element: React.FC<ElementRenderProps> = ({
         <p
           {...attributes}
           style={{
+            fontSize: '19px',
             textAlign: el.textAlign || 'left',
             borderLeft: indentLine ? '2px solid #D5D9E0' : undefined,
             paddingLeft: indentLine ? 16 : undefined,
