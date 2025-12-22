@@ -89,6 +89,7 @@ export async function GET(req: NextRequest) {
             SELECT id, title, path, icon, tags, created_at, updated_at, is_featured, special, "order"
             FROM documents
             WHERE path = ${pathNorm}
+              AND (${mainDocId}::int IS NULL OR id <> ${mainDocId})
             ORDER BY "order" ASC, updated_at DESC, id DESC
           `) as any[];
 
