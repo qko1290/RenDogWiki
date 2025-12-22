@@ -37,6 +37,15 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       );
     }
 
+    // ✅ 0) 기존 category 상태(특히 document_id) 확보
+    const prevRows = (await sql`
+      SELECT document_id
+      FROM categories
+      WHERE id = ${idNum}
+      LIMIT 1
+    `) as unknown as Array<{ document_id: number | null }>;
+    const prevDocumentId = prevRows?.[0]?.document_id ?? null;
+
     const body = await req.json().catch(() => null);
     const rawName = typeof body?.name === 'string' ? body.name : '';
     const name = rawName.trim();
@@ -46,7 +55,6 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     const document_id = body?.document_id;
     const icon = typeof body?.icon === 'string' && body.icon !== '' ? body.icon : null;
 
-    // mode_tags 파싱(소문자/공백정리/중복제거)
     const mode_tags: string[] = Array.isArray(body?.mode_tags)
       ? Array.from(
           new Set(
@@ -75,6 +83,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       );
     }
 
+    // ✅ 1) categories 업데이트
     await sql`
       UPDATE categories SET
         name = ${name},
@@ -86,9 +95,39 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       WHERE id = ${idNum}
     `;
 
-    // ✅ 캐시 무효화
-    invalidate('category:list', 'category:tree', 'category:modes', `category:${idNum}`);
+    // ✅ 2) 대표문서 동기화: 이 카테고리(path=idNum) 문서들 중 대표만 is_featured=true
+    // - 대표문서가 null이면 해당 카테고리 문서들 is_featured=false
+    if (documentIdFixed == null) {
+      await sql/*sql*/`
+        UPDATE documents
+        SET is_featured = false, updated_at = NOW()
+        WHERE path = ${String(idNum)}
+      `;
+    } else {
+      await sql/*sql*/`
+        UPDATE documents
+        SET is_featured = (id = ${documentIdFixed}), updated_at = NOW()
+        WHERE path = ${String(idNum)}
+      `;
+    }
 
+    // ✅ 3) 캐시 무효화 (카테고리 + 문서리스트/단건)
+    // doclist 태그는 documents route의 listTag 규칙과 맞춰야 함
+    const docTag = (id: number) => `doc:${id}`;
+    const listTag = (p: string | number) => `doclist:${String(p)}`;
+
+    invalidate(
+      'category:list',
+      'category:tree',
+      'category:modes',
+      `category:${idNum}`,
+      'doc:list',
+      listTag(String(idNum)),
+      ...(prevDocumentId ? [docTag(prevDocumentId)] : []),
+      ...(documentIdFixed ? [docTag(documentIdFixed)] : []),
+    );
+
+    // 이하 로그는 그대로
     const user = getAuthUser();
     const username = user?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
     const parentLabel = await resolveCategoryName(parentIdFixed);
