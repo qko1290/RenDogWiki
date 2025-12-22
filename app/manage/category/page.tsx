@@ -918,6 +918,17 @@ export default function CategoryManager() {
                   </button>
                   <button
                     className="seg-btn"
+                    onClick={() => { 
+                      if (!canOpenCreateModal) return; // writer/admin만
+                      location.href = `/wiki/write?path=${encodeURIComponent(selected.id)}&main=1`;
+                    }}
+                    disabled={!canOpenCreateModal}
+                    title="대표 문서"
+                  >
+                    <span className="seg-label">대표 문서</span>
+                  </button>
+                  <button
+                    className="seg-btn"
                     onClick={() => { location.href = `/wiki/write?path=${encodeURIComponent(selected.id)}`; }}
                     title="문서"
                   >
