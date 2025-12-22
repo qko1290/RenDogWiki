@@ -445,13 +445,16 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
 
   const wrapperStyle: React.CSSProperties = isSmall
     ? {
-        display: 'inline-block',
-        verticalAlign: 'top',
-        width: 'calc(50% - 6px)',
-        maxWidth: 'calc(50% - 6px)',
-        marginRight: 12,
+        // ✅ flex row 안에서는 flex item으로 반반 배치
+        flex: "1 1 calc(50% - 6px)",
+        width: "calc(50% - 6px)",
+        maxWidth: "calc(50% - 6px)",
+        boxSizing: "border-box",
+
+        // ✅ inline-block + marginRight 때문에 2개가 1줄에 안 들어가던 문제 제거
+        display: "block",
       }
-    : { display: 'block', width: '100%', maxWidth: '100%' };
+    : { display: "block", width: "100%", maxWidth: "100%" };
 
   const labelText =
     nodeToPlainText(node.children) ||
@@ -875,11 +878,45 @@ export default function WikiReadRenderer({
     onCopyHeading: handleCopyHeadingLink,
   };
 
-  return (
-    <>
-      {content.map((node, idx) => renderNode(node, idx, ctx))}
-    </>
-  );
+  // ✅ 추가: 최상위에서 link-block(half) 2개씩 묶어서 row로 렌더링
+  const rendered: React.ReactNode[] = [];
+  const isHalfLinkBlock = (n: any) =>
+    n?.type === "link-block" && (n?.size === "small" || n?.size === "half");
+
+  for (let i = 0; i < content.length; i++) {
+    const node: any = content[i];
+
+    // (1) link-block half가 연속 2개면 row로 묶기
+    if (isHalfLinkBlock(node) && isHalfLinkBlock(content[i + 1] as any)) {
+      const a = node;
+      const b: any = content[i + 1];
+
+      rendered.push(
+        <div
+          key={`link-block-row-${i}`}
+          style={{
+            display: "flex",
+            gap: 12,
+            margin: "8px 0",
+            width: "100%",
+            flexWrap: "wrap",
+            alignItems: "stretch",
+          }}
+        >
+          {renderNode(a, i, ctx)}
+          {renderNode(b, i + 1, ctx)}
+        </div>
+      );
+
+      i += 1; // 2개 처리했으니 한 칸 더 스킵
+      continue;
+    }
+
+    // (2) 나머지는 기존처럼 단건 렌더
+    rendered.push(renderNode(node, i, ctx));
+  }
+
+  return <>{rendered}</>;
 }
 
 function PriceTableCardBlock({
