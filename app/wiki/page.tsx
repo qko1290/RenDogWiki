@@ -25,6 +25,10 @@ export default function WikiPage() {
       .then(res => res.ok ? res.json() : null)
       .then(data => setUser(data?.user ?? null));
   }, []);
-  // WikiPageInner: 클라이언트 렌더
-  return <WikiPageInner user={user} />;
+
+  return (
+    <div className="wiki-app">
+      <WikiPageInner user={user} />
+    </div>
+  );
 }

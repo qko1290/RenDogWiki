@@ -3,6 +3,11 @@
 /* ============================================= */
 /* 위키 헤더(상단 고정, 로고, 검색, 우측 메뉴 등) */
 
+:root {
+  --wiki-max-width: 1440px; /* 여기 원하는 최대 폭으로 조절 */
+  --wiki-gutter: 24px;      /* 좌우 여백 */
+}
+
 /* 헤더 전체 영역 */
 .wiki-header {
   position: fixed;
@@ -10,14 +15,29 @@
   left: 0;
   right: 0;
   z-index: 900;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+
   background: #fff;
-  padding: 0.5rem 1.5rem;
   border-bottom: 1px solid #ddd;
   height: 64px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+
+  /* ✅ padding은 inner로 옮김 */
+  padding: 0;
+  display: block;
+}
+
+/* ✅ 실제 헤더 컨텐츠는 max-width 컨테이너 안에 */
+.wiki-header-inner {
+  max-width: var(--wiki-max-width);
+  margin: 0 auto;
+  padding: 0.5rem var(--wiki-gutter);
+
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  position: relative; /* 햄버거 absolute 기준 */
 }
 
 /* 좌측 로고 */

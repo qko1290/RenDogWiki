@@ -772,3 +772,16 @@
 .wiki-heading-anchor-pill--copied {
   color: #16a34a;
 }
+
+:root {
+  --wiki-max-width: 1440px;
+  --wiki-gutter: 24px;
+}
+
+/* Header는 fixed라 별도(inner)로 처리했고,
+   본문 루트는 중앙 정렬 + 좌우 여백 */
+.wiki-app {
+  max-width: var(--wiki-max-width);
+  margin: 0 auto;
+  padding: 0 var(--wiki-gutter);
+}
