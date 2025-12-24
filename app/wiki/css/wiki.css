@@ -173,7 +173,7 @@
 .wiki-content {
   flex: 1;
   overflow-y: auto;
-  padding: 1rem 5rem 2rem 5rem;
+  padding: 1rem 3rem 2rem 5rem;
   background-color: #fff;
 }
 
@@ -774,7 +774,7 @@
 }
 
 :root {
-  --wiki-max-width: 1560px;
+  --wiki-max-width: 1580px;
   --wiki-gutter: 24px;
 }
 
