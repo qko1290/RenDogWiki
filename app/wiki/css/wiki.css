@@ -53,6 +53,7 @@
   font-weight: 600;
   padding: 2px 10px 10px 10px;
   border-right: 1px solid #e0e0e0;
+  border-left: 1px solid #e0e0e0;
   overflow-y: auto;
   scrollbar-gutter: stable;
 }
@@ -774,7 +775,7 @@
 }
 
 :root {
-  --wiki-max-width: 1520px;
+  --wiki-max-width: 1560px;
   --wiki-gutter: 24px;
 }
 
