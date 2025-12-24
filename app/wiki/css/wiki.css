@@ -51,19 +51,28 @@
   background: #ffffff;
   font-size: 14px;
   font-weight: 600;
-  margin-top: 10px;
-  padding: 2px 10px 10px 10px;
+
+  /* ✅ margin-top 제거: 배경색 다른 띠가 생기는 원인 */
+  margin-top: 0;
+
+  /* ✅ 위 여백은 padding-top으로 (흰 배경 유지) */
+  padding: 12px 10px 10px 10px;
+
   border: none !important;
   overflow-y: auto;
   scrollbar-gutter: stable;
 }
 
+/* ✅ border는 "내용 높이까지만" 유지 */
 .wiki-sidebar-inner {
   position: relative;
-  display: inline-block;    /* 핵심: 내용 높이까지만 */
-  min-width: 100%;          /* 레이아웃 깨짐 방지 */
-  padding-left: 12px;       /* 선과 텍스트 간격 */
-  border-left: 1px solid rgba(15, 23, 42, 0.10); /* 아주 옅은 선 */
+  display: inline-block;  /* 내용 높이까지만 */
+  min-width: 100%;
+  padding-left: 12px;     /* 선과 텍스트 간격 */
+  /* ❗ padding-top 주지마 (주면 선이 같이 길어짐) */
+  padding-top: 0;
+
+  border-left: 1px solid rgba(15, 23, 42, 0.10);
 }
 
 /* 트랙은 항상 아주 옅게 */
