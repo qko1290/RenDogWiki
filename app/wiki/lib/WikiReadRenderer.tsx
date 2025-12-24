@@ -830,12 +830,61 @@ function WeaponVideoModal({ open, url, onClose }: WeaponVideoModalProps) {
   );
 }
 
+// ✅ "요소들 사이에 낀 빈 단락" 제거용 유틸 (읽기 렌더에서만 사용)
+function isEmptyParagraphNode(n: any): boolean {
+  if (!n || n.type !== "paragraph") return false;
+  // 텍스트만 추출해서 공백 제거
+  const plain = nodeToPlainText(n.children).replace(/\u200B/g, "").trim();
+  return plain.length === 0;
+}
+
+/**
+ * ✅ "요소 블록" 판정
+ * - 여기서 말하는 요소: 텍스트 문단이 아니라 카드/컴포넌트형 블록들
+ * - 필요하면 타입을 더 추가해도 됨
+ */
+function isElementBlock(n: any): boolean {
+  if (!n || typeof n !== "object") return false;
+
+  switch (n.type) {
+    case "link-block":
+    case "divider":
+    case "info-box":
+    case "image":
+    case "video":
+    case "price-table-card":
+    case "weapon-card":
+    case "table":
+    case "link-block-row":
+      return true;
+    default:
+      return false;
+  }
+}
+
+/**
+ * ✅ 규칙: prev와 next가 모두 "요소 블록"이면, 가운데 빈 paragraph는 렌더에서 제거
+ */
+function compactReadContent(nodes: Descendant[]): Descendant[] {
+  const out: Descendant[] = [];
+
+  for (let i = 0; i < nodes.length; i++) {
+    const prev: any = nodes[i - 1];
+    const cur: any = nodes[i];
+    const next: any = nodes[i + 1];
+
+    if (isEmptyParagraphNode(cur) && isElementBlock(prev) && isElementBlock(next)) {
+      continue;
+    }
+
+    out.push(cur);
+  }
+
+  return out;
+}
+
 // 메인 렌더 컴포넌트
-export default function WikiReadRenderer({
-  content,
-}: {
-  content: Descendant[];
-}) {
+export default function WikiReadRenderer({ content }: { content: Descendant[]; }) {
   const [copiedHeadingId, setCopiedHeadingId] = useState<string | null>(null);
 
   const handleCopyHeadingLink = async (headingId?: string) => {
@@ -878,18 +927,20 @@ export default function WikiReadRenderer({
     onCopyHeading: handleCopyHeadingLink,
   };
 
+  const normalized = compactReadContent(content);
+
   // ✅ 추가: 최상위에서 link-block(half) 2개씩 묶어서 row로 렌더링
   const rendered: React.ReactNode[] = [];
   const isHalfLinkBlock = (n: any) =>
     n?.type === "link-block" && (n?.size === "small" || n?.size === "half");
 
-  for (let i = 0; i < content.length; i++) {
-    const node: any = content[i];
+  for (let i = 0; i < normalized.length; i++) {
+    const node: any = normalized[i];
 
     // (1) link-block half가 연속 2개면 row로 묶기
-    if (isHalfLinkBlock(node) && isHalfLinkBlock(content[i + 1] as any)) {
+    if (isHalfLinkBlock(node) && isHalfLinkBlock(normalized[i + 1] as any)) {
       const a = node;
-      const b: any = content[i + 1];
+      const b: any = normalized[i + 1];
 
       rendered.push(
         <div
@@ -1721,7 +1772,7 @@ function renderLeaf(node: any, key?: React.Key): React.ReactNode {
   style.fontFamily = familyCss;
 
   // 폰트 크기 + 손글씨 보정
-  const normalized = normalizeFontSize(node.fontSize);
+  const normalized = normalizeFontSize(node.fontSize);  
   const basePx = toPxNumber(normalized as any);
   const scale = HANDWRITING_SCALE[familyKey] ?? 1;
 
