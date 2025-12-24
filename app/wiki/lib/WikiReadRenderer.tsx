@@ -837,28 +837,31 @@ function isEmptyParagraphNode(n: any): boolean {
   return plain.length === 0;
 }
 
-// ✅ 이번 정책: "사진-빈단락-사진" 또는 "링크블럭-빈단락-링크블럭" 만 제거
 function compactReadContent(nodes: Descendant[]): Descendant[] {
   const out: Descendant[] = [];
 
   const isImage = (n: any) => n?.type === "image";
-  const isLinkBlock = (n: any) => n?.type === "link-block";
+
+  // ✅ link-block 2개(half) 묶기 때문에, 문서에는 link-block-row가 top-level로 존재할 수 있음
+  const isLinkish = (n: any) =>
+    n?.type === "link-block" || n?.type === "link-block-row";
 
   for (let i = 0; i < nodes.length; i++) {
     const prev: any = nodes[i - 1];
     const cur: any = nodes[i];
     const next: any = nodes[i + 1];
 
+    // 빈 단락이 아니면 그대로 유지
     if (!isEmptyParagraphNode(cur)) {
       out.push(cur);
       continue;
     }
 
-    // ✅ (1) 사진과 사진 사이
+    // ✅ (1) 사진과 사진 사이의 빈단락 제거
     if (isImage(prev) && isImage(next)) continue;
 
-    // ✅ (2) 링크블럭과 링크블럭 사이
-    if (isLinkBlock(prev) && isLinkBlock(next)) continue;
+    // ✅ (2) 링크 블럭(단일/row) 사이의 빈단락 제거
+    if (isLinkish(prev) && isLinkish(next)) continue;
 
     // 그 외의 빈 단락은 유지 (의도된 줄바꿈 가능성)
     out.push(cur);
