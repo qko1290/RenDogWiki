@@ -830,53 +830,37 @@ function WeaponVideoModal({ open, url, onClose }: WeaponVideoModalProps) {
   );
 }
 
-// ✅ "요소들 사이에 낀 빈 단락" 제거용 유틸 (읽기 렌더에서만 사용)
+// ✅ 빈 paragraph 판정 (기존 그대로 써도 됨)
 function isEmptyParagraphNode(n: any): boolean {
   if (!n || n.type !== "paragraph") return false;
-  // 텍스트만 추출해서 공백 제거
   const plain = nodeToPlainText(n.children).replace(/\u200B/g, "").trim();
   return plain.length === 0;
 }
 
-/**
- * ✅ "요소 블록" 판정
- * - 여기서 말하는 요소: 텍스트 문단이 아니라 카드/컴포넌트형 블록들
- * - 필요하면 타입을 더 추가해도 됨
- */
-function isElementBlock(n: any): boolean {
-  if (!n || typeof n !== "object") return false;
-
-  switch (n.type) {
-    case "link-block":
-    case "divider":
-    case "info-box":
-    case "image":
-    case "video":
-    case "price-table-card":
-    case "weapon-card":
-    case "table":
-    case "link-block-row":
-      return true;
-    default:
-      return false;
-  }
-}
-
-/**
- * ✅ 규칙: prev와 next가 모두 "요소 블록"이면, 가운데 빈 paragraph는 렌더에서 제거
- */
+// ✅ 이번 정책: "사진-빈단락-사진" 또는 "링크블럭-빈단락-링크블럭" 만 제거
 function compactReadContent(nodes: Descendant[]): Descendant[] {
   const out: Descendant[] = [];
+
+  const isImage = (n: any) => n?.type === "image";
+  const isLinkBlock = (n: any) => n?.type === "link-block";
 
   for (let i = 0; i < nodes.length; i++) {
     const prev: any = nodes[i - 1];
     const cur: any = nodes[i];
     const next: any = nodes[i + 1];
 
-    if (isEmptyParagraphNode(cur) && isElementBlock(prev) && isElementBlock(next)) {
+    if (!isEmptyParagraphNode(cur)) {
+      out.push(cur);
       continue;
     }
 
+    // ✅ (1) 사진과 사진 사이
+    if (isImage(prev) && isImage(next)) continue;
+
+    // ✅ (2) 링크블럭과 링크블럭 사이
+    if (isLinkBlock(prev) && isLinkBlock(next)) continue;
+
+    // 그 외의 빈 단락은 유지 (의도된 줄바꿈 가능성)
     out.push(cur);
   }
 
