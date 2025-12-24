@@ -1154,30 +1154,32 @@ export default function WikiPageInner({ user }: Props) {
       <div className="wiki-layout">
         <div className="wiki-main-scrollable" id="wiki-scroll-root">
           <aside className="wiki-sidebar">
-            <CategoryTree
-              categories={categories}
-              categoryIdMap={categoryIdMap}
-              categoryIdToPathMap={categoryIdToPathMap}
-              selectedDocPath={selectedDocPath}
-              selectedDocId={selectedDocId}
-              selectedCategoryPath={selectedCategoryPath}
-              setSelectedDocPath={setSelectedDocPath}
-              setSelectedDocId={setSelectedDocId}
-              setSelectedDocTitle={setSelectedDocTitle}
-              setSelectedCategoryPath={setSelectedCategoryPath}
-              setDocContent={setDocContent}
-              fetchDoc={fetchDoc}
-              allDocuments={allDocuments}
-              openPaths={openPaths}
-              closingMap={closingMap}
-              closeTreeWithChildren={closeTreeWithChildren}
-              togglePath={togglePath}
-              handleArrowClick={handleArrowClick}
-              isPathOpen={isPathOpen}
-              isClosing={isClosing}
-              finalizeClose={finalizeClose}
-              interactionReady={interactionReady}
-            />
+            <div className="wiki-sidebar-inner">
+              <CategoryTree
+                categories={categories}
+                categoryIdMap={categoryIdMap}
+                categoryIdToPathMap={categoryIdToPathMap}
+                selectedDocPath={selectedDocPath}
+                selectedDocId={selectedDocId}
+                selectedCategoryPath={selectedCategoryPath}
+                setSelectedDocPath={setSelectedDocPath}
+                setSelectedDocId={setSelectedDocId}
+                setSelectedDocTitle={setSelectedDocTitle}
+                setSelectedCategoryPath={setSelectedCategoryPath}
+                setDocContent={setDocContent}
+                fetchDoc={fetchDoc}
+                allDocuments={allDocuments}
+                openPaths={openPaths}
+                closingMap={closingMap}
+                closeTreeWithChildren={closeTreeWithChildren}
+                togglePath={togglePath}
+                handleArrowClick={handleArrowClick}
+                isPathOpen={isPathOpen}
+                isClosing={isClosing}
+                finalizeClose={finalizeClose}
+                interactionReady={interactionReady}
+              />
+            </div>
           </aside>
 
           <main className={`wiki-content ${contentClass}`}>
