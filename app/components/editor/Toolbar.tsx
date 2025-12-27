@@ -245,11 +245,18 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef, openInlineImageM
 
   useEffect(() => {
     if (!openInlineImageModalRef) return;
+
     openInlineImageModalRef.current = () => {
+      // 단축키로 열 때도 selection 저장 (기존 툴바 버튼들과 동일한 패턴)
       selectionRef.current = editor.selection ?? null;
-      setInlineImgLinkModalOpen(true); // URL 입력 모달
+
+      // ✅ 업로드/선택 모달 열기
+      setInlineImgModalOpen(true);
+
+      // (선택) 드롭다운 닫기
+      window.dispatchEvent(new CustomEvent('editor:close-dropdowns'));
     };
-  }, [editor]);
+  }, [editor, selectionRef, openInlineImageModalRef]);
 
   // ------------------------------ helpers ------------------------------
   function insertInlineMark(editor: Editor, { icon, color }: { icon: string; color: string }) {
