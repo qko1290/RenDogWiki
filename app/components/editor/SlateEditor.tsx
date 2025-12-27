@@ -502,6 +502,8 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     } catch { alert('문서 저장 실패'); }
   };
 
+  const openInlineImageModalRef = useRef<(() => void) | null>(null);
+
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     const HOTKEYS: Record<string, string> = {
       'mod+b': 'bold',
@@ -516,6 +518,12 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
         Transforms.setNodes(editor, { [format]: true } as any, {
           match: n => SlateElement.isElement(n) && Editor.isInline(editor, n),
         });
+      }
+
+      if (isHotkey('mod+shift+i', event)) {
+        event.preventDefault();
+        openInlineImageModalRef.current?.();
+        return;
       }
     }
 
@@ -900,7 +908,10 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
               }}
             >
               <div className="editor-toolbar-wrapper">
-                <Toolbar selectionRef={selectionRef} />
+                <Toolbar
+                  selectionRef={selectionRef}
+                  openInlineImageModalRef={openInlineImageModalRef}
+                />
               </div>
               <Editable
                 renderLeaf={renderLeaf}
