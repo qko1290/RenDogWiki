@@ -1276,8 +1276,8 @@ function WeaponLevelSelector({
 }: WeaponLevelSelectorProps) {
   const [open, setOpen] = useState(false);
 
-  // ✅ 단계가 0개/1개면 버튼 자체를 렌더링하지 않음
-  if (!levelLabels || levelLabels.length <= 1) return null;
+  // ✅ 단계가 0~1개면 버튼 자체를 렌더하지 않음
+  if (levelLabels.length <= 1) return null;
 
   const selectedLabel =
     selectedIndex != null ? levelLabels[selectedIndex] : null;
@@ -1296,31 +1296,28 @@ function WeaponLevelSelector({
     setOpen(false);
   };
 
-  // ===== 스타일(기존 컨셉 유지 + 더 큼/깔끔) =====
+  // ✅ 기존 톤 유지 (색은 거의 그대로)
   const BASE_BG = "rgba(15,23,42,0.96)";
   const BASE_TEXT = "#e5e7eb";
-  const BASE_BORDER = "1px solid rgba(148,163,184,0.55)"; // 기존보다 살짝 얇고 은은하게
+  const BASE_BORDER = "1px solid rgba(148,163,184,0.95)";
   const ACTIVE_BORDER = "1px solid rgba(96,165,250,0.95)";
 
   const MAX_BG = "#facc15";
   const MAX_TEXT = "#111827";
-  const MAX_BORDER = "1px solid rgba(251,191,36,0.95)";
+  const MAX_BORDER = "1px solid #fbbf24";
 
-  // ✅ 크기 업
-  const BADGE_SIZE = 30;      // 기존 22 → 30
-  const BADGE_FONT = 13;      // 기존 11 → 13
-  const ARROW_FONT = 12;      // 기존 10 → 12
-  const GAP = 6;              // 기존 4 → 6
-  const LIST_GAP = 8;         // 기존 6 → 8
-
-  const baseShadow = "0 6px 18px rgba(0,0,0,0.28)";
-  const ringShadow = "0 0 0 1px rgba(15,23,42,0.55)";
+  // ✅ 하얀 배경에서 또렷하게: 크기/그림자만 업그레이드
+  const DOT = 30; // 기존 22 → 30
+  const DOT_FONT = 13; // 기존 11 → 13
+  const TOP_FONT = 14; // 기존 13 → 14
+  const DOT_SHADOW = "0 10px 24px rgba(15,23,42,0.22), 0 2px 6px rgba(15,23,42,0.12)";
+  const DOT_SHADOW_ACTIVE = "0 12px 28px rgba(37,99,235,0.18), 0 2px 8px rgba(15,23,42,0.12)";
 
   return (
     <div
       style={{
         position: "relative",
-        marginLeft: 10,           // 살짝 여유
+        marginLeft: 10,          // 살짝만 여유
         alignSelf: "flex-start",
       }}
     >
@@ -1334,32 +1331,29 @@ function WeaponLevelSelector({
           cursor: "pointer",
           display: "inline-flex",
           alignItems: "center",
-          gap: GAP,
+          gap: 8,                 // 기존 4 → 8
           padding: 0,
           background: "transparent",
           color: BASE_TEXT,
-          fontSize: 14,            // 기존 13 → 14
-          fontWeight: 650,         // 기존 600 → 650 (약간만)
+          fontSize: TOP_FONT,
+          fontWeight: 650,
+          lineHeight: 1,
         }}
-        aria-haspopup="listbox"
-        aria-expanded={open}
       >
         <span
           style={{
-            width: BADGE_SIZE,
-            height: BADGE_SIZE,
-            borderRadius: 9999,
+            width: DOT,
+            height: DOT,
+            borderRadius: 999,
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
-            fontSize: BADGE_FONT,
+            fontSize: DOT_FONT,
             fontWeight: 800,
             background: selectedIsMax ? MAX_BG : BASE_BG,
             color: selectedIsMax ? MAX_TEXT : BASE_TEXT,
             border: selectedIsMax ? MAX_BORDER : BASE_BORDER,
-            boxShadow: `${ringShadow}, ${baseShadow}`,
-            transform: open ? "translateY(-0.5px)" : "translateY(0)",
-            transition: "transform 0.12s ease-out, box-shadow 0.12s ease-out",
+            boxShadow: DOT_SHADOW,
           }}
         >
           {selectedShort}
@@ -1367,11 +1361,10 @@ function WeaponLevelSelector({
 
         <span
           style={{
-            fontSize: ARROW_FONT,
-            opacity: 0.85,
-            lineHeight: 1,
-            transform: open ? "translateY(-0.5px)" : "translateY(0)",
-            transition: "transform 0.12s ease-out",
+            fontSize: 12,          // 기존 10 → 12
+            opacity: 0.8,
+            transform: open ? "translateY(-1px)" : "translateY(0)",
+            transition: "transform 0.12s ease",
             userSelect: "none",
           }}
         >
@@ -1384,12 +1377,12 @@ function WeaponLevelSelector({
         style={{
           position: "absolute",
           top: "100%",
-          right: 16,               // 기존 13 → 16 (뱃지 커진 만큼)
-          marginTop: 6,            // 기존 4 → 6
+          right: 13,
+          marginTop: 8,           // 기존 4 → 8
           zIndex: 40,
           pointerEvents: open ? "auto" : "none",
           opacity: open ? 1 : 0,
-          transform: open ? "translateY(0)" : "translateY(-6px)", // 기존 -4 → -6
+          transform: open ? "translateY(0)" : "translateY(-6px)",
           transition: "opacity 0.16s ease-out, transform 0.16s ease-out",
         }}
       >
@@ -1402,10 +1395,9 @@ function WeaponLevelSelector({
             boxShadow: "none",
             display: "flex",
             flexDirection: "column",
-            gap: LIST_GAP,
+            gap: 10,              // 기존 6 → 10 (더 고급스럽게 여백)
             alignItems: "center",
           }}
-          role="listbox"
         >
           {levelLabels.map((fullLabel, idx) => {
             const short = shortLevelLabel(fullLabel);
@@ -1414,6 +1406,7 @@ function WeaponLevelSelector({
 
             const bg = isMax ? MAX_BG : BASE_BG;
             const textColor = isMax ? MAX_TEXT : BASE_TEXT;
+
             const border = isMax
               ? MAX_BORDER
               : active
@@ -1436,27 +1429,24 @@ function WeaponLevelSelector({
                   alignItems: "center",
                   justifyContent: "center",
                 }}
-                role="option"
-                aria-selected={active}
               >
                 <span
                   style={{
-                    width: BADGE_SIZE,
-                    height: BADGE_SIZE,
-                    borderRadius: 9999,
+                    width: DOT,
+                    height: DOT,
+                    borderRadius: 999,
                     display: "inline-flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: BADGE_FONT,
-                    fontWeight: 800,
+                    fontSize: DOT_FONT,
+                    fontWeight: active ? 900 : 800,
                     background: bg,
                     color: textColor,
                     border,
-                    boxShadow: active
-                      ? `${ringShadow}, 0 10px 26px rgba(0,0,0,0.32)`
-                      : `${ringShadow}, 0 6px 18px rgba(0,0,0,0.24)`,
-                    transform: active ? "scale(1.03)" : "scale(1)",
-                    transition: "transform 0.12s ease-out, box-shadow 0.12s ease-out",
+                    boxShadow: active ? DOT_SHADOW_ACTIVE : DOT_SHADOW,
+                    transform: active ? "translateY(-1px)" : "translateY(0)",
+                    transition:
+                      "transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease",
                   }}
                 >
                   {short}
