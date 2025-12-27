@@ -1276,8 +1276,8 @@ function WeaponLevelSelector({
 }: WeaponLevelSelectorProps) {
   const [open, setOpen] = useState(false);
 
-  // ✅ 단계가 0~1개면 버튼 자체를 렌더링하지 않음
-  if (levelLabels.length <= 1) return null;
+  // ✅ 단계가 0개/1개면 버튼 자체를 렌더링하지 않음
+  if (!levelLabels || levelLabels.length <= 1) return null;
 
   const selectedLabel =
     selectedIndex != null ? levelLabels[selectedIndex] : null;
@@ -1296,30 +1296,35 @@ function WeaponLevelSelector({
     setOpen(false);
   };
 
-  // ✅ 기존 스타일(단색 + MAX만 노랑) 기반 유지
+  // ===== 스타일(기존 컨셉 유지 + 더 큼/깔끔) =====
   const BASE_BG = "rgba(15,23,42,0.96)";
   const BASE_TEXT = "#e5e7eb";
-  const BASE_BORDER = "1px solid rgba(148,163,184,0.9)";
-  const ACTIVE_BORDER = "1px solid #60a5fa";
+  const BASE_BORDER = "1px solid rgba(148,163,184,0.55)"; // 기존보다 살짝 얇고 은은하게
+  const ACTIVE_BORDER = "1px solid rgba(96,165,250,0.95)";
 
   const MAX_BG = "#facc15";
   const MAX_TEXT = "#111827";
-  const MAX_BORDER = "1px solid #fbbf24";
+  const MAX_BORDER = "1px solid rgba(251,191,36,0.95)";
 
-  // ✅ 크기/디테일 업그레이드
-  const PILL = 30; // 기존 22 -> 30
-  const PILL_FONT = 13; // 기존 11 -> 13
-  const BTN_GAP = 6;
+  // ✅ 크기 업
+  const BADGE_SIZE = 30;      // 기존 22 → 30
+  const BADGE_FONT = 13;      // 기존 11 → 13
+  const ARROW_FONT = 12;      // 기존 10 → 12
+  const GAP = 6;              // 기존 4 → 6
+  const LIST_GAP = 8;         // 기존 6 → 8
+
+  const baseShadow = "0 6px 18px rgba(0,0,0,0.28)";
+  const ringShadow = "0 0 0 1px rgba(15,23,42,0.55)";
 
   return (
     <div
       style={{
         position: "relative",
-        marginLeft: 10,
+        marginLeft: 10,           // 살짝 여유
         alignSelf: "flex-start",
       }}
     >
-      {/* 상단 버튼: 뱃지 + 화살표 */}
+      {/* 상단 버튼: 선택된 강수 뱃지 + 화살표 */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -1329,33 +1334,32 @@ function WeaponLevelSelector({
           cursor: "pointer",
           display: "inline-flex",
           alignItems: "center",
-          gap: BTN_GAP,
+          gap: GAP,
           padding: 0,
           background: "transparent",
           color: BASE_TEXT,
-          fontSize: 13,
-          fontWeight: 650,
-          lineHeight: 1,
+          fontSize: 14,            // 기존 13 → 14
+          fontWeight: 650,         // 기존 600 → 650 (약간만)
         }}
+        aria-haspopup="listbox"
+        aria-expanded={open}
       >
         <span
           style={{
-            width: PILL,
-            height: PILL,
-            borderRadius: 999,
+            width: BADGE_SIZE,
+            height: BADGE_SIZE,
+            borderRadius: 9999,
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
-            fontSize: PILL_FONT,
+            fontSize: BADGE_FONT,
             fontWeight: 800,
             background: selectedIsMax ? MAX_BG : BASE_BG,
             color: selectedIsMax ? MAX_TEXT : BASE_TEXT,
             border: selectedIsMax ? MAX_BORDER : BASE_BORDER,
-
-            // ✅ 더 세련된 느낌(얇은 외곽 + 부드러운 그림자)
-            boxShadow: selectedIsMax
-              ? "0 6px 18px rgba(250,204,21,0.22), 0 0 0 1px rgba(15,23,42,0.55)"
-              : "0 6px 18px rgba(0,0,0,0.28), 0 0 0 1px rgba(15,23,42,0.55)",
+            boxShadow: `${ringShadow}, ${baseShadow}`,
+            transform: open ? "translateY(-0.5px)" : "translateY(0)",
+            transition: "transform 0.12s ease-out, box-shadow 0.12s ease-out",
           }}
         >
           {selectedShort}
@@ -1363,24 +1367,15 @@ function WeaponLevelSelector({
 
         <span
           style={{
-            width: 18,
-            height: 18,
-            borderRadius: 999,
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 11,
-            opacity: 0.9,
-            border: "1px solid rgba(148,163,184,0.45)",
-            background: "rgba(2,6,23,0.55)",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
-            transform: open ? "rotate(180deg)" : "rotate(0deg)",
-            transition: "transform 0.16s ease-out",
+            fontSize: ARROW_FONT,
+            opacity: 0.85,
+            lineHeight: 1,
+            transform: open ? "translateY(-0.5px)" : "translateY(0)",
+            transition: "transform 0.12s ease-out",
             userSelect: "none",
           }}
-          aria-hidden
         >
-          ▼
+          {open ? "▲" : "▼"}
         </span>
       </button>
 
@@ -1388,28 +1383,29 @@ function WeaponLevelSelector({
       <div
         style={{
           position: "absolute",
-          top: "calc(100% + 8px)",
-          right: 0,
+          top: "100%",
+          right: 16,               // 기존 13 → 16 (뱃지 커진 만큼)
+          marginTop: 6,            // 기존 4 → 6
           zIndex: 40,
           pointerEvents: open ? "auto" : "none",
           opacity: open ? 1 : 0,
-          transform: open ? "translateY(0)" : "translateY(-6px)",
+          transform: open ? "translateY(0)" : "translateY(-6px)", // 기존 -4 → -6
           transition: "opacity 0.16s ease-out, transform 0.16s ease-out",
         }}
       >
         <div
           style={{
-            padding: 10,
-            borderRadius: 14,
-            background: "rgba(2,6,23,0.92)",
-            border: "1px solid rgba(148,163,184,0.35)",
-            boxShadow: "0 18px 40px rgba(0,0,0,0.45)",
+            padding: 0,
+            borderRadius: 0,
+            background: "transparent",
+            border: "none",
+            boxShadow: "none",
             display: "flex",
             flexDirection: "column",
-            gap: 8,
+            gap: LIST_GAP,
             alignItems: "center",
-            backdropFilter: "blur(8px)",
           }}
+          role="listbox"
         >
           {levelLabels.map((fullLabel, idx) => {
             const short = shortLevelLabel(fullLabel);
@@ -1440,23 +1436,27 @@ function WeaponLevelSelector({
                   alignItems: "center",
                   justifyContent: "center",
                 }}
+                role="option"
+                aria-selected={active}
               >
                 <span
                   style={{
-                    width: PILL,
-                    height: PILL,
-                    borderRadius: 999,
+                    width: BADGE_SIZE,
+                    height: BADGE_SIZE,
+                    borderRadius: 9999,
                     display: "inline-flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: PILL_FONT,
+                    fontSize: BADGE_FONT,
                     fontWeight: 800,
                     background: bg,
                     color: textColor,
                     border,
                     boxShadow: active
-                      ? "0 10px 24px rgba(96,165,250,0.18), 0 0 0 1px rgba(15,23,42,0.6)"
-                      : "0 8px 20px rgba(0,0,0,0.28), 0 0 0 1px rgba(15,23,42,0.45)",
+                      ? `${ringShadow}, 0 10px 26px rgba(0,0,0,0.32)`
+                      : `${ringShadow}, 0 6px 18px rgba(0,0,0,0.24)`,
+                    transform: active ? "scale(1.03)" : "scale(1)",
+                    transition: "transform 0.12s ease-out, box-shadow 0.12s ease-out",
                   }}
                 >
                   {short}
