@@ -39,6 +39,8 @@ export function WeaponCard(props: WeaponCardProps) {
   const isReadOnly = ReactEditor.isReadOnly(editor);
 
   const weaponType: WeaponType = el.weaponType || 'epic';
+  const VIDEOLESS_TYPES = new Set<WeaponType>(['boss', 'mini-boss', 'monster']);
+  const supportsVideo = !VIDEOLESS_TYPES.has(weaponType);
   const meta = WEAPON_TYPES_META[weaponType];
   const stats = ensureWeaponStats(el.stats, weaponType);
   const visibleStats = stats.filter((s) => s.enabled);
@@ -64,11 +66,22 @@ export function WeaponCard(props: WeaponCardProps) {
 
   const handleWeaponTypeChange = (next: WeaponType) => {
     if (next === weaponType) return;
+
     const nextStats = normalizeStatsForWeaponType(stats, next);
+
     updateElement({
       weaponType: next,
       stats: nextStats,
+
+      // ✅ BOSS / MINI BOSS / MONSTER는 영상 자체가 없으니 기존 값도 제거
+      ...(VIDEOLESS_TYPES.has(next) ? { videoUrl: null } : {}),
     });
+
+    // (선택) 혹시 열려있던 모달이 있으면 닫아주기
+    if (VIDEOLESS_TYPES.has(next)) {
+      setVideoSelectOpen(false);
+      setVideoModalOpen(false);
+    }
   };
 
   const handleSaveStat = (updated: WeaponStatConfig) => {
@@ -90,6 +103,7 @@ export function WeaponCard(props: WeaponCardProps) {
   };
 
   const handleVideoSelected = (url: string) => {
+    if (!supportsVideo) return; // ✅ boss/mini-boss/monster 방어
     updateElement({ videoUrl: url });
     setVideoSelectOpen(false);
   };
@@ -97,9 +111,9 @@ export function WeaponCard(props: WeaponCardProps) {
   const cardWidth = 260;
 
   const videoSrc =
-    el.videoUrl && el.videoUrl.startsWith('http')
-      ? toProxyUrl(el.videoUrl)
-      : el.videoUrl || '';
+    supportsVideo && el.videoUrl
+      ? (el.videoUrl.startsWith('http') ? toProxyUrl(el.videoUrl) : el.videoUrl)
+      : '';
 
   const imageSrc =
     el.imageUrl && el.imageUrl.startsWith('http')
@@ -289,61 +303,63 @@ export function WeaponCard(props: WeaponCardProps) {
           </div>
 
           {/* 하단 영상 버튼 */}
-          <div
-            style={{
-              padding: '8px 10px 10px',
-              display: 'flex',
-              gap: showConfigButtons ? 8 : 0,
-              justifyContent: showConfigButtons ? 'stretch' : 'center',
-            }}
-          >
-            {/* ✅ 문서 로드(readOnly)에서는 가운데 정렬 + 단일 버튼 */}
-            <button
-              type="button"
-              disabled={!videoSrc}
-              onClick={() => videoSrc && setVideoModalOpen(true)}
+          {supportsVideo && (
+            <div
               style={{
-                padding: '8px 10px',
-                borderRadius: 999,
-                border: 'none',
-                fontSize: 13,
-                fontWeight: 600,
-                background: videoSrc
-                  ? 'linear-gradient(90deg,#1d4ed8,#3b82f6)'
-                  : '#111827',
-                color: videoSrc ? '#f9fafb' : '#6b7280',
-                cursor: videoSrc ? 'pointer' : 'default',
-                flex: showConfigButtons ? 1 : undefined,
-                minWidth: showConfigButtons ? undefined : 160,
-                textAlign: 'center',
-                boxShadow: videoSrc
-                  ? '0 12px 30px rgba(37,99,235,0.7)'
-                  : 'none',
+                padding: '8px 10px 10px',
+                display: 'flex',
+                gap: showConfigButtons ? 8 : 0,
+                justifyContent: showConfigButtons ? 'stretch' : 'center',
               }}
             >
-              스킬 사용 영상
-            </button>
-
-            {/* 영상 설정 버튼은 에디터에서만 표시 */}
-            {showConfigButtons && (
+              {/* ✅ 문서 로드(readOnly)에서는 가운데 정렬 + 단일 버튼 */}
               <button
                 type="button"
-                onClick={() => setVideoSelectOpen(true)}
+                disabled={!videoSrc}
+                onClick={() => videoSrc && setVideoModalOpen(true)}
                 style={{
                   padding: '8px 10px',
                   borderRadius: 999,
-                  border: '1px solid #334155',
-                  background: '#020617',
-                  color: '#e5e7eb',
-                  fontSize: 12,
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
+                  border: 'none',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  background: videoSrc
+                    ? 'linear-gradient(90deg,#1d4ed8,#3b82f6)'
+                    : '#111827',
+                  color: videoSrc ? '#f9fafb' : '#6b7280',
+                  cursor: videoSrc ? 'pointer' : 'default',
+                  flex: showConfigButtons ? 1 : undefined,
+                  minWidth: showConfigButtons ? undefined : 160,
+                  textAlign: 'center',
+                  boxShadow: videoSrc
+                    ? '0 12px 30px rgba(37,99,235,0.7)'
+                    : 'none',
                 }}
               >
-                영상 설정
+                스킬 사용 영상
               </button>
-            )}
-          </div>
+
+              {/* 영상 설정 버튼은 에디터에서만 표시 */}
+              {showConfigButtons && (
+                <button
+                  type="button"
+                  onClick={() => setVideoSelectOpen(true)}
+                  style={{
+                    padding: '8px 10px',
+                    borderRadius: 999,
+                    border: '1px solid #334155',
+                    background: '#020617',
+                    color: '#e5e7eb',
+                    fontSize: 12,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  영상 설정
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ✅ 정보 설정 버튼: 카드 “밖”에 배치 (에디터에서만) */}
@@ -452,12 +468,13 @@ export function WeaponCard(props: WeaponCardProps) {
         onClose={() => setImageModalOpen(false)}
         onSelectImage={handleImageSelected}
       />
-
-      <ImageSelectModal
-        open={videoSelectOpen && !isReadOnly}
-        onClose={() => setVideoSelectOpen(false)}
-        onSelectImage={handleVideoSelected}
-      />
+      {supportsVideo && (
+        <ImageSelectModal
+          open={videoSelectOpen && !isReadOnly}
+          onClose={() => setVideoSelectOpen(false)}
+          onSelectImage={handleVideoSelected}
+        />
+      )}
 
       <WeaponStatEditModal
         open={!!statEditKey}
@@ -483,11 +500,13 @@ export function WeaponCard(props: WeaponCardProps) {
         }}
       />
 
-      <WeaponVideoModal
-        open={videoModalOpen && !!videoSrc}
-        url={videoSrc}
-        onClose={() => setVideoModalOpen(false)}
-      />
+      {supportsVideo && (
+        <WeaponVideoModal
+          open={videoModalOpen && !!videoSrc}
+          url={videoSrc}
+          onClose={() => setVideoModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

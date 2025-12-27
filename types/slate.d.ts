@@ -193,7 +193,10 @@ export type WeaponType =
   | 'class'
   | 'hidden'
   | 'limited'
-  | 'ancient';
+  | 'ancient'
+  | 'boss'
+  | 'mini-boss'
+  | 'monster';
 
 export type WeaponStatKey =
   | 'damage'      // 데미지

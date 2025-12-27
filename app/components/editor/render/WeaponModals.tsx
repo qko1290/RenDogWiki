@@ -50,6 +50,9 @@ export const WeaponTypeSelectModal: React.FC<WeaponTypeSelectModalProps> = ({
     'hidden',
     'limited',
     'ancient',
+    'boss',
+    'mini-boss',
+    'monster',
   ];
 
   return (

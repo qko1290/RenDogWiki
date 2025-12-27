@@ -16,6 +16,9 @@ export const WEAPON_TYPES_META: Record<
   hidden:    { label: 'HIDDEN',    headerBg: '#0f766e', border: '#14b8a6', badgeBg: '#134e4a' },
   limited:   { label: 'LIMITED',   headerBg: '#f97316', border: '#fdba74', badgeBg: '#c2410c' },
   ancient:   { label: 'ANCIENT',   headerBg: '#6b7280', border: '#9ca3af', badgeBg: '#374151' },
+  boss:      { label: 'BOSS',      headerBg: '#6d28d9', border: '#c4b5fd', badgeBg: '#3b0764' },
+  'mini-boss': { label: 'MINI BOSS', headerBg: '#dc2626', border: '#fca5a5', badgeBg: '#7f1d1d' },
+  monster:   { label: 'MONSTER',   headerBg: '#16a34a', border: '#86efac', badgeBg: '#14532d' },
 };
 
 // 무기 카드에서 사용할 전체 스탯 키 목록
