@@ -1377,7 +1377,7 @@ function WeaponLevelSelector({
         style={{
           position: "absolute",
           top: "100%",
-          right: 13,
+          right: 17,
           marginTop: 8,           // 기존 4 → 8
           zIndex: 40,
           pointerEvents: open ? "auto" : "none",
