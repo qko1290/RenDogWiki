@@ -662,7 +662,11 @@ type WeaponType =
   | "block"
   | "hidden"
   | "limited"
-  | "ancient";
+  | "ancient"
+  | "boss"
+  | "miniBoss"
+  | "monster"
+  | "mini-boss";
 
 // 무기 희귀도(유형)별 메타 정보 (BLOCK/디바인 색상 포함)
 const WEAPON_TYPES_META: Record<
@@ -731,6 +735,10 @@ const WEAPON_TYPES_META: Record<
     border: "#9ca3af",
     badgeBg: "#374151",
   },
+  boss: { label: "BOSS", headerBg: "#6D28D9", border: "#A78BFA", badgeBg: "#4C1D95" },
+  miniBoss: { label: "MINI BOSS", headerBg: "#DC2626", border: "#F87171", badgeBg: "#7F1D1D" },
+  monster: { label: "MONSTER", headerBg: "#059669", border: "#34D399", badgeBg: "#064E3B" },
+  "mini-boss": { label: "MINI BOSS", headerBg: "#DC2626", border: "#F87171", badgeBg: "#7F1D1D" },
 };
 
 // 공격 영상 모달 (문서 보기에서도 사용)
@@ -1505,7 +1513,10 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
   const rawImage = node.imageUrl || node.image || "";
   const imageSrc = rawImage ? withVersion(cdn(rawImage), versionBase) : "";
 
-  const rawVideo = node.videoUrl || "";
+  const VIDEOLESS_TYPES: WeaponType[] = ["boss", "miniBoss", "mini-boss", "monster"];
+  const supportsVideo = !VIDEOLESS_TYPES.includes(weaponType);
+
+  const rawVideo = supportsVideo ? node.videoUrl || "" : "";
   const videoSrc = rawVideo ? withVersion(cdn(rawVideo), versionBase) : "";
 
   const getStatDisplay = (stat: any): { value: string; unit?: string } => {
@@ -1686,38 +1697,40 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
           </div>
 
           {/* 하단 공격 영상 버튼 */}
-          <div
-            style={{
-              padding: "8px 10px 10px",
-              display: "flex",
-              justifyContent: "center",
-            }}
-          >
-            <button
-              type="button"
-              disabled={!videoSrc}
-              onClick={() => videoSrc && setShowVideo(true)}
+          {supportsVideo && (
+            <div
               style={{
-                padding: "8px 10px",
-                borderRadius: 999,
-                border: "none",
-                fontSize: 13,
-                fontWeight: 600,
-                background: videoSrc
-                  ? "linear-gradient(90deg,#1d4ed8,#3b82f6)"
-                  : "#111827",
-                color: videoSrc ? "#f9fafb" : "#6b7280",
-                cursor: videoSrc ? "pointer" : "default",
-                minWidth: 160,
-                textAlign: "center",
-                boxShadow: videoSrc
-                  ? "0 12px 30px rgba(37,99,235,0.7)"
-                  : "none",
+                padding: "8px 10px 10px",
+                display: "flex",
+                justifyContent: "center",
               }}
             >
-              스킬 사용 영상
-            </button>
-          </div>
+              <button
+                type="button"
+                disabled={!videoSrc}
+                onClick={() => videoSrc && setShowVideo(true)}
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: 999,
+                  border: "none",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  background: videoSrc
+                    ? "linear-gradient(90deg,#1d4ed8,#3b82f6)"
+                    : "#111827",
+                  color: videoSrc ? "#f9fafb" : "#6b7280",
+                  cursor: videoSrc ? "pointer" : "default",
+                  minWidth: 160,
+                  textAlign: "center",
+                  boxShadow: videoSrc
+                    ? "0 12px 30px rgba(37,99,235,0.7)"
+                    : "none",
+                }}
+              >
+                스킬 사용 영상
+              </button>
+            </div>
+          )}
         </div>
 
         {/* 오른쪽 강수 선택 버튼 */}
@@ -1731,7 +1744,7 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
       </div>
 
       {/* 영상 모달 */}
-      {videoSrc && (
+      {supportsVideo && videoSrc && (
         <WeaponVideoModal
           open={showVideo}
           url={videoSrc}
