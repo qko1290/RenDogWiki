@@ -1706,7 +1706,7 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
         </div>
 
         {/* 오른쪽 강수 선택 버튼 */}
-        {levelLabels.length > 0 && (
+        {levelLabels.length > 1 && (
           <WeaponLevelSelector
             levelLabels={levelLabels}
             selectedIndex={selectedLevelIndex}
