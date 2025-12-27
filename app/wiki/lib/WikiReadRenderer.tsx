@@ -1276,108 +1276,191 @@ function WeaponLevelSelector({
 }: WeaponLevelSelectorProps) {
   const [open, setOpen] = useState(false);
 
-  if (!levelLabels.length) return null;
+  // ✅ 단계가 0~1개면 버튼 자체를 렌더링하지 않음
+  if (levelLabels.length <= 1) return null;
 
   const selectedLabel =
     selectedIndex != null ? levelLabels[selectedIndex] : null;
   const selectedShort = selectedLabel ? shortLevelLabel(selectedLabel) : "-";
 
-  const isMax = (label?: string | null) =>
-    (label ?? "").toUpperCase().includes("MAX");
+  const isMaxLabel = (label: string | null | undefined, short: string) => {
+    if (!label && !short) return false;
+    const up = (label ?? "").toUpperCase();
+    return up.includes("MAX") || up === "M" || short === "M";
+  };
+
+  const selectedIsMax = isMaxLabel(selectedLabel, selectedShort);
+
+  const handleSelect = (idx: number) => {
+    onChange(idx);
+    setOpen(false);
+  };
+
+  // ✅ 기존 스타일(단색 + MAX만 노랑) 기반 유지
+  const BASE_BG = "rgba(15,23,42,0.96)";
+  const BASE_TEXT = "#e5e7eb";
+  const BASE_BORDER = "1px solid rgba(148,163,184,0.9)";
+  const ACTIVE_BORDER = "1px solid #60a5fa";
+
+  const MAX_BG = "#facc15";
+  const MAX_TEXT = "#111827";
+  const MAX_BORDER = "1px solid #fbbf24";
+
+  // ✅ 크기/디테일 업그레이드
+  const PILL = 30; // 기존 22 -> 30
+  const PILL_FONT = 13; // 기존 11 -> 13
+  const BTN_GAP = 6;
 
   return (
     <div
       style={{
         position: "relative",
-        alignSelf: "stretch",
-        display: "flex",
-        alignItems: "flex-start",
+        marginLeft: 10,
+        alignSelf: "flex-start",
       }}
     >
-      {/* 메인 버튼 */}
+      {/* 상단 버튼: 뱃지 + 화살표 */}
       <button
         type="button"
-        onClick={() => setOpen(v => !v)}
+        onClick={() => setOpen((v) => !v)}
         style={{
-          width: 40,
-          height: 48,
-          borderRadius: 12,
-          background: "rgba(15,23,42,0.85)",
-          backdropFilter: "blur(6px)",
-          border: "1px solid rgba(148,163,184,0.35)",
-          color: "#e5e7eb",
-          fontSize: 16,
-          fontWeight: 800,
+          border: "none",
+          outline: "none",
           cursor: "pointer",
-          boxShadow: "0 8px 24px rgba(0,0,0,.35)",
-          display: "flex",
+          display: "inline-flex",
           alignItems: "center",
-          justifyContent: "center",
+          gap: BTN_GAP,
+          padding: 0,
+          background: "transparent",
+          color: BASE_TEXT,
+          fontSize: 13,
+          fontWeight: 650,
+          lineHeight: 1,
         }}
-        title="강화 단계 선택"
       >
-        {selectedShort}
+        <span
+          style={{
+            width: PILL,
+            height: PILL,
+            borderRadius: 999,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: PILL_FONT,
+            fontWeight: 800,
+            background: selectedIsMax ? MAX_BG : BASE_BG,
+            color: selectedIsMax ? MAX_TEXT : BASE_TEXT,
+            border: selectedIsMax ? MAX_BORDER : BASE_BORDER,
+
+            // ✅ 더 세련된 느낌(얇은 외곽 + 부드러운 그림자)
+            boxShadow: selectedIsMax
+              ? "0 6px 18px rgba(250,204,21,0.22), 0 0 0 1px rgba(15,23,42,0.55)"
+              : "0 6px 18px rgba(0,0,0,0.28), 0 0 0 1px rgba(15,23,42,0.55)",
+          }}
+        >
+          {selectedShort}
+        </span>
+
+        <span
+          style={{
+            width: 18,
+            height: 18,
+            borderRadius: 999,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 11,
+            opacity: 0.9,
+            border: "1px solid rgba(148,163,184,0.45)",
+            background: "rgba(2,6,23,0.55)",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
+            transform: open ? "rotate(180deg)" : "rotate(0deg)",
+            transition: "transform 0.16s ease-out",
+            userSelect: "none",
+          }}
+          aria-hidden
+        >
+          ▼
+        </span>
       </button>
 
-      {/* 드롭다운 */}
+      {/* 펼쳐지는 강수 리스트 */}
       <div
         style={{
           position: "absolute",
-          top: "100%",
-          left: "50%",
-          transform: "translateX(-50%)",
-          marginTop: 8,
-          opacity: open ? 1 : 0,
+          top: "calc(100% + 8px)",
+          right: 0,
+          zIndex: 40,
           pointerEvents: open ? "auto" : "none",
-          transition: "all .15s ease",
-          zIndex: 50,
+          opacity: open ? 1 : 0,
+          transform: open ? "translateY(0)" : "translateY(-6px)",
+          transition: "opacity 0.16s ease-out, transform 0.16s ease-out",
         }}
       >
         <div
           style={{
-            background: "rgba(15,23,42,0.95)",
-            backdropFilter: "blur(8px)",
+            padding: 10,
             borderRadius: 14,
-            padding: "6px 4px",
-            border: "1px solid rgba(148,163,184,0.25)",
-            boxShadow: "0 16px 40px rgba(0,0,0,.45)",
+            background: "rgba(2,6,23,0.92)",
+            border: "1px solid rgba(148,163,184,0.35)",
+            boxShadow: "0 18px 40px rgba(0,0,0,0.45)",
             display: "flex",
             flexDirection: "column",
-            gap: 4,
+            gap: 8,
+            alignItems: "center",
+            backdropFilter: "blur(8px)",
           }}
         >
-          {levelLabels.map((label, idx) => {
-            const active = idx === selectedIndex;
-            const max = isMax(label);
+          {levelLabels.map((fullLabel, idx) => {
+            const short = shortLevelLabel(fullLabel);
+            const active = selectedIndex === idx;
+            const isMax = isMaxLabel(fullLabel, short);
+
+            const bg = isMax ? MAX_BG : BASE_BG;
+            const textColor = isMax ? MAX_TEXT : BASE_TEXT;
+            const border = isMax
+              ? MAX_BORDER
+              : active
+              ? ACTIVE_BORDER
+              : BASE_BORDER;
 
             return (
               <button
-                key={label + idx}
+                key={`${fullLabel}-${idx}`}
                 type="button"
-                onClick={() => {
-                  onChange(idx);
-                  setOpen(false);
-                }}
+                onClick={() => handleSelect(idx)}
                 style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 10,
-                  background: active
-                    ? "linear-gradient(135deg,#2563eb,#3b82f6)"
-                    : "transparent",
-                  border: active
-                    ? "none"
-                    : "1px solid rgba(148,163,184,0.15)",
-                  color: active ? "#fff" : "#cbd5f5",
-                  fontSize: 15,
-                  fontWeight: max ? 900 : 700,
+                  border: "none",
+                  outline: "none",
                   cursor: "pointer",
+                  padding: 0,
+                  margin: 0,
+                  background: "transparent",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                 }}
               >
-                {shortLevelLabel(label)}
+                <span
+                  style={{
+                    width: PILL,
+                    height: PILL,
+                    borderRadius: 999,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: PILL_FONT,
+                    fontWeight: 800,
+                    background: bg,
+                    color: textColor,
+                    border,
+                    boxShadow: active
+                      ? "0 10px 24px rgba(96,165,250,0.18), 0 0 0 1px rgba(15,23,42,0.6)"
+                      : "0 8px 20px rgba(0,0,0,0.28), 0 0 0 1px rgba(15,23,42,0.45)",
+                  }}
+                >
+                  {short}
+                </span>
               </button>
             );
           })}
