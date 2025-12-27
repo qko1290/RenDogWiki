@@ -520,7 +520,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
         });
       }
 
-      if (isHotkey('mod+shift+i', event)) {
+      if (isHotkey('mod+shift+e', event)) {
         event.preventDefault();
         openInlineImageModalRef.current?.();
         return;
