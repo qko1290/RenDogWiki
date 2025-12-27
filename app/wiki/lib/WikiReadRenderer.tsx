@@ -1282,160 +1282,102 @@ function WeaponLevelSelector({
     selectedIndex != null ? levelLabels[selectedIndex] : null;
   const selectedShort = selectedLabel ? shortLevelLabel(selectedLabel) : "-";
 
-  const isMaxLabel = (label: string | null | undefined, short: string) => {
-    if (!label && !short) return false;
-    const up = (label ?? "").toUpperCase();
-    return up.includes("MAX") || up === "M" || short === "M";
-  };
-
-  const selectedIsMax = isMaxLabel(selectedLabel, selectedShort);
-
-  const handleSelect = (idx: number) => {
-    onChange(idx);
-    setOpen(false);
-  };
-
-  // 단일색 스타일 정의
-  const BASE_BG = "rgba(15,23,42,0.96)";
-  const BASE_TEXT = "#e5e7eb";
-  const BASE_BORDER = "1px solid rgba(148,163,184,0.9)";
-  const ACTIVE_BORDER = "1px solid #60a5fa";
-
-  const MAX_BG = "#facc15";
-  const MAX_TEXT = "#111827";
-  const MAX_BORDER = "1px solid #fbbf24";
+  const isMax = (label?: string | null) =>
+    (label ?? "").toUpperCase().includes("MAX");
 
   return (
     <div
       style={{
         position: "relative",
-        marginLeft: 8,
-        alignSelf: "flex-start",
+        alignSelf: "stretch",
+        display: "flex",
+        alignItems: "flex-start",
       }}
     >
-      {/* 상단 버튼: 선택된 강수 뱃지 + 화살표만 (단색) */}
+      {/* 메인 버튼 */}
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen(v => !v)}
         style={{
-          border: "none",
-          outline: "none",
+          width: 40,
+          height: 48,
+          borderRadius: 12,
+          background: "rgba(15,23,42,0.85)",
+          backdropFilter: "blur(6px)",
+          border: "1px solid rgba(148,163,184,0.35)",
+          color: "#e5e7eb",
+          fontSize: 16,
+          fontWeight: 800,
           cursor: "pointer",
-          display: "inline-flex",
+          boxShadow: "0 8px 24px rgba(0,0,0,.35)",
+          display: "flex",
           alignItems: "center",
-          gap: 4,
-          padding: 0,
-          background: "transparent",
-          color: BASE_TEXT,
-          fontSize: 13,
-          fontWeight: 600,
+          justifyContent: "center",
         }}
+        title="강화 단계 선택"
       >
-        <span
-          style={{
-            width: 22,
-            height: 22,
-            borderRadius: "999px",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 11,
-            fontWeight: 700,
-            background: selectedIsMax ? MAX_BG : BASE_BG,
-            color: selectedIsMax ? MAX_TEXT : BASE_TEXT,
-            border: selectedIsMax ? MAX_BORDER : BASE_BORDER,
-            boxShadow: "0 0 0 1px rgba(15,23,42,0.7)",
-          }}
-        >
-          {selectedShort}
-        </span>
-        <span
-          style={{
-            fontSize: 10,
-            opacity: 0.8,
-          }}
-        >
-          {open ? "▲" : "▼"}
-        </span>
+        {selectedShort}
       </button>
 
-      {/* 펼쳐지는 강수 리스트 */}
+      {/* 드롭다운 */}
       <div
         style={{
           position: "absolute",
           top: "100%",
-          right: 13,
-          marginTop: 4,
-          zIndex: 40,
-          pointerEvents: open ? "auto" : "none",
+          left: "50%",
+          transform: "translateX(-50%)",
+          marginTop: 8,
           opacity: open ? 1 : 0,
-          transform: open ? "translateY(0)" : "translateY(-4px)",
-          transition: "opacity 0.16s ease-out, transform 0.16s ease-out",
+          pointerEvents: open ? "auto" : "none",
+          transition: "all .15s ease",
+          zIndex: 50,
         }}
       >
         <div
           style={{
-            padding: 0,
-            borderRadius: 0,
-            background: "transparent",
-            border: "none",
-            boxShadow: "none",
+            background: "rgba(15,23,42,0.95)",
+            backdropFilter: "blur(8px)",
+            borderRadius: 14,
+            padding: "6px 4px",
+            border: "1px solid rgba(148,163,184,0.25)",
+            boxShadow: "0 16px 40px rgba(0,0,0,.45)",
             display: "flex",
             flexDirection: "column",
-            gap: 6,
-            alignItems: "center",
+            gap: 4,
           }}
         >
-          {levelLabels.map((fullLabel, idx) => {
-            const short = shortLevelLabel(fullLabel);
-            const active = selectedIndex === idx;
-            const isMax = isMaxLabel(fullLabel, short);
-
-            const bg = isMax ? MAX_BG : BASE_BG;
-            const textColor = isMax ? MAX_TEXT : BASE_TEXT;
-            const border = isMax
-              ? MAX_BORDER
-              : active
-              ? ACTIVE_BORDER
-              : BASE_BORDER;
+          {levelLabels.map((label, idx) => {
+            const active = idx === selectedIndex;
+            const max = isMax(label);
 
             return (
               <button
-                key={`${fullLabel}-${idx}`}
+                key={label + idx}
                 type="button"
-                onClick={() => handleSelect(idx)}
+                onClick={() => {
+                  onChange(idx);
+                  setOpen(false);
+                }}
                 style={{
-                  border: "none",
-                  outline: "none",
+                  width: 44,
+                  height: 44,
+                  borderRadius: 10,
+                  background: active
+                    ? "linear-gradient(135deg,#2563eb,#3b82f6)"
+                    : "transparent",
+                  border: active
+                    ? "none"
+                    : "1px solid rgba(148,163,184,0.15)",
+                  color: active ? "#fff" : "#cbd5f5",
+                  fontSize: 15,
+                  fontWeight: max ? 900 : 700,
                   cursor: "pointer",
-                  padding: 0,
-                  margin: 0,
-                  background: "transparent",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                 }}
               >
-                <span
-                  style={{
-                    width: 22,
-                    height: 22,
-                    borderRadius: "999px",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    background: bg,
-                    color: textColor,
-                    border,
-                    boxShadow: active
-                      ? "0 0 0 1px rgba(15,23,42,0.7)"
-                      : "0 0 0 1px rgba(15,23,42,0.4)",
-                  }}
-                >
-                  {short}
-                </span>
+                {shortLevelLabel(label)}
               </button>
             );
           })}
