@@ -416,6 +416,7 @@ export function WeaponCard(props: WeaponCardProps) {
             </div>
           )}
         </div>
+        </div>
 
         {/* ✅ 정보 설정 버튼: 카드 “밖”에 배치 (에디터에서만) */}
         {showConfigButtons && (
@@ -439,7 +440,6 @@ export function WeaponCard(props: WeaponCardProps) {
             정보 설정
           </button>
         )}
-      </div>
       </div>
 
       {children}
