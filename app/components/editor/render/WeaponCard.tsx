@@ -440,6 +440,7 @@ export function WeaponCard(props: WeaponCardProps) {
           </button>
         )}
       </div>
+      </div>
 
       {children}
 
@@ -562,7 +563,6 @@ export function WeaponCard(props: WeaponCardProps) {
           onClose={() => setVideoModalOpen(false)}
         />
       )}
-    </div>
     </div>
   );
 }
