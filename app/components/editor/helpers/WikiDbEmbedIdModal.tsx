@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import type { WikiEmbedKind } from '../helpers/insertWikiDbEmbed.ts';
+import type { WikiEmbedKind } from '../helpers/insertWikiDbEmbed';
 
 type Props = {
   open: boolean;
