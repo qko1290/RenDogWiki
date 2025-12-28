@@ -28,6 +28,7 @@ type DropdownButtonProps = {
   setOpenDropdown: (id: string | null) => void;
   /** 이 드롭다운 메뉴의 최소 너비(px) – 표 생성 메뉴만 260~280 정도로 키워서 사용 */
   menuMinWidth?: number;
+  disabled?: boolean;
 };
 
 const DEFAULT_MENU_EST_WIDTH = 260; // 오른쪽 오버플로우 감지용 기본 값
@@ -42,6 +43,7 @@ const DropdownButton = ({
   openDropdown,
   setOpenDropdown,
   menuMinWidth,
+  disabled,
 }: DropdownButtonProps) => {
   const editor = useSlate();
   const isOpen = openDropdown === dropdownId;
@@ -163,14 +165,20 @@ const DropdownButton = ({
       <button
         ref={btnRef}
         type="button"
+        disabled={!!disabled}
         onMouseDown={(e) => {
           e.preventDefault();
+          if (disabled) return;
           isOpen ? closeMenu() : openMenu();
         }}
         className="editor-toolbar-btn"
         aria-haspopup="menu"
         aria-expanded={isOpen}
         aria-controls={isOpen ? `${dropdownId}-menu` : undefined}
+        style={{
+          opacity: disabled ? 0.45 : 1,       // ✅ 선택: 비활성 느낌
+          cursor: disabled ? 'not-allowed' : 'pointer',
+        }}
       >
         {label}
       </button>

@@ -235,6 +235,31 @@ export interface WeaponCardElement {
   children: [{ text: '' }];        // Slate void 패턴용
 }
 
+export type QuestEmbedElement = {
+  type: 'quest-embed';
+  questId: number;
+  children: [{ text: '' }];
+};
+
+export type NpcEmbedElement = {
+  type: 'npc-embed';
+  npcId: number;
+  children: [{ text: '' }];
+};
+
+export type QnaEmbedElement = {
+  type: 'qna-embed';
+  qnaId: number;
+  children: [{ text: '' }];
+};
+
+export type WikiRefElement = {
+  type: 'wiki-ref';
+  refType: 'quest' | 'npc' | 'qna';
+  refId: number;
+  children: CustomText[];
+};
+
 // ===== 모든 Element 통합 =====
 export type CustomElement =
   | ParagraphElement
@@ -254,6 +279,10 @@ export type CustomElement =
   | TableRowElement
   | TableCellElement
   | VideoElement
+  | QuestEmbedElement
+  | NpcEmbedElement
+  | QnaEmbedElement
+  | WikiRefElement
   | WeaponCardElement;
 
 // Slate 타입 오버라이드

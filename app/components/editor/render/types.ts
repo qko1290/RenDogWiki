@@ -2,7 +2,6 @@
 import type React from 'react';
 import type { RenderElementProps } from 'slate-react';
 import type { Path } from 'slate';
-import type { Element as SlateElement } from 'slate';
 import type { CustomElement } from '@/types/slate';
 
 export type PriceTableEditState = {
@@ -21,6 +20,10 @@ export type CustomElementProps = {
   onIconClick: (element: CustomElement) => void;
   priceTableEdit: PriceTableEditState;
   setPriceTableEdit: React.Dispatch<React.SetStateAction<PriceTableEditState>>;
+
+  // ✅ 추가: 문서(읽기) 전용 클릭 → 모달 오픈
+  readOnly?: boolean;
+  onOpenWikiRef?: (refType: 'quest' | 'npc' | 'qna', refId: number) => void;
 };
 
 export type ElementRenderProps = RenderElementProps & CustomElementProps;

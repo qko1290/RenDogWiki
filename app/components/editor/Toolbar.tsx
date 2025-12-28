@@ -39,6 +39,14 @@ import { insertWeaponInfo } from './helpers/insertWeaponInfo';
 
 import TablePicker from './TablePicker';
 import { insertTable } from './helpers/insertTable';
+import WikiDbEmbedIdModal from './helpers/WikiDbEmbedIdModal';
+import {
+  insertQuestEmbedById,
+  insertNpcEmbedById,
+  insertQnaEmbedById,
+  type WikiEmbedKind,
+} from './helpers/insertWikiDbEmbed';
+import { wrapSelectionWithWikiRef, type WikiRefType } from './helpers/wrapWikiRef';
 
 type ToolbarProps = {
   selectionRef: React.MutableRefObject<Range | null>;
@@ -159,12 +167,22 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef, openInlineImageM
   const [tablePickerOpen, setTablePickerOpen] = useState(false);
   const tableBtnRef = useRef<HTMLButtonElement | null>(null);
 
+  const [wikiEmbedModalOpen, setWikiEmbedModalOpen] = useState(false);
+  const [wikiEmbedKind, setWikiEmbedKind] = useState<WikiEmbedKind>('quest');
+
   // ===== 유틸: 모두 닫기 =====
   const closeAllDropdowns = () => {
     setOpenDropdown(null);
     setShowColorDropdown(false);
     setShowBgColorDropdown(false);
   };
+
+  const hasSelectionText = (() => {
+    const sel = editor.selection;
+    if (!sel || Range.isCollapsed(sel)) return false;
+    const txt = Editor.string(editor, sel);
+    return txt.trim().length > 0;
+  })();
 
   // 전역 이벤트로 닫기
   useEffect(() => {
@@ -202,6 +220,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef, openInlineImageM
     inlineImgLinkModalOpen ||
     linkModalOpen ||
     !!headingModalOpen ||
+    wikiEmbedModalOpen ||
     showPriceTableInsertModal;
 
   useEffect(() => {
@@ -718,6 +737,39 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef, openInlineImageM
       >
         <FontAwesomeIcon icon={faTable} />
       </button>
+      
+      {/* 퀘스트 / NPC / QNA 삽입 (ID만 입력) */}
+      <DropdownButton
+        label={<span style={{ fontSize: 16, lineHeight: 1 }}>🧩</span>}
+        items={['퀘스트', 'NPC', 'QNA']}
+        itemsMap={{ 퀘스트: 'quest', NPC: 'npc', QNA: 'qna' }}
+        selectionRef={selectionRef}
+        dropdownId="wiki-db-embed"
+        openDropdown={openDropdown}
+        setOpenDropdown={setOpenDropdown}
+        disabled={!hasSelectionText}
+        onSelect={(kind) => {
+          setWikiEmbedKind(kind as WikiEmbedKind);
+          setWikiEmbedModalOpen(true);
+        }}
+      />
+
+      <WikiDbEmbedIdModal
+        open={wikiEmbedModalOpen}
+        kind={wikiEmbedKind as any}
+        onClose={() => setWikiEmbedModalOpen(false)}
+        onSubmit={(id) => {
+          // 드롭다운 열릴 때 저장해둔 selectionRef로 커서 복원
+          if (selectionRef.current) {
+            try {
+              Transforms.select(editor, selectionRef.current);
+            } catch {}
+          }
+
+          wrapSelectionWithWikiRef(editor, wikiEmbedKind as WikiRefType, id); // ✅ 핵심
+          setWikiEmbedModalOpen(false);
+        }}
+      />
 
       {/* 무기 정보 박스 삽입 */}
       <button

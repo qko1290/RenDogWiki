@@ -55,6 +55,9 @@ const VOID_BLOCK_TYPES = new Set([
   'divider',
   'price-table-card',
   'weapon-card',
+  'quest-embed',
+  'npc-embed',
+  'qna-embed',
 ]);
 
 // weapon-card / price-table-card 내부에서 Enter 눌렀을 때
@@ -76,7 +79,10 @@ function withWeaponBlocks(editor: Editor): Editor {
       match: (n) =>
         SlateElement.isElement(n) &&
         ((n as any).type === 'weapon-card' ||
-          (n as any).type === 'price-table-card'),
+          (n as any).type === 'price-table-card' ||
+          (n as any).type === 'quest-embed' ||   // ✅
+          (n as any).type === 'npc-embed' ||     // ✅
+          (n as any).type === 'qna-embed'),
     });
 
     if (match) {
@@ -157,7 +163,8 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
   const withCustomInline = (editor: Editor) => {
     const { isInline, isVoid } = editor;
     editor.isInline = el =>
-      el.type === 'link' || el.type === 'inline-mark' || el.type === 'inline-image'
+      el.type === 'link' || el.type === 'inline-mark' || el.type === 'inline-image' ||
+      (el as any).type === 'wiki-ref'
         ? true
         : isInline(el);
     editor.isVoid = el =>
@@ -415,6 +422,9 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
         onIconClick={handleIconClick}
         priceTableEdit={priceTableEdit}
         setPriceTableEdit={setPriceTableEdit}
+        onOpenWikiRef={(refType, refId) => {
+          // TODO: 여기서 모달 오픈 처리
+        }}
       />
     ),
     [editor, priceTableEdit]
@@ -583,7 +593,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
             if (
               prevNode &&
               SlateElement.isElement(prevNode) &&
-              ['weapon-card', 'price-table-card'].includes(
+              ['weapon-card', 'price-table-card', 'quest-embed', 'npc-embed', 'qna-embed'].includes(
                 (prevNode as any).type,
               )
             ) {

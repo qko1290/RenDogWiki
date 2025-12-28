@@ -735,6 +735,8 @@ const Element: React.FC<ElementRenderProps> = ({
   onIconClick,
   priceTableEdit,
   setPriceTableEdit,
+  readOnly,
+  onOpenWikiRef,
 }) => {
   const slateEditor = useSlate();
 
@@ -1230,6 +1232,49 @@ const Element: React.FC<ElementRenderProps> = ({
       );
     }
 
+    // -------------------- Wiki DB Embed (Quest/NPC/QNA) --------------------
+    case 'quest-embed':
+    case 'npc-embed':
+    case 'qna-embed': {
+      const t = element.type;
+      const id =
+        t === 'quest-embed'
+          ? (element as any).questId
+          : t === 'npc-embed'
+          ? (element as any).npcId
+          : (element as any).qnaId;
+
+      const label = t === 'quest-embed' ? '퀘스트' : t === 'npc-embed' ? 'NPC' : 'QNA';
+
+      return (
+        <div {...attributes}>
+          <div
+            contentEditable={false}
+            style={{
+              border: '1px solid #e5e7eb',
+              borderRadius: 14,
+              padding: '12px 14px',
+              background: '#fff',
+              boxShadow: '0 8px 24px rgba(16,24,40,0.04)',
+              margin: '10px 0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 18 }}>🧩</span>
+              <div style={{ fontWeight: 900 }}>{label} 삽입</div>
+              <div style={{ color: '#64748b', fontSize: 13 }}>ID: {String(id ?? '-')}</div>
+            </div>
+            <div style={{ color: '#94a3b8', fontSize: 12.5 }}>나중에 id로 데이터 로드</div>
+          </div>
+          {children}
+        </div>
+      );
+    }
+
     // -------------------- Weapon Card (무기 정보 박스) : 분리 컴포넌트 --------------------
     case 'weapon-card': {
       return (
@@ -1240,6 +1285,42 @@ const Element: React.FC<ElementRenderProps> = ({
         >
           {children}
         </WeaponCard>
+      );
+    }
+
+    case 'wiki-ref': {
+      const refType = (element as any).refType as 'quest' | 'npc' | 'qna';
+      const refId = (element as any).refId as number;
+
+      const label = refType === 'quest' ? '퀘스트' : refType === 'npc' ? 'NPC' : 'QNA';
+
+      return (
+        <span
+          {...attributes}
+          role="button"
+          tabIndex={0}
+          style={{
+            textDecoration: 'underline',
+            cursor: 'pointer',
+            fontWeight: 800,
+          }}
+          onMouseDown={(e) => {
+            // 읽기 전용에서만 "클릭 → 모달" 동작
+            if (!readOnly) return;
+            e.preventDefault();
+            onOpenWikiRef?.(refType, refId);
+          }}
+          onKeyDown={(e) => {
+            if (!readOnly) return;
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onOpenWikiRef?.(refType, refId);
+            }
+          }}
+          title={`${label} #${refId}`}
+        >
+          {children}
+        </span>
       );
     }
 
