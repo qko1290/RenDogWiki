@@ -197,3 +197,26 @@ export function normalizeStatsForWeaponType(
     levels: normalizeStatLevels(s.levels, type),
   }));
 }
+
+function isTranscendLabel(label: string) {
+  const up = (label || "").toUpperCase();
+  return up.startsWith("TRANSCEND");
+}
+
+function hexToRgba(hex: string, alpha: number) {
+  const h = (hex || "").replace("#", "").trim();
+  const a = Math.max(0, Math.min(1, alpha));
+  if (h.length === 3) {
+    const r = parseInt(h[0] + h[0], 16);
+    const g = parseInt(h[1] + h[1], 16);
+    const b = parseInt(h[2] + h[2], 16);
+    return `rgba(${r},${g},${b},${a})`;
+  }
+  if (h.length === 6) {
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    return `rgba(${r},${g},${b},${a})`;
+  }
+  return `rgba(255,255,255,${a})`;
+}

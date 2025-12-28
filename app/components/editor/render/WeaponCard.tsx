@@ -42,6 +42,58 @@ export function WeaponCard(props: WeaponCardProps) {
   const VIDEOLESS_TYPES = new Set<WeaponType>(['boss', 'mini-boss', 'monster']);
   const supportsVideo = !VIDEOLESS_TYPES.has(weaponType);
   const meta = WEAPON_TYPES_META[weaponType];
+
+  // ✅ TRANSCEND 카드만 화려하게 만들기 위한 플래그
+  const isTranscend =
+    (meta?.label ? meta.label.toUpperCase().startsWith("TRANSCEND") : false) ||
+    String(weaponType || "").toLowerCase().startsWith("transcend");
+
+  // ✅ 색상 -> rgba (WeaponCard.tsx에는 없으니 여기서만 로컬로)
+  const hexToRgba = (hex: string, alpha: number) => {
+    const h = (hex || "").replace("#", "").trim();
+    const a = Math.max(0, Math.min(1, alpha));
+    if (h.length === 3) {
+      const r = parseInt(h[0] + h[0], 16);
+      const g = parseInt(h[1] + h[1], 16);
+      const b = parseInt(h[2] + h[2], 16);
+      return `rgba(${r},${g},${b},${a})`;
+    }
+    if (h.length === 6) {
+      const r = parseInt(h.slice(0, 2), 16);
+      const g = parseInt(h.slice(2, 4), 16);
+      const b = parseInt(h.slice(4, 6), 16);
+      return `rgba(${r},${g},${b},${a})`;
+    }
+    return `rgba(255,255,255,${a})`;
+  };
+
+  // ✅ 초월 프레임/글로우/샤인에 쓸 값들
+  const tBorder = meta?.border || "#a855f7";
+  const tHeader = meta?.headerBg || "#7c3aed";
+
+  const transcendFrameStyle: React.CSSProperties = {
+    padding: 2,
+    borderRadius: 20,
+    background: `linear-gradient(135deg, ${meta.headerBg} 0%, ${meta.border} 45%, #ffffff 60%, ${meta.headerBg} 100%)`,
+    boxShadow:
+      `0 0 0 1px rgba(255,255,255,.18) inset,
+      0 18px 55px rgba(0,0,0,.55),
+      0 0 28px rgba(255,255,255,.12),
+      0 0 40px ${meta.headerBg}55`,
+  };
+
+  const transcendInnerGlowStyle: React.CSSProperties = {
+    borderRadius: 18,
+    overflow: 'hidden',
+    background:
+      `radial-gradient(circle at 20% 0%, ${meta.border}22, transparent 55%),
+      radial-gradient(circle at 100% 0%, ${meta.headerBg}2a, transparent 60%),
+      radial-gradient(circle at 50% 110%, rgba(255,255,255,.08), transparent 50%),
+      #020617`,
+    boxShadow: `0 0 0 1px rgba(255,255,255,.10) inset`,
+    position: 'relative',
+  };
+
   const stats = ensureWeaponStats(el.stats, weaponType);
   const visibleStats = stats.filter((s) => s.enabled);
 
@@ -144,17 +196,20 @@ export function WeaponCard(props: WeaponCardProps) {
         }}
       >
         {/* 카드 본체 */}
-        <div
-          style={{
-            width: cardWidth,
-            borderRadius: 18,
-            overflow: 'hidden',
-            background: '#020617',
-            boxShadow: '0 18px 45px rgba(0,0,0,.45)',
-            fontFamily: 'inherit',
-            paddingTop: 4,
-          }}
-        >
+        <div style={isTranscend ? transcendFrameStyle : undefined}>
+          <div
+            style={{
+              width: cardWidth,
+              borderRadius: 18,
+              overflow: "hidden",
+              background: "#020617",
+              boxShadow: "0 18px 45px rgba(0,0,0,.45)",
+              fontFamily: "inherit",
+              paddingTop: 8,
+
+              ...(isTranscend ? transcendInnerGlowStyle : null),
+            }}
+          >
           {/* 상단 타입 바 */}
           <button
             type="button"
@@ -507,6 +562,7 @@ export function WeaponCard(props: WeaponCardProps) {
           onClose={() => setVideoModalOpen(false)}
         />
       )}
+    </div>
     </div>
   );
 }
