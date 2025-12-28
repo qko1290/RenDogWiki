@@ -666,7 +666,12 @@ type WeaponType =
   | "boss"
   | "miniBoss"
   | "monster"
-  | "mini-boss";
+  | "mini-boss"
+  | "transcend-epic"
+  | "transcend-unique"
+  | "transcend-legend"
+  | "transcend-divine"
+  | "transcend-superior";
 
 // 무기 희귀도(유형)별 메타 정보 (BLOCK/디바인 색상 포함)
 const WEAPON_TYPES_META: Record<
@@ -739,6 +744,36 @@ const WEAPON_TYPES_META: Record<
   miniBoss: { label: "MINI BOSS", headerBg: "#DC2626", border: "#F87171", badgeBg: "#7F1D1D" },
   monster: { label: "MONSTER", headerBg: "#059669", border: "#34D399", badgeBg: "#064E3B" },
   "mini-boss": { label: "MINI BOSS", headerBg: "#DC2626", border: "#F87171", badgeBg: "#7F1D1D" },
+  "transcend-epic": {
+    label: "TRANSCEND EPIC",
+    headerBg: "#7c3aed",
+    border: "#a855f7",
+    badgeBg: "#5b21b6",
+  },
+  "transcend-unique": {
+    label: "TRANSCEND UNIQUE",
+    headerBg: "#0ea5e9",
+    border: "#38bdf8",
+    badgeBg: "#0369a1",
+  },
+  "transcend-legend": {
+    label: "TRANSCEND LEGEND",
+    headerBg: "#f97373",
+    border: "#fb7185",
+    badgeBg: "#b91c1c",
+  },
+  "transcend-divine": {
+    label: "TRANSCEND DIVINE",
+    headerBg: "#15803d",
+    border: "#22c55e",
+    badgeBg: "#14532d",
+  },
+  "transcend-superior": {
+    label: "TRANSCEND SUPERIOR",
+    headerBg: "#eab308",
+    border: "#facc15",
+    badgeBg: "#92400e",
+  },
 };
 
 // 공격 영상 모달 (문서 보기에서도 사용)
