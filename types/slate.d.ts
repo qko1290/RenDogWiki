@@ -196,7 +196,12 @@ export type WeaponType =
   | 'ancient'
   | 'boss'
   | 'mini-boss'
-  | 'monster';
+  | 'monster'
+  | 'transcend-epic'
+  | 'transcend-unique'
+  | 'transcend-legend'
+  | 'transcend-divine'
+  | 'transcend-superior';
 
 export type WeaponStatKey =
   | 'damage'      // 데미지
