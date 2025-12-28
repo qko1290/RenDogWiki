@@ -1,22 +1,21 @@
-// C:\next\rdwiki\app\components\editor\render\WeaponCard.tsx
-import React, { useMemo, useState } from 'react';
-import type { RenderElementProps } from 'slate-react';
+// components/editor/render/WeaponCard.tsx
+import React from 'react';
 import { ReactEditor } from 'slate-react';
+import type { RenderElementProps } from 'slate-react';
 import { Transforms } from 'slate';
 import { toProxyUrl } from '@lib/cdn';
-import type { Editor } from 'slate';
-
 import ImageSelectModal from '@/components/image/ImageSelectModal';
-
-import type { WeaponCardElement, WeaponStatConfig, WeaponStatKey, WeaponType } from "@/types/slate";
-
+import type {
+  WeaponCardElement,
+  WeaponStatConfig,
+  WeaponType,
+  WeaponStatKey,
+} from '@/types/slate';
 import {
   WEAPON_TYPES_META,
   ensureWeaponStats,
-  getWeaponLevelLabels,
   normalizeStatsForWeaponType,
 } from './weaponStatUtils';
-
 import {
   WeaponTypeSelectModal,
   WeaponNameEditModal,
@@ -30,290 +29,195 @@ export interface WeaponCardProps {
   attributes: RenderElementProps['attributes'];
   children: React.ReactNode;
   element: WeaponCardElement;
-  editor: Editor;
+  editor: any;
 }
 
-// 파일 분리 없이도 동작하게 인라인으로 둠 (./WeaponLevelSelector 의존성 제거)
-function WeaponLevelSelector({
-  levelLabels,
-  selectedIndex,
-  onChange,
-}: {
-  levelLabels: string[];
-  selectedIndex: number;
-  onChange: (idx: number) => void;
-}) {
-  const [open, setOpen] = useState(false);
-
-  if (!levelLabels.length) return null;
-
-  const selectedLabel = levelLabels[selectedIndex] ?? '-';
-
-  return (
-    <div
-      style={{ position: 'relative', width: 120, paddingTop: 8 }}
-      onMouseLeave={() => setOpen(false)}
-    >
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        style={{
-          width: '100%',
-          borderRadius: 999,
-          padding: '8px 10px',
-          border: '1px solid #334155',
-          background: '#0b1220',
-          color: '#e5e7eb',
-          fontSize: 12,
-          fontWeight: 700,
-          cursor: 'pointer',
-        }}
-      >
-        {selectedLabel}
-      </button>
-
-      {open && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 44,
-            left: 0,
-            right: 0,
-            zIndex: 50,
-            borderRadius: 12,
-            overflow: 'hidden',
-            border: '1px solid #111827',
-            background: 'rgba(2,6,23,.96)',
-            boxShadow: '0 18px 45px rgba(0,0,0,.55)',
-          }}
-        >
-          {levelLabels.map((lb, idx) => {
-            const active = idx === selectedIndex;
-            return (
-              <button
-                key={lb + idx}
-                type="button"
-                onClick={() => {
-                  onChange(idx);
-                  setOpen(false);
-                }}
-                style={{
-                  width: '100%',
-                  textAlign: 'center',
-                  padding: '8px 10px',
-                  border: 'none',
-                  background: active ? 'rgba(59,130,246,.18)' : 'transparent',
-                  color: active ? '#f9fafb' : '#cbd5e1',
-                  fontSize: 12,
-                  fontWeight: active ? 800 : 600,
-                  cursor: 'pointer',
-                }}
-              >
-                {lb}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function isTranscendType(type: string) {
-  // "transcend-epic" / "transcend_superior" 등
-  return type.startsWith('transcend-') || type.startsWith('transcend_');
-}
-
-export default function WeaponCard(props: WeaponCardProps) {
-  const { attributes, children, element: el, editor } = props;
-
+export function WeaponCard(props: WeaponCardProps) {
+  const { attributes, children, element, editor } = props;
+  const el = element as WeaponCardElement;
+  const path = ReactEditor.findPath(editor, element);
   const isReadOnly = ReactEditor.isReadOnly(editor);
 
-  const weaponType = (el.weaponType || 'epic') as WeaponType;
-  const meta = WEAPON_TYPES_META[weaponType] ?? WEAPON_TYPES_META.epic;
+  const weaponType: WeaponType = el.weaponType || 'epic';
+  const VIDEOLESS_TYPES = new Set<WeaponType>(['boss', 'mini-boss', 'monster']);
+  const supportsVideo = !VIDEOLESS_TYPES.has(weaponType);
+  const meta = WEAPON_TYPES_META[weaponType];
 
-  const stats = useMemo(() => ensureWeaponStats(el.stats, weaponType), [weaponType, el.stats]);
+  // ✅ TRANSCEND 카드만 화려하게 만들기 위한 플래그
+  const isTranscend =
+    (meta?.label ? meta.label.toUpperCase().startsWith("TRANSCEND") : false) ||
+    String(weaponType || "").toLowerCase().startsWith("transcend");
 
-  const enabledStats = useMemo(() => stats.filter((s) => s.enabled), [stats]);
+  // ✅ 색상 -> rgba (WeaponCard.tsx에는 없으니 여기서만 로컬로)
+  const hexToRgba = (hex: string, alpha: number) => {
+    const h = (hex || "").replace("#", "").trim();
+    const a = Math.max(0, Math.min(1, alpha));
+    if (h.length === 3) {
+      const r = parseInt(h[0] + h[0], 16);
+      const g = parseInt(h[1] + h[1], 16);
+      const b = parseInt(h[2] + h[2], 16);
+      return `rgba(${r},${g},${b},${a})`;
+    }
+    if (h.length === 6) {
+      const r = parseInt(h.slice(0, 2), 16);
+      const g = parseInt(h.slice(2, 4), 16);
+      const b = parseInt(h.slice(4, 6), 16);
+      return `rgba(${r},${g},${b},${a})`;
+    }
+    return `rgba(255,255,255,${a})`;
+  };
 
-  // boss / monster 는 영상 영역 자체가 없음
-  const VIDEOLESS_TYPES: WeaponType[] = useMemo(
-    () =>
-      [
-        // (네 프로젝트에서 이미 추가된 타입들)
-        'boss' as WeaponType,
-        'mini-boss' as WeaponType,
-        'monster' as WeaponType,
-      ].filter(Boolean),
-    []
-  );
+  // ✅ 초월 프레임/글로우/샤인에 쓸 값들
+  const tBorder = meta?.border || "#a855f7";
+  const tHeader = meta?.headerBg || "#7c3aed";
 
-  const supportsVideo = !VIDEOLESS_TYPES.includes(weaponType);
+  const transcendFrameStyle: React.CSSProperties = {
+    padding: 2,
+    borderRadius: 20,
+    background: `linear-gradient(135deg, ${meta.headerBg} 0%, ${meta.border} 45%, #ffffff 60%, ${meta.headerBg} 100%)`,
+    boxShadow:
+      `0 0 0 1px rgba(255,255,255,.18) inset,
+      0 18px 55px rgba(0,0,0,.55),
+      0 0 28px rgba(255,255,255,.12),
+      0 0 40px ${meta.headerBg}55`,
+  };
 
-  const levelLabels = useMemo(() => getWeaponLevelLabels(weaponType), [weaponType]);
-  const [selectedLevelIndex, setSelectedLevelIndex] = useState(0);
+  const transcendInnerGlowStyle: React.CSSProperties = {
+    borderRadius: 18,
+    overflow: 'hidden',
+    background:
+      `radial-gradient(circle at 20% 0%, ${meta.border}22, transparent 55%),
+      radial-gradient(circle at 100% 0%, ${meta.headerBg}2a, transparent 60%),
+      radial-gradient(circle at 50% 110%, rgba(255,255,255,.08), transparent 50%),
+      #020617`,
+    boxShadow: `0 0 0 1px rgba(255,255,255,.10) inset`,
+    position: 'relative',
+  };
 
-  const [typeModalOpen, setTypeModalOpen] = useState(false);
-  const [nameModalOpen, setNameModalOpen] = useState(false);
-  const [statSelectOpen, setStatSelectOpen] = useState(false);
-  const [statEditOpen, setStatEditOpen] = useState(false);
-  const [imageModalOpen, setImageModalOpen] = useState(false);
-  const [videoSelectOpen, setVideoSelectOpen] = useState(false);
-  const [showVideo, setShowVideo] = useState(false);
+  const stats = ensureWeaponStats(el.stats, weaponType);
+  const visibleStats = stats.filter((s) => s.enabled);
 
-  const [editingStatKey, setEditingStatKey] = useState<WeaponStatKey | null>(null);
+  const [typeModalOpen, setTypeModalOpen] = React.useState(false);
+  const [nameModalOpen, setNameModalOpen] = React.useState(false);
+  const [imageModalOpen, setImageModalOpen] = React.useState(false);
+  const [videoSelectOpen, setVideoSelectOpen] = React.useState(false);
+  const [videoModalOpen, setVideoModalOpen] = React.useState(false);
+  const [statEditKey, setStatEditKey] =
+    React.useState<WeaponStatKey | null>(null);
+  const [statSelectOpen, setStatSelectOpen] = React.useState(false);
 
-  // 우클릭 삭제 메뉴
-  const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
-
-  const name = el.name || '새 무기 이름';
-
-  const imageSrc =
-    el.imageUrl && el.imageUrl.startsWith('http') ? toProxyUrl(el.imageUrl) : el.imageUrl || '';
-
-  const videoSrc =
-    supportsVideo && el.videoUrl
-      ? el.videoUrl.startsWith('http')
-        ? toProxyUrl(el.videoUrl)
-        : el.videoUrl
-      : '';
-
-  // 에디터 모드에서만 보이는 설정 버튼들
-  const showConfigButtons = !isReadOnly;
+  // ✅ 우클릭 삭제 메뉴 위치
+  const [contextMenuPos, setContextMenuPos] = React.useState<{
+    x: number;
+    y: number;
+  } | null>(null);
 
   const updateElement = (patch: Partial<WeaponCardElement>) => {
-    const path = ReactEditor.findPath(editor, el);
-    Transforms.setNodes(editor, patch, { at: path });
+    Transforms.setNodes<WeaponCardElement>(editor, patch, { at: path });
   };
 
   const handleWeaponTypeChange = (next: WeaponType) => {
     if (next === weaponType) return;
+
     const nextStats = normalizeStatsForWeaponType(stats, next);
-    updateElement({ weaponType: next, stats: nextStats });
-    setSelectedLevelIndex(0);
+
+    updateElement({
+      weaponType: next,
+      stats: nextStats,
+
+      // ✅ BOSS / MINI BOSS / MONSTER는 영상 자체가 없으니 기존 값도 제거
+      ...(VIDEOLESS_TYPES.has(next) ? { videoUrl: null } : {}),
+    });
+
+    // (선택) 혹시 열려있던 모달이 있으면 닫아주기
+    if (VIDEOLESS_TYPES.has(next)) {
+      setVideoSelectOpen(false);
+      setVideoModalOpen(false);
+    }
   };
 
-  const handleSaveName = (nextName: string) => {
-    updateElement({ name: nextName });
+  const handleSaveStat = (updated: WeaponStatConfig) => {
+    const nextStats = stats.map((s) =>
+      s.key === updated.key ? updated : s,
+    );
+    updateElement({ stats: nextStats });
   };
 
   const handleSaveStatsSelection = (nextStats: WeaponStatConfig[]) => {
-    updateElement({ stats: nextStats });
+    updateElement({
+      stats: normalizeStatsForWeaponType(nextStats, weaponType),
+    });
   };
 
-  const handleSaveStat = (nextStat: WeaponStatConfig) => {
-    const nextStats = stats.map((s) => (s.key === nextStat.key ? nextStat : s));
-    updateElement({ stats: nextStats });
-  };
-
-  const handleImageSelect = (url: string) => {
+  const handleImageSelected = (url: string) => {
     updateElement({ imageUrl: url });
+    setImageModalOpen(false);
   };
 
-  const handleVideoSelect = (url: string) => {
+  const handleVideoSelected = (url: string) => {
+    if (!supportsVideo) return; // ✅ boss/mini-boss/monster 방어
     updateElement({ videoUrl: url });
+    setVideoSelectOpen(false);
   };
 
-  const getStatDisplay = (stat: WeaponStatConfig) => {
-    const lv = stat.levels?.[selectedLevelIndex];
-    const value = (lv?.value ?? stat.summary ?? '') as string;
-    const unit = stat.unit ?? '';
-    return { value, unit };
-  };
+  const cardWidth = 260;
 
-  // =========================
-  // ✅ 초월 카드 번쩍 스타일 (보더/글로우만 “화려하게”)
-  // =========================
-  const transcend =
-    isTranscendType(String(weaponType)) || meta.label.toUpperCase().startsWith('TRANSCEND');
+  const videoSrc =
+    supportsVideo && el.videoUrl
+      ? (el.videoUrl.startsWith('http') ? toProxyUrl(el.videoUrl) : el.videoUrl)
+      : '';
 
-  const cardWidth = 320;
+  const imageSrc =
+    el.imageUrl && el.imageUrl.startsWith('http')
+      ? toProxyUrl(el.imageUrl)
+      : el.imageUrl || '';
 
-  const transcendOuterStyle: React.CSSProperties = {
-    width: cardWidth,
-    borderRadius: 20,
-    padding: 2,
-    background: `linear-gradient(135deg,
-      ${meta.headerBg} 0%,
-      ${meta.border} 35%,
-      rgba(255,255,255,.95) 52%,
-      ${meta.border} 68%,
-      ${meta.headerBg} 100%)`,
-    boxShadow: `0 0 0 1px rgba(255,255,255,.18) inset,
-                0 18px 55px rgba(0,0,0,.55),
-                0 0 28px rgba(255,255,255,.12),
-                0 0 46px ${meta.headerBg}55`,
-    position: 'relative',
-    overflow: 'hidden',
-  };
-
-  const shimmerStyle: React.CSSProperties = {
-    position: 'absolute',
-    top: -40,
-    left: -120,
-    width: 140,
-    height: '160%',
-    transform: 'skewX(-18deg)',
-    background:
-      'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.55) 50%, rgba(255,255,255,0) 100%)',
-    animation: 'rdwiki_transcend_shimmer 3.8s ease-in-out infinite',
-    pointerEvents: 'none',
-    mixBlendMode: 'screen',
-    opacity: 0.65,
-  };
+  // 에디터 모드에서만 보이는 설정 버튼들
+  const showConfigButtons = !isReadOnly;
 
   return (
-  <div {...attributes}>
-    {transcend && (
-      <style>
-        {`
-          @keyframes rdwiki_transcend_shimmer {
-            0% { transform: translateX(0) skewX(-18deg); opacity: 0; }
-            10% { opacity: .55; }
-            50% { opacity: .85; }
-            90% { opacity: .55; }
-            100% { transform: translateX(260%) skewX(-18deg); opacity: 0; }
-          }
-        `}
-      </style>
-    )}
-
-    <div
-      contentEditable={false}
-      style={{
-        margin: '14px 0',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'flex-start',
-        gap: 10,
-      }}
-      onContextMenu={(e) => {
-        if (isReadOnly) return;
-        e.preventDefault();
-        setContextMenuPos({ x: e.clientX, y: e.clientY });
-      }}
-    >
-      {/* ✅ 초월 프레임은 “카드 본체만” 감싼다 (오른쪽 컨트롤은 절대 포함 X) */}
-      <div style={transcend ? transcendOuterStyle : undefined}>
-        {transcend && <div style={shimmerStyle} />}
-
+    <div {...attributes}>
+      {/* ✅ 무기 카드 + 정보 설정 버튼을 중앙 정렬 */}
+      <div
+        contentEditable={false}
+        style={{
+          margin: '14px 0',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'flex-start',
+          gap: 10,
+        }}
+        onContextMenu={(e) => {
+          // ✅ 읽기 전용이 아닐 때만 삭제 컨텍스트 메뉴
+          if (isReadOnly) return;
+          e.preventDefault();
+          e.stopPropagation();
+          setContextMenuPos({ x: e.clientX, y: e.clientY });
+        }}
+      >
         {/* 카드 본체 */}
-        <div
-          style={{
-            width: cardWidth,
-            borderRadius: 18,
-            overflow: 'hidden',
-            background: '#020617',
-            boxShadow: '0 18px 45px rgba(0,0,0,.45)',
-            fontFamily: 'inherit',
-            paddingTop: 8,
-          }}
-        >
-          {/* 상단 타입 바 */}
+        <div style={isTranscend ? transcendFrameStyle : undefined}>
           <div
+            style={{
+              width: cardWidth,
+              borderRadius: 18,
+              overflow: "hidden",
+              background: "#020617",
+              boxShadow: "0 18px 45px rgba(0,0,0,.45)",
+              fontFamily: "inherit",
+              paddingTop: 8,
+
+              ...(isTranscend ? transcendInnerGlowStyle : null),
+            }}
+          >
+          {/* 상단 타입 바 */}
+          <button
+            type="button"
             onClick={() => !isReadOnly && setTypeModalOpen(true)}
             style={{
               width: '100%',
+              border: 'none',
+              outline: 'none',
               background: meta.headerBg,
               color: '#f9fafb',
               padding: '6px 0',
@@ -322,14 +226,12 @@ export default function WeaponCard(props: WeaponCardProps) {
               letterSpacing: 1.5,
               textAlign: 'center',
               cursor: isReadOnly ? 'default' : 'pointer',
-              userSelect: 'none',
             }}
-            title={isReadOnly ? undefined : '타입 변경'}
           >
             {meta.label}
-          </div>
+          </button>
 
-          {/* 이름 */}
+          {/* 무기 이름 */}
           <div
             onClick={() => !isReadOnly && setNameModalOpen(true)}
             style={{
@@ -343,18 +245,17 @@ export default function WeaponCard(props: WeaponCardProps) {
               cursor: isReadOnly ? 'default' : 'pointer',
               userSelect: 'none',
             }}
-            title={isReadOnly ? undefined : '이름 변경'}
           >
-            {name}
+            {el.name || '새 무기 이름'}
           </div>
 
-          {/* 이미지 */}
+          {/* 이미지 영역 */}
           <div
             onClick={() => !isReadOnly && setImageModalOpen(true)}
             style={{
               background:
-                `radial-gradient(circle at 20% 0%, ${meta.border}33, transparent 55%), ` +
-                `radial-gradient(circle at 100% 0%, ${meta.headerBg}33, transparent 55%), ` +
+                'radial-gradient(circle at 20% 0%, rgba(56,189,248,0.18), transparent 55%), ' +
+                'radial-gradient(circle at 100% 0%, rgba(129,140,248,0.22), transparent 55%), ' +
                 '#020617',
               height: 140,
               display: 'flex',
@@ -362,12 +263,11 @@ export default function WeaponCard(props: WeaponCardProps) {
               justifyContent: 'center',
               cursor: isReadOnly ? 'default' : 'pointer',
             }}
-            title={isReadOnly ? undefined : '이미지 선택'}
           >
             {imageSrc ? (
               <img
                 src={imageSrc}
-                alt={name}
+                alt=""
                 width={160}
                 height={96}
                 loading="lazy"
@@ -377,18 +277,23 @@ export default function WeaponCard(props: WeaponCardProps) {
                   maxWidth: '80%',
                   maxHeight: '80%',
                   objectFit: 'contain',
-                  background: 'transparent',
-                  imageRendering: 'pixelated',
+                  filter: 'drop-shadow(0 12px 18px rgba(0,0,0,.55))',
                   display: 'block',
-                  borderRadius: 10,
                 }}
               />
             ) : (
-              <span style={{ color: '#6b7280', fontSize: 14 }}>이미지 없음</span>
+              <span
+                style={{
+                  color: '#6b7280',
+                  fontSize: 14,
+                }}
+              >
+                이미지 없음
+              </span>
             )}
           </div>
 
-          {/* 스탯 */}
+          {/* 정보 리스트 */}
           <div
             style={{
               padding: '8px 10px 8px',
@@ -397,7 +302,7 @@ export default function WeaponCard(props: WeaponCardProps) {
               gap: 6,
             }}
           >
-            {enabledStats.length === 0 && (
+            {visibleStats.length === 0 && (
               <div
                 style={{
                   fontSize: 12,
@@ -407,122 +312,122 @@ export default function WeaponCard(props: WeaponCardProps) {
                   background: 'rgba(15,23,42,.75)',
                 }}
               >
-                표시할 정보가 없습니다.
+                표시할 정보가 없습니다. (정보 설정 버튼으로 추가)
               </div>
             )}
 
-            {enabledStats.map((stat) => {
-              const { value, unit } = getStatDisplay(stat);
-              return (
-                <div
-                  key={stat.key || stat.label}
-                  onClick={() => {
-                    if (isReadOnly) return;
-                    setEditingStatKey(stat.key);
-                    setStatEditOpen(true);
-                  }}
+            {visibleStats.map((stat) => (
+              <button
+                key={stat.key}
+                type="button"
+                onClick={() => setStatEditKey(stat.key)}
+                style={{
+                  borderRadius: 10,
+                  padding: '6px 8px',
+                  border: '1px solid #111827',
+                  background:
+                    'linear-gradient(90deg, rgba(15,23,42,.95), rgba(15,23,42,.85))',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                }}
+                title="클릭해서 강화별 상세 정보 보기/편집"
+              >
+                <span
                   style={{
-                    borderRadius: 10,
-                    padding: '6px 8px',
-                    border: '1px solid #111827',
-                    background:
-                      'linear-gradient(90deg, rgba(15,23,42,.95), rgba(15,23,42,.85))',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    cursor: isReadOnly ? 'default' : 'pointer',
+                    fontSize: 12,
+                    color: '#9ca3af',
+                    fontWeight: 500,
                   }}
-                  title={isReadOnly ? undefined : '스탯 편집'}
                 >
-                  <span style={{ fontSize: 12, color: '#9ca3af', fontWeight: 500 }}>
-                    {stat.label}
-                  </span>
-                  <span style={{ fontSize: 13, color: '#e5e7eb', fontWeight: 600 }}>
-                    {value || '-'}
-                    {unit ? ` ${unit}` : ''}
-                  </span>
-                </div>
-              );
-            })}
+                  {stat.label}
+                </span>
+                <span
+                  style={{
+                    fontSize: 13,
+                    color: '#e5e7eb',
+                    fontWeight: 600,
+                  }}
+                >
+                  {stat.summary || '-'}
+                  {stat.unit ? ` ${stat.unit}` : ''}
+                </span>
+              </button>
+            ))}
           </div>
 
-          {/* 영상 영역 (지원 타입만) */}
+          {/* 하단 영상 버튼 */}
           {supportsVideo && (
             <div
               style={{
                 padding: '8px 10px 10px',
                 display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: 10,
+                gap: showConfigButtons ? 8 : 0,
+                justifyContent: showConfigButtons ? 'stretch' : 'center',
               }}
             >
-              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 700 }}>
+              {/* ✅ 문서 로드(readOnly)에서는 가운데 정렬 + 단일 버튼 */}
+              <button
+                type="button"
+                disabled={!videoSrc}
+                onClick={() => videoSrc && setVideoModalOpen(true)}
+                style={{
+                  padding: '8px 10px',
+                  borderRadius: 999,
+                  border: 'none',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  background: videoSrc
+                    ? 'linear-gradient(90deg,#1d4ed8,#3b82f6)'
+                    : '#111827',
+                  color: videoSrc ? '#f9fafb' : '#6b7280',
+                  cursor: videoSrc ? 'pointer' : 'default',
+                  flex: showConfigButtons ? 1 : undefined,
+                  minWidth: showConfigButtons ? undefined : 160,
+                  textAlign: 'center',
+                  boxShadow: videoSrc
+                    ? '0 12px 30px rgba(37,99,235,0.7)'
+                    : 'none',
+                }}
+              >
                 스킬 사용 영상
-              </div>
+              </button>
 
-              {showConfigButtons ? (
+              {/* 영상 설정 버튼은 에디터에서만 표시 */}
+              {showConfigButtons && (
                 <button
                   type="button"
                   onClick={() => setVideoSelectOpen(true)}
                   style={{
-                    fontSize: 11,
+                    padding: '8px 10px',
                     borderRadius: 999,
-                    padding: '6px 10px',
                     border: '1px solid #334155',
-                    background: '#0b1220',
+                    background: '#020617',
                     color: '#e5e7eb',
+                    fontSize: 12,
                     cursor: 'pointer',
                     whiteSpace: 'nowrap',
                   }}
                 >
                   영상 설정
                 </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled={!videoSrc}
-                  onClick={() => videoSrc && setShowVideo(true)}
-                  style={{
-                    padding: '8px 10px',
-                    borderRadius: 999,
-                    border: 'none',
-                    fontSize: 13,
-                    fontWeight: 700,
-                    background: videoSrc ? 'linear-gradient(90deg,#1d4ed8,#3b82f6)' : '#111827',
-                    color: videoSrc ? '#f9fafb' : '#6b7280',
-                    cursor: videoSrc ? 'pointer' : 'default',
-                    minWidth: 160,
-                    textAlign: 'center',
-                    boxShadow: videoSrc ? '0 12px 30px rgba(37,99,235,0.7)' : 'none',
-                  }}
-                >
-                  스킬 사용 영상
-                </button>
               )}
             </div>
           )}
         </div>
-      </div>
 
-      {/* ✅ 오른쪽 컨트롤 컬럼 (카드 밖: 테두리/글로우에 영향 주면 안 됨) */}
-      {showConfigButtons && (
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 8,
-            alignItems: 'flex-start',
-            paddingTop: 8,
-          }}
-        >
+        {/* ✅ 정보 설정 버튼: 카드 “밖”에 배치 (에디터에서만) */}
+        {showConfigButtons && (
           <button
             type="button"
             onClick={() => setStatSelectOpen(true)}
             style={{
+              alignSelf: 'flex-start',
+              marginTop: 8,
               fontSize: 11,
               borderRadius: 999,
-              padding: '6px 10px',
+              padding: '4px 10px',
               border: '1px solid #4b5563',
               background: '#020617',
               color: '#9ca3af',
@@ -533,147 +438,133 @@ export default function WeaponCard(props: WeaponCardProps) {
           >
             정보 설정
           </button>
+        )}
+      </div>
+      </div>
 
-          {levelLabels.length > 1 && (
-            <WeaponLevelSelector
-              levelLabels={levelLabels}
-              selectedIndex={selectedLevelIndex}
-              onChange={(idx: number) => setSelectedLevelIndex(idx)}
-            />
-          )}
+      {children}
+
+      {/* ✅ 우클릭 삭제 컨텍스트 메뉴 (에디터에서만) */}
+      {!isReadOnly && contextMenuPos && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 2050,
+            background: 'transparent',
+          }}
+          onMouseDown={() => setContextMenuPos(null)}
+        >
+          <div
+            onMouseDown={(e) => e.stopPropagation()}
+            style={{
+              position: 'absolute',
+              left: contextMenuPos.x,
+              top: contextMenuPos.y,
+            }}
+          >
+            <div
+              style={{
+                minWidth: 150,
+                padding: '4px 0',
+                borderRadius: 8,
+                background: '#020617',
+                border: '1px solid #4b5563',
+                boxShadow: '0 8px 24px rgba(0,0,0,.6)',
+              }}
+            >
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  Transforms.removeNodes(editor, { at: path });
+                  setContextMenuPos(null);
+                }}
+                style={{
+                  width: '100%',
+                  textAlign: 'left',
+                  padding: '6px 12px',
+                  border: 'none',
+                  background: 'transparent',
+                  color: '#fca5a5',
+                  fontSize: 13,
+                  cursor: 'pointer',
+                }}
+              >
+                무기 카드 삭제
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* ✅ 읽기 모드: 강수 선택만 필요한 경우 카드 옆에만 유지 */}
-      {!showConfigButtons && levelLabels.length > 1 && (
-        <WeaponLevelSelector
-          levelLabels={levelLabels}
-          selectedIndex={selectedLevelIndex}
-          onChange={(idx: number) => setSelectedLevelIndex(idx)}
+      {/* 모달들 (기존 로직 유지) */}
+      <WeaponTypeSelectModal
+        open={typeModalOpen && !isReadOnly}
+        currentType={weaponType}
+        onClose={() => setTypeModalOpen(false)}
+        onSelect={(t) => {
+          handleWeaponTypeChange(t);
+          setTypeModalOpen(false);
+        }}
+      />
+
+      <WeaponNameEditModal
+        open={nameModalOpen && !isReadOnly}
+        initialName={el.name}
+        onClose={() => setNameModalOpen(false)}
+        onSave={(name) => {
+          updateElement({ name });
+          setNameModalOpen(false);
+        }}
+      />
+
+      <ImageSelectModal
+        open={imageModalOpen && !isReadOnly}
+        onClose={() => setImageModalOpen(false)}
+        onSelectImage={handleImageSelected}
+      />
+      {supportsVideo && (
+        <ImageSelectModal
+          open={videoSelectOpen && !isReadOnly}
+          onClose={() => setVideoSelectOpen(false)}
+          onSelectImage={handleVideoSelected}
+        />
+      )}
+
+      <WeaponStatEditModal
+        open={!!statEditKey}
+        weaponType={weaponType}
+        stats={stats}
+        statKey={statEditKey}
+        readOnly={isReadOnly}
+        onClose={() => setStatEditKey(null)}
+        onSave={(updated) => {
+          handleSaveStat(updated);
+          setStatEditKey(null);
+        }}
+      />
+
+      <WeaponStatSelectModal
+        open={statSelectOpen && !isReadOnly}
+        weaponType={weaponType}
+        stats={stats}
+        onClose={() => setStatSelectOpen(false)}
+        onSave={(nextStats) => {
+          handleSaveStatsSelection(nextStats);
+          setStatSelectOpen(false);
+        }}
+      />
+
+      {supportsVideo && (
+        <WeaponVideoModal
+          open={videoModalOpen && !!videoSrc}
+          url={videoSrc}
+          onClose={() => setVideoModalOpen(false)}
         />
       )}
     </div>
-
-    {/* 우클릭 메뉴 */}
-    {contextMenuPos && !isReadOnly && (
-      <div
-        contentEditable={false}
-        style={{
-          position: 'fixed',
-          top: contextMenuPos.y,
-          left: contextMenuPos.x,
-          zIndex: 9999,
-          background: '#0b1220',
-          border: '1px solid #1f2937',
-          borderRadius: 12,
-          overflow: 'hidden',
-          boxShadow: '0 18px 50px rgba(0,0,0,.55)',
-        }}
-        onMouseLeave={() => setContextMenuPos(null)}
-      >
-        <button
-          type="button"
-          onClick={() => {
-            setContextMenuPos(null);
-            const path = ReactEditor.findPath(editor, el);
-            Transforms.removeNodes(editor, { at: path });
-          }}
-          style={{
-            width: '100%',
-            padding: '10px 12px',
-            border: 'none',
-            background: 'transparent',
-            color: '#fecaca',
-            fontWeight: 800,
-            fontSize: 12,
-            textAlign: 'left',
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          카드 삭제
-        </button>
-      </div>
-    )}
-
-    {/* 타입 선택 모달 */}
-    <WeaponTypeSelectModal
-      open={typeModalOpen && !isReadOnly}
-      currentType={weaponType}
-      onClose={() => setTypeModalOpen(false)}
-      onSelect={(next) => {
-        handleWeaponTypeChange(next);
-        setTypeModalOpen(false);
-      }}
-    />
-
-    {/* 이름 편집 모달 */}
-    <WeaponNameEditModal
-      open={nameModalOpen && !isReadOnly}
-      initialName={name}
-      onClose={() => setNameModalOpen(false)}
-      onSave={(nextName) => {
-        handleSaveName(nextName);
-        setNameModalOpen(false);
-      }}
-    />
-
-    {/* 스탯 편집 모달 */}
-    {editingStatKey && (
-      <WeaponStatEditModal
-        open={statEditOpen && !isReadOnly}
-        weaponType={weaponType}
-        stats={stats}
-        statKey={editingStatKey}
-        readOnly={isReadOnly}
-        onClose={() => setStatEditOpen(false)}
-        onSave={(next) => {
-          handleSaveStat(next);
-          setStatEditOpen(false);
-        }}
-      />
-    )}
-
-    {/* 스탯 표시 선택 모달 */}
-    <WeaponStatSelectModal
-      open={statSelectOpen && !isReadOnly}
-      weaponType={weaponType}
-      stats={stats}
-      onClose={() => setStatSelectOpen(false)}
-      onSave={(nextStats) => {
-        handleSaveStatsSelection(nextStats);
-        setStatSelectOpen(false);
-      }}
-    />
-
-    {/* 이미지 선택 모달 */}
-    <ImageSelectModal
-      open={imageModalOpen && !isReadOnly}
-      onClose={() => setImageModalOpen(false)}
-      onSelectImage={(url) => {
-        handleImageSelect(url);
-        setImageModalOpen(false);
-      }}
-    />
-
-    {/* 영상 선택 모달 */}
-    {supportsVideo && (
-      <ImageSelectModal
-        open={videoSelectOpen && !isReadOnly}
-        onClose={() => setVideoSelectOpen(false)}
-        onSelectImage={(url) => {
-          handleVideoSelect(url);
-          setVideoSelectOpen(false);
-        }}
-      />
-    )}
-
-    {/* 영상 모달 */}
-    {supportsVideo && videoSrc && (
-      <WeaponVideoModal open={showVideo} url={videoSrc} onClose={() => setShowVideo(false)} />
-    )}
-
-    {children}
-  </div>
-);
+  );
 }
+
+export default WeaponCard;
