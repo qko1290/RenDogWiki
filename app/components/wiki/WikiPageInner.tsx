@@ -203,8 +203,20 @@ export default function WikiPageInner({ user }: Props) {
   const [npcLoading, setNpcLoading] = useState(false);
   const [selectedNpc, setSelectedNpc] = useState<NpcRow | null>(null);
 
-  // ✅ 문서 본문(wiki-ref) 클릭으로 열렸을 때 모드(quest/npc)를 따로 지정
+  // ✅ 문서 wiki-ref 클릭으로 열릴 때 quest/npc 모드 기억
   const [selectedNpcMode, setSelectedNpcMode] = useState<'quest' | 'npc' | null>(null);
+
+  // ✅ NPC 캐시 (문서 이동해도 재사용)
+  const npcByIdCacheRef = useRef<Map<number, NpcRow>>(new Map());
+
+  // npcList가 갱신될 때 캐시에 쌓기
+  useEffect(() => {
+    if (!Array.isArray(npcList) || npcList.length === 0) return;
+    const m = npcByIdCacheRef.current;
+    for (const n of npcList) {
+      if (n && Number.isFinite(Number(n.id))) m.set(Number(n.id), n);
+    }
+  }, [npcList]);
 
   // ✅ 문서 본문(wiki-ref) 클릭으로 열리는 QnA 상세
   const [wikiFaqSel, setWikiFaqSel] = useState<FaqItem | null>(null);
@@ -1081,30 +1093,83 @@ export default function WikiPageInner({ user }: Props) {
 
   type WikiRefKind = 'quest' | 'npc' | 'qna';
 
-  const fetchNpcById = async (id: number): Promise<NpcRow | null> => {
+  const extractVillageArray = (data: any): any[] => {
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.rows)) return data.rows;
+    if (Array.isArray(data?.villages)) return data.villages;
+    return [];
+  };
+
+  const fetchAllVillages = async (): Promise<any[]> => {
     const candidates = [
-      `/api/npcs/${id}`,
-      `/api/npc/${id}`,
-      `/api/npcs?id=${id}`,
-      `/api/npcs?npcId=${id}`,
+      '/api/villages',
+      '/api/villages?all=1',
+      '/api/villages?mode=all',
+      '/api/villages/list',
     ];
 
     for (const url of candidates) {
       try {
         const r = await fetch(withTs(url), NC);
-        if (!r.ok || r.status === 204) continue;
-
+        if (!r.ok) continue;
         const data = await r.json();
-        if (!data) continue;
-
-        if (Array.isArray(data)) {
-          const hit = data.find((x: any) => Number(x?.id) === id);
-          if (hit) return hit as NpcRow;
-        } else {
-          if (Number((data as any)?.id) === id) return data as NpcRow;
-        }
+        const arr = extractVillageArray(data);
+        if (arr.length > 0) return arr;
       } catch {
-        // 다음 후보 URL 시도
+        // next candidate
+      }
+    }
+    return [];
+  };
+
+  const fetchNpcById = async (
+    id: number,
+    kind: 'quest' | 'npc',
+  ): Promise<NpcRow | null> => {
+    if (!Number.isFinite(id) || id <= 0) return null;
+
+    // 1) 캐시
+    const cached = npcByIdCacheRef.current.get(id);
+    if (cached) return cached;
+
+    // 2) 현재 로딩된 목록에서 먼저 찾기
+    const localHit = npcList.find((n) => Number(n.id) === id);
+    if (localHit) {
+      npcByIdCacheRef.current.set(id, localHit);
+      return localHit;
+    }
+
+    // 3) fallback: 모든 마을의 /api/npcs 목록에서 탐색
+    const villages = await fetchAllVillages();
+    if (!villages.length) return null;
+
+    const npc_type = kind === 'quest' ? 'quest' : 'normal';
+
+    for (const v of villages) {
+      const vid = Number(v?.id);
+      if (!Number.isFinite(vid) || vid <= 0) continue;
+
+      try {
+        const res = await fetch(
+          withTs(`/api/npcs?village_id=${vid}&npc_type=${npc_type}`),
+          NC,
+        );
+        if (!res.ok) continue;
+
+        const arr = await res.json();
+        if (!Array.isArray(arr)) continue;
+
+        // 캐시 쌓기 + 대상 찾기
+        for (const row of arr) {
+          if (row && Number.isFinite(Number(row.id))) {
+            npcByIdCacheRef.current.set(Number(row.id), row);
+          }
+        }
+
+        const hit = npcByIdCacheRef.current.get(id);
+        if (hit) return hit;
+      } catch {
+        // 다음 마을
       }
     }
 
@@ -1122,10 +1187,10 @@ export default function WikiPageInner({ user }: Props) {
     }
 
     if (kind === 'quest' || kind === 'npc') {
-      setSelectedNpcMode(kind === 'quest' ? 'quest' : 'npc');
-
-      const npc = await fetchNpcById(id);
+      setSelectedNpcMode(kind);          // ✅ 여기 핵심
+      const npc = await fetchNpcById(id, kind); // ✅ 목록 기반 단건찾기
       if (npc) setSelectedNpc(npc);
+      return;
     }
   };
 
