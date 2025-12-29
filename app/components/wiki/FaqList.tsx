@@ -11,7 +11,7 @@ type User = {
   email: string;
 } | null;
 
-type FaqItem = {
+export type FaqItem = {
   id: number;
   title: string;
   content: string;
@@ -54,21 +54,119 @@ function useAuthFlags(user: User) {
 // ────────────────────────────────────────────────────────────
 // 단건 조회 유틸: 항상 최신값을 가져오도록 no-store
 // ────────────────────────────────────────────────────────────
-async function fetchFaqDetail(id: number): Promise<FaqItem | null> {
+export async function fetchFaqDetail(id: number): Promise<FaqItem | null> {
   try {
     const r = await fetch(`/api/faq/${id}`, { cache: 'no-store' });
-    if (r.status === 204 || !r.ok) return null;
-    const data = await r.json();
-    const tags = Array.isArray(data.tags)
-      ? data.tags
-      : String(data.tags ?? '')
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean);
-    return { ...data, tags };
-  } catch {
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (err) {
+    console.error(err);
     return null;
   }
+}
+
+export function FaqDetailModal({
+  sel,
+  onClose,
+}: {
+  sel: FaqItem;
+  onClose: () => void;
+}) {
+  return (
+    <>
+      <div
+        className="faq-modal-backdrop"
+        onClick={onClose}
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="faq-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="faq-modal-header">
+            <div className="faq-modal-title">
+              <span className="faq-qa q">Q</span>
+              <h3>{sel.title}</h3>
+            </div>
+            <button
+              className="faq-modal-close"
+              onClick={onClose}
+              aria-label="close"
+            >
+              <svg
+                className="x-ic"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.8"
+              >
+                <path
+                  d="M6 6L18 18M18 6L6 18"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <div className="faq-modal-body">
+            <div className="qa-line a">
+              <span className="faq-qa a">A</span>
+              <pre className="qa-text">{sel.content}</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* WikiPageInner에서도 동일 스타일로 보이도록(기존 모달 CSS와 동일) */}
+      <style jsx global>{`
+        /* 아래 스타일은 FaqList 내부 모달 스타일과 동일 */
+        .faq-modal-backdrop {
+          position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+          display: grid; place-items: center; padding: 16px; z-index: 1000;
+        }
+        .faq-modal {
+          width: min(760px, 100%); background: #fff; border-radius: 20px;
+          padding: 18px 18px 20px; box-shadow: 0 24px 80px rgba(0,0,0,0.28);
+        }
+        .faq-modal-header {
+          display: flex; align-items: center; justify-content: space-between;
+          gap: 10px; margin-bottom: 8px;
+        }
+        .faq-modal-title { display: inline-flex; align-items: center; gap: 12px; }
+        .faq-modal-title h3 { margin: 0; font-size: 20px; font-weight: 800; color: #0f172a; }
+        .faq-modal-close{
+          width: 36px; height: 36px;
+          display: grid; place-items: center;
+          background: transparent; border: 0; border-radius: 0;
+          color: #ef4444;
+          cursor: pointer;
+          transition: transform .12s ease;
+        }
+        .faq-modal-close:hover{ transform: scale(1.06); }
+        .faq-modal-close:focus{ outline: none; }
+        .faq-modal-close .x-ic{ width: 18px; height: 18px; }
+        .faq-modal-body { display: grid; gap: 10px; margin-top: 6px; }
+
+        .faq-qa {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 22px; height: 22px; border-radius: 999px;
+          font-weight: 900; font-size: 13.5px; line-height: 1; vertical-align: middle;
+          transform: translateY(-1px);
+          flex: 0 0 22px;
+        }
+        .faq-qa.q { background: #eaf2ff; color: #1d4ed8; }
+        .faq-qa.a { background: #ffe9e9; color: #dc2626; }
+
+        .qa-line {
+          display: flex; align-items: flex-start; gap: 12px;
+          border-radius: 12px; padding: 12px 14px;
+        }
+        .qa-line.a {
+          background: #fff5f5;
+          border: 1px solid #ffe2e2;
+        }
+        .qa-text { margin: 0; white-space: pre-wrap; font: inherit; color: #111827; }
+      `}</style>
+    </>
+  );
 }
 
 export default function FaqList({
@@ -300,30 +398,7 @@ export default function FaqList({
       )}
 
       {/* 상세 모달(Q/A 뷰) */}
-      {sel && (
-        <div className="faq-modal-backdrop" onClick={() => setSel(null)}>
-          <div className="faq-modal" onClick={e => e.stopPropagation()}>
-            <div className="faq-modal-header">
-              <div className="faq-modal-title">
-                <span className="faq-qa q">Q</span>
-                <h3>{sel.title}</h3>
-              </div>
-              <button className="faq-modal-close" onClick={() => setSel(null)} aria-label="close">
-                <svg className="x-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8">
-                  <path d="M6 6L18 18M18 6L6 18" strokeLinecap="round" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="faq-modal-body">
-              <div className="qa-line a">
-                <span className="faq-qa a">A</span>
-                <pre className="qa-text">{sel.content}</pre>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {sel && <FaqDetailModal sel={sel} onClose={() => setSel(null)} />}
 
       {/* ✨ 수정도 같은 모달 재사용 */}
       {editTarget && (

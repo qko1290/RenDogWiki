@@ -17,7 +17,7 @@ import HeadGrid from './HeadGrid';
 import TableOfContents from './TableOfContents';
 import NpcDetailModal from './NpcDetailModal';
 import HeadDetailModal from './HeadDetailModal';
-import FaqList from './FaqList';
+import FaqList, { FaqDetailModal, fetchFaqDetail, type FaqItem } from './FaqList';
 import FaqUpsertModal from '@/components/wiki/FaqUpsertModal';
 import { toProxyUrl } from '@lib/cdn';
 
@@ -202,6 +202,13 @@ export default function WikiPageInner({ user }: Props) {
   const [npcList, setNpcList] = useState<NpcRow[]>([]);
   const [npcLoading, setNpcLoading] = useState(false);
   const [selectedNpc, setSelectedNpc] = useState<NpcRow | null>(null);
+
+  // ✅ 문서 본문(wiki-ref) 클릭으로 열렸을 때 모드(quest/npc)를 따로 지정
+  const [selectedNpcMode, setSelectedNpcMode] = useState<'quest' | 'npc' | null>(null);
+
+  // ✅ 문서 본문(wiki-ref) 클릭으로 열리는 QnA 상세
+  const [wikiFaqSel, setWikiFaqSel] = useState<FaqItem | null>(null);
+
   const [npcPage, setNpcPage] = useState(0);
 
   const [headList, setHeadList] = useState<HeadRow[]>([]);
@@ -1072,6 +1079,56 @@ export default function WikiPageInner({ user }: Props) {
 
   const isFaq = specialMeta?.kind === 'faq';
 
+  type WikiRefKind = 'quest' | 'npc' | 'qna';
+
+  const fetchNpcById = async (id: number): Promise<NpcRow | null> => {
+    const candidates = [
+      `/api/npcs/${id}`,
+      `/api/npc/${id}`,
+      `/api/npcs?id=${id}`,
+      `/api/npcs?npcId=${id}`,
+    ];
+
+    for (const url of candidates) {
+      try {
+        const r = await fetch(withTs(url), NC);
+        if (!r.ok || r.status === 204) continue;
+
+        const data = await r.json();
+        if (!data) continue;
+
+        if (Array.isArray(data)) {
+          const hit = data.find((x: any) => Number(x?.id) === id);
+          if (hit) return hit as NpcRow;
+        } else {
+          if (Number((data as any)?.id) === id) return data as NpcRow;
+        }
+      } catch {
+        // 다음 후보 URL 시도
+      }
+    }
+
+    return null;
+  };
+
+  const handleWikiRefClick = async (kind: WikiRefKind, id: number) => {
+    if (!id || id <= 0) return;
+    if (hold) return; // 전환중엔 무시
+
+    if (kind === 'qna') {
+      const fresh = await fetchFaqDetail(id);
+      if (fresh) setWikiFaqSel(fresh);
+      return;
+    }
+
+    if (kind === 'quest' || kind === 'npc') {
+      setSelectedNpcMode(kind === 'quest' ? 'quest' : 'npc');
+
+      const npc = await fetchNpcById(id);
+      if (npc) setSelectedNpc(npc);
+    }
+  };
+
   // ✅ 초기 자동 오픈: 카테고리/문서 세팅 완료 후 "ID=73"
   useEffect(() => {
     if (!firstLoadRef.current) return;
@@ -1288,18 +1345,17 @@ export default function WikiPageInner({ user }: Props) {
                   <BookLoader />
                 ) : npcList.length > 0 ? (
                   <NpcGrid
-                    npcs={npcList.slice(
-                      npcPage * 21,
-                      (npcPage + 1) * 21,
-                    )}
-                    onClick={setSelectedNpc}
-                    selectedNpcId={selectedNpc?.id || null}
+                    npcs={npcList.slice(npcPage * 21, (npcPage + 1) * 21)}
+                    onClick={(npc) => {
+                      setSelectedNpcMode(null);
+                      setSelectedNpc(npc);
+                    }}
                   />
                 ) : (
                   <div>등록된 NPC가 없습니다.</div>
                 )
               ) : Array.isArray(docContent) && docContent.length > 0 ? (
-                <WikiReadRenderer content={docContent} />
+                <WikiReadRenderer content={docContent} onWikiRefClick={handleWikiRefClick} />
               ) : (
                 <BookLoader />
               )}
@@ -1381,12 +1437,21 @@ export default function WikiPageInner({ user }: Props) {
               {selectedNpc && !hold && (
                 <NpcDetailModal
                   npc={selectedNpc}
-                  mode={
-                    specialMeta?.kind === 'quest' ? 'quest' : 'npc'
-                  }
-                  onClose={() => setSelectedNpc(null)}
+                  mode={selectedNpcMode ?? (specialMeta?.kind === 'quest' ? 'quest' : 'npc')}
+                  onClose={() => {
+                    setSelectedNpc(null);
+                    setSelectedNpcMode(null);
+                  }}
                 />
               )}
+
+              {wikiFaqSel && !hold && (
+                <FaqDetailModal
+                  sel={wikiFaqSel}
+                  onClose={() => setWikiFaqSel(null)}
+                />
+              )}
+
               {selectedHead && !hold && (
                 <HeadDetailModal
                   head={selectedHead}
