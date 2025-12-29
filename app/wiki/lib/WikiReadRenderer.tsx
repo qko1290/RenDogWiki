@@ -17,6 +17,14 @@ import SmartImage from "@/components/common/SmartImage";
 import { cdn, withVersion } from "@lib/cdn";
 import { extractHeadings } from "@/wiki/lib/extractHeadings";
 
+import type { WikiRefKind } from '@/components/editor/render/types';
+
+type Props = {
+  content: Descendant[];
+  readOnly?: boolean;
+  onWikiRefClick?: (kind: WikiRefKind, id: number) => void | Promise<void>;
+};
+
 // ── Element.tsx와 동일한 전역 캐시 (HMR 안전) ─────────────────────
 const WIKI_ICON_CACHE_KEY = "__rdwiki_doc_icon_cache__";
 const WIKI_DOCS_ALL_KEY = "__rdwiki_docs_all__";
@@ -69,6 +77,12 @@ function flexJustifyFromAlign(
 type HeadingCopyCtx = {
   copiedHeadingId: string | null;
   onCopyHeading: (id?: string) => void;
+};
+
+/** 읽기 전용 렌더러에서 위키 참조 클릭을 상위로 전달하기 위한 핸들러 */
+type WikiRefHandlers = {
+  readOnly?: boolean;
+  onWikiRefClick?: (kind: any, id: number) => void;
 };
 
 /** 외부 링크용 인라인 아이콘 (파비콘 네트워크 호출 제거) */
@@ -937,8 +951,10 @@ function compactReadContent(nodes: Descendant[]): Descendant[] {
 }
 
 // 메인 렌더 컴포넌트
-export default function WikiReadRenderer({ content }: { content: Descendant[]; }) {
+export default function WikiReadRenderer({ content, readOnly = true, onWikiRefClick }: Props) {
   const [copiedHeadingId, setCopiedHeadingId] = useState<string | null>(null);
+
+  const handlers: WikiRefHandlers = { readOnly, onWikiRefClick };
 
   const handleCopyHeadingLink = async (headingId?: string) => {
     if (!headingId) return;
@@ -1007,8 +1023,8 @@ export default function WikiReadRenderer({ content }: { content: Descendant[]; }
             alignItems: "stretch",
           }}
         >
-          {renderNode(a, i, ctx)}
-          {renderNode(b, i + 1, ctx)}
+          {renderNode(a, i, ctx, handlers)}
+          {renderNode(b, i + 1, ctx, handlers)}
         </div>
       );
 
@@ -1017,7 +1033,7 @@ export default function WikiReadRenderer({ content }: { content: Descendant[]; }
     }
 
     // (2) 나머지는 기존처럼 단건 렌더
-    rendered.push(renderNode(node, i, ctx));
+    rendered.push(renderNode(node, i, ctx, handlers));
   }
 
   return <>{rendered}</>;
@@ -1898,18 +1914,18 @@ function renderLeaf(node: any, key?: React.Key): React.ReactNode {
   );
 }
 
-// 노드 타입별 렌더링 (재귀)
 function renderNode(
   node: any,
   key?: React.Key,
-  ctx?: HeadingCopyCtx
+  ctx?: HeadingCopyCtx,
+  handlers?: WikiRefHandlers,
 ): React.ReactNode {
   if (Text.isText(node)) {
     return renderLeaf(node, key);
   }
 
   const children = node.children?.map((n: any, i: number) =>
-    renderNode(n, key ? `${key}-${i}` : i, ctx)
+    renderNode(n, key ? `${key}-${i}` : i, ctx, handlers)
   );
 
   switch (node.type) {
@@ -2435,6 +2451,58 @@ function renderNode(
         >
           {children}
         </td>
+      );
+    }
+
+    case 'wiki-ref': {
+      const el = node as any;
+      const kind = (el.kind ?? el.refType) as any; // 'quest' | 'npc' | 'qna'
+      const id = Number(el.id ?? el.refId);
+      const label = el.label ?? (typeof kind === 'string' ? kind : 'ref');
+
+      const clickable =
+        !!handlers?.onWikiRefClick && (handlers?.readOnly ?? true) && Number.isFinite(id) && id > 0;
+
+      const open = () => {
+        if (!clickable) return;
+        handlers!.onWikiRefClick!(kind, id);
+      };
+
+      return (
+        <span
+          key={key}
+          className="wiki-ref-inline"
+          role={clickable ? 'button' : undefined}
+          tabIndex={clickable ? 0 : undefined}
+          title={Number.isFinite(id) ? `${label} #${id}` : undefined}
+          style={{
+            color: '#2563eb',
+            cursor: clickable ? 'pointer' : 'default',
+            textDecoration: clickable ? 'underline' : 'none',
+          }}
+          onClick={
+            clickable
+              ? (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  open();
+                }
+              : undefined
+          }
+          onKeyDown={
+            clickable
+              ? (e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    open();
+                  }
+                }
+              : undefined
+          }
+        >
+          {children}
+        </span>
       );
     }
 

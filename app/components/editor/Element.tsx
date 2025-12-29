@@ -39,7 +39,7 @@ import {
   TableCellRenderer,
 } from './render/Table';
 import WeaponCard from './render/WeaponCard';
-import type { ElementRenderProps } from './render/types';
+import type { ElementRenderProps, WikiRefKind } from './render/types';
 
 // -------------------- 모듈 전역 캐시 (HMR 안전) --------------------
 const WIKI_ICON_CACHE_KEY = '__rdwiki_doc_icon_cache__';
@@ -736,6 +736,7 @@ const Element: React.FC<ElementRenderProps> = ({
   priceTableEdit,
   setPriceTableEdit,
   readOnly,
+  onWikiRefClick,
   onOpenWikiRef,
 }) => {
   const slateEditor = useSlate();
@@ -1289,35 +1290,35 @@ const Element: React.FC<ElementRenderProps> = ({
     }
 
     case 'wiki-ref': {
-      const refType = (element as any).refType as 'quest' | 'npc' | 'qna';
-      const refId = (element as any).refId as number;
-
-      const label = refType === 'quest' ? '퀘스트' : refType === 'npc' ? 'NPC' : 'QNA';
+      const kind = (element as any).kind as WikiRefKind;
+      const refId = Number((element as any).id);
+      const open = onWikiRefClick ?? onOpenWikiRef;
 
       return (
         <span
           {...attributes}
-          role="button"
-          tabIndex={0}
+          role={readOnly ? 'button' : undefined}
+          tabIndex={readOnly ? 0 : -1}
+          title={`${String(kind).toUpperCase()} #${refId}`}
           style={{
+            color: '#2563eb',
             textDecoration: 'underline',
-            cursor: 'pointer',
-            fontWeight: 800,
+            cursor: readOnly && open ? 'pointer' : 'default',
           }}
           onMouseDown={(e) => {
-            // 읽기 전용에서만 "클릭 → 모달" 동작
             if (!readOnly) return;
+            if (!open) return;
             e.preventDefault();
-            onOpenWikiRef?.(refType, refId);
+            open(kind, refId);
           }}
           onKeyDown={(e) => {
             if (!readOnly) return;
+            if (!open) return;
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
-              onOpenWikiRef?.(refType, refId);
+              open(kind, refId);
             }
           }}
-          title={`${label} #${refId}`}
         >
           {children}
         </span>

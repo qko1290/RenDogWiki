@@ -15,7 +15,8 @@ import Breadcrumb from './Breadcrumb';
 import NpcGrid from './NpcGrid';
 import HeadGrid from './HeadGrid';
 import TableOfContents from './TableOfContents';
-import NpcDetailModal from './NpcDetailModal';
+import NpcDetailModal, { type Npc } from './NpcDetailModal';
+import type { WikiRefKind } from '@/components/editor/render/types';
 import HeadDetailModal from './HeadDetailModal';
 import FaqList from './FaqList';
 import FaqUpsertModal from '@/components/wiki/FaqUpsertModal';
@@ -169,6 +170,72 @@ function parseSpecial(raw?: string | null): SpecialMeta {
   if (!kind || !village) return null;
   const label = kind === 'quest' ? '퀘스트' : kind === 'npc' ? 'NPC' : '머리';
   return { kind, label, village };
+}
+
+function FaqDetailModal({
+  faq,
+  onClose,
+}: {
+  faq: { id: number; title: string; content: string; tags: string[] };
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    document.body.classList.add('rd-modal-open');
+    return () => document.body.classList.remove('rd-modal-open');
+  }, []);
+
+  return (
+    <div
+      className="faq-upsert-backdrop"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="faq-upsert-modal" onClick={(e) => e.stopPropagation()}>
+        <header className="upsert-header">
+          <div className="upsert-title">
+            <span className="upsert-chip">QnA</span>
+            <h3>{faq.title}</h3>
+          </div>
+          <button className="upsert-close" onClick={onClose} aria-label="close">
+            ✕
+          </button>
+        </header>
+
+        <div className="upsert-body">
+          {!!faq.tags?.length && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {faq.tags.map((t, i) => (
+                <span
+                  key={i}
+                  className="upsert-chip"
+                  style={{ background: '#eff6ff', borderColor: '#bfdbfe', color: '#1d4ed8' }}
+                >
+                  #{t}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="field" style={{ marginTop: 10 }}>
+            <label>내용</label>
+            <div
+              className="textarea"
+              style={{ whiteSpace: 'pre-wrap', height: 'auto', minHeight: 160 }}
+            >
+              {faq.content}
+            </div>
+          </div>
+        </div>
+
+        <footer className="upsert-footer">
+          <button className="upsert-save" onClick={onClose}>
+            닫기
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
 }
 
 export default function WikiPageInner({ user }: Props) {
@@ -607,6 +674,31 @@ export default function WikiPageInner({ user }: Props) {
         setDocContent([]);
         setSelectedCategoryPath(path);
       }
+    }
+  };
+
+  const [npcModal, setNpcModal] = useState<null | { kind: 'npc' | 'quest'; data: Npc }>(null);
+  const [faqModal, setFaqModal] = useState<null | { id: number; title: string; content: string; tags: string[] }>(null);
+
+  const handleWikiRefClick = async (kind: WikiRefKind, id: number) => {
+    if (kind === 'npc' || kind === 'quest') {
+      const r = await fetch(`/api/npc/${id}`, { cache: 'no-store' });
+      if (!r.ok) return;
+      const data = (await r.json()) as Npc;
+      setNpcModal({ kind, data });
+      return;
+    }
+
+    if (kind === 'qna') {
+      const r = await fetch(`/api/faq/${id}`, { cache: 'no-store' });
+      if (!r.ok) return;
+      const data = (await r.json()) as any;
+      setFaqModal({
+        id: Number(data?.id ?? id),
+        title: String(data?.title ?? ''),
+        content: String(data?.content ?? ''),
+        tags: Array.isArray(data?.tags) ? data.tags.map(String) : [],
+      });
     }
   };
 
@@ -1299,7 +1391,28 @@ export default function WikiPageInner({ user }: Props) {
                   <div>등록된 NPC가 없습니다.</div>
                 )
               ) : Array.isArray(docContent) && docContent.length > 0 ? (
-                <WikiReadRenderer content={docContent} />
+                  <>
+                    <WikiReadRenderer
+                      content={docContent}
+                      readOnly
+                      onWikiRefClick={handleWikiRefClick}
+                    />
+
+                    {npcModal && (
+                      <NpcDetailModal
+                        npc={npcModal.data}
+                        onClose={() => setNpcModal(null)}
+                        mode={npcModal.kind === 'quest' ? 'quest' : 'npc'}
+                      />
+                    )}
+
+                    {faqModal && (
+                      <FaqDetailModal
+                        faq={faqModal}
+                        onClose={() => setFaqModal(null)}
+                      />
+                    )}
+                  </>
               ) : (
                 <BookLoader />
               )}

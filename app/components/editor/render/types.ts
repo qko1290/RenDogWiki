@@ -10,6 +10,8 @@ export type PriceTableEditState = {
   item: any | null;
 };
 
+export type WikiRefKind = 'quest' | 'npc' | 'qna';
+
 /**
  * 공통 Renderer Props
  * - Slate가 요구하는 RenderElementProps 기반
@@ -21,9 +23,14 @@ export type CustomElementProps = {
   priceTableEdit: PriceTableEditState;
   setPriceTableEdit: React.Dispatch<React.SetStateAction<PriceTableEditState>>;
 
-  // ✅ 추가: 문서(읽기) 전용 클릭 → 모달 오픈
+  // ✅ 문서(읽기) 전용 클릭 → 모달 오픈
   readOnly?: boolean;
-  onOpenWikiRef?: (refType: 'quest' | 'npc' | 'qna', refId: number) => void;
+
+  // ✅ 최종으로 쓸 이름
+  onWikiRefClick?: (kind: WikiRefKind, id: number) => void | Promise<void>;
+
+  // ✅ (기존/혼재 코드 호환용) 예전 이름도 받음
+  onOpenWikiRef?: (kind: WikiRefKind, id: number) => void | Promise<void>;
 };
 
 export type ElementRenderProps = RenderElementProps & CustomElementProps;

@@ -26,6 +26,7 @@ import '@/wiki/css/editor.css';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faImage } from '@fortawesome/free-solid-svg-icons';
 import TableContextMenu from './TableContextMenu';
+import type { WikiRefKind } from './render/types';
 
 type DocState = {
   id?: number;
@@ -422,8 +423,9 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
         onIconClick={handleIconClick}
         priceTableEdit={priceTableEdit}
         setPriceTableEdit={setPriceTableEdit}
-        onOpenWikiRef={(refType, refId) => {
-          // TODO: 여기서 모달 오픈 처리
+        readOnly={false}
+        onWikiRefClick={(refType: WikiRefKind, refId: number) => {
+
         }}
       />
     ),
