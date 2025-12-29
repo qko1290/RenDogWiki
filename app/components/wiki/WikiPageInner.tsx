@@ -24,7 +24,6 @@ import { toProxyUrl } from '@lib/cdn';
 
 import { Descendant } from 'slate';
 import { useRouter, useSearchParams } from 'next/navigation';
-import WikiRefModal from './WikiRefModal';
 
 type CategoryNode = {
   id: number;
@@ -320,6 +319,54 @@ export default function WikiPageInner({ user }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const contentRef = useRef<HTMLDivElement>(null);
+
+  type FaqDetail = {
+    id: number;
+    title: string;
+    content: string;
+    tags?: string[];
+  };
+
+  const [npcModalOpen, setNpcModalOpen] = useState(false);
+  const [npcModalMode, setNpcModalMode] = useState<'quest' | 'npc'>('npc');
+  const [npcModalNpc, setNpcModalNpc] = useState<Npc | null>(null);
+
+  const [qnaModalOpen, setQnaModalOpen] = useState(false);
+  const [qnaModalFaq, setQnaModalFaq] = useState<FaqDetail | null>(null);
+
+  const openWikiRef = async (kind: WikiRefKind, id: number) => {
+    if (!Number.isFinite(id) || id <= 0) return;
+
+    try {
+      // QnA
+      if (kind === 'qna') {
+        const r = await fetch(`/api/faq/${id}`, { cache: 'no-store' });
+        if (!r.ok) throw new Error('faq fetch failed');
+        const data = await r.json();
+
+        setQnaModalFaq({
+          id: Number(data?.id),
+          title: String(data?.title ?? ''),
+          content: String(data?.content ?? ''),
+          tags: Array.isArray(data?.tags) ? data.tags : [],
+        });
+        setQnaModalOpen(true);
+        return;
+      }
+
+      // NPC / QUEST
+      const r = await fetch(`/api/npc/${id}`, { cache: 'no-store' });
+      if (!r.ok) throw new Error('npc fetch failed');
+      const data = (await r.json()) as Npc;
+
+      setNpcModalNpc(data);
+      setNpcModalMode(kind === 'quest' ? 'quest' : 'npc');
+      setNpcModalOpen(true);
+    } catch (e) {
+      console.error('[openWikiRef] failed:', e);
+      alert(`${kind.toUpperCase()} #${id} 불러오기에 실패했습니다.`);
+    }
+  };
 
   const syncUrlWithDoc = (
     docTitle: string | null,
@@ -1405,34 +1452,151 @@ export default function WikiPageInner({ user }: Props) {
                     <WikiReadRenderer
                       content={docContent}
                       readOnly
-                      onWikiRefClick={(kind, id) => {
-                        // ✅ QnA는 기존처럼 WikiRefModal로
-                        if (kind === 'qna') {
-                          setWikiRefKind(kind);
-                          setWikiRefId(id);
-                          setWikiRefOpen(true);
-                          return;
-                        }
-
-                        // ✅ NPC/QUEST는 fetch하지 말고 npcList에서 찾아서 기존 NpcDetailModal 사용
-                        const found = npcList.find((n) => Number(n.id) === Number(id));
-                        if (!found) {
-                          alert(`NPC #${id} 를 현재 npcList에서 찾을 수 없습니다.`);
-                          return;
-                        }
-
-                        setSelectedNpcMode(kind === 'quest' ? 'quest' : 'npc');
-                        setSelectedNpc(found);
-                      }}
+                      onWikiRefClick={handleWikiRefClick}
                     />
 
-                    {/* ✅ QnA만 여기서 모달로 */}
-                    <WikiRefModal
-                      open={wikiRefOpen}
-                      kind={wikiRefKind}
-                      id={wikiRefId}
-                      onClose={() => setWikiRefOpen(false)}
-                    />
+                    {/* ✅ NPC/QUEST 모달: 기존 NpcDetailModal 재사용 */}
+                    {npcModalOpen && npcModalNpc && (
+                      <NpcDetailModal
+                        npc={npcModalNpc}
+                        mode={npcModalMode}
+                        onClose={() => {
+                          setNpcModalOpen(false);
+                          setNpcModalNpc(null);
+                        }}
+                      />
+                    )}
+
+                    {/* ✅ QnA 모달: FaqList의 상세 UI 그대로 이식(간단 버전) */}
+                    {qnaModalOpen && qnaModalFaq && (
+                      <div
+                        className="faq-upsert-backdrop"
+                        onClick={() => {
+                          setQnaModalOpen(false);
+                          setQnaModalFaq(null);
+                        }}
+                        role="dialog"
+                        aria-modal="true"
+                      >
+                        <div className="faq-upsert-modal" onClick={(e) => e.stopPropagation()}>
+                          <header className="upsert-header">
+                            <div className="upsert-title">
+                              <span className="upsert-chip">QnA</span>
+                              <h3>{qnaModalFaq.title}</h3>
+                            </div>
+                            <button
+                              className="upsert-close"
+                              onClick={() => {
+                                setQnaModalOpen(false);
+                                setQnaModalFaq(null);
+                              }}
+                              aria-label="close"
+                            >
+                              <svg className="x-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8">
+                                <path d="M6 6L18 18M18 6L6 18" strokeLinecap="round" />
+                              </svg>
+                            </button>
+                          </header>
+
+                          <div className="upsert-body">
+                            {!!qnaModalFaq.tags?.length && (
+                              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                {qnaModalFaq.tags.map((t, i) => (
+                                  <span
+                                    key={i}
+                                    className="upsert-chip"
+                                    style={{ background: '#eff6ff', borderColor: '#bfdbfe', color: '#1d4ed8' }}
+                                  >
+                                    #{t}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+
+                            <div className="field" style={{ marginTop: 10 }}>
+                              <label>내용</label>
+                              <div className="textarea" style={{ whiteSpace: 'pre-wrap', height: 'auto', minHeight: 160 }}>
+                                {qnaModalFaq.content}
+                              </div>
+                            </div>
+                          </div>
+
+                          <footer className="upsert-footer">
+                            <button
+                              className="upsert-save"
+                              onClick={() => {
+                                setQnaModalOpen(false);
+                                setQnaModalFaq(null);
+                              }}
+                            >
+                              닫기
+                            </button>
+                          </footer>
+                        </div>
+
+                        {/* FaqList 스타일 재사용 */}
+                        <style jsx>{`
+                          .faq-upsert-backdrop{
+                            position: fixed; inset: 0; z-index: 21000;
+                            background: rgba(15, 23, 42, 0.45);
+                            display: grid; place-items: center; padding: 16px;
+                            backdrop-filter: blur(2px);
+                          }
+                          .faq-upsert-modal{
+                            width: min(720px, 100%); background: #fff;
+                            border: 1px solid #e5e7eb;
+                            border-radius: 16px;
+                            box-shadow: 0 22px 80px rgba(0,0,0,0.22);
+                            overflow: hidden;
+                          }
+                          .upsert-header{
+                            display: flex; align-items: center; justify-content: space-between;
+                            padding: 14px 16px; border-bottom: 1px solid #f1f5f9;
+                            background: linear-gradient(180deg,#ffffff, #fafbfc);
+                          }
+                          .upsert-title{ display: flex; align-items: center; gap: 10px; }
+                          .upsert-title h3{ margin: 0; font-size: 18px; font-weight: 800; color: #0f172a; }
+                          .upsert-chip{
+                            display: inline-flex; align-items:center; justify-content:center;
+                            height: 26px; padding: 0 10px; border-radius: 999px;
+                            font-size: 12px; font-weight: 700; color: #065f46;
+                            background: #ecfdf5; border: 1px solid #b7f0d0;
+                          }
+                          .upsert-close{
+                            width: 34px; height: 34px;
+                            display: grid; place-items: center;
+                            background: transparent; border: 0; border-radius: 0;
+                            color: #ef4444; cursor: pointer;
+                            transition: transform .12s ease;
+                          }
+                          .upsert-close:hover{ transform: scale(1.06); }
+                          .upsert-close .x-ic{ width: 18px; height: 18px; }
+                          .upsert-body{ padding: 16px; display: grid; gap: 12px; }
+                          .field label{
+                            display:block; font-size: 12px; color:#6b7280;
+                            margin-bottom: 6px; font-weight:600;
+                          }
+                          .textarea{
+                            width: 100%;
+                            border: 1px solid #e5e7eb; border-radius: 12px;
+                            padding: 10px 12px; font-size: 15px; color: #0f172a;
+                            outline: none; background: #fff;
+                          }
+                          .upsert-footer{
+                            display:flex; justify-content:flex-end;
+                            padding: 12px 16px; border-top: 1px solid #f1f5f9; background:#fff;
+                          }
+                          .upsert-save{
+                            height: 40px; padding: 0 16px;
+                            border-radius: 12px;
+                            border: 1px solid #93c5fd;
+                            color: #fff; font-weight: 800;
+                            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%);
+                            cursor: pointer;
+                          }
+                        `}</style>
+                      </div>
+                    )}
                   </>
               ) : (
                 <BookLoader />
