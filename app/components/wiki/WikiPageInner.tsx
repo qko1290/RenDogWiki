@@ -838,7 +838,7 @@ export default function WikiPageInner({ user }: Props) {
           </div>
         </div>
 
-        <style jsx>{`
+        <style>{`
           .wiki-loader-wrap {
             display: flex;
             align-items: center;
@@ -1535,7 +1535,7 @@ export default function WikiPageInner({ user }: Props) {
                         </div>
 
                         {/* FaqList 스타일 재사용 */}
-                        <style jsx>{`
+                        <style>{`
                           .faq-upsert-backdrop{
                             position: fixed; inset: 0; z-index: 21000;
                             background: rgba(15, 23, 42, 0.45);
@@ -1717,7 +1717,15 @@ export default function WikiPageInner({ user }: Props) {
       )}
 
       {/* 콘텐츠 페이드 전환 + 제목/링크 버튼 스타일 */}
-      <style jsx global>{`
+      <style>{`
+        .wiki-content.is-ready {
+          opacity: 1;
+          transition: opacity 0.18s ease;
+        }
+        .wiki-content.is-hold {
+          opacity: 0;
+        }
+
         /* 제목 래퍼: 높이 최소화 + 중앙 정렬 */
         .wiki-doc-title-wrap {
           display: flex;
@@ -1779,7 +1787,8 @@ export default function WikiPageInner({ user }: Props) {
         }
 
         :root {
-          --wiki-round-font: 'Jua', 'Pretendard', 'Malgun Gothic', system-ui, sans-serif;
+          --wiki-round-font: 'Jua', 'Pretendard', 'Malgun Gothic',
+            system-ui, sans-serif;
         }
       `}</style>
     </div>
@@ -1958,7 +1967,7 @@ function FaqAddButton({ onClick }: { onClick: () => void }) {
         <span className="faq-add-label">질문 추가</span>
       </button>
 
-      <style jsx>{`
+      <style>{`
         .faq-add-group {
           display: inline-flex;
           overflow: hidden;
