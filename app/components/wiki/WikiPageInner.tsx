@@ -1786,7 +1786,6 @@ export default function WikiPageInner({ user }: Props) {
           pointer-events: auto;
         }
 
-        @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
         :root {
           --wiki-round-font: 'Jua', 'Pretendard', 'Malgun Gothic',
             system-ui, sans-serif;
