@@ -1449,7 +1449,7 @@ export default function WikiPageInner({ user }: Props) {
                 )
               ) : Array.isArray(docContent) && docContent.length > 0 ? (
                   <>
-                    <WikiReadRenderer
+                    <WikiReadRenderer 
                       content={docContent}
                       readOnly
                       onWikiRefClick={handleWikiRefClick}
