@@ -24,6 +24,7 @@ import { toProxyUrl } from '@lib/cdn';
 
 import { Descendant } from 'slate';
 import { useRouter, useSearchParams } from 'next/navigation';
+import WikiRefModal from './WikiRefModal';
 
 type CategoryNode = {
   id: number;
@@ -295,6 +296,15 @@ export default function WikiPageInner({ user }: Props) {
   const [delaying, setDelaying] = useState(false);
   const SWAP_DELAY_MS = 180; // 체감 120~220ms 권장
   // -------------------------------------------
+
+  type WikiRefKind = 'quest' | 'npc' | 'qna';
+
+  const [wikiRefOpen, setWikiRefOpen] = useState(false);
+  const [wikiRefKind, setWikiRefKind] = useState<WikiRefKind>('qna');
+  const [wikiRefId, setWikiRefId] = useState<number>(0);
+
+  // ✅ 문서 링크로 열릴 때 NPC 모달이 quest/npc 어느 모드인지 기억
+  const [selectedNpcMode, setSelectedNpcMode] = useState<'quest' | 'npc'>('npc');
 
   const firstLoadRef = useRef(true);
   const mountedRef = useRef(true);
@@ -1395,23 +1405,34 @@ export default function WikiPageInner({ user }: Props) {
                     <WikiReadRenderer
                       content={docContent}
                       readOnly
-                      onWikiRefClick={handleWikiRefClick}
+                      onWikiRefClick={(kind, id) => {
+                        // ✅ QnA는 기존처럼 WikiRefModal로
+                        if (kind === 'qna') {
+                          setWikiRefKind(kind);
+                          setWikiRefId(id);
+                          setWikiRefOpen(true);
+                          return;
+                        }
+
+                        // ✅ NPC/QUEST는 fetch하지 말고 npcList에서 찾아서 기존 NpcDetailModal 사용
+                        const found = npcList.find((n) => Number(n.id) === Number(id));
+                        if (!found) {
+                          alert(`NPC #${id} 를 현재 npcList에서 찾을 수 없습니다.`);
+                          return;
+                        }
+
+                        setSelectedNpcMode(kind === 'quest' ? 'quest' : 'npc');
+                        setSelectedNpc(found);
+                      }}
                     />
 
-                    {npcModal && (
-                      <NpcDetailModal
-                        npc={npcModal.data}
-                        onClose={() => setNpcModal(null)}
-                        mode={npcModal.kind === 'quest' ? 'quest' : 'npc'}
-                      />
-                    )}
-
-                    {faqModal && (
-                      <FaqDetailModal
-                        faq={faqModal}
-                        onClose={() => setFaqModal(null)}
-                      />
-                    )}
+                    {/* ✅ QnA만 여기서 모달로 */}
+                    <WikiRefModal
+                      open={wikiRefOpen}
+                      kind={wikiRefKind}
+                      id={wikiRefId}
+                      onClose={() => setWikiRefOpen(false)}
+                    />
                   </>
               ) : (
                 <BookLoader />
@@ -1494,9 +1515,7 @@ export default function WikiPageInner({ user }: Props) {
               {selectedNpc && !hold && (
                 <NpcDetailModal
                   npc={selectedNpc}
-                  mode={
-                    specialMeta?.kind === 'quest' ? 'quest' : 'npc'
-                  }
+                  mode={selectedNpcMode}
                   onClose={() => setSelectedNpc(null)}
                 />
               )}
