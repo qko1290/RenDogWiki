@@ -1718,77 +1718,14 @@ export default function WikiPageInner({ user }: Props) {
 
       {/* 콘텐츠 페이드 전환 + 제목/링크 버튼 스타일 */}
       <style jsx global>{`
-        .wiki-content.is-ready {
-          opacity: 1;
-          transition: opacity 0.18s ease;
-        }
-        .wiki-content.is-hold {
-          opacity: 0;
+        /* ✅ styled-jsx 내부 @import 금지 (Vercel 빌드 panic 원인)
+          폰트 로딩은 app/layout.tsx(next/font) 또는 global css로 옮겨야 함 */
+        :root{
+          --brand-font: 'Jua', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
         }
 
-        /* 제목 래퍼: 높이 최소화 + 중앙 정렬 */
-        .wiki-doc-title-wrap {
-          display: flex;
-          align-items: center;
-          justify-content: flex-start;
-          gap: 6px;
-          padding-bottom: 10px;
-        }
-
-        /* 제목 h2 자체를 플렉스로 만들어 아이콘/텍스트/버튼을 한 줄 중앙 정렬 */
-        .wiki-content-title-row {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          margin: 0;
-          line-height: 1.1;
-          padding: 2px 0;
-        }
-
-        .wiki-doc-icon-img {
-          width: 24px;
-          height: 24px;
-          image-rendering: pixelated;
-        }
-
-        .wiki-doc-link-btn {
-          width: 20px;
-          height: 20px;
-          margin-left: 6px;
-          display: grid;
-          place-items: center;
-          border: none;
-          border-radius: 50%;
-          background: transparent;
-          color: #9ca3af;
-          font-size: 12px;
-          opacity: 0;
-          pointer-events: none;
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-
-        /* hover 시만 표시 */
-        .wiki-doc-title-wrap:hover .wiki-doc-link-btn {
-          opacity: 1;
-          pointer-events: auto;
-        }
-
-        .wiki-doc-link-btn:hover {
-          background: #eef2ff;
-          color: #4f46e5;
-        }
-
-        .wiki-doc-link-btn--copied {
-          background: #dcfce7;
-          color: #16a34a;
-          opacity: 1;
-          pointer-events: auto;
-        }
-
-        :root {
-          --wiki-round-font: 'Jua', 'Pretendard', 'Malgun Gothic',
-            system-ui, sans-serif;
+        .jua {
+          font-family: var(--brand-font);
         }
       `}</style>
     </div>
