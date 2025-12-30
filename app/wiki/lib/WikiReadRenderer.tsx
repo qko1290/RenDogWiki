@@ -2478,7 +2478,7 @@ function renderNode(
           style={{
             color: '#2563eb',
             cursor: clickable ? 'pointer' : 'default',
-            textDecoration: clickable ? 'underline' : 'none',
+            textDecoration: 'none',
           }}
           onClick={
             clickable
