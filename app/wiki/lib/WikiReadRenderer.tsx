@@ -170,11 +170,16 @@ function getInfoboxPreset(
 } {
   const normalize = (t: string) => {
     const v = (t || "info").toLowerCase();
+
     // 구버전/호환
     if (v === "note") return "info";
     if (v === "warn") return "warning";
     if (v === "error") return "danger";
     if (v === "success") return "tip";
+
+    // ✅ 연두/그린 호환(여기 추가)
+    if (v === "lime" || v === "lightgreen" || v === "mint") return "green";
+
     return v;
   };
 
@@ -2304,7 +2309,14 @@ function renderNode(
     }
 
     case "info-box": {
-      const type = (node.boxType || "info").toLowerCase();
+      const raw =
+        node.boxType ??
+        node.variant ??
+        node.tone ??
+        node.infoType ??
+        "info";
+
+      const type = String(raw).toLowerCase();
       const { container, icon, role, showIcon } = getInfoboxPreset(type);
 
       return (
@@ -2312,18 +2324,7 @@ function renderNode(
           {showIcon && icon && (
             <span aria-hidden="true" style={icon as React.CSSProperties} />
           )}
-
-          <div
-            style={{
-              flex: "1 1 auto",
-              minWidth: 0,
-              lineHeight: 1.55,
-              fontWeight: 560,
-              color: "#1c1d1f",
-              // 아이콘이 없으면 좌측 여백이 없으니 그대로 꽉 차게
-              ...(showIcon ? { paddingLeft: 0 } : { paddingLeft: 0 }),
-            }}
-          >
+          <div style={{ flex: "1 1 auto", minWidth: 0, lineHeight: 1.55, fontWeight: 560 }}>
             {children}
           </div>
         </div>
