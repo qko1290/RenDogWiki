@@ -159,21 +159,33 @@ const HeadingAnchorButton: React.FC<HeadingAnchorButtonProps> = ({
 };
 
 /** infobox 인라인 스타일 preset */
+/** infobox 인라인 스타일 preset */
 function getInfoboxPreset(
   boxType: string
 ): {
   container: React.CSSProperties;
-  icon: React.CSSProperties & Record<string, any>;
+  icon: (React.CSSProperties & Record<string, any>) | null;
   role: "note" | "alert";
+  showIcon: boolean;
 } {
+  const normalize = (t: string) => {
+    const v = (t || "info").toLowerCase();
+    // 구버전/호환
+    if (v === "note") return "info";
+    if (v === "warn") return "warning";
+    if (v === "error") return "danger";
+    if (v === "success") return "tip";
+    return v;
+  };
+
   const baseContainer: React.CSSProperties = {
     display: "flex",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 12,
     padding: "12px 14px",
     borderRadius: 12,
     color: "#1c1d1f",
-    boxShadow: "0 1px 0 rgba(0,0,0,.02)",
+    boxShadow: "0 1px 0 rgba(0,0,0,0.02)",
   };
 
   const map: Record<
@@ -182,10 +194,12 @@ function getInfoboxPreset(
       bg: string;
       bd: string;
       accent: string;
-      mask: string;
+      mask?: string; // 아이콘이 있는 타입만
       role: "note" | "alert";
+      noIcon?: boolean; // ✅ 새 타입은 아이콘 없음
     }
   > = {
+    // 기존 4종(아이콘 유지)
     info: {
       bg: "#f2f6ff",
       bd: "#dbeafe",
@@ -218,32 +232,76 @@ function getInfoboxPreset(
         "https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-exclamation.svg?v=2&token=a463935e93",
       role: "note",
     },
+
+    // ✅ 새 5종(아이콘 없음)
+    white: {
+      bg: "#ffffff",
+      bd: "#e5e7eb",
+      accent: "#6b7280",
+      role: "note",
+      noIcon: true,
+    },
+    yellow: {
+      bg: "#fffbeb",
+      bd: "#fde68a",
+      accent: "#b45309",
+      role: "note",
+      noIcon: true,
+    },
+    green: {
+      bg: "#f0fdf4",
+      bd: "#bbf7d0",
+      accent: "#15803d",
+      role: "note",
+      noIcon: true,
+    },
+    pink: {
+      bg: "#fdf2f8",
+      bd: "#fbcfe8",
+      accent: "#be185d",
+      role: "note",
+      noIcon: true,
+    },
+    red: {
+      bg: "#fef2f2",
+      bd: "#fecaca",
+      accent: "#b91c1c",
+      role: "alert",
+      noIcon: true,
+    },
   };
 
-  const sel = map[boxType] ?? map.info;
+  const type = normalize(boxType);
+  const sel = map[type] ?? map.info;
 
   const container: React.CSSProperties = {
     ...baseContainer,
     background: sel.bg,
     border: `1px solid ${sel.bd}`,
+    ...(sel.noIcon ? { gap: 0 } : null),
   };
 
-  const icon: React.CSSProperties & Record<string, any> = {
-    flex: "0 0 auto",
-    width: 18,
-    height: 18,
-    backgroundColor: sel.accent,
-    WebkitMaskImage: `url(${sel.mask})`,
-    maskImage: `url(${sel.mask})`,
-    WebkitMaskRepeat: "no-repeat",
-    maskRepeat: "no-repeat",
-    WebkitMaskPosition: "center",
-    maskPosition: "center",
-    WebkitMaskSize: "contain",
-    maskSize: "contain",
-  };
+  const showIcon = !sel.noIcon && !!sel.mask;
 
-  return { container, icon, role: sel.role };
+  const icon: (React.CSSProperties & Record<string, any>) | null = showIcon
+    ? {
+        flex: "0 0 auto",
+        width: 18,
+        height: 18,
+        marginTop: 2,
+        backgroundColor: sel.accent,
+        WebkitMaskImage: `url(${sel.mask})`,
+        maskImage: `url(${sel.mask})`,
+        WebkitMaskRepeat: "no-repeat",
+        maskRepeat: "no-repeat",
+        WebkitMaskPosition: "center",
+        maskPosition: "center",
+        WebkitMaskSize: "contain",
+        maskSize: "contain",
+      }
+    : null;
+
+  return { container, icon, role: sel.role, showIcon };
 }
 
 type LinkBlockNode = {
@@ -2242,10 +2300,14 @@ function renderNode(
 
     case "info-box": {
       const type = (node.boxType || "info").toLowerCase();
-      const { container, icon, role } = getInfoboxPreset(type);
+      const { container, icon, role, showIcon } = getInfoboxPreset(type);
+
       return (
         <div key={key} role={role} style={{ ...container, margin: "8px 0" }}>
-          <span aria-hidden="true" style={icon as React.CSSProperties} />
+          {showIcon && icon && (
+            <span aria-hidden="true" style={icon as React.CSSProperties} />
+          )}
+
           <div
             style={{
               flex: "1 1 auto",
@@ -2253,6 +2315,8 @@ function renderNode(
               lineHeight: 1.55,
               fontWeight: 560,
               color: "#1c1d1f",
+              // 아이콘이 없으면 좌측 여백이 없으니 그대로 꽉 차게
+              ...(showIcon ? { paddingLeft: 0 } : { paddingLeft: 0 }),
             }}
           >
             {children}
