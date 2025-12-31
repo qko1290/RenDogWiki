@@ -169,7 +169,9 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
         ? true
         : isInline(el);
     editor.isVoid = el =>
-      VOID_BLOCK_TYPES.has((el as any).type) ? true : isVoid(el);
+      (el as any).type === 'inline-image' || VOID_BLOCK_TYPES.has((el as any).type)
+        ? true
+        : isVoid(el);
     return editor;
   };
 
@@ -182,15 +184,31 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     const { normalizeNode } = e;
     e.normalizeNode = ([node, path]) => {
       if (SlateElement.isElement(node) && node.type === 'info-box') {
-        const text = Node.string(node);
-        if (text === '') return;
-        if (node.children.length > 1) {
-          const merged = { ...node, children: [{ text }] };
-          Transforms.removeNodes(e, { at: path });
-          Transforms.insertNodes(e, merged as any, { at: path });
+        // 1) children이 비어있으면 최소 텍스트 1개 보장
+        if (!node.children || node.children.length === 0) {
+          Transforms.insertNodes(e, { text: '' } as any, { at: [...path, 0] });
           return;
         }
+
+        // 2) ✅ info-box 안에 element(예: inline-image)가 있으면 "합치기(merge)" 금지
+        const hasElementChild = node.children.some((ch: any) =>
+          SlateElement.isElement(ch)
+        );
+
+        // 3) 텍스트만 있을 때에만 기존처럼 여러 텍스트를 1개로 합침
+        if (!hasElementChild) {
+          const text = Node.string(node);
+          if (text === '') return;
+
+          if (node.children.length > 1) {
+            const merged = { ...node, children: [{ text }] };
+            Transforms.removeNodes(e, { at: path });
+            Transforms.insertNodes(e, merged as any, { at: path });
+            return;
+          }
+        }
       }
+
       normalizeNode([node, path]);
     };
 
