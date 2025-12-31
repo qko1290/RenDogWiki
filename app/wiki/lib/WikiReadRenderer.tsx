@@ -270,6 +270,8 @@ function getInfoboxPreset(
       role: "note",
       noIcon: true,
     },
+
+    // ✅ 연두: green / lime 둘 다 같은 프리셋으로 지원
     green: {
       bg: "#f0fdf4",
       bd: "#bbf7d0",
@@ -277,6 +279,14 @@ function getInfoboxPreset(
       role: "note",
       noIcon: true,
     },
+    lime: {
+      bg: "#f0fdf4",
+      bd: "#bbf7d0",
+      accent: "#15803d",
+      role: "note",
+      noIcon: true,
+    },
+
     pink: {
       bg: "#fdf2f8",
       bd: "#fbcfe8",
