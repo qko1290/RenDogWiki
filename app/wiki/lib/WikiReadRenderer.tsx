@@ -984,6 +984,8 @@ function compactReadContent(nodes: Descendant[]): Descendant[] {
   const isLinkish = (n: any) =>
     n?.type === "link-block" || n?.type === "link-block-row";
 
+  const isInfoboxish = (n: any) => n?.type === "info-box";
+
   for (let i = 0; i < nodes.length; i++) {
     const prev: any = nodes[i - 1];
     const cur: any = nodes[i];
@@ -1000,6 +1002,9 @@ function compactReadContent(nodes: Descendant[]): Descendant[] {
 
     // ✅ (2) 링크 블럭(단일/row) 사이의 빈단락 제거
     if (isLinkish(prev) && isLinkish(next)) continue;
+
+    // ✅ (3) 정보 블럭(info-box) 사이의 빈단락 제거
+    if (isInfoboxish(prev) && isInfoboxish(next)) continue;
 
     // 그 외의 빈 단락은 유지 (의도된 줄바꿈 가능성)
     out.push(cur);
