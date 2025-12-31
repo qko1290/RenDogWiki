@@ -71,11 +71,21 @@ export interface ParagraphElement {
 }
 
 // 인포박스
-export type InfoBoxType = 'info' | 'warning' | 'danger';
+export type InfoBoxType =
+  | 'info'
+  | 'warning'
+  | 'danger'
+  | 'white'
+  | 'yellow'
+  | 'lime'
+  | 'pink'
+  | 'red';
+
 export type InfoBoxElement = {
   type: 'info-box';
   boxType: InfoBoxType;
   icon?: string;
+  noIcon?: boolean;
   children: CustomText[];
 };
 

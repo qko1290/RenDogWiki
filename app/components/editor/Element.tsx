@@ -1066,22 +1066,50 @@ const Element: React.FC<ElementRenderProps> = ({
         (element as any).infoType ||
         'note';
 
-      const tone: 'note' | 'warn' | 'danger' | 'tip' =
+      // ✅ 새 색상 타입 포함
+      const isColor =
+        raw === 'white' || raw === 'yellow' || raw === 'lime' || raw === 'pink' || raw === 'red';
+
+      const tone:
+        | 'note'
+        | 'warn'
+        | 'danger'
+        | 'tip'
+        | 'white'
+        | 'yellow'
+        | 'lime'
+        | 'pink'
+        | 'red' =
         raw === 'danger' || raw === 'error'
           ? 'danger'
           : raw === 'warn' || raw === 'warning'
           ? 'warn'
           : raw === 'tip' || raw === 'success'
           ? 'tip'
+          : isColor
+          ? (raw as any)
           : 'note';
 
+      const noIcon = Boolean((element as any).noIcon) || isColor;
+
+      // ✅ CSS 없을 때도 바로 보이게 "최소 인라인 스타일" (원하면 나중에 CSS로 빼도 됨)
+      const style: React.CSSProperties | undefined = isColor
+        ? tone === 'white'
+          ? { background: '#ffffff', border: '1px solid #d6d6d6' }
+          : tone === 'yellow'
+          ? { background: '#fff6cc', border: '1px solid #f0d36a' }
+          : tone === 'lime'
+          ? { background: '#e9ffd0', border: '1px solid #a7d86a' }
+          : tone === 'pink'
+          ? { background: '#ffe1ea', border: '1px solid #f2a7c2' }
+          : { background: '#ffd7d7', border: '1px solid #ff9a9a' } // red
+        : undefined;
+
       return (
-        <div {...attributes} className={`infobox infobox--${tone}`}>
-          <span
-            className="infobox__icon"
-            aria-hidden="true"
-            contentEditable={false}
-          />
+        <div {...attributes} className={`infobox infobox--${tone}`} style={style}>
+          {!noIcon && (
+            <span className="infobox__icon" aria-hidden="true" contentEditable={false} />
+          )}
           <div className="infobox__body">{children}</div>
         </div>
       );

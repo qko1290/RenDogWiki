@@ -22,39 +22,41 @@ import type { InfoBoxElement, ParagraphElement, InfoBoxType } from '@/types/slat
  * - infoBox 블록(아이콘 포함)과 빈 단락(paragraph)을 한 번에 삽입
  * - 알 수 없는 타입은 기본 아이콘(❗ 또는 ℹ️)으로 폴백
  */
-const insertInfoBox = (
-  editor: Editor,
-  type: InfoBoxElement['type'],
-  boxType: InfoBoxType
-) => {
-  // 박스 타입별 기본 아이콘 (유니온에 맞춰 안전 분기)
+const insertInfoBox = (editor: Editor, type: InfoBoxElement['type'], boxType: InfoBoxType) => {
+  const isColorBox =
+    boxType === 'white' ||
+    boxType === 'yellow' ||
+    boxType === 'lime' ||
+    boxType === 'pink' ||
+    boxType === 'red';
+
   const iconFor = (t: InfoBoxType): string => {
+    // ✅ 색상 박스는 아이콘 없음
+    if (t === 'white' || t === 'yellow' || t === 'lime' || t === 'pink' || t === 'red') return '';
+
     switch (t) {
       case 'info':
         return 'ℹ️';
       case 'warning':
         return '⚠️';
-      // 유니온에 다른 값이 더 있을 수 있으므로 기본값 제공
       default:
         return '❗';
     }
   };
 
-  // 1) infoBox 블록 구성
   const boxNode: InfoBoxElement = {
     type,
     boxType,
     icon: iconFor(boxType),
+    noIcon: isColorBox,       // ✅ 핵심
     children: [{ text: '' }],
   };
 
-  // 2) infoBox 바로 뒤에 들어갈 빈 단락
   const emptyParagraph: ParagraphElement = {
     type: 'paragraph',
     children: [{ text: '' }],
   };
 
-  // 3) 두 블록을 연속 삽입 (커서는 마지막 노드 끝으로 이동 → 곧바로 타이핑 가능)
   Transforms.insertNodes(editor, [boxNode, emptyParagraph]);
 };
 

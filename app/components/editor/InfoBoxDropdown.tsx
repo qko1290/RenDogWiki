@@ -70,15 +70,17 @@ const InfoBoxDropdown = ({
           role="menu"
           aria-label="InfoBox 종류"
         >
-          <li role="menuitem" tabIndex={0} onMouseDown={() => handleSelect('info')}>
-            정보
-          </li>
-          <li role="menuitem" tabIndex={0} onMouseDown={() => handleSelect('warning')}>
-            주의
-          </li>
-          <li role="menuitem" tabIndex={0} onMouseDown={() => handleSelect('danger')}>
-            경고
-          </li>
+          {/* 기존 */}
+          <li role="menuitem" tabIndex={0} onMouseDown={() => handleSelect('info')}>정보</li>
+          <li role="menuitem" tabIndex={0} onMouseDown={() => handleSelect('warning')}>주의</li>
+          <li role="menuitem" tabIndex={0} onMouseDown={() => handleSelect('danger')}>경고</li>
+
+          {/* ✅ 추가(색상 박스) */}
+          <li role="menuitem" tabIndex={0} onMouseDown={() => handleSelect('white')}>하양</li>
+          <li role="menuitem" tabIndex={0} onMouseDown={() => handleSelect('yellow')}>노랑</li>
+          <li role="menuitem" tabIndex={0} onMouseDown={() => handleSelect('lime')}>연두</li>
+          <li role="menuitem" tabIndex={0} onMouseDown={() => handleSelect('pink')}>연분홍</li>
+          <li role="menuitem" tabIndex={0} onMouseDown={() => handleSelect('red')}>빨강</li>
         </ul>
       )}
     </div>
