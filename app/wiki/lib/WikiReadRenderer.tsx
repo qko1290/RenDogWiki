@@ -169,16 +169,33 @@ function getInfoboxPreset(
   showIcon: boolean;
 } {
   const normalize = (t: string) => {
-    const v = (t || "info").toLowerCase();
+    const v = (t || "info").toLowerCase().trim();
 
-    // 구버전/호환
+    // 기존 호환
     if (v === "note") return "info";
     if (v === "warn") return "warning";
     if (v === "error") return "danger";
     if (v === "success") return "tip";
 
-    // ✅ 연두/그린 호환(여기 추가)
-    if (v === "lime" || v === "lightgreen" || v === "mint") return "green";
+    // ✅ 새 타입 호환(영문/국문/별칭)
+    if (v === "white" || v === "하양" || v === "흰색") return "white";
+    if (v === "yellow" || v === "노랑" || v === "노란") return "yellow";
+
+    // 연두: lime / green 둘 다 들어올 수 있으니 하나로 통일
+    if (
+      v === "lime" ||
+      v === "green" ||
+      v === "lightgreen" ||
+      v === "mint" ||
+      v === "연두"
+    )
+      return "lime";
+
+    if (v === "pink" || v === "lightpink" || v === "rose" || v === "연분홍")
+      return "pink";
+
+    if (v === "red" || v === "crimson" || v === "빨강" || v === "빨간")
+      return "red";
 
     return v;
   };
