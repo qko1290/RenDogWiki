@@ -574,13 +574,35 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       }
     }
 
-    // info-box 안에서는 Enter 막기 (기존)
+    // info-box 안에서는 Enter → 같은 박스 안에서 줄바꿈(개행) 처리
+    // - 기본 Enter: \n 삽입 (박스 내부 여러 줄)
+    // - (선택) Ctrl/Cmd+Enter: 박스 바깥으로 빠져나와 새 paragraph 생성
     if (event.key === 'Enter') {
-      const [ib] = Editor.nodes(editor, {
-        match: n => SlateElement.isElement(n) && n.type === 'info-box',
+      const ibEntry = Editor.above(editor, {
+        match: n => SlateElement.isElement(n) && (n as any).type === 'info-box',
       });
-      if (ib) {
+
+      if (ibEntry) {
         event.preventDefault();
+
+        // Ctrl/Cmd+Enter: 박스 밖으로 나가기 (원하면 유지)
+        if (event.ctrlKey || event.metaKey) {
+          const [, ibPath] = ibEntry;
+          const insertPath = Path.next(ibPath);
+
+          Transforms.insertNodes(
+            editor,
+            { type: 'paragraph', children: [{ text: '' }] } as any,
+            { at: insertPath },
+          );
+
+          Transforms.select(editor, Editor.start(editor, insertPath));
+          ReactEditor.focus(editor);
+          return;
+        }
+
+        // 기본 Enter: 박스 내부에서 줄바꿈
+        Transforms.insertText(editor, '\n');
         return;
       }
     }

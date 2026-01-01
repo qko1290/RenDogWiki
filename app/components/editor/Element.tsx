@@ -1110,7 +1110,9 @@ const Element: React.FC<ElementRenderProps> = ({
           {!noIcon && (
             <span className="infobox__icon" aria-hidden="true" contentEditable={false} />
           )}
-          <div className="infobox__body">{children}</div>
+          <div className="infobox__body" style={{ whiteSpace: 'pre-wrap' }}>
+            {children}
+          </div>
         </div>
       );
     }

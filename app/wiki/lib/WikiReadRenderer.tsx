@@ -2351,7 +2351,7 @@ function renderNode(
           {showIcon && icon && (
             <span aria-hidden="true" style={icon as React.CSSProperties} />
           )}
-          <div style={{ flex: "1 1 auto", minWidth: 0, lineHeight: 1.55, fontWeight: 560 }}>
+          <div style={{ flex: "1 1 auto", minWidth: 0, lineHeight: 1.55, fontWeight: 560, whiteSpace: "pre-wrap" }}>
             {children}
           </div>
         </div>
