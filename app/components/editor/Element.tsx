@@ -1064,12 +1064,11 @@ const Element: React.FC<ElementRenderProps> = ({
         (element as any).variant ||
         (element as any).tone ||
         (element as any).infoType ||
-        'info';
+        'note';
 
-      const t = String(raw).toLowerCase().trim();
-
+      // ✅ 새 색상 타입 포함
       const isColor =
-        t === 'white' || t === 'yellow' || t === 'lime' || t === 'pink' || t === 'red';
+        raw === 'white' || raw === 'yellow' || raw === 'lime' || raw === 'pink' || raw === 'red';
 
       const tone:
         | 'note'
@@ -1081,43 +1080,36 @@ const Element: React.FC<ElementRenderProps> = ({
         | 'lime'
         | 'pink'
         | 'red' =
-        t === 'danger' || t === 'error'
+        raw === 'danger' || raw === 'error'
           ? 'danger'
-          : t === 'warn' || t === 'warning'
+          : raw === 'warn' || raw === 'warning'
           ? 'warn'
-          : t === 'tip' || t === 'success'
+          : raw === 'tip' || raw === 'success'
           ? 'tip'
           : isColor
-          ? (t as any)
+          ? (raw as any)
           : 'note';
 
-      // ✅ 새 컬러 박스는 아이콘 없음 (기존 info/warn/danger/tip 은 유지)
       const noIcon = Boolean((element as any).noIcon) || isColor;
 
-      // ✅ “첫 요소가 인라인 이미지/마크”면 줄바꿈 정렬을 위해 lead 플래그
-      const firstType = (element as any)?.children?.[0]?.type;
-      const hasLead = noIcon && (firstType === 'inline-image' || firstType === 'inline-mark');
+      // ✅ CSS 없을 때도 바로 보이게 "최소 인라인 스타일" (원하면 나중에 CSS로 빼도 됨)
+      const style: React.CSSProperties | undefined = isColor
+        ? tone === 'white'
+          ? { background: '#ffffff', border: '1px solid #d6d6d6' }
+          : tone === 'yellow'
+          ? { background: '#fff6cc', border: '1px solid #f0d36a' }
+          : tone === 'lime'
+          ? { background: '#e9ffd0', border: '1px solid #a7d86a' }
+          : tone === 'pink'
+          ? { background: '#ffe1ea', border: '1px solid #f2a7c2' }
+          : { background: '#ffd7d7', border: '1px solid #ff9a9a' } // red
+        : undefined;
 
       return (
-        <div
-          {...attributes}
-          className={[
-            'infobox',
-            `infobox--${tone}`,
-            noIcon ? 'infobox--noicon' : '',
-            hasLead ? 'infobox--lead' : '',
-          ]
-            .filter(Boolean)
-            .join(' ')}
-        >
+        <div {...attributes} className={`infobox infobox--${tone}`} style={style}>
           {!noIcon && (
-            <span
-              className="infobox__icon"
-              aria-hidden="true"
-              contentEditable={false}
-            />
+            <span className="infobox__icon" aria-hidden="true" contentEditable={false} />
           )}
-
           <div className="infobox__body" style={{ whiteSpace: 'pre-wrap' }}>
             {children}
           </div>
@@ -1138,11 +1130,9 @@ const Element: React.FC<ElementRenderProps> = ({
     case 'inline-image': {
       const el = element as InlineImageElement;
       const src = el.url?.startsWith('http') ? toProxyUrl(el.url) : el.url;
-
       return (
         <span
           {...attributes}
-          className="inline-image"
           contentEditable={false}
           style={{ display: 'inline-block', verticalAlign: 'middle' }}
         >
