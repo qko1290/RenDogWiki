@@ -159,7 +159,6 @@ const HeadingAnchorButton: React.FC<HeadingAnchorButtonProps> = ({
 };
 
 /** infobox 인라인 스타일 preset */
-/** infobox 인라인 스타일 preset */
 function getInfoboxPreset(
   boxType: string
 ): {
@@ -171,169 +170,83 @@ function getInfoboxPreset(
   const normalize = (t: string) => {
     const v = (t || "info").toLowerCase().trim();
 
-    // 기존 호환
+    // 구버전/호환
     if (v === "note") return "info";
     if (v === "warn") return "warning";
     if (v === "error") return "danger";
     if (v === "success") return "tip";
 
-    // ✅ 새 타입 호환(영문/국문/별칭)
-    if (v === "white" || v === "하양" || v === "흰색") return "white";
-    if (v === "yellow" || v === "노랑" || v === "노란") return "yellow";
-
-    // 연두: lime / green 둘 다 들어올 수 있으니 하나로 통일
-    if (
-      v === "lime" ||
-      v === "green" ||
-      v === "lightgreen" ||
-      v === "mint" ||
-      v === "연두"
-    )
-      return "lime";
-
-    if (v === "pink" || v === "lightpink" || v === "rose" || v === "연분홍")
-      return "pink";
-
-    if (v === "red" || v === "crimson" || v === "빨강" || v === "빨간")
-      return "red";
+    // 컬러 alias (원하면 더 추가 가능)
+    if (v === "lime" || v === "lightgreen") return "green";
+    if (v === "lightpink") return "pink";
 
     return v;
   };
 
+  const type = normalize(boxType);
+
   const baseContainer: React.CSSProperties = {
     display: "flex",
     alignItems: "flex-start",
-    gap: 12,
-    padding: "12px 14px",
+    gap: 10,
     borderRadius: 12,
-    color: "#1c1d1f",
-    boxShadow: "0 1px 0 rgba(0,0,0,0.02)",
+    padding: "12px 14px",
+    border: "1px solid transparent",
+    width: "100%",
   };
 
-  const map: Record<
+  const iconBase: React.CSSProperties & Record<string, any> = {
+    width: 20,
+    height: 20,
+    flex: "0 0 auto",
+    marginTop: 2,
+    borderRadius: 999,
+    backgroundColor: "#2563eb",
+    // 마스크 아이콘은 네 기존 로직 유지(있는 경우)
+    maskRepeat: "no-repeat",
+    maskPosition: "center",
+    maskSize: "contain",
+    WebkitMaskRepeat: "no-repeat",
+    WebkitMaskPosition: "center",
+    WebkitMaskSize: "contain",
+  };
+
+  const presets: Record<
     string,
-    {
-      bg: string;
-      bd: string;
-      accent: string;
-      mask?: string; // 아이콘이 있는 타입만
-      role: "note" | "alert";
-      noIcon?: boolean; // ✅ 새 타입은 아이콘 없음
-    }
+    { bg: string; border: string; role: "note" | "alert"; showIcon: boolean; iconBg?: string }
   > = {
-    // 기존 4종(아이콘 유지)
-    info: {
-      bg: "#f2f6ff",
-      bd: "#dbeafe",
-      accent: "#2563eb",
-      mask:
-        "https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-info.svg?v=2&token=a463935e93",
-      role: "note",
-    },
-    warning: {
-      bg: "#fff7ea",
-      bd: "#ffe3b3",
-      accent: "#f59e0b",
-      mask:
-        "https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-exclamation.svg?v=2&token=a463935e93",
-      role: "note",
-    },
-    danger: {
-      bg: "#fff3f3",
-      bd: "#ffd8d8",
-      accent: "#ef4444",
-      mask:
-        "https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/triangle-exclamation.svg?v=2&token=a463935e93",
-      role: "alert",
-    },
-    tip: {
-      bg: "#eefdf6",
-      bd: "#c9f1de",
-      accent: "#10b981",
-      mask:
-        "https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-exclamation.svg?v=2&token=a463935e93",
-      role: "note",
-    },
+    info:    { bg: "#eff6ff", border: "#bfdbfe", role: "note",  showIcon: true,  iconBg: "#2563eb" },
+    warning: { bg: "#fffbeb", border: "#fde68a", role: "alert", showIcon: true,  iconBg: "#d97706" },
+    danger:  { bg: "#fef2f2", border: "#fecaca", role: "alert", showIcon: true,  iconBg: "#dc2626" },
+    tip:     { bg: "#ecfdf5", border: "#a7f3d0", role: "note",  showIcon: true,  iconBg: "#059669" },
 
-    // ✅ 새 5종(아이콘 없음)
-    white: {
-      bg: "#ffffff",
-      bd: "#e5e7eb",
-      accent: "#6b7280",
-      role: "note",
-      noIcon: true,
-    },
-    yellow: {
-      bg: "#fffbeb",
-      bd: "#fde68a",
-      accent: "#b45309",
-      role: "note",
-      noIcon: true,
-    },
-
-    // ✅ 연두: green / lime 둘 다 같은 프리셋으로 지원
-    green: {
-      bg: "#f0fdf4",
-      bd: "#bbf7d0",
-      accent: "#15803d",
-      role: "note",
-      noIcon: true,
-    },
-    lime: {
-      bg: "#f0fdf4",
-      bd: "#bbf7d0",
-      accent: "#15803d",
-      role: "note",
-      noIcon: true,
-    },
-
-    pink: {
-      bg: "#fdf2f8",
-      bd: "#fbcfe8",
-      accent: "#be185d",
-      role: "note",
-      noIcon: true,
-    },
-    red: {
-      bg: "#fef2f2",
-      bd: "#fecaca",
-      accent: "#b91c1c",
-      role: "alert",
-      noIcon: true,
-    },
+    // ✅ 새 컬러 박스들(아이콘 없음)
+    white:  { bg: "#ffffff", border: "#e5e7eb", role: "note", showIcon: false },
+    yellow: { bg: "#fff7cc", border: "#f5d565", role: "note", showIcon: false },
+    green:  { bg: "#eaffd7", border: "#86efac", role: "note", showIcon: false },
+    pink:   { bg: "#ffe4ef", border: "#fda4af", role: "note", showIcon: false },
+    red:    { bg: "#ffe5e5", border: "#fca5a5", role: "alert", showIcon: false },
   };
 
-  const type = normalize(boxType);
-  const sel = map[type] ?? map.info;
+  const p = presets[type] ?? presets.info;
 
   const container: React.CSSProperties = {
     ...baseContainer,
-    background: sel.bg,
-    border: `1px solid ${sel.bd}`,
-    ...(sel.noIcon ? { gap: 0 } : null),
+    background: p.bg,
+    borderColor: p.border,
   };
 
-  const showIcon = !sel.noIcon && !!sel.mask;
+  const showIcon = p.showIcon;
 
-  const icon: (React.CSSProperties & Record<string, any>) | null = showIcon
+  const icon = showIcon
     ? {
-        flex: "0 0 auto",
-        width: 18,
-        height: 18,
-        marginTop: 2,
-        backgroundColor: sel.accent,
-        WebkitMaskImage: `url(${sel.mask})`,
-        maskImage: `url(${sel.mask})`,
-        WebkitMaskRepeat: "no-repeat",
-        maskRepeat: "no-repeat",
-        WebkitMaskPosition: "center",
-        maskPosition: "center",
-        WebkitMaskSize: "contain",
-        maskSize: "contain",
+        ...iconBase,
+        backgroundColor: p.iconBg || "#2563eb",
+        // 너 기존 maskImage 세팅이 있으면 여기서 type별로 교체해도 됨
       }
     : null;
 
-  return { container, icon, role: sel.role, showIcon };
+  return { container, icon, role: p.role, showIcon };
 }
 
 type LinkBlockNode = {
@@ -2346,16 +2259,82 @@ function renderNode(
         node.infoType ??
         "info";
 
-      const type = String(raw).toLowerCase();
+      const type = String(raw).toLowerCase().trim();
       const { container, icon, role, showIcon } = getInfoboxPreset(type);
+
+      const childNodes = Array.isArray(node.children) ? node.children : [];
+      const first = childNodes[0] as any;
+
+      const isLeadMedia =
+        !showIcon && (first?.type === "inline-image" || first?.type === "inline-mark");
+
+      const restNodes = isLeadMedia ? childNodes.slice(1) : childNodes;
+
+      const leadEl = (() => {
+        if (!isLeadMedia) return null;
+
+        if (first.type === "inline-image") {
+          return (
+            <img
+              key={`${key}-leadimg`}
+              src={cdn(first.url)}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              fetchPriority="low"
+              style={{
+                height: "1.6em",
+                width: "auto",
+                borderRadius: 4,
+                position: "absolute",
+                left: 0,
+                top: 2,
+              }}
+            />
+          );
+        }
+
+        // inline-mark
+        return (
+          <span
+            key={`${key}-leadmark`}
+            style={{
+              display: "inline-block",
+              fontWeight: "bold",
+              color: first.color || "#888",
+              fontSize: "1.08em",
+              userSelect: "none",
+              verticalAlign: "middle",
+              position: "absolute",
+              left: 0,
+              top: 2,
+            }}
+          >
+            {first.icon}
+          </span>
+        );
+      })();
 
       return (
         <div key={key} role={role} style={{ ...container, margin: "8px 0" }}>
           {showIcon && icon && (
             <span aria-hidden="true" style={icon as React.CSSProperties} />
           )}
-          <div style={{ flex: "1 1 auto", minWidth: 0, lineHeight: 1.55, fontWeight: 560, whiteSpace: "pre-wrap" }}>
-            {children}
+
+          <div
+            style={{
+              flex: "1 1 auto",
+              minWidth: 0,
+              lineHeight: 1.55,
+              fontWeight: 560,
+              whiteSpace: "pre-wrap",
+
+              // ✅ 리드 미디어가 있으면 왼쪽 gutter 확보
+              ...(isLeadMedia ? { position: "relative", paddingLeft: 34 } : null),
+            }}
+          >
+            {leadEl}
+            {restNodes.map((c: any, i: number) => renderNode(c, `${key}-c${i}`))}
           </div>
         </div>
       );

@@ -1066,10 +1066,9 @@ const Element: React.FC<ElementRenderProps> = ({
         (element as any).infoType ||
         'note';
 
-      // ✅ 새 색상 타입 포함
-      const isColor =
-        raw === 'white' || raw === 'yellow' || raw === 'lime' || raw === 'pink' || raw === 'red';
+      const type = String(raw).toLowerCase().trim();
 
+      // 에디터 쪽은 기존 note/warn/danger/tip 유지 + 컬러 타입도 허용
       const tone:
         | 'note'
         | 'warn'
@@ -1077,40 +1076,37 @@ const Element: React.FC<ElementRenderProps> = ({
         | 'tip'
         | 'white'
         | 'yellow'
-        | 'lime'
+        | 'green'
         | 'pink'
         | 'red' =
-        raw === 'danger' || raw === 'error'
+        type === 'danger' || type === 'error'
           ? 'danger'
-          : raw === 'warn' || raw === 'warning'
+          : type === 'warn' || type === 'warning'
           ? 'warn'
-          : raw === 'tip' || raw === 'success'
+          : type === 'tip' || type === 'success'
           ? 'tip'
-          : isColor
-          ? (raw as any)
+          : type === 'white' || type === 'yellow' || type === 'green' || type === 'pink' || type === 'red'
+          ? (type as any)
           : 'note';
 
-      const noIcon = Boolean((element as any).noIcon) || isColor;
+      const showIcon = tone === 'note' || tone === 'warn' || tone === 'danger' || tone === 'tip';
 
-      // ✅ CSS 없을 때도 바로 보이게 "최소 인라인 스타일" (원하면 나중에 CSS로 빼도 됨)
-      const style: React.CSSProperties | undefined = isColor
-        ? tone === 'white'
-          ? { background: '#ffffff', border: '1px solid #d6d6d6' }
-          : tone === 'yellow'
-          ? { background: '#fff6cc', border: '1px solid #f0d36a' }
-          : tone === 'lime'
-          ? { background: '#e9ffd0', border: '1px solid #a7d86a' }
-          : tone === 'pink'
-          ? { background: '#ffe1ea', border: '1px solid #f2a7c2' }
-          : { background: '#ffd7d7', border: '1px solid #ff9a9a' } // red
-        : undefined;
+      const firstChildType = (element as any)?.children?.[0]?.type;
+      const hasLeadMedia = !showIcon && (firstChildType === 'inline-image' || firstChildType === 'inline-mark');
 
       return (
-        <div {...attributes} className={`infobox infobox--${tone}`} style={style}>
-          {!noIcon && (
-            <span className="infobox__icon" aria-hidden="true" contentEditable={false} />
+        <div {...attributes} className={`infobox infobox--${tone}`}>
+          {showIcon && (
+            <span
+              className="infobox__icon"
+              aria-hidden="true"
+              contentEditable={false}
+            />
           )}
-          <div className="infobox__body" style={{ whiteSpace: 'pre-wrap' }}>
+
+          <div
+            className={'infobox__body' + (hasLeadMedia ? ' infobox__body--leadmedia' : '')}
+          >
             {children}
           </div>
         </div>
@@ -1130,9 +1126,11 @@ const Element: React.FC<ElementRenderProps> = ({
     case 'inline-image': {
       const el = element as InlineImageElement;
       const src = el.url?.startsWith('http') ? toProxyUrl(el.url) : el.url;
+
       return (
         <span
           {...attributes}
+          className="inline-image"
           contentEditable={false}
           style={{ display: 'inline-block', verticalAlign: 'middle' }}
         >

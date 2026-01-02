@@ -600,3 +600,17 @@ html, body { background:#fff; color:#0f172a; }
 
 .slate-table-wrap { margin: 2px 0 10px; }
 .slate-table-colbar, .slate-table-rowbar { user-select: none; }
+
+/* infobox: 첫 요소가 인라인 이미지/마크일 때, 왼쪽 gutter 확보 */
+.infobox__body--leadmedia {
+  position: relative;
+  padding-left: 34px; /* 아이콘/인라인이미지 자리 */
+}
+
+/* 첫 인라인이미지/마크를 gutter 영역에 고정 */
+.infobox__body--leadmedia > .inline-image:first-child,
+.infobox__body--leadmedia > .inline-mark:first-child {
+  position: absolute;
+  left: 0;
+  top: 2px;
+}
