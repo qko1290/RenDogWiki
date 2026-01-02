@@ -2036,12 +2036,15 @@ function renderNode(
         margin: 0,
         lineHeight: 1.6,
         fontSize: "19px",
+        whiteSpace: "pre-wrap", // ✅ 여러 공백/개행 유지
         minHeight: isEmpty ? "1.6em" : undefined,
       };
+
       if (indentLine) {
         style.borderLeft = "2px solid #aaa";
         style.paddingLeft = 16;
       }
+
       return (
         <p key={key} style={style}>
           {children}
