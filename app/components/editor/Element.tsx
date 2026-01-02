@@ -1064,11 +1064,13 @@ const Element: React.FC<ElementRenderProps> = ({
         (element as any).variant ||
         (element as any).tone ||
         (element as any).infoType ||
-        'note';
+        'info';
 
-      const type = String(raw).toLowerCase().trim();
+      const t = String(raw).toLowerCase().trim();
 
-      // 에디터 쪽은 기존 note/warn/danger/tip 유지 + 컬러 타입도 허용
+      const isColor =
+        t === 'white' || t === 'yellow' || t === 'lime' || t === 'pink' || t === 'red';
+
       const tone:
         | 'note'
         | 'warn'
@@ -1076,27 +1078,39 @@ const Element: React.FC<ElementRenderProps> = ({
         | 'tip'
         | 'white'
         | 'yellow'
-        | 'green'
+        | 'lime'
         | 'pink'
         | 'red' =
-        type === 'danger' || type === 'error'
+        t === 'danger' || t === 'error'
           ? 'danger'
-          : type === 'warn' || type === 'warning'
+          : t === 'warn' || t === 'warning'
           ? 'warn'
-          : type === 'tip' || type === 'success'
+          : t === 'tip' || t === 'success'
           ? 'tip'
-          : type === 'white' || type === 'yellow' || type === 'green' || type === 'pink' || type === 'red'
-          ? (type as any)
+          : isColor
+          ? (t as any)
           : 'note';
 
-      const showIcon = tone === 'note' || tone === 'warn' || tone === 'danger' || tone === 'tip';
+      // ✅ 새 컬러 박스는 아이콘 없음 (기존 info/warn/danger/tip 은 유지)
+      const noIcon = Boolean((element as any).noIcon) || isColor;
 
-      const firstChildType = (element as any)?.children?.[0]?.type;
-      const hasLeadMedia = !showIcon && (firstChildType === 'inline-image' || firstChildType === 'inline-mark');
+      // ✅ “첫 요소가 인라인 이미지/마크”면 줄바꿈 정렬을 위해 lead 플래그
+      const firstType = (element as any)?.children?.[0]?.type;
+      const hasLead = noIcon && (firstType === 'inline-image' || firstType === 'inline-mark');
 
       return (
-        <div {...attributes} className={`infobox infobox--${tone}`}>
-          {showIcon && (
+        <div
+          {...attributes}
+          className={[
+            'infobox',
+            `infobox--${tone}`,
+            noIcon ? 'infobox--noicon' : '',
+            hasLead ? 'infobox--lead' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          {!noIcon && (
             <span
               className="infobox__icon"
               aria-hidden="true"
@@ -1104,9 +1118,7 @@ const Element: React.FC<ElementRenderProps> = ({
             />
           )}
 
-          <div
-            className={'infobox__body' + (hasLeadMedia ? ' infobox__body--leadmedia' : '')}
-          >
+          <div className="infobox__body" style={{ whiteSpace: 'pre-wrap' }}>
             {children}
           </div>
         </div>
