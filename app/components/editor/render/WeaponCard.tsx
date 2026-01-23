@@ -39,7 +39,7 @@ export function WeaponCard(props: WeaponCardProps) {
   const isReadOnly = ReactEditor.isReadOnly(editor);
 
   const weaponType: WeaponType = el.weaponType || 'epic';
-  const VIDEOLESS_TYPES = new Set<WeaponType>(['boss', 'mini-boss', 'monster']);
+  const VIDEOLESS_TYPES = new Set<WeaponType>(['boss', 'mini-boss', 'monster', 'rune', 'fishing-rod',]);
   const supportsVideo = !VIDEOLESS_TYPES.has(weaponType);
   const meta = WEAPON_TYPES_META[weaponType];
 

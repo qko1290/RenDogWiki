@@ -771,6 +771,8 @@ type WeaponType =
   | "miniBoss"
   | "monster"
   | "mini-boss"
+  | "rune"
+  | "fishing-rod"
   | "transcend-epic"
   | "transcend-unique"
   | "transcend-legend"
@@ -853,6 +855,13 @@ const WEAPON_TYPES_META: Record<
     headerBg: "#7c3aed",
     border: "#a855f7",
     badgeBg: "#5b21b6",
+  },
+  rune: { label: "RUNE", headerBg: "#0ea5e9", border: "#38bdf8", badgeBg: "#075985" },
+  "fishing-rod": {
+    label: "FISHING ROD",
+    headerBg: "#f59e0b",
+    border: "#fcd34d",
+    badgeBg: "#92400e",
   },
   "transcend-unique": {
     label: "TRANSCEND UNIQUE",
@@ -1707,7 +1716,7 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
   const rawImage = node.imageUrl || node.image || "";
   const imageSrc = rawImage ? withVersion(cdn(rawImage), versionBase) : "";
 
-  const VIDEOLESS_TYPES: WeaponType[] = ["boss", "miniBoss", "mini-boss", "monster"];
+  const VIDEOLESS_TYPES: WeaponType[] = ["boss", "miniBoss", "mini-boss", "rune", "fishing-rod", "monster"];
   const supportsVideo = !VIDEOLESS_TYPES.includes(weaponType);
 
   const rawVideo = supportsVideo ? node.videoUrl || "" : "";
