@@ -858,9 +858,9 @@ const WEAPON_TYPES_META: Record<
   },
   rune: {
     label: 'RUNE',
-    headerBg: '#7c3aed',
-    border: '#c4b5fd',
-    badgeBg: '#4c1d95',
+    headerBg: '#2e1065',
+    border: '#7c3aed', 
+    badgeBg: '#1e0b3a',
   },
   'fishing-rod': {
     label: 'FISHING ROD',
