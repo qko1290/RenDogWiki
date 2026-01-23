@@ -856,12 +856,17 @@ const WEAPON_TYPES_META: Record<
     border: "#a855f7",
     badgeBg: "#5b21b6",
   },
-  rune: { label: "RUNE", headerBg: "#0ea5e9", border: "#38bdf8", badgeBg: "#075985" },
-  "fishing-rod": {
-    label: "FISHING ROD",
-    headerBg: "#f59e0b",
-    border: "#fcd34d",
-    badgeBg: "#92400e",
+  rune: {
+    label: 'RUNE',
+    headerBg: '#7c3aed',
+    border: '#c4b5fd',
+    badgeBg: '#4c1d95',
+  },
+  'fishing-rod': {
+    label: 'FISHING ROD',
+    headerBg: '#0369a1',
+    border: '#38bdf8',
+    badgeBg: '#0c4a6e',
   },
   "transcend-unique": {
     label: "TRANSCEND UNIQUE",
