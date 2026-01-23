@@ -51,9 +51,9 @@ export const WEAPON_TYPES_META: Record<
   },
   rune: {
     label: 'RUNE',
-    headerBg: '#7c2d12',
-    border: '#fb923c',
-    badgeBg: '#431407',
+    headerBg: '#6d28d9',
+    border: '#a78bfa',
+    badgeBg: '#3b0764',
   },
   'fishing-rod': {
     label: 'FISHING ROD',
