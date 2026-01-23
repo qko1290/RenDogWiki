@@ -53,6 +53,8 @@ export const WeaponTypeSelectModal: React.FC<WeaponTypeSelectModalProps> = ({
     'boss',
     'mini-boss',
     'monster',
+    'rune',
+    'fishing-rod',
     'transcend-epic',
     'transcend-unique',
     'transcend-legend',

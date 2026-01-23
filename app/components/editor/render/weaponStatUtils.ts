@@ -49,6 +49,18 @@ export const WEAPON_TYPES_META: Record<
     border: '#facc15',
     badgeBg: '#92400e',
   },
+  rune: {
+    label: 'RUNE',
+    headerBg: '#7c2d12',
+    border: '#fb923c',
+    badgeBg: '#431407',
+  },
+  'fishing-rod': {
+    label: 'FISHING ROD',
+    headerBg: '#0369a1',
+    border: '#38bdf8',
+    badgeBg: '#0c4a6e',
+  },
 };
 
 // 무기 카드에서 사용할 전체 스탯 키 목록

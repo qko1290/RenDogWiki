@@ -211,7 +211,9 @@ export type WeaponType =
   | 'transcend-unique'
   | 'transcend-legend'
   | 'transcend-divine'
-  | 'transcend-superior';
+  | 'transcend-superior'
+  | 'rune'
+  | 'fishing-rod';
 
 export type WeaponStatKey =
   | 'damage'      // 데미지
