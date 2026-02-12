@@ -338,6 +338,24 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
     return [host, pathShort].filter(Boolean).join(dot);
   }, [parsedUrl, isWikiLink, el]);
 
+  // ✅ 대표 이름(탭 제목처럼) - path/title 같은 값이 sitename에 들어가 있어도 무시
+  const siteLabel = useMemo(() => {
+    const clean = (s?: string | null) => (s ?? '').trim();
+
+    // sitename에 path/title/url 같은 찌꺼기가 들어간 경우 무시
+    const isGarbage = (s: string) =>
+      !s ||
+      /path\s*=|title\s*=|#heading-|https?:\/\/|\/wiki|[?&]=|%[0-9A-Fa-f]{2}/.test(s);
+
+    if (isWikiLink) return 'RenDog Wiki';
+
+    const s = clean(el.sitename);
+    if (s && !isGarbage(s)) return s;
+
+    if (parsedUrl) return parsedUrl.hostname.replace(/^www\./, '');
+    return '';
+  }, [isWikiLink, parsedUrl, el.sitename]);
+
   // 공통 카드 내용 (아이콘 + 텍스트 영역)
   const CardInner = (
     <div
@@ -516,12 +534,7 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
                 whiteSpace: 'nowrap',
               }}
             >
-              {isWikiLink
-                ? (el.sitename?.trim() || 'RenDog Wiki')
-                : (el.sitename?.trim() ||
-                  (parsedUrl
-                    ? parsedUrl.hostname.replace(/^www\./, '')
-                    : ''))}
+              {siteLabel}
             </div>
           </>
         ) : (
@@ -553,12 +566,7 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
               }}
               contentEditable={false}
             >
-              {isWikiLink
-                ? (el.sitename?.trim() || 'RenDog Wiki')
-                : (el.sitename?.trim() ||
-                  (parsedUrl
-                    ? parsedUrl.hostname.replace(/^www\./, '')
-                    : ''))}
+              {siteLabel}
             </div>
           </>
         )}
