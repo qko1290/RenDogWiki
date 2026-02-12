@@ -187,7 +187,7 @@ export default function HamburgerMenu({
   // 마인크래프트 스킨 이미지 URL (없으면 기본값)
   const skinUrl = resolvedUUID
     ? `https://crafthead.net/helm/${resolvedUUID}/64.png`
-    : "https://crafatar.com/avatars/94cf9511-c5d6-433a-b565-14010caac235?overlay&size=64";
+    : "https://crafthead.net/helm/94cf9511-c5d6-433a-b565-14010caac235?overlay/64.png";
 
   // 렌더링
   return (
