@@ -27,6 +27,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faImage } from '@fortawesome/free-solid-svg-icons';
 import TableContextMenu from './TableContextMenu';
 import type { WikiRefKind } from './render/types';
+import { toProxyUrl } from '@lib/cdn';
 
 type DocState = {
   id?: number;
@@ -235,6 +236,29 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       ? initialDoc.content
       : EMPTY_INITIAL_VALUE,
   }));
+
+  const [iconImgError, setIconImgError] = useState(false);
+
+  useEffect(() => {
+    // 아이콘 URL이 바뀌면 에러 상태 리셋
+    setIconImgError(false);
+  }, [doc.icon]);
+
+  const isImageUrl = (v: string) => {
+    const s = (v ?? '').trim();
+    if (!s) return false;
+    // http/https 뿐 아니라 / (내부 경로), data: 도 이미지로 취급
+    return /^https?:\/\//i.test(s) || s.startsWith('/') || s.startsWith('data:');
+  };
+
+  const getIconSrc = (v: string) => {
+    const s = (v ?? '').trim();
+    if (!s) return '';
+    // ✅ 외부 URL은 프록시 적용 (네 원칙)
+    if (/^https?:\/\//i.test(s)) return toProxyUrl(s);
+    // 내부 경로(/...)나 data:는 그대로
+    return s;
+  };
 
   const [priceTableEdit, setPriceTableEdit] = useState<PriceTableEditState>({
     blockPath: null, idx: null, item: null,
@@ -901,12 +925,36 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
                 </button>
 
                 {doc.icon?.trim() && (
-                  doc.icon.startsWith('http') ? (
-                    <img
-                      src={doc.icon}
-                      alt="문서 아이콘"
-                      style={{ width: 36, height: 36, objectFit: 'contain', background: '#fff', border: '1px solid #ddd', borderRadius: 8 }}
-                    />
+                  isImageUrl(doc.icon) ? (
+                    iconImgError ? (
+                      // 이미지 로딩 실패 시: 텍스트로 fallback (깨진 아이콘 방지)
+                      <span style={{ fontSize: 34, lineHeight: 1 }}>🖼️</span>
+                    ) : (
+                      <img
+                        src={getIconSrc(doc.icon)}
+                        alt="문서 아이콘"
+                        width={36}
+                        height={36}
+                        loading="lazy"
+                        decoding="async"
+                        draggable={false}
+                        onError={() => setIconImgError(true)}
+                        style={{
+                          width: 36,
+                          height: 36,
+
+                          // ✅ "문서에 적용된 아이콘 이미지에 맞게" 보이도록: 기본은 cover가 자연스러움
+                          objectFit: 'cover',
+
+                          // ✅ 아이콘 썸네일은 정사각형 컷이 많아서 cover + radius가 가장 덜 깨져 보임
+                          borderRadius: 8,
+
+                          // 배경/테두리는 최소화 (원본이 투명 PNG면 보기 좋게)
+                          background: 'transparent',
+                          border: '1px solid #e5e7eb',
+                        }}
+                      />
+                    )
                   ) : (
                     <span style={{ fontSize: 34, lineHeight: 1 }}>{doc.icon}</span>
                   )
