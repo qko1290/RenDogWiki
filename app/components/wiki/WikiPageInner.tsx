@@ -1069,7 +1069,7 @@ export default function WikiPageInner({ user }: Props) {
       const npcType = meta.kind === 'quest' ? 'quest' : 'normal';
       const res = await fetch(
         withTs(
-          `/api/npcs?village_id=${v.id}&npc_type=${npcType}`,
+          `/api/npcs?village_id=${v.id}&npc_type=${npcType}&nocache=1`,
         ),
         NC,
       );
