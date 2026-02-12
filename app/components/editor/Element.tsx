@@ -133,6 +133,24 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
     displaySitename = host;
   }
 
+  const subtitleText = React.useMemo(() => {
+    // ✅ 탭처럼 "대표 이름"만 노출 (path/title/hash/전체 url 금지)
+    if (isWikiLink) {
+      const s = (el.sitename ?? '').trim();
+      return s || 'RenDog Wiki';
+    }
+
+    // 외부 링크: sitename 우선, 없으면 hostname
+    const s = (el.sitename ?? '').trim();
+    if (s) return s;
+
+    if (parsedUrl) {
+      return parsedUrl.hostname.replace(/^www\./, '');
+    }
+
+    return '';
+  }, [isWikiLink, parsedUrl, el.sitename]);
+
   // 위키 아이콘 (문서/목차 아이콘)
   const [wikiIcon, setWikiIcon] = useState<string | null>(
     el.isWiki ? (el as any).docIcon ?? null : null,
@@ -466,7 +484,7 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
         )}
       </div>
 
-      {/* 텍스트 영역: ✅ 제목(굵게) + 아래 축약 링크 */}
+      {/* 텍스트 영역: 제목 + 대표 이름 */}
       <div style={{ minWidth: 0, flex: '1 1 auto' }}>
         {isReadOnly ? (
           <>
@@ -485,6 +503,8 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
                   ? (el as any).wikiTitle || el.sitename || '문서'
                   : displaySitename || el.url)}
             </div>
+
+            {/* ✅ 대표 이름만 출력 */}
             <div
               style={{
                 marginTop: 2,
@@ -495,13 +515,16 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
               }}
-              title={compactSubText || undefined}
             >
-              {compactSubText}
+              {isWikiLink
+                ? (el.sitename?.trim() || 'RenDog Wiki')
+                : (el.sitename?.trim() ||
+                  (parsedUrl
+                    ? parsedUrl.hostname.replace(/^www\./, '')
+                    : ''))}
             </div>
           </>
         ) : (
-          // 편집 모드: children 편집 가능 + 아래 축약 링크는 미리보기로만
           <>
             <div
               style={{
@@ -516,6 +539,8 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
             >
               {children}
             </div>
+
+            {/* 편집 모드에서도 동일 */}
             <div
               style={{
                 marginTop: 2,
@@ -527,9 +552,13 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
                 whiteSpace: 'nowrap',
               }}
               contentEditable={false}
-              title={compactSubText || undefined}
             >
-              {compactSubText}
+              {isWikiLink
+                ? (el.sitename?.trim() || 'RenDog Wiki')
+                : (el.sitename?.trim() ||
+                  (parsedUrl
+                    ? parsedUrl.hostname.replace(/^www\./, '')
+                    : ''))}
             </div>
           </>
         )}
