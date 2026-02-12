@@ -113,6 +113,8 @@ export const WeaponTypeSelectModal: React.FC<WeaponTypeSelectModalProps> = ({
     'transcend-legend',
     'transcend-divine',
     'transcend-superior',
+    'armor',
+    'weapon',
   ];
 
   // (선택 모달은 Enter로 확인이 뚜렷하지 않아서 기존 동작 유지)

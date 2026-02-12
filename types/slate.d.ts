@@ -213,7 +213,9 @@ export type WeaponType =
   | 'transcend-divine'
   | 'transcend-superior'
   | 'rune'
-  | 'fishing-rod';
+  | 'fishing-rod'
+  | 'armor'
+  | 'weapon';
 
 export type WeaponStatKey =
   | 'damage'      // 데미지

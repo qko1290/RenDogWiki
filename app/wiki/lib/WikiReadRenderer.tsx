@@ -832,7 +832,9 @@ type WeaponType =
   | "transcend-unique"
   | "transcend-legend"
   | "transcend-divine"
-  | "transcend-superior";
+  | "transcend-superior"
+  | 'armor'
+  | 'weapon';
 
 // 무기 희귀도(유형)별 메타 정보 (BLOCK/디바인 색상 포함)
 const WEAPON_TYPES_META: Record<
@@ -946,6 +948,18 @@ const WEAPON_TYPES_META: Record<
     headerBg: "#eab308",
     border: "#facc15",
     badgeBg: "#92400e",
+  },
+  armor: {
+    label: 'ARMOR',
+    headerBg: '#0f172a', // 남색/다크
+    border: '#334155',
+    badgeBg: '#111827',
+  },
+  weapon: {
+    label: 'WEAPON',
+    headerBg: '#1f2937', // 다크 그레이
+    border: '#6b7280',
+    badgeBg: '#111827',
   },
 };
 
@@ -1782,6 +1796,7 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
     "rune",
     "fishing-rod",
     "monster",
+    "armor"
   ];
   const supportsVideo = !VIDEOLESS_TYPES.includes(weaponType);
 

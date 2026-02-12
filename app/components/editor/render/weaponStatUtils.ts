@@ -61,6 +61,18 @@ export const WEAPON_TYPES_META: Record<
     border: '#38bdf8',
     badgeBg: '#0c4a6e',
   },
+  armor: {
+    label: 'ARMOR',
+    headerBg: '#0f172a', // 남색/다크
+    border: '#334155',
+    badgeBg: '#111827',
+  },
+  weapon: {
+    label: 'WEAPON',
+    headerBg: '#1f2937', // 다크 그레이
+    border: '#6b7280',
+    badgeBg: '#111827',
+  },
 };
 
 // 무기 카드에서 사용할 전체 스탯 키 목록
