@@ -1737,14 +1737,14 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
   const weaponType: WeaponType = (node.weaponType as WeaponType) || "epic";
   const meta = WEAPON_TYPES_META[weaponType] ?? WEAPON_TYPES_META.epic;
 
-  const isTranscend = meta.label.startsWith('TRANSCEND') || weaponType.startsWith('transcend-');
+  const isTranscend =
+    meta.label.startsWith("TRANSCEND") || weaponType.startsWith("transcend-");
 
   const transcendFrameStyle: React.CSSProperties = {
     padding: 2,
     borderRadius: 20,
     background: `linear-gradient(135deg, ${meta.headerBg} 0%, ${meta.border} 45%, #ffffff 60%, ${meta.headerBg} 100%)`,
-    boxShadow:
-      `0 0 0 1px rgba(255,255,255,.18) inset,
+    boxShadow: `0 0 0 1px rgba(255,255,255,.18) inset,
       0 18px 55px rgba(0,0,0,.55),
       0 0 28px rgba(255,255,255,.12),
       0 0 40px ${meta.headerBg}55`,
@@ -1752,14 +1752,13 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
 
   const transcendInnerGlowStyle: React.CSSProperties = {
     borderRadius: 18,
-    overflow: 'hidden',
-    background:
-      `radial-gradient(circle at 20% 0%, ${meta.border}22, transparent 55%),
+    overflow: "hidden",
+    background: `radial-gradient(circle at 20% 0%, ${meta.border}22, transparent 55%),
       radial-gradient(circle at 100% 0%, ${meta.headerBg}2a, transparent 60%),
       radial-gradient(circle at 50% 110%, rgba(255,255,255,.08), transparent 50%),
       #020617`,
     boxShadow: `0 0 0 1px rgba(255,255,255,.10) inset`,
-    position: 'relative',
+    position: "relative",
   };
 
   const name = (node.name ?? "").trim() || "무기 이름 없음";
@@ -1776,7 +1775,14 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
   const rawImage = node.imageUrl || node.image || "";
   const imageSrc = rawImage ? withVersion(cdn(rawImage), versionBase) : "";
 
-  const VIDEOLESS_TYPES: WeaponType[] = ["boss", "miniBoss", "mini-boss", "rune", "fishing-rod", "monster"];
+  const VIDEOLESS_TYPES: WeaponType[] = [
+    "boss",
+    "miniBoss",
+    "mini-boss",
+    "rune",
+    "fishing-rod",
+    "monster",
+  ];
   const supportsVideo = !VIDEOLESS_TYPES.includes(weaponType);
 
   const rawVideo = supportsVideo ? node.videoUrl || "" : "";
@@ -1803,203 +1809,205 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
 
   return (
     <div key={keyProp} style={{ margin: "14px 0" }}>
+      {/* ✅ 카드 + 강수버튼을 "형제"로 두어서 오른쪽에 붙게 함 */}
       <div
         style={{
           display: "flex",
           justifyContent: "center",
           alignItems: "flex-start",
           gap: 10,
+          flexWrap: "nowrap", // ✅ 아래로 떨어지는 것 방지
         }}
       >
         {/* 카드 본체 – Element 와 거의 동일한 스타일 */}
         <div style={isTranscend ? transcendFrameStyle : undefined}>
-        <div
-          style={{
-            width: cardWidth,
-            borderRadius: 18,
-            overflow: "hidden",
-            background: "#020617",
-            boxShadow: "0 18px 45px rgba(0,0,0,.45)",
-            fontFamily: "inherit",
-            paddingTop: 8,
-
-            ...(isTranscend ? transcendInnerGlowStyle : null),
-          }}
-        >
-          {/* 상단 타입 바 */}
           <div
             style={{
-              width: "100%",
-              background: meta.headerBg,
-              color: "#f9fafb",
-              padding: "6px 0",
-              fontSize: 16,
-              fontWeight: 700,
-              letterSpacing: 1.5,
-              textAlign: "center",
-            }}
-          >
-            {meta.label}
-          </div>
-
-          {/* 무기 이름 */}
-          <div
-            style={{
-              padding: "10px 14px",
+              width: cardWidth,
+              borderRadius: 18,
+              overflow: "hidden",
               background: "#020617",
-              color: "#e5e7eb",
-              fontSize: 18,
-              fontWeight: 700,
-              textAlign: "center",
-              borderBottom: "1px solid #111827",
+              boxShadow: "0 18px 45px rgba(0,0,0,.45)",
+              fontFamily: "inherit",
+              paddingTop: 8,
+              ...(isTranscend ? transcendInnerGlowStyle : null),
             }}
           >
-            {name}
-          </div>
-
-          {/* 이미지 영역 */}
-          <div
-            style={{
-              background:
-                "radial-gradient(circle at 20% 0%, rgba(56,189,248,0.18), transparent 55%), " +
-                "radial-gradient(circle at 100% 0%, rgba(129,140,248,0.22), transparent 55%), " +
-                "#020617",
-              height: 140,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            {imageSrc ? (
-              <SmartImage
-                src={imageSrc}
-                alt={name}
-                width={160}
-                height={96}
-                sizes="(max-width: 768px) 80vw, 260px"
-                rounded={10}
-                style={{
-                  maxWidth: "80%",
-                  maxHeight: "80%",
-                  objectFit: "contain",
-                  background: "transparent",
-                  imageRendering: "pixelated",
-                  display: "block",
-                }}
-              />
-            ) : (
-              <span
-                style={{
-                  color: "#6b7280",
-                  fontSize: 14,
-                }}
-              >
-                이미지 없음
-              </span>
-            )}
-          </div>
-
-          {/* 스탯 리스트 */}
-          <div
-            style={{
-              padding: "8px 10px 8px",
-              display: "flex",
-              flexDirection: "column",
-              gap: 6,
-            }}
-          >
-            {enabledStats.length === 0 && (
-              <div
-                style={{
-                  fontSize: 12,
-                  color: "#6b7280",
-                  padding: "6px 8px",
-                  borderRadius: 10,
-                  background: "rgba(15,23,42,.75)",
-                }}
-              >
-                표시할 정보가 없습니다.
-              </div>
-            )}
-
-            {enabledStats.map((stat) => {
-              const { value, unit } = getStatDisplay(stat);
-              return (
-                <div
-                  key={stat.key || stat.label}
-                  style={{
-                    borderRadius: 10,
-                    padding: "6px 8px",
-                    border: "1px solid #111827",
-                    background:
-                      "linear-gradient(90deg, rgba(15,23,42,.95), rgba(15,23,42,.85))",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: 12,
-                      color: "#9ca3af",
-                      fontWeight: 500,
-                    }}
-                  >
-                    {stat.label}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 13,
-                      color: "#e5e7eb",
-                      fontWeight: 600,
-                    }}
-                  >
-                    {value || "-"}
-                    {unit ? ` ${unit}` : ""}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* 하단 공격 영상 버튼 */}
-          {supportsVideo && (
+            {/* 상단 타입 바 */}
             <div
               style={{
-                padding: "8px 10px 10px",
+                width: "100%",
+                background: meta.headerBg,
+                color: "#f9fafb",
+                padding: "6px 0",
+                fontSize: 16,
+                fontWeight: 700,
+                letterSpacing: 1.5,
+                textAlign: "center",
+              }}
+            >
+              {meta.label}
+            </div>
+
+            {/* 무기 이름 */}
+            <div
+              style={{
+                padding: "10px 14px",
+                background: "#020617",
+                color: "#e5e7eb",
+                fontSize: 18,
+                fontWeight: 700,
+                textAlign: "center",
+                borderBottom: "1px solid #111827",
+              }}
+            >
+              {name}
+            </div>
+
+            {/* 이미지 영역 */}
+            <div
+              style={{
+                background:
+                  "radial-gradient(circle at 20% 0%, rgba(56,189,248,0.18), transparent 55%), " +
+                  "radial-gradient(circle at 100% 0%, rgba(129,140,248,0.22), transparent 55%), " +
+                  "#020617",
+                height: 140,
                 display: "flex",
+                alignItems: "center",
                 justifyContent: "center",
               }}
             >
-              <button
-                type="button"
-                disabled={!videoSrc}
-                onClick={() => videoSrc && setShowVideo(true)}
+              {imageSrc ? (
+                <SmartImage
+                  src={imageSrc}
+                  alt={name}
+                  width={160}
+                  height={96}
+                  sizes="(max-width: 768px) 80vw, 260px"
+                  rounded={10}
+                  style={{
+                    maxWidth: "80%",
+                    maxHeight: "80%",
+                    objectFit: "contain",
+                    background: "transparent",
+                    imageRendering: "pixelated",
+                    display: "block",
+                  }}
+                />
+              ) : (
+                <span
+                  style={{
+                    color: "#6b7280",
+                    fontSize: 14,
+                  }}
+                >
+                  이미지 없음
+                </span>
+              )}
+            </div>
+
+            {/* 스탯 리스트 */}
+            <div
+              style={{
+                padding: "8px 10px 8px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+              }}
+            >
+              {enabledStats.length === 0 && (
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "#6b7280",
+                    padding: "6px 8px",
+                    borderRadius: 10,
+                    background: "rgba(15,23,42,.75)",
+                  }}
+                >
+                  표시할 정보가 없습니다.
+                </div>
+              )}
+
+              {enabledStats.map((stat) => {
+                const { value, unit } = getStatDisplay(stat);
+                return (
+                  <div
+                    key={stat.key || stat.label}
+                    style={{
+                      borderRadius: 10,
+                      padding: "6px 8px",
+                      border: "1px solid #111827",
+                      background:
+                        "linear-gradient(90deg, rgba(15,23,42,.95), rgba(15,23,42,.85))",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 12,
+                        color: "#9ca3af",
+                        fontWeight: 500,
+                      }}
+                    >
+                      {stat.label}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 13,
+                        color: "#e5e7eb",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {value || "-"}
+                      {unit ? ` ${unit}` : ""}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* 하단 공격 영상 버튼 */}
+            {supportsVideo && (
+              <div
                 style={{
-                  padding: "8px 10px",
-                  borderRadius: 999,
-                  border: "none",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  background: videoSrc
-                    ? "linear-gradient(90deg,#1d4ed8,#3b82f6)"
-                    : "#111827",
-                  color: videoSrc ? "#f9fafb" : "#6b7280",
-                  cursor: videoSrc ? "pointer" : "default",
-                  minWidth: 160,
-                  textAlign: "center",
-                  boxShadow: videoSrc
-                    ? "0 12px 30px rgba(37,99,235,0.7)"
-                    : "none",
+                  padding: "8px 10px 10px",
+                  display: "flex",
+                  justifyContent: "center",
                 }}
               >
-                스킬 사용 영상
-              </button>
-            </div>
-          )}
+                <button
+                  type="button"
+                  disabled={!videoSrc}
+                  onClick={() => videoSrc && setShowVideo(true)}
+                  style={{
+                    padding: "8px 10px",
+                    borderRadius: 999,
+                    border: "none",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    background: videoSrc
+                      ? "linear-gradient(90deg,#1d4ed8,#3b82f6)"
+                      : "#111827",
+                    color: videoSrc ? "#f9fafb" : "#6b7280",
+                    cursor: videoSrc ? "pointer" : "default",
+                    minWidth: 160,
+                    textAlign: "center",
+                    boxShadow: videoSrc
+                      ? "0 12px 30px rgba(37,99,235,0.7)"
+                      : "none",
+                  }}
+                >
+                  스킬 사용 영상
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* 오른쪽 강수 선택 버튼 */}
+        {/* ✅ 오른쪽 강수 선택 버튼 (카드의 형제) */}
         {levelLabels.length > 1 && (
           <WeaponLevelSelector
             levelLabels={levelLabels}
@@ -2017,7 +2025,6 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
           onClose={() => setShowVideo(false)}
         />
       )}
-    </div>
     </div>
   );
 }
