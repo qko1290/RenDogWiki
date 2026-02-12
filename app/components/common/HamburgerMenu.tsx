@@ -183,10 +183,10 @@ export default function HamburgerMenu({
       setDenyOpen(true);
     }
   };
-
+if (name) return `https://crafthead.net/helm/${resolvedUUID}/18.png`;
   // 마인크래프트 스킨 이미지 URL (없으면 기본값)
   const skinUrl = resolvedUUID
-    ? `https://crafatar.com/avatars/${resolvedUUID}?overlay&size=64`
+    ? `https://crafthead.net/helm/${resolvedUUID}/18.png`
     : "https://crafatar.com/avatars/94cf9511-c5d6-433a-b565-14010caac235?overlay&size=64";
 
   // 렌더링
