@@ -263,6 +263,35 @@ export default function WikiPageInner({ user }: Props) {
   const searchParams = useSearchParams();
   const contentRef = useRef<HTMLDivElement>(null);
 
+  // ✅ 문서가 열리면 해당 문서의 카테고리 경로를 전부 펼치기
+  const ensureOpenForDocPath = (docPath: number[] | null | undefined) => {
+    if (!Array.isArray(docPath)) return;
+
+    // 루트([])면 펼칠 게 없음
+    if (docPath.length === 0) return;
+
+    // 예: [1,5,9] => [[1],[1,5],[1,5,9]]
+    const prefixes: number[][] = [];
+    for (let i = 0; i < docPath.length; i++) prefixes.push(docPath.slice(0, i + 1));
+
+    // closingMap에 걸려 있으면 풀고, openPaths에 없으면 추가
+    setClosingMap((prev) => {
+      const next = { ...prev };
+      for (const p of prefixes) delete next[pathToStr(p)];
+      return next;
+    });
+
+    setOpenPaths((prev) => {
+      const map = new Set(prev.map(pathToStr));
+      const merged = [...prev];
+      for (const p of prefixes) {
+        const k = pathToStr(p);
+        if (!map.has(k)) merged.push(p);
+      }
+      return merged;
+    });
+  };
+
   const syncUrlWithDoc = (
     docTitle: string | null,
     fullPath: number[] | null | undefined,
@@ -858,6 +887,7 @@ export default function WikiPageInner({ user }: Props) {
         }
         setSelectedDocPath(nextPath);
         setHideDocChrome(Number(data?.id) === ROOT_FEATURED_DOC_ID);
+        ensureOpenForDocPath(nextPath);
 
         // ✅ 문서 로드 후 URL ?path=&title= 동기화
         syncUrlWithDoc(data.title ?? docTitle, nextPath);
@@ -941,12 +971,12 @@ export default function WikiPageInner({ user }: Props) {
 
   // 본문 내부 링크 라우팅
   useEffect(() => {
-    const el = contentRef.current;
+  const el = contentRef.current;
     if (!el) return;
 
     const handler = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
-      const aTag = target?.closest('a');
+      const aTag = target?.closest('a') as HTMLAnchorElement | null;
       if (!aTag) return;
 
       const href = aTag.getAttribute('href');
@@ -963,20 +993,33 @@ export default function WikiPageInner({ user }: Props) {
 
         e.preventDefault();
 
-        // path / title만 정규화해서 사용하고, 해시는 그대로 유지
-        const params = new URLSearchParams();
-        params.set('path', path);
-        params.set('title', title);
+        // ✅ hash는 fetchDoc가 끝난 뒤 syncUrlWithDoc에서 기존 hash를 유지하는데,
+        // 링크에 hash가 있으면 그걸 우선 반영하도록 미리 세팅
+        if (url.hash) {
+          // 스크롤은 렌더 후에 자연스럽게 되도록 (일단 URL만 맞춰둠)
+          window.history.replaceState(null, '', `/wiki?path=${path}&title=${encodeURIComponent(title)}${url.hash}`);
+        }
 
-        const hash = url.hash || '';
+        // ✅ 이동(router.push) 대신 "문서 로드"로 처리
+        if (path === '0') {
+          fetchDoc([], title, undefined, { clearCategoryPath: true, forceRoot: true });
+          return;
+        }
 
-        router.push(`/wiki?${params.toString()}${hash}`);
+        const pathId = Number(path);
+        if (!Number.isFinite(pathId)) return;
+
+        const fullPath = categoryIdToPathMap[pathId] ?? [pathId];
+        fetchDoc(fullPath, title, undefined, { clearCategoryPath: true });
+
+        // ✅ 즉시 트리도 열어두기(로딩 중에도 위치 보이게)
+        ensureOpenForDocPath(fullPath);
       }
     };
 
     el.addEventListener('click', handler);
     return () => el.removeEventListener('click', handler);
-  }, [docContent, router]);
+  }, [docContent, categoryIdToPathMap, fetchDoc]);
 
   // ---------- ✨ 전환 딜레이: 잘못된 목록 잔상 대신 로더만 잠깐 노출 ----------
   useEffect(() => {
@@ -1271,6 +1314,11 @@ export default function WikiPageInner({ user }: Props) {
     categories.length > 0 &&
     allDocuments.length > 0 &&
     Object.keys(categoryIdMap).length > 0;
+
+  useEffect(() => {
+    if (!interactionReady) return;
+    ensureOpenForDocPath(selectedDocPath);
+  }, [interactionReady, selectedDocPath]);
 
   return (
     <div className="wiki-container">
