@@ -285,7 +285,6 @@ export default function WikiPageInner({ user }: Props) {
 
     search.set('path', lastId);
     search.set('title', docTitle);
-    // 내부 fetch용 타임스탬프는 URL에 남길 필요 없음
     search.delete('_t');
 
     const hash = window.location.hash || '';
@@ -296,16 +295,12 @@ export default function WikiPageInner({ user }: Props) {
   };
 
   // 🔗 현재 문서 링크 복사 (✔ 애니메이션)
-  // - window.location.search는 %EC... 형태로 인코딩되어 있으므로
-  //   클립보드에 복사할 때는 한글이 그대로 보이도록 쿼리를 재구성한다.
   const handleCopyDocLink = async () => {
     if (typeof window === 'undefined') return;
     try {
       const { origin, pathname, search, hash } = window.location;
       const params = new URLSearchParams(search);
 
-      // path는 대부분 숫자라 그대로 사용해도 되고,
-      // 없으면 현재 선택된 경로나 루트(0)로 보정
       let path = params.get('path') ?? undefined;
       if (!path) {
         if (Array.isArray(selectedDocPath) && selectedDocPath.length > 0) {
@@ -315,8 +310,6 @@ export default function WikiPageInner({ user }: Props) {
         }
       }
 
-      // title은 DB에서 가져온 selectedDocTitle이 우선 (이미 디코딩 상태)
-      // 없으면 URL 쿼리에서 가져오되, 디코딩을 시도
       let titleForShare = selectedDocTitle || '';
       if (!titleForShare) {
         const fromUrl = params.get('title');
@@ -324,20 +317,16 @@ export default function WikiPageInner({ user }: Props) {
           try {
             titleForShare = decodeURIComponent(fromUrl);
           } catch {
-            // 잘못된 % 시퀀스가 있으면 그냥 원본 사용
             titleForShare = fromUrl;
           }
         }
       }
 
-      // mode(예: 뉴비 모드)도 있으면 같이 넣되, 디코딩 시도
       let modeForShare = params.get(MODE_PARAM) || '';
       if (modeForShare) {
         try {
           modeForShare = decodeURIComponent(modeForShare);
-        } catch {
-          // 그대로 둠
-        }
+        } catch {}
       }
 
       const queryParts: string[] = [];
@@ -379,8 +368,17 @@ export default function WikiPageInner({ user }: Props) {
         (Array.isArray(d.fullPath) && d.fullPath.length === 0) ||
         Number(d.path) === 0,
     );
-    // 대표 우선(is_featured) → 없으면 첫번째
     return roots.find(d => d.is_featured) || roots[0];
+  };
+
+  // ✅ "크롬 숨김"은 오직 '진짜 루트 대표 문서'만
+  const rootFeaturedDocId = useMemo(() => {
+    return findRootDoc()?.id ?? ROOT_FEATURED_DOC_ID;
+  }, [allDocuments]);
+
+  const shouldHideChromeByDocId = (docId: number | null | undefined) => {
+    if (!docId) return false;
+    return Number(docId) === Number(rootFeaturedDocId);
   };
 
   const openRootDoc = async () => {
@@ -396,15 +394,17 @@ export default function WikiPageInner({ user }: Props) {
     await fetchDocById(rootDoc.id, { hideChrome: true });
   };
 
-  // ✅ 특정 ID로 루트 문서 열기(로고/초기 로딩용)
   const openRootDocById = async (docId: number) => {
-    setHideDocChrome(true);
+    // ✅ 여기서도 "대표 루트 문서"만 숨김
+    const hide = shouldHideChromeByDocId(docId) || docId === ROOT_FEATURED_DOC_ID;
+
+    setHideDocChrome(hide);
     setSelectedCategoryPath(null);
     setSelectedDocPath([]); // 루트 경로 고정
     setSelectedDocId(docId);
     const inList = allDocuments.find(d => d.id === docId);
-    setSelectedDocTitle(inList?.title ?? null); // 목록에 있으면 즉시 반영
-    await fetchDocById(docId, { hideChrome: true });
+    setSelectedDocTitle(inList?.title ?? null);
+    await fetchDocById(docId, { hideChrome: hide });
   };
 
   // 카테고리 + 전체 문서 로드
@@ -419,13 +419,11 @@ export default function WikiPageInner({ user }: Props) {
         const { categories: catData, documents: docsRaw, featured } =
           await r.json();
 
-        // 카테고리 트리 구성
         const mod = await import('@/wiki/lib/buildCategoryTree');
         const tree = mod.buildCategoryTree(catData) as CategoryNode[];
         if (cancelled || !mountedRef.current) return;
         setCategories(tree);
 
-        // 맵/경로 구축
         const idToPath: Record<number, number[]> = {};
         const catMap: Record<number, CategoryNode> = {};
         const walk = (nodes: CategoryNode[], path: number[] = []) => {
@@ -441,7 +439,6 @@ export default function WikiPageInner({ user }: Props) {
         setCategoryIdToPathMap(idToPath);
         setCategoryIdMap(catMap);
 
-        // 전체 문서 메타
         const mapped: Document[] = (docsRaw || []).map((r: any) => {
           const pNum = /^\d+$/.test(String(r.path))
             ? Number(r.path)
@@ -487,51 +484,42 @@ export default function WikiPageInner({ user }: Props) {
   }, [mode]);
 
   // 쿼리 진입: /wiki?path=...&title=...
-  // ✅ allDocuments/카테고리 맵이 준비된 뒤 실행되며, 루트(path=0)는 id 우선 로딩
   useEffect(() => {
     const pathParam = searchParams.get('path');
     const titleParam = searchParams.get('title');
     if (!pathParam || !titleParam) return;
 
-    const openByIdIfFound = (isRoot: boolean, id?: number) => {
-      if (id != null) {
-        fetchDoc(isRoot ? [] : [/*unused*/], titleParam, id, {
-          clearCategoryPath: true,
-          forceRoot: isRoot,
-        });
-        return true;
-      }
-      return false;
-    };
-
     if (pathParam === '0') {
-      if (allDocuments.length === 0) return; // 문서 목록 먼저
+      if (allDocuments.length === 0) return;
+
       const match = allDocuments.find(
         d =>
-          ((Array.isArray(d.fullPath) &&
-            d.fullPath.length === 0) ||
+          ((Array.isArray(d.fullPath) && d.fullPath.length === 0) ||
             Number(d.path) === 0) &&
           d.title === titleParam,
       );
-      if (openByIdIfFound(true, match?.id)) return;
-      // 🔁 목록에 없으면 Fallback: 서버 path=0+title 조회 시도
-      fetchDoc([], titleParam, undefined, {
-        clearCategoryPath: true,
-        forceRoot: true,
-      });
-    } else {
-      const pathId = Number(pathParam);
-      const fullPath = categoryIdToPathMap[pathId];
-      if (fullPath) {
-        fetchDoc(fullPath, titleParam, undefined, {
-          clearCategoryPath: true,
-        });
+
+      // ✅ path=0이라도 "대표 루트 문서"가 아니면 크롬 숨기지 않음!
+      if (match?.id != null) {
+        fetchDoc([], titleParam, match.id, { clearCategoryPath: true });
+        return;
       }
+
+      fetchDoc([], titleParam, undefined, { clearCategoryPath: true });
+      return;
+    }
+
+    const pathId = Number(pathParam);
+    const fullPath = categoryIdToPathMap[pathId];
+    if (fullPath) {
+      fetchDoc(fullPath, titleParam, undefined, {
+        clearCategoryPath: true,
+      });
     }
   }, [searchParams, allDocuments, categoryIdToPathMap]);
 
   const isPathOpen = (path: number[]) =>
-    openPaths.some(p => pathToStr(p) === pathToStr(path)); // 비교 버그 수정
+    openPaths.some(p => pathToStr(p) === pathToStr(path));
 
   const isClosing = (path: number[]) =>
     closingMap[pathToStr(path)] || false;
@@ -606,12 +594,17 @@ export default function WikiPageInner({ user }: Props) {
           setSelectedCategoryPath(path);
           return;
         }
+
         setSelectedDocId(doc.id);
         setSelectedDocPath([...path]);
         setSelectedDocTitle(doc.title);
         setSelectedCategoryPath(path);
-        setHideDocChrome(false); // 루트가 아닌 문서 오픈 시 표시
+
+        // ✅ 여기서도 루트 대표 문서만 크롬 숨김
+        setHideDocChrome(shouldHideChromeByDocId(doc.id));
+
         fetchDoc(path, doc.title, doc.id);
+
         setOpenPaths(prev =>
           prev.some(
             p => JSON.stringify(p) === JSON.stringify(path),
@@ -726,7 +719,7 @@ export default function WikiPageInner({ user }: Props) {
             height: fit-content;
             display: flex;
             align-items: center;
-            justify-content: flex-end;
+            justifyContent: flex-end;
             position: relative;
           }
           .book {
@@ -764,55 +757,50 @@ export default function WikiPageInner({ user }: Props) {
     categoryPath: number[],
     docTitle: string,
     docId?: number,
-    options?: { clearCategoryPath?: boolean; forceRoot?: boolean },
+    options?: { clearCategoryPath?: boolean },
   ) {
-    const isRoot = options?.forceRoot || categoryPath.length === 0; // ✅ 루트 문서 여부
     if (options?.clearCategoryPath) setSelectedCategoryPath(null);
-    setSelectedDocTitle(docTitle);
-    setHideDocChrome(isRoot); // ✅ 루트는 카테고리 스타일(크롬 숨김)
 
-    // 루트 + id 미지정 → 목록에서 id로 로딩
-    if (isRoot && docId == null) {
-      const match = allDocuments.find(
-        d =>
-          ((Array.isArray(d.fullPath) &&
-            d.fullPath.length === 0) ||
-            Number(d.path) === 0) &&
-          d.title === docTitle,
-      );
-      if (match?.id != null) {
-        setSelectedDocId(match.id);
-        setSelectedDocPath([]); // 루트
-        setLoadingDoc(true);
-        void fetchDocById(match.id, { hideChrome: true });
-        return;
-      }
+    // ✅ 제목은 즉시 반영(크롬에서 바로 보이게)
+    setSelectedDocTitle(docTitle);
+
+    // ✅ "루트" 판단으로 크롬을 숨기지 않는다.
+    //    오직 대표 루트 문서(73 / rootFeaturedDocId)만 숨김 처리
+    const resolvedId =
+      docId ??
+      allDocuments.find(d => d.title === docTitle && JSON.stringify(d.fullPath ?? []) === JSON.stringify(categoryPath))?.id ??
+      allDocuments.find(d => d.title === docTitle && ((Array.isArray(d.fullPath) && d.fullPath.length === 0) || Number(d.path) === 0))?.id ??
+      null;
+
+    if (resolvedId != null) {
+      setSelectedDocId(resolvedId);
+      setHideDocChrome(shouldHideChromeByDocId(resolvedId));
+    } else {
+      // id를 아직 모르면 일단 숨기지 않음(FAQ 제목/버튼이 바로 떠야 함)
+      setHideDocChrome(false);
     }
 
     if (docId != null) {
       setSelectedDocId(docId);
-      setSelectedDocPath(isRoot ? [] : [...categoryPath]);
+      setSelectedDocPath([...categoryPath]);
     } else {
       const doc = allDocuments.find(
         d =>
           d.title === docTitle &&
-          ((isRoot &&
-            ((Array.isArray(d.fullPath) &&
-              d.fullPath.length === 0) ||
-              Number(d.path) === 0)) ||
-            JSON.stringify(d.fullPath) ===
-              JSON.stringify(categoryPath)),
+          JSON.stringify(d.fullPath ?? []) === JSON.stringify(categoryPath),
       );
       if (doc) {
         setSelectedDocId(doc.id);
-        setSelectedDocPath(isRoot ? [] : [...categoryPath]);
+        setSelectedDocPath([...categoryPath]);
       }
     }
 
     const reqId = ++docReqIdRef.current;
     setLoadingDoc(true);
 
-    const pathParam = isRoot ? '0' : String(categoryPath.at(-1));
+    const pathParam =
+      categoryPath.length === 0 ? '0' : String(categoryPath.at(-1));
+
     fetch(
       withTs(
         `/api/documents?path=${pathParam}&title=${encodeURIComponent(
@@ -827,6 +815,11 @@ export default function WikiPageInner({ user }: Props) {
       })
       .then(data => {
         if (!mountedRef.current || reqId !== docReqIdRef.current) return;
+
+        // ✅ 서버에서 확정 id가 오면 여기서 다시 "크롬 숨김" 보정
+        setSelectedDocId(data.id ?? null);
+        setHideDocChrome(shouldHideChromeByDocId(data.id));
+
         const content: Descendant[] =
           typeof data.content === 'string'
             ? JSON.parse(data.content)
@@ -847,21 +840,18 @@ export default function WikiPageInner({ user }: Props) {
           setFaqTags([]);
         }
 
-        // 🔁 fullPath 기준으로 nextPath 계산 (없으면 기존 categoryPath/루트 사용)
+        // 🔁 fullPath 기준으로 nextPath 계산 (없으면 기존 categoryPath 사용)
         let nextPath: number[] = [];
         if (Array.isArray(data.fullPath)) {
           nextPath = [...data.fullPath];
-        } else if (isRoot) {
-          nextPath = [];
         } else {
           nextPath = [...categoryPath];
         }
         setSelectedDocPath(nextPath);
 
-        // ✅ 문서 로드 후 URL ?path=&title= 동기화
         syncUrlWithDoc(data.title ?? docTitle, nextPath);
 
-        setLoadingDoc(false); // 성공 종료
+        setLoadingDoc(false);
       })
       .catch(() => {
         if (!mountedRef.current || reqId !== docReqIdRef.current) return;
@@ -869,7 +859,7 @@ export default function WikiPageInner({ user }: Props) {
         setSpecialMeta(null);
         setFaqQuery('');
         setFaqTags([]);
-        setLoadingDoc(false); // 실패 종료
+        setLoadingDoc(false);
       });
   }
 
@@ -907,7 +897,6 @@ export default function WikiPageInner({ user }: Props) {
 
       setSelectedDocTitle(data.title ?? null);
 
-      // ★★★ 경로 계산 고정
       let nextPath: number[] = [];
       if (docInList?.fullPath) {
         nextPath = docInList.fullPath;
@@ -925,7 +914,14 @@ export default function WikiPageInner({ user }: Props) {
 
       syncUrlWithDoc(data.title ?? null, nextPath);
 
-      setHideDocChrome(!!opts?.hideChrome);
+      // ✅ 여기서도 오직 대표 루트 문서만 크롬 숨김
+      const hide =
+        typeof opts?.hideChrome === 'boolean'
+          ? opts.hideChrome
+          : shouldHideChromeByDocId(data.id);
+
+      setHideDocChrome(hide);
+
       setLoadingDoc(false);
     } catch {
       if (!mountedRef.current || reqId !== docReqIdRef.current) return;
@@ -950,7 +946,6 @@ export default function WikiPageInner({ user }: Props) {
       const href = aTag.getAttribute('href');
       if (!href) return;
 
-      // 위키 내부 문서 링크만 가로채기
       if (href.startsWith('/wiki')) {
         const url = new URL(href, window.location.origin);
         if (url.pathname !== '/wiki') return;
@@ -961,7 +956,6 @@ export default function WikiPageInner({ user }: Props) {
 
         e.preventDefault();
 
-        // path / title만 정규화해서 사용하고, 해시는 그대로 유지
         const params = new URLSearchParams();
         params.set('path', path);
         params.set('title', title);
@@ -993,7 +987,7 @@ export default function WikiPageInner({ user }: Props) {
       setHeadList([]);
       setHeadLoading(false);
       setHeadPage(0);
-      setHeadVillageIcon(null); // 🔽 머리 아이콘 초기화
+      setHeadVillageIcon(null);
       return;
     }
     const meta = specialMeta;
@@ -1004,7 +998,7 @@ export default function WikiPageInner({ user }: Props) {
       setHeadList([]);
       setHeadLoading(false);
       setHeadPage(0);
-      setHeadVillageIcon(null); // 🔽 머리 아이콘 초기화
+      setHeadVillageIcon(null);
       return;
     }
 
@@ -1033,12 +1027,11 @@ export default function WikiPageInner({ user }: Props) {
         if (!v) {
           if (!cancelled) {
             setHeadLoading(false);
-            setHeadVillageIcon(null); // 🔽 못 찾으면 null
+            setHeadVillageIcon(null);
           }
           return;
         }
 
-        // 🔽 여기서 village 테이블의 head_icon을 상태에 저장
         if (!cancelled) {
           setHeadVillageIcon(v.head_icon ?? null);
         }
@@ -1054,8 +1047,7 @@ export default function WikiPageInner({ user }: Props) {
         return;
       }
 
-      // quest / npc
-      setHeadVillageIcon(null); // 🔽 머리 모드가 아니면 아이콘 초기화
+      setHeadVillageIcon(null);
       setNpcLoading(true);
       setNpcList([]);
       setNpcPage(0);
@@ -1115,9 +1107,7 @@ export default function WikiPageInner({ user }: Props) {
         const data = await r.json();
         const arr = extractVillageArray(data);
         if (arr.length > 0) return arr;
-      } catch {
-        // next candidate
-      }
+      } catch {}
     }
     return [];
   };
@@ -1128,18 +1118,15 @@ export default function WikiPageInner({ user }: Props) {
   ): Promise<NpcRow | null> => {
     if (!Number.isFinite(id) || id <= 0) return null;
 
-    // 1) 캐시
     const cached = npcByIdCacheRef.current.get(id);
     if (cached) return cached;
 
-    // 2) 현재 로딩된 목록에서 먼저 찾기
     const localHit = npcList.find((n) => Number(n.id) === id);
     if (localHit) {
       npcByIdCacheRef.current.set(id, localHit);
       return localHit;
     }
 
-    // 3) fallback: 모든 마을의 /api/npcs 목록에서 탐색
     const villages = await fetchAllVillages();
     if (!villages.length) return null;
 
@@ -1159,7 +1146,6 @@ export default function WikiPageInner({ user }: Props) {
         const arr = await res.json();
         if (!Array.isArray(arr)) continue;
 
-        // 캐시 쌓기 + 대상 찾기
         for (const row of arr) {
           if (row && Number.isFinite(Number(row.id))) {
             npcByIdCacheRef.current.set(Number(row.id), row);
@@ -1168,9 +1154,7 @@ export default function WikiPageInner({ user }: Props) {
 
         const hit = npcByIdCacheRef.current.get(id);
         if (hit) return hit;
-      } catch {
-        // 다음 마을
-      }
+      } catch {}
     }
 
     return null;
@@ -1178,7 +1162,7 @@ export default function WikiPageInner({ user }: Props) {
 
   const handleWikiRefClick = async (kind: WikiRefKind, id: number) => {
     if (!id || id <= 0) return;
-    if (hold) return; // 전환중엔 무시
+    if (hold) return;
 
     if (kind === 'qna') {
       const fresh = await fetchFaqDetail(id);
@@ -1187,8 +1171,8 @@ export default function WikiPageInner({ user }: Props) {
     }
 
     if (kind === 'quest' || kind === 'npc') {
-      setSelectedNpcMode(kind);          // ✅ 여기 핵심
-      const npc = await fetchNpcById(id, kind); // ✅ 목록 기반 단건찾기
+      setSelectedNpcMode(kind);
+      const npc = await fetchNpcById(id, kind);
       if (npc) setSelectedNpc(npc);
       return;
     }
@@ -1210,7 +1194,7 @@ export default function WikiPageInner({ user }: Props) {
 
     const hasUrl =
       !!(searchParams.get('path') && searchParams.get('title'));
-    if (hasUrl) return; // 딥링크 우선
+    if (hasUrl) return;
 
     firstLoadRef.current = false;
 
@@ -1257,13 +1241,12 @@ export default function WikiPageInner({ user }: Props) {
     return () => document.removeEventListener('click', onClick, true);
   }, [allDocuments]);
 
-  // 로딩/보이기 제어: 딜레이 중에도 로더만 보이도록 hold 사용
+  // 로딩/보이기 제어
   const isLoadingView = loadingDoc || docContent === null;
   const hold = isLoadingView || delaying;
 
-  // ---------- (선택) 콘텐츠 페이드: 딜레이 중엔 숨기고, 준비되면 페이드-인 ----------
+  // ✅ 페이드 제어는 본문만 (제목/버튼은 즉시 떠야 함)
   const contentClass = hold ? 'is-hold' : 'is-ready';
-  // -----------------------------------------------------------------------
 
   const interactionReady =
     categories.length > 0 &&
@@ -1305,17 +1288,21 @@ export default function WikiPageInner({ user }: Props) {
           </aside>
 
           <main className={`wiki-content ${contentClass}`}>
-            {!hideDocChrome && !hold && (
+            {/* ✅ 크롬은 hold 중에도 렌더 (제목 + FAQ 버튼 즉시 표시) */}
+            {!hideDocChrome && (
               <>
-                <Breadcrumb
-                  selectedDocPath={selectedDocPath}
-                  categories={categories}
-                  setSelectedDocPath={setSelectedDocPath}
-                  setSelectedDocTitle={setSelectedDocTitle}
-                  setDocContent={setDocContent}
-                />
+                {/* Breadcrumb은 hold 중엔 선택사항인데, 제목만이라도 항상 뜨게 해야 하니
+                    Breadcrumb은 그대로 두되, 원하면 여기서도 hold 무시 가능 */}
+                {!hold && (
+                  <Breadcrumb
+                    selectedDocPath={selectedDocPath}
+                    categories={categories}
+                    setSelectedDocPath={setSelectedDocPath}
+                    setSelectedDocTitle={setSelectedDocTitle}
+                    setDocContent={setDocContent}
+                  />
+                )}
 
-                {/* 제목 + 링크 버튼 + FAQ 버튼 한 줄 정렬 */}
                 <div
                   style={{
                     display: 'flex',
@@ -1325,7 +1312,6 @@ export default function WikiPageInner({ user }: Props) {
                   }}
                 >
                   <div className="wiki-doc-title-wrap">
-                    {/* 아이콘 + 제목 + 링크 버튼을 한 h2 안에 배치 */}
                     <h2 className="wiki-content-title-row wiki-content-title">
                       {currentDoc?.icon ? (
                         currentDoc.icon.startsWith('http') ? (
@@ -1346,7 +1332,6 @@ export default function WikiPageInner({ user }: Props) {
                         {selectedDocTitle || '렌독 위키'}
                       </span>
 
-                      {/* 🔗 제목 오른쪽 링크 버튼 (클릭 시 ✔ 로 잠깐 변경) */}
                       <button
                         type="button"
                         className={
@@ -1363,7 +1348,7 @@ export default function WikiPageInner({ user }: Props) {
                     </h2>
                   </div>
 
-                  {/* FAQ일 때만 '질문 추가' 버튼 노출 (권한 필요) */}
+                  {/* ✅ FAQ + 권한이면 hold 중에도 버튼이 떠야 함 */}
                   {isFaq && canWrite && (
                     <FaqAddButton onClick={() => setShowNewFaq(true)} />
                   )}
@@ -1461,6 +1446,7 @@ export default function WikiPageInner({ user }: Props) {
                     </button>
                   </div>
                 )}
+
               {(specialMeta?.kind === 'npc' ||
                 specialMeta?.kind === 'quest') &&
                 npcList.length > 21 &&
@@ -1560,7 +1546,6 @@ export default function WikiPageInner({ user }: Props) {
           opacity: 0;
         }
 
-        /* 제목 래퍼: 높이 최소화 + 중앙 정렬 */
         .wiki-doc-title-wrap {
           display: flex;
           align-items: center;
@@ -1569,7 +1554,6 @@ export default function WikiPageInner({ user }: Props) {
           padding-bottom: 10px;
         }
 
-        /* 제목 h2 자체를 플렉스로 만들어 아이콘/텍스트/버튼을 한 줄 중앙 정렬 */
         .wiki-content-title-row {
           display: inline-flex;
           align-items: center;
@@ -1602,7 +1586,6 @@ export default function WikiPageInner({ user }: Props) {
           transition: all 0.15s ease;
         }
 
-        /* hover 시만 표시 */
         .wiki-doc-title-wrap:hover .wiki-doc-link-btn {
           opacity: 1;
           pointer-events: auto;
@@ -1630,151 +1613,6 @@ export default function WikiPageInner({ user }: Props) {
   );
 }
 
-// -------- 새 질문 모달 (미사용 시 제거 가능) --------
-function NewFaqModal({
-  onClose,
-  onSaved,
-}: {
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [tags, setTags] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  const save = async () => {
-    if (!title.trim() || !content.trim()) {
-      alert('제목과 내용을 입력해주세요.');
-      return;
-    }
-    setSaving(true);
-    try {
-      const r = await fetch('/api/faq', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: title.trim(),
-          content: content.trim(),
-          tags,
-        }),
-      });
-      if (!r.ok) throw 0;
-      onSaved();
-    } catch {
-      alert('저장에 실패했습니다.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div style={backdropStyle} onClick={onClose}>
-      <div style={modalStyle} onClick={e => e.stopPropagation()}>
-        <div style={modalHeaderStyle}>
-          <h3 style={{ margin: 0 }}>질문 추가</h3>
-          <button
-            onClick={onClose}
-            style={closeBtnStyle}
-            aria-label="close"
-          >
-            ✕
-          </button>
-        </div>
-        <div style={{ display: 'grid', gap: 10 }}>
-          <div>
-            <label style={labelStyle}>제목</label>
-            <input
-              style={inputStyle}
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-            />
-          </div>
-          <div>
-            <label style={labelStyle}>내용</label>
-            <textarea
-              style={{ ...inputStyle, height: 140, resize: 'vertical' }}
-              value={content}
-              onChange={e => setContent(e.target.value)}
-            />
-          </div>
-          <div>
-            <label style={labelStyle}>태그(쉼표로 구분, 선택)</label>
-            <input
-              style={inputStyle}
-              value={tags}
-              onChange={e => setTags(e.target.value)}
-              placeholder="예: 뉴비,설정"
-            />
-          </div>
-        </div>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            gap: 8,
-            marginTop: 14,
-          }}
-        >
-          <button className="wiki-btn" onClick={onClose}>
-            취소
-          </button>
-          <button
-            className="wiki-btn wiki-btn-primary"
-            onClick={save}
-            disabled={saving}
-          >
-            {saving ? '저장 중…' : '저장'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-const backdropStyle: React.CSSProperties = {
-  position: 'fixed',
-  inset: 0,
-  background: 'rgba(0,0,0,0.45)',
-  zIndex: 1000,
-  display: 'grid',
-  placeItems: 'center',
-  padding: 16,
-};
-const modalStyle: React.CSSProperties = {
-  width: 'min(680px, 100%)',
-  background: '#fff',
-  borderRadius: 16,
-  padding: 16,
-  boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
-};
-const modalHeaderStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  marginBottom: 12,
-};
-const closeBtnStyle: React.CSSProperties = {
-  border: '1px solid #e5e7eb',
-  background: '#fff',
-  borderRadius: 8,
-  width: 32,
-  height: 32,
-  cursor: 'pointer',
-};
-const labelStyle: React.CSSProperties = {
-  display: 'block',
-  fontSize: 13,
-  color: '#555',
-  marginBottom: 6,
-};
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  border: '1px solid #e5e7eb',
-  borderRadius: 8,
-  padding: '8px 10px',
-};
-
 // ====== FAQ 상단 액션 버튼 ======
 function FaqAddButton({ onClick }: { onClick: () => void }) {
   return (
@@ -1788,7 +1626,7 @@ function FaqAddButton({ onClick }: { onClick: () => void }) {
         <svg
           className="faq-add-ic"
           stroke="currentColor"
-          strokeWidth="1.5" 
+          strokeWidth="1.5"
           viewBox="0 0 24 24"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
