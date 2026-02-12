@@ -22,6 +22,59 @@ const ModalPortal: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return ReactDOM.createPortal(children, document.body);
 };
 
+// -------------------- 공통: 모달 키보드 핫키 --------------------
+// - Enter: 확인/저장
+// - Escape: 닫기
+// - Slate/에디터가 이벤트를 먹는 경우가 있어 capture=true 로 먼저 잡음
+// - 한글 IME 조합 중 Enter 오작동 방지
+// - textarea/contentEditable 에서는 Enter를 뺏지 않음(확장 대비)
+const useModalHotkeys = (params: {
+  open: boolean;
+  onEnter?: () => void;
+  onEscape?: () => void;
+  disabled?: boolean;
+}) => {
+  const { open, onEnter, onEscape, disabled } = params;
+
+  React.useEffect(() => {
+    if (!open) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (disabled) return;
+
+      // IME(한글 조합) 중 Enter 트리거 방지
+      // 일부 환경에서는 keyCode=229로도 들어옴
+      // @ts-ignore
+      if ((e as any).isComposing || (e as any).keyCode === 229) return;
+
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      const isTextArea = tag === 'textarea';
+      const isContentEditable = !!target && (target as any).isContentEditable;
+
+      if (e.key === 'Escape') {
+        if (!onEscape) return;
+        e.preventDefault();
+        e.stopPropagation();
+        onEscape();
+        return;
+      }
+
+      if (e.key === 'Enter') {
+        if (!onEnter) return;
+        if (isTextArea || isContentEditable) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+        onEnter();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [open, onEnter, onEscape, disabled]);
+};
+
 // -------------------- Weapon Type Select Modal --------------------
 
 export type WeaponTypeSelectModalProps = {
@@ -61,6 +114,13 @@ export const WeaponTypeSelectModal: React.FC<WeaponTypeSelectModalProps> = ({
     'transcend-divine',
     'transcend-superior',
   ];
+
+  // (선택 모달은 Enter로 확인이 뚜렷하지 않아서 기존 동작 유지)
+  // Esc로 닫기만 자연스럽게 추가
+  useModalHotkeys({
+    open,
+    onEscape: onClose,
+  });
 
   return (
     <ModalPortal>
@@ -171,6 +231,17 @@ export const WeaponNameEditModal: React.FC<WeaponNameEditModalProps> = ({
     if (open) setName(initialName || '');
   }, [open, initialName]);
 
+  const handleSave = React.useCallback(() => {
+    onSave(name.trim() || '새 무기 이름');
+  }, [name, onSave]);
+
+  // ✅ Enter=저장, Esc=닫기
+  useModalHotkeys({
+    open,
+    onEnter: handleSave,
+    onEscape: onClose,
+  });
+
   if (!open) return null;
 
   return (
@@ -244,7 +315,7 @@ export const WeaponNameEditModal: React.FC<WeaponNameEditModalProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => onSave(name.trim() || '새 무기 이름')}
+              onClick={handleSave}
               style={{
                 borderRadius: 999,
                 border: 'none',
@@ -319,12 +390,19 @@ export const WeaponStatEditModal: React.FC<WeaponStatEditModalProps> = ({
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = React.useCallback(() => {
     onSave({
       ...local,
       levels: normalizeStatLevels(local.levels, weaponType),
     });
-  };
+  }, [local, onSave, weaponType]);
+
+  // ✅ Enter=저장(읽기 전용 제외), Esc=닫기
+  useModalHotkeys({
+    open: open && !!statKey,
+    onEnter: readOnly ? undefined : handleSave,
+    onEscape: onClose,
+  });
 
   return (
     <ModalPortal>
@@ -567,18 +645,21 @@ export const WeaponStatSelectModal: React.FC<WeaponStatSelectModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, stats, weaponType]);
 
-  const clamp = (n: number) => {
-    if (Number.isNaN(n)) return 0;
-    if (n < 0) return 0;
-    if (n > maxCount) return maxCount;
-    return n;
-  };
+  const clamp = React.useCallback(
+    (n: number) => {
+      if (Number.isNaN(n)) return 0;
+      if (n < 0) return 0;
+      if (n > maxCount) return maxCount;
+      return n;
+    },
+    [maxCount],
+  );
 
   const handleChange = (next: number) => {
     setCount(clamp(next));
   };
 
-  const handleSave = () => {
+  const handleSave = React.useCallback(() => {
     // 기존 enabled 패턴을 기준으로 개수만 맞춰 조정
     const originalEnabledIndices: number[] = [];
     base.forEach((s, idx) => {
@@ -615,7 +696,14 @@ export const WeaponStatSelectModal: React.FC<WeaponStatSelectModalProps> = ({
     }
 
     onSave(nextStats);
-  };
+  }, [base, clamp, count, onSave]);
+
+  // ✅ Enter=저장, Esc=닫기
+  useModalHotkeys({
+    open,
+    onEnter: handleSave,
+    onEscape: onClose,
+  });
 
   return (
     <ModalPortal>
@@ -792,6 +880,12 @@ export const WeaponVideoModal: React.FC<WeaponVideoModalProps> = ({
   onClose,
 }) => {
   if (!open) return null;
+
+  // 비디오는 Enter 동작이 의미 없어서 Esc로 닫기만 추가(기존 동작 유지)
+  useModalHotkeys({
+    open,
+    onEscape: onClose,
+  });
 
   return (
     <ModalPortal>
