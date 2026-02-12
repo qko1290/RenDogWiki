@@ -290,8 +290,13 @@ export function TableCellRenderer(props: RenderElementProps & { editor: any }) {
 
   const onDown: React.MouseEventHandler<HTMLTableCellElement> = (e) => {
     if (e.button !== 0) return; // 좌클릭만
-    e.preventDefault(); // 네이티브 선택/드래그 차단
-    e.stopPropagation(); // Slate 핸들러로 버블 금지
+
+    // ✅ Shift 안 누르면: Slate 기본 동작(커서 배치/텍스트 드래그)을 그대로 사용
+    if (!e.shiftKey) return;
+
+    // ✅ Shift 누른 경우에만: 기존 엑셀식 셀 드래그 선택 모드
+    e.preventDefault();   // 네이티브 선택/드래그 차단
+    e.stopPropagation();  // Slate 핸들러로 버블 금지
     beginDrag(editor, tablePath, tkey, r, c, e.clientX, e.clientY);
   };
 
@@ -318,7 +323,7 @@ export function TableCellRenderer(props: RenderElementProps & { editor: any }) {
       onMouseDown={onDown}
       onMouseEnter={onEnter}
       onContextMenu={onCtx}
-      onDragStart={(e) => e.preventDefault()} // 네이티브 HTML drag 이미지 방지
+      onDragStart={(e) => e.preventDefault()}
       draggable={false}
       className="slate-table__cell"
       style={{
