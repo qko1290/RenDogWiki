@@ -183,7 +183,7 @@ export default function HamburgerMenu({
       setDenyOpen(true);
     }
   };
-if (name) return `https://crafthead.net/helm/${resolvedUUID}/18.png`;
+
   // 마인크래프트 스킨 이미지 URL (없으면 기본값)
   const skinUrl = resolvedUUID
     ? `https://crafthead.net/helm/${resolvedUUID}/18.png`
