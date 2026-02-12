@@ -149,9 +149,10 @@ export default function QuestNpcManager() {
   }, []);
 
   const reloadQuestList = useCallback(async (villageId: number) => {
-    const rows = await fetch(`/api/npcs?village_id=${villageId}&npc_type=quest`).then((r) =>
-      r.json()
-    );
+    const rows = await fetch(
+      `/api/npcs?village_id=${villageId}&npc_type=quest&nocache=1`
+    ).then((r) => r.json());
+
     setNpcList(Array.isArray(rows) ? rows : []);
     return Array.isArray(rows) ? rows : [];
   }, []);
@@ -232,21 +233,21 @@ export default function QuestNpcManager() {
       const res = await fetch(`/api/npcs/${selectedNpc.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        // ✅ 전체 selectedNpc 합치지 말고 변경분만 보냄 (npc_type 유지)
         body: JSON.stringify({ ...fields, npc_type: 'quest' }),
       });
 
-      // ✅ 실패를 실패로 처리해야 "바로 되돌아감"이 안 생김
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
         throw new Error(d?.error || 'PATCH failed');
       }
 
-      if (!selectedVillage) return;
-      const rows = await reloadQuestList(selectedVillage.id);
-      setSelectedNpc(rows.find((n: Npc) => n.id === selectedNpc.id) ?? null);
+      // ✅ 서버가 반환한 "최신 row"로 로컬 상태를 직접 갱신
+      const updated = (await res.json()) as Npc;
+
+      setSelectedNpc(updated);
+      setNpcList((prev) => prev.map((n) => (n.id === updated.id ? { ...n, ...updated } : n)));
     },
-    [selectedNpc, selectedVillage, reloadQuestList]
+    [selectedNpc]
   );
 
   const openEditVillage = (v: Village) => {

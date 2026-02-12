@@ -67,9 +67,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json([], { headers: { 'Cache-Control': 'no-store' } });
     }
 
-    // ✅ 마을+타입 조합별 60초 캐시
-    const cacheKey = `npc:list:v=${village_id}:t=${npcTypeParam}`;
-    const normalized = await cached(cacheKey, { ttlSec: 60 }, async () => {
+    const noCache = searchParams.get('nocache') === '1';
+
+    const fetchRows = async () => {
       const rows = (await sql/*sql*/`
         SELECT * FROM npc
         WHERE village_id = ${village_id}
@@ -81,9 +81,14 @@ export async function GET(req: NextRequest) {
         ...row,
         pictures: toArray(row.pictures),
         rewards:  toArray(row.rewards),
-        tag:      (row as any).tag ?? null,
+        tag: (row as any).tag ?? null,
       }));
-    });
+    };
+
+    // ✅ 관리 화면(=nocache=1)은 캐시 우회
+    const normalized = noCache
+      ? await fetchRows()
+      : await cached(`npc:list:v=${village_id}:t=${npcTypeParam}`, { ttlSec: 60 }, fetchRows);
 
     return NextResponse.json(normalized, { headers: { 'Cache-Control': 'no-store' } });
   } catch (err) {
