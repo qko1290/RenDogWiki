@@ -19,7 +19,21 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-type TagKey = 'done' | 'hard' | 'must' | null;
+const ALLOWED_TAGS = [
+  '추천','필수','완정','보스','타임어택','기사단','극난퀘','혼의 시련','6차',
+] as const;
+
+type TagKey = typeof ALLOWED_TAGS[number] | null;
+
+const ALLOWED: ReadonlyArray<NonNullable<TagKey>> = [...ALLOWED_TAGS];
+
+function toTagOr(v: unknown, fallback: TagKey): TagKey {
+  if (v === undefined) return fallback;
+  if (v === null || v === '') return null;
+  const s = String(v).trim();
+  return (ALLOWED as readonly string[]).includes(s) ? (s as TagKey) : fallback;
+}
+
 
 function toArray(v: unknown): any[] {
   if (Array.isArray(v)) return v;
@@ -34,7 +48,7 @@ function strOr<T extends string | null>(v: unknown, fallback: T): T {
   if (typeof v === 'string') return (v as string).trim() as T;
   return fallback;
 }
-const ALLOWED: ReadonlyArray<NonNullable<TagKey>> = ['done','hard','must'];
+
 function toTagKey(v: unknown): TagKey {
   if (v == null || v === '') return null;
   const s = String(v).trim();

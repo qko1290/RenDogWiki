@@ -8,7 +8,20 @@ import { logActivity } from '@wiki/lib/activity';
 
 export const runtime = 'nodejs';
 
-type TagKey = 'done' | 'hard' | 'must' | null;
+const ALLOWED_TAGS = [
+  '추천','필수','완정','보스','타임어택','기사단','극난퀘','혼의 시련','6차',
+] as const;
+
+type TagKey = typeof ALLOWED_TAGS[number] | null;
+
+const ALLOWED: ReadonlyArray<NonNullable<TagKey>> = [...ALLOWED_TAGS];
+
+function toTagOr(v: unknown, fallback: TagKey): TagKey {
+  if (v === undefined) return fallback;
+  if (v === null || v === '') return null;
+  const s = String(v).trim();
+  return (ALLOWED as readonly string[]).includes(s) ? (s as TagKey) : fallback;
+}
 
 type NpcRow = {
   id: number;
@@ -52,13 +65,6 @@ function toNpcTypeOr(v: unknown, fallback: string): string {
   const t = v.trim().toLowerCase();
   return t === 'normal' || t === 'quest' ? t : fallback;
 }
-const ALLOWED: ReadonlyArray<NonNullable<TagKey>> = ['done', 'hard', 'must'];
-function toTagOr(v: unknown, fallback: TagKey): TagKey {
-  if (v === undefined) return fallback;
-  if (v === null || v === '') return null;
-  const s = String(v).trim() as any;
-  return (ALLOWED as readonly string[]).includes(s) ? (s as TagKey) : fallback;
-}
 
 /** PATCH: 단건 수정 */
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -89,7 +95,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       npc_type: toNpcTypeOr(body?.npc_type, cur.npc_type),
       pictures: body?.pictures === undefined ? parseArray(cur.pictures) : parseArray(body?.pictures),
       rewards:  body?.rewards  === undefined ? parseArray(cur.rewards)  : parseArray(body?.rewards),
-      tag: body?.tag === undefined ? (cur.tag ?? null) : (body?.tag ?? null),
+      tag: toTagOr(body?.tag, (cur.tag ?? null) as TagKey),
     };
 
     await sql/*sql*/`

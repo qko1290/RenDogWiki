@@ -228,11 +228,20 @@ export default function QuestNpcManager() {
   const patchNpc = useCallback(
     async (fields: Partial<Npc>) => {
       if (!selectedNpc) return;
-      await fetch(`/api/npcs/${selectedNpc.id}`, {
+
+      const res = await fetch(`/api/npcs/${selectedNpc.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...selectedNpc, ...fields, npc_type: 'quest' }),
+        // ✅ 전체 selectedNpc 합치지 말고 변경분만 보냄 (npc_type 유지)
+        body: JSON.stringify({ ...fields, npc_type: 'quest' }),
       });
+
+      // ✅ 실패를 실패로 처리해야 "바로 되돌아감"이 안 생김
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d?.error || 'PATCH failed');
+      }
+
       if (!selectedVillage) return;
       const rows = await reloadQuestList(selectedVillage.id);
       setSelectedNpc(rows.find((n: Npc) => n.id === selectedNpc.id) ?? null);
@@ -731,8 +740,19 @@ export default function QuestNpcManager() {
                         aria-checked={active}
                         className={`seg-choice${active ? ' active' : ''}`}
                         onClick={async () => {
-                          setTmpTag(key as TagKey | null);
-                          await patchNpc({ tag: key ?? null });   // ✅ API에 그대로 저장(null=없음)
+                          const next = key as TagKey | null;
+                          const prev = tmpTag;
+
+                          // ✅ 먼저 UI 반영
+                          setTmpTag(next);
+
+                          try {
+                            await patchNpc({ tag: next ?? null });
+                          } catch (e) {
+                            // ✅ 실패하면 원복 + 알림
+                            setTmpTag(prev);
+                            alert('태그 저장 실패: 서버 반영이 되지 않았습니다.');
+                          }
                         }}
                       >
                         {label}
