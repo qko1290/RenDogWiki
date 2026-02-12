@@ -46,23 +46,46 @@ function highlight(text: string, keyword: string) {
     ),
   );
 }
-function extractSlateTextLine(slate: any, keyword: string): string | null {
-  if (Array.isArray(slate)) {
-    for (const node of slate) {
-      const found = extractSlateTextLine(node, keyword);
-      if (found) return found;
+
+function extractSlateTextSnippets(slate: any): string[] {
+  const out: string[] = [];
+  const walk = (n: any) => {
+    if (!n) return;
+    if (Array.isArray(n)) {
+      for (const x of n) walk(x);
+      return;
     }
-  } else if (typeof slate === 'object' && slate) {
-    if (typeof slate.text === 'string' && slate.text.toLowerCase().includes(keyword.toLowerCase())) {
-      return slate.text;
+    if (typeof n === 'object') {
+      if (typeof n.text === 'string' && n.text.trim()) out.push(n.text);
+      if (Array.isArray(n.children)) walk(n.children);
     }
-    if (Array.isArray(slate.children)) {
-      const found = extractSlateTextLine(slate.children, keyword);
-      if (found) return found;
-    }
+  };
+  walk(slate);
+  return out;
+}
+
+function makeSnippetFromText(text: string, keyword: string, radius = 26) {
+  const low = text.toLowerCase();
+  const k = keyword.toLowerCase();
+  const idx = low.indexOf(k);
+  if (idx < 0) return null;
+
+  const start = Math.max(0, idx - radius);
+  const end = Math.min(text.length, idx + keyword.length + radius);
+  const prefix = start > 0 ? '…' : '';
+  const suffix = end < text.length ? '…' : '';
+  return `${prefix}${text.slice(start, end)}${suffix}`;
+}
+
+function extractSlateSnippet(slate: any, keyword: string): string | null {
+  const texts = extractSlateTextSnippets(slate);
+  for (const t of texts) {
+    const s = makeSnippetFromText(t, keyword);
+    if (s) return s;
   }
   return null;
 }
+
 const isImageLike = (v?: string) => !!v && (/^https?:\/\//i.test(v) || v.startsWith('data:image'));
 const isRemoteHttp = (v?: string) => !!v && /^https?:\/\//i.test(v);
 
@@ -97,15 +120,29 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
   const timerRef = useRef<number | null>(null);
 
   const router = useRouter();
-  const docsCount = docs.length;
   const listId = useMemo(() => `search-list-${Math.random().toString(36).slice(2)}`, []);
+
+  // ===== 우선순위 정렬(제목 > 태그 > 내용) =====
+  const sortedDocs = useMemo(() => {
+    const order: Record<DocResult['match_type'], number> = { title: 0, tags: 1, content: 2 };
+    return [...docs].sort((a, b) => {
+      const oa = order[a.match_type] ?? 99;
+      const ob = order[b.match_type] ?? 99;
+      if (oa !== ob) return oa - ob;
+      // 같은 타입이면 제목 짧은 게 위(가벼운 휴리스틱)
+      return (a.title?.length ?? 0) - (b.title?.length ?? 0);
+    });
+  }, [docs]);
+
+  const docsCount = sortedDocs.length;
 
   // ===== 디바운스 & 동시 fetch(문서 + FAQ) =====
   useEffect(() => {
     const q = query.trim();
     if (!q) {
       setOpen(false);
-      setDocs([]); setFaqs([]);
+      setDocs([]);
+      setFaqs([]);
       setActiveDocIndex(-1);
       if (abortDocsRef.current) abortDocsRef.current.abort();
       if (abortFaqRef.current) abortFaqRef.current.abort();
@@ -119,19 +156,25 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
       const acDocs = new AbortController();
       abortDocsRef.current = acDocs;
       setLoadingDocs(true);
+
       (async () => {
         try {
-          const res = await fetch(`/api/search?query=${encodeURIComponent(q)}`, {
-            signal: acDocs.signal,
-            cache: 'no-store',
-          });
+          // ✅ limit 파라미터 추가 (서버가 받도록 수정 필요)
+          const res = await fetch(
+            `/api/search?query=${encodeURIComponent(q)}&limit=50`,
+            {
+              signal: acDocs.signal,
+              cache: 'no-store',
+            },
+          );
           if (!res.ok) throw new Error('search-failed');
           const data = (await res.json()) as DocResult[];
-          setDocs(data);
-          setActiveDocIndex(data.length ? 0 : -1);
+          setDocs(Array.isArray(data) ? data : []);
+          setActiveDocIndex(data?.length ? 0 : -1);
         } catch (e: any) {
           if (e?.name !== 'AbortError') {
-            setDocs([]); setActiveDocIndex(-1);
+            setDocs([]);
+            setActiveDocIndex(-1);
           }
         } finally {
           setLoadingDocs(false);
@@ -143,6 +186,7 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
       const acFaq = new AbortController();
       abortFaqRef.current = acFaq;
       setLoadingFaqs(true);
+
       (async () => {
         try {
           const url = `/api/faq?q=${encodeURIComponent(q)}&limit=10&offset=0`;
@@ -183,7 +227,8 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
     if (!res) return;
     setOpen(false);
     setQuery('');
-    setDocs([]); setFaqs([]);
+    setDocs([]);
+    setFaqs([]);
     setActiveDocIndex(-1);
     router.push(`/wiki?path=${encodeURIComponent(res.path)}&title=${encodeURIComponent(res.title)}`);
   };
@@ -205,13 +250,16 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
       setActiveDocIndex((i) => (docsCount ? (i - 1 + docsCount) % docsCount : -1));
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      goDoc(docs[activeDocIndex] ?? docs[0] ?? null);
+      goDoc(sortedDocs[activeDocIndex] ?? sortedDocs[0] ?? null);
     } else if (e.key === 'Escape') {
       e.preventDefault();
       setOpen(false);
       setActiveDocIndex(-1);
     }
   };
+
+  // ✅ 드롭다운 내부 스크롤을 위한 높이 기준값
+  const dropdownMaxH = 'min(72vh, 560px)';
 
   return (
     <div
@@ -222,6 +270,7 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
       aria-owns={listId}
       aria-haspopup="listbox"
       data-align={align}
+      style={{ width }}
     >
       <svg className="search-icon" viewBox="0 0 24 24" aria-hidden="true">
         <path d="M21.53 20.47l-3.66-3.66C19.195 15.24 20 13.214 20 11c0-4.97-4.03-9-9-9s-9 4.03-9 9 4.03 9 9 9c2.215 0 4.24-.804 5.808-2.13l3.66 3.66c.147.146.34.22.53.22s.385-.073.53-.22c.295-.293.295-.767.002-1.06zM3.5 11c0-4.135 3.365-7.5 7.5-7.5s7.5 3.365 7.5 7.5-3.365 7.5-7.5 7.5-7.5-3.365-7.5-7.5z" />
@@ -245,8 +294,8 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
         aria-autocomplete="list"
         aria-controls={listId}
         aria-activedescendant={
-          activeDocIndex >= 0 && docs[activeDocIndex]
-            ? `${listId}-opt-${docs[activeDocIndex].id}`
+          activeDocIndex >= 0 && sortedDocs[activeDocIndex]
+            ? `${listId}-opt-${sortedDocs[activeDocIndex].id}`
             : undefined
         }
       />
@@ -264,11 +313,14 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
             borderRadius: 10,
             boxShadow: '0 6px 32px rgba(0,0,0,0.14)',
             padding: '10px 12px',
+            // ✅ 드롭다운 자체가 화면을 넘기면 내부 스크롤
+            maxHeight: dropdownMaxH,
+            overflow: 'auto',
           }}
         >
           {(loadingDocs || loadingFaqs) && (
             <div style={{ color: '#9aa1ac', fontSize: 13, padding: '6px 2px 8px' }}>
-              {loadingDocs ? '문서 검색 중…' : ''} {loadingDocs && loadingFaqs ? '·' : ''}{' '}
+              {loadingDocs ? '문서 검색 중…' : ''} {loadingDocs && loadingFaqs ? '·' : ' '}
               {loadingFaqs ? 'FAQ 검색 중…' : ''}
             </div>
           )}
@@ -288,17 +340,43 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
                 문서
               </div>
 
-              {!loadingDocs && docs.length === 0 && (
-                <div style={{ color: '#9aa1ac', fontSize: 14, padding: '6px 4px' }}>결과가 없습니다.</div>
+              {!loadingDocs && sortedDocs.length === 0 && (
+                <div style={{ color: '#9aa1ac', fontSize: 14, padding: '6px 4px' }}>
+                  결과가 없습니다.
+                </div>
               )}
 
               <ul
                 id={listId}
                 role="listbox"
-                style={{ listStyle: 'none', margin: 0, padding: 0, maxHeight: 360, overflowY: 'auto' }}
+                style={{
+                  listStyle: 'none',
+                  margin: 0,
+                  padding: 0,
+                  // ✅ 컬럼 내부도 스크롤
+                  maxHeight: 420,
+                  overflowY: 'auto',
+                }}
               >
-                {docs.map((res, idx) => {
+                {sortedDocs.map((res, idx) => {
                   const selected = idx === activeDocIndex;
+
+                  // ✅ 표시 규칙:
+                  // - title: 제목만
+                  // - tags: 제목 아래 #태그
+                  // - content: 스니펫
+                  const showTagsLine = res.match_type === 'tags' && res.tags?.length > 0;
+
+                  let contentSnippet: string | null = null;
+                  if (res.match_type === 'content') {
+                    try {
+                      const slate = typeof res.content === 'string' ? JSON.parse(res.content) : res.content;
+                      contentSnippet = extractSlateSnippet(slate, query);
+                    } catch {
+                      contentSnippet = null;
+                    }
+                  }
+
                   return (
                     <li
                       id={`${listId}-opt-${res.id}`}
@@ -310,7 +388,7 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
                         alignItems: 'flex-start',
                         padding: '11px 12px',
                         cursor: 'pointer',
-                        borderBottom: idx !== docs.length - 1 ? '1px solid #f5f6fa' : undefined,
+                        borderBottom: idx !== sortedDocs.length - 1 ? '1px solid #f5f6fa' : undefined,
                         background: selected ? 'rgba(24,118,247,0.06)' : 'transparent',
                         fontSize: 15,
                         lineHeight: 1.3,
@@ -340,29 +418,39 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
                           '📄'
                         )}
                       </span>
+
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ fontWeight: 700, fontSize: 16 }}>{highlight(res.title, query)}</div>
-                        {res.match_type === 'content' && (
+
+                        {showTagsLine && (
+                          <div
+                            style={{
+                              marginTop: 6,
+                              fontSize: 12,
+                              color: '#198544',
+                              display: 'flex',
+                              flexWrap: 'wrap',
+                              gap: 6,
+                            }}
+                          >
+                            {res.tags.map((t, i) => (
+                              <span key={t + i}>#{highlight(t, query)}</span>
+                            ))}
+                          </div>
+                        )}
+
+                        {res.match_type === 'content' && contentSnippet && (
                           <div
                             style={{
                               color: '#667085',
                               fontSize: 13,
-                              marginTop: 2,
+                              marginTop: 6,
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
                               whiteSpace: 'nowrap',
                             }}
                           >
-                            {(() => {
-                              try {
-                                const slate =
-                                  typeof res.content === 'string' ? JSON.parse(res.content) : res.content;
-                                const line = extractSlateTextLine(slate, query) || '';
-                                return line ? highlight(line, query) : null;
-                              } catch {
-                                return null;
-                              }
-                            })()}
+                            {highlight(contentSnippet, query)}
                           </div>
                         )}
                       </div>
@@ -382,7 +470,7 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
                 <div style={{ color: '#9aa1ac', fontSize: 14, padding: '6px 4px' }}>결과가 없습니다.</div>
               )}
 
-              <ul style={{ listStyle: 'none', margin: 0, padding: 0, maxHeight: 360, overflowY: 'auto' }}>
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0, maxHeight: 420, overflowY: 'auto' }}>
                 {faqs.map((f) => (
                   <li
                     key={`faq-${f.id}`}
@@ -490,8 +578,14 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
                 onClick={() => setFaqView(null)}
                 aria-label="close"
                 style={{
-                  width: 34, height: 34, display: 'grid', placeItems: 'center',
-                  background: 'transparent', border: 0, cursor: 'pointer', color: '#ef4444'
+                  width: 34,
+                  height: 34,
+                  display: 'grid',
+                  placeItems: 'center',
+                  background: 'transparent',
+                  border: 0,
+                  cursor: 'pointer',
+                  color: '#ef4444',
                 }}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8">
@@ -502,15 +596,28 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
             <div style={{ marginTop: 10 }}>
               <div
                 style={{
-                  display: 'flex', alignItems: 'flex-start', gap: 12,
-                  background: '#fff5f5', border: '1px solid #ffe2e2', borderRadius: 12, padding: '12px 14px'
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 12,
+                  background: '#fff5f5',
+                  border: '1px solid #ffe2e2',
+                  borderRadius: 12,
+                  padding: '12px 14px',
                 }}
               >
                 <span
                   style={{
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    width: 22, height: 22, borderRadius: 999, background: '#ffe9e9', color: '#dc2626',
-                    fontWeight: 900, fontSize: 13.5, flex: '0 0 22px'
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 22,
+                    height: 22,
+                    borderRadius: 999,
+                    background: '#ffe9e9',
+                    color: '#dc2626',
+                    fontWeight: 900,
+                    fontSize: 13.5,
+                    flex: '0 0 22px',
                   }}
                 >
                   A
@@ -521,7 +628,9 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
               </div>
               {faqView.tags?.length > 0 && (
                 <div style={{ marginTop: 10, color: '#198544', fontSize: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {faqView.tags.map((t, i) => <span key={t + i}>#{t}</span>)}
+                  {faqView.tags.map((t, i) => (
+                    <span key={t + i}>#{t}</span>
+                  ))}
                 </div>
               )}
             </div>
