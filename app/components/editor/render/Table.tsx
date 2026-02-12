@@ -330,7 +330,7 @@ export function TableCellRenderer(props: RenderElementProps & { editor: any }) {
         border: '1px solid #e5e7eb',
         background: '#ffffff',
         padding: '4px 6px',
-        verticalAlign: 'top',
+        verticalAlign: 'middle',
       }}
     >
       {children}
