@@ -9,9 +9,13 @@
  * - 단일 선택, 더블클릭 또는 "삽입" 버튼으로 콜백 호출
  * - 검색 시 서버 검색 결과를 표시
  * - onSelectImage는 (url) 1인자 방식과 (url, name, row) 3인자 방식을 모두 지원(하위 호환)
+ *
+ * ✅ 추가:
+ * - 모달 열릴 때 검색 input 자동 포커스
+ * - Enter 키: 선택된 이미지가 있으면 즉시 삽입
  */
 
-import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
+import React, { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import Modal from '@/components/common/Modal';
 import { toProxyUrl } from '@lib/cdn';
 
@@ -150,6 +154,9 @@ export default function ImageSelectModal({
   const [searchRows, setSearchRows] = useState<MediaFile[]>([]);
   const searching = search.trim().length > 0;
 
+  // ✅ 검색 input 자동 포커스
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+
   const normalizeFolders = (data: any[]): Folder[] =>
     data.map((f: any) => ({
       id: Number(f.id),
@@ -166,6 +173,32 @@ export default function ImageSelectModal({
       mime_type: i.mime_type ? String(i.mime_type) : null,
     }));
 
+  const handleInsert = () => {
+    if (!selectedImg) return;
+    // 저장은 원본 URL을 넘김(렌더링 시에만 프록시 사용)
+    onSelectImage(selectedImg.url, selectedImg.name, selectedImg);
+    onClose();
+  };
+
+  // ✅ Enter: 선택된 이미지가 있으면 삽입
+  const handleKeyDownCapture = (e: React.KeyboardEvent) => {
+    if (!open) return;
+
+    // IME 조합중 Enter는 무시
+    if ((e as any).isComposing) return;
+
+    if (e.key === 'Enter') {
+      // modifier 키 조합은 무시
+      if (e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
+
+      if (selectedImg) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleInsert();
+      }
+    }
+  };
+
   // 모달 열릴 때 폴더 목록 초기화
   useEffect(() => {
     if (!open) return;
@@ -175,6 +208,15 @@ export default function ImageSelectModal({
     setSearch('');
     setSearchRows([]);
     setTreeState({}); // 모두 닫힘
+
+    // ✅ 모달 열릴 때 검색칸 포커스 (DOM 렌더 이후 안정적으로)
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        searchInputRef.current?.focus({ preventScroll: true } as any);
+        // 선택된 상태로 바로 타이핑 가능하게
+        searchInputRef.current?.select?.();
+      }, 0);
+    });
 
     (async () => {
       try {
@@ -195,10 +237,9 @@ export default function ImageSelectModal({
     if (selectedFolder) {
       (async () => {
         try {
-          const r = await fetch(
-            `/api/image/view?folder_id=${selectedFolder}&ts=${Date.now()}`,
-            { cache: 'no-store' }
-          );
+          const r = await fetch(`/api/image/view?folder_id=${selectedFolder}&ts=${Date.now()}`, {
+            cache: 'no-store',
+          });
           const raw = await r.json();
           setImages(normalizeMedia(raw));
         } catch {
@@ -238,13 +279,6 @@ export default function ImageSelectModal({
 
   const listToShow = searching ? searchRows : images;
 
-  const handleInsert = () => {
-    if (!selectedImg) return;
-    // 저장은 원본 URL을 넘김(렌더링 시에만 프록시 사용)
-    onSelectImage(selectedImg.url, selectedImg.name, selectedImg);
-    onClose();
-  };
-
   if (!open) return null;
 
   return (
@@ -276,6 +310,7 @@ export default function ImageSelectModal({
             gridTemplateRows: 'auto 1fr auto',
           }}
           onMouseDown={(e) => e.stopPropagation()}
+          onKeyDownCapture={handleKeyDownCapture} // ✅ Enter 삽입
         >
           <div
             style={{
@@ -290,6 +325,7 @@ export default function ImageSelectModal({
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
               <div style={{ position: 'relative' }}>
                 <input
+                  ref={searchInputRef}
                   placeholder="이미지/영상 이름 검색"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -305,7 +341,13 @@ export default function ImageSelectModal({
                 />
                 {search && (
                   <button
-                    onClick={() => setSearch('')}
+                    onClick={() => {
+                      setSearch('');
+                      // 지운 뒤에도 바로 다시 입력되게 포커스 유지
+                      requestAnimationFrame(() => {
+                        searchInputRef.current?.focus({ preventScroll: true } as any);
+                      });
+                    }}
                     aria-label="검색어 지우기"
                     style={{
                       position: 'absolute',
@@ -498,7 +540,7 @@ export default function ImageSelectModal({
             <div style={{ flex: 1, minHeight: 38 }}>
               {selectedImg && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  { (selectedImg.mime_type || '').startsWith('video/') ? (
+                  {(selectedImg.mime_type || '').startsWith('video/') ? (
                     <video
                       src={toProxyUrl(selectedImg.url)}
                       preload="metadata"
