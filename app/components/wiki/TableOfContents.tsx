@@ -76,6 +76,21 @@ export default function TableOfContents({
 
   // ===== 유틸 =====
 
+  useEffect(() => {
+    // headings가 없으면 이전 문서에서 남은 highlight가 "빈 공간"에 표시될 수 있음
+    if (!headings || headings.length === 0) {
+      setActiveId('');
+      setActiveIndex(-1);
+
+      prevTopRef.current = null;
+      setIndicatorTop(0);
+      setIndicatorHeight(0);
+      setIndicatorDuration('140ms');
+
+      observerRef.current?.disconnect();
+    }
+  }, [headings]);
+
   const findScrollableAncestor = (el: HTMLElement | null): HTMLElement | null => {
     let cur: HTMLElement | null = el?.parentElement ?? null;
     while (cur) {
@@ -261,7 +276,9 @@ export default function TableOfContents({
 
   // ===== 하이라이트 + TOC 자동 스크롤 =====
   useEffect(() => {
+    if (!indexed.length) return;
     if (activeIndex < 0) return;
+    if (activeIndex >= indexed.length) return;
     if (!headingsListRef.current) return;
 
     const btn = headingsListRef.current.querySelector<HTMLButtonElement>(
@@ -385,7 +402,7 @@ export default function TableOfContents({
   };
 
   // ===== 목차 없음 =====
-  if (!indexed.length && !hasDocTitle) {
+  if (!indexed.length) {
     return (
       <aside
         ref={tocRef}
@@ -393,12 +410,75 @@ export default function TableOfContents({
         aria-label="Table of contents"
         style={{
           ...boxStyle,
-          display: 'grid',
-          placeItems: 'center',
-          color: '#9aa1ad',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
         }}
       >
-        목차 없음
+        <p style={titleStyle}>
+          <FontAwesomeIcon icon={faAlignLeft} />
+          &nbsp;&nbsp;{title}
+        </p>
+
+        {hasDocTitle ? (
+          <button
+            type="button"
+            onClick={() => {
+              const root = rootRef.current;
+              if (!root) window.scrollTo({ top: 0, behavior: 'smooth' });
+              else root.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            title={docTitle}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              width: '100%',
+              cursor: 'pointer',
+              border: 0,
+              background: 'transparent',
+              borderRadius: 10,
+              textAlign: 'left',
+              padding: '8px 8px',
+            }}
+          >
+            <span style={docTitleIconBox} aria-hidden>
+              {resolvedDocIcon?.startsWith('http') ? (
+                <img
+                  src={toProxyUrl(resolvedDocIcon)}
+                  alt=""
+                  width={20}
+                  height={20}
+                  loading="lazy"
+                  decoding="async"
+                  draggable={false}
+                  style={{ width: 20, height: 20, objectFit: 'contain', display: 'block' }}
+                />
+              ) : resolvedDocIcon ? (
+                <span style={{ fontSize: 18, lineHeight: 1, display: 'block' }}>
+                  {resolvedDocIcon}
+                </span>
+              ) : null}
+            </span>
+            <span style={docTitleTextStyle}>{docTitle}</span>
+          </button>
+        ) : null}
+
+        <div
+          style={{
+            marginTop: 4,
+            color: '#9aa1ad',
+            fontSize: 13,
+            fontWeight: 600,
+            textAlign: 'center',
+            padding: '14px 8px',
+            borderRadius: 10,
+            background: '#fafbfc',
+            border: '1px dashed #e5e7eb',
+          }}
+        >
+          목차 없음
+        </div>
       </aside>
     );
   }
