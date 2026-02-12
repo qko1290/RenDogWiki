@@ -370,9 +370,9 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
     if (!el.url) return null;
     try {
       const base =
-        typeof window !== 'undefined'
+        typeof window !== "undefined"
           ? window.location.origin
-          : 'https://dummy.local';
+          : "https://dummy.local";
       return new URL(el.url, base);
     } catch {
       return null;
@@ -384,41 +384,47 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
     if (el.isWiki) return true;
     if (!parsedUrl) return false;
 
-    if (typeof window === 'undefined') {
-      return parsedUrl.pathname.startsWith('/wiki');
+    if (typeof window === "undefined") {
+      return parsedUrl.pathname.startsWith("/wiki");
     }
 
     const sameHost = parsedUrl.host === window.location.host;
-    return sameHost && parsedUrl.pathname.startsWith('/wiki');
+    return sameHost && parsedUrl.pathname.startsWith("/wiki");
   }, [el.isWiki, parsedUrl]);
 
   // 표시용 사이트 이름
-  let displaySitename = el.sitename ?? '';
+  let displaySitename = el.sitename ?? "";
   if (!isWikiLink && !displaySitename && parsedUrl) {
-    const host = parsedUrl.hostname.replace(/^www\./, '');
+    const host = parsedUrl.hostname.replace(/^www\./, "");
     displaySitename = host;
   }
 
   // 위키 아이콘 상태
   const [wikiIcon, setWikiIcon] = useState<string | null>(
-    isWikiLink ? (el.docIcon ?? null) : null,
+    isWikiLink ? (el.docIcon ?? null) : null
   );
+
+  // 외부 favicon 로딩 실패 폴백
+  const [faviconFailed, setFaviconFailed] = useState(false);
+  useEffect(() => {
+    setFaviconFailed(false);
+  }, [el.url, isWikiLink]);
 
   // ✅ Element.tsx와 동일한 아이콘 결정 로직
   useEffect(() => {
     if (!isWikiLink || !parsedUrl) return;
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
 
     const urlObj = parsedUrl;
 
-    const urlPathParam = urlObj.searchParams.get('path');
-    const urlTitleParam = urlObj.searchParams.get('title');
+    const urlPathParam = urlObj.searchParams.get("path");
+    const urlTitleParam = urlObj.searchParams.get("title");
 
     const pathParam =
       urlPathParam ?? (el.wikiPath != null ? String(el.wikiPath) : null);
     const titleParam = urlTitleParam ?? el.wikiTitle ?? null;
 
-    const rawHash = urlObj.hash ? urlObj.hash.slice(1) : '';
+    const rawHash = urlObj.hash ? urlObj.hash.slice(1) : "";
     const decodedHash = rawHash
       ? (() => {
           try {
@@ -427,16 +433,16 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
             return rawHash;
           }
         })()
-      : '';
+      : "";
 
     // 문서 키 (path + title 조합, 없으면 pathname)
     const docKeyParts: string[] = [];
     if (pathParam) docKeyParts.push(`p:${pathParam}`);
     if (titleParam) docKeyParts.push(`t:${titleParam}`);
-    const baseDocKey = docKeyParts.join('|') || urlObj.pathname;
+    const baseDocKey = docKeyParts.join("|") || urlObj.pathname;
 
     // 링크별 최종 아이콘 캐시 키
-    const cacheKey = `${baseDocKey}#${decodedHash || 'root'}`;
+    const cacheKey = `${baseDocKey}#${decodedHash || "root"}`;
 
     if (wikiDocIconCache.has(cacheKey)) {
       const cached = wikiDocIconCache.get(cacheKey)!;
@@ -458,31 +464,27 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
             const qs: string[] = [];
             if (pathParam) qs.push(`path=${encodeURIComponent(pathParam)}`);
             if (titleParam) qs.push(`title=${encodeURIComponent(titleParam)}`);
-            const query = qs.join('&');
+            const query = qs.join("&");
             res = await fetch(`/api/documents?${query}`, {
-              cache: 'force-cache',
+              cache: "force-cache",
             });
           }
 
           if (!res || !res.ok) {
-            wikiDocIconCache.set(cacheKey, '');
+            wikiDocIconCache.set(cacheKey, "");
             return;
           }
 
           const data = await res.json();
           const rawContent = (data as any).content;
           const slateContent =
-            typeof rawContent === 'string'
-              ? JSON.parse(rawContent)
-              : rawContent;
+            typeof rawContent === "string" ? JSON.parse(rawContent) : rawContent;
 
           let headingsMeta: WikiDocHeadingMeta[] = [];
           try {
-            const hs = extractHeadings(
-              Array.isArray(slateContent) ? slateContent : [],
-            );
+            const hs = extractHeadings(Array.isArray(slateContent) ? slateContent : []);
             headingsMeta = hs.map((h: any) => ({
-              id: String(h.id ?? ''),
+              id: String(h.id ?? ""),
               icon: h.icon ?? null,
             }));
           } catch {
@@ -490,7 +492,7 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
           }
 
           detail = {
-            icon: ((data as any).icon ?? '').trim() || null,
+            icon: ((data as any).icon ?? "").trim() || null,
             headings: headingsMeta,
           };
           wikiDocDetailCache.set(baseDocKey, detail);
@@ -500,13 +502,13 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
         let iconCandidate: string | null = null;
         if (decodedHash && detail.headings.length > 0) {
           const target = decodedHash;
-          const normalizedTarget = target.startsWith('heading-')
+          const normalizedTarget = target.startsWith("heading-")
             ? target
             : `heading-${target}`;
 
           const matched = detail.headings.find((h) => {
-            const hid = h.id || '';
-            const hidNorm = hid.startsWith('heading-') ? hid : `heading-${hid}`;
+            const hid = h.id || "";
+            const hidNorm = hid.startsWith("heading-") ? hid : `heading-${hid}`;
             return (
               hid === target ||
               hid === normalizedTarget ||
@@ -526,12 +528,12 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
             setWikiIcon(iconCandidate);
             wikiDocIconCache.set(cacheKey, iconCandidate);
           } else {
-            wikiDocIconCache.set(cacheKey, '');
+            wikiDocIconCache.set(cacheKey, "");
           }
         }
       } catch {
         if (!cancelled) {
-          wikiDocIconCache.set(cacheKey, '');
+          wikiDocIconCache.set(cacheKey, "");
         }
       }
     })();
@@ -541,21 +543,18 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
     };
   }, [isWikiLink, parsedUrl, el.wikiPath, el.wikiTitle]);
 
-  // 외부 링크 파비콘
+  // ✅ 외부 링크 파비콘 (유지)
   const externalFavicon: string | null =
     !isWikiLink && parsedUrl ? `${parsedUrl.origin}/favicon.ico` : null;
 
-  const isSmall = el.size === 'small' || el.size === 'half';
+  const isSmall = el.size === "small" || el.size === "half";
 
   const wrapperStyle: React.CSSProperties = isSmall
     ? {
-        // ✅ flex row 안에서는 flex item으로 반반 배치
         flex: "1 1 calc(50% - 6px)",
         width: "calc(50% - 6px)",
         maxWidth: "calc(50% - 6px)",
         boxSizing: "border-box",
-
-        // ✅ inline-block + marginRight 때문에 2개가 1줄에 안 들어가던 문제 제거
         display: "block",
       }
     : { display: "block", width: "100%", maxWidth: "100%" };
@@ -563,124 +562,180 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
   const labelText =
     nodeToPlainText(node.children) ||
     (isWikiLink
-      ? el.wikiTitle || el.sitename || '문서'
-      : displaySitename || el.url || '링크');
+      ? el.wikiTitle || el.sitename || "문서"
+      : displaySitename || el.url || "링크");
+
+  const subText = isWikiLink
+    ? "RenDog Wiki"
+    : displaySitename || (parsedUrl ? parsedUrl.origin.replace(/^https?:\/\//, "") : "");
+
+  const href = el.url || "#";
+
+  // --- UI 강화(두께/타이포/그림자) ---
+  const [hovered, setHovered] = useState(false);
+
+  const BORDER = hovered ? "1.5px solid #93c5fd" : "1.5px solid #d1d5db";
+  const SHADOW = hovered
+    ? "0 12px 28px rgba(2, 132, 199, 0.16), 0 3px 8px rgba(15, 23, 42, 0.08)"
+    : "0 10px 24px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.05)";
 
   return (
-    <div style={{ position: 'relative', ...wrapperStyle }}>
+    <div style={{ position: "relative", ...wrapperStyle }}>
       <a
-        href={el.url}
-        target={isWikiLink ? undefined : '_blank'}
-        rel={isWikiLink ? undefined : 'noopener noreferrer nofollow'}
+        href={href}
+        target={isWikiLink ? undefined : "_blank"}
+        rel={isWikiLink ? undefined : "noopener noreferrer nofollow"}
         style={{
-          textDecoration: 'none',
-          color: 'inherit',
-          display: 'block',
+          textDecoration: "none",
+          color: "inherit",
+          display: "block",
         }}
+        aria-label={labelText}
       >
         <div
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
           style={{
-            position: 'relative',
-            display: 'flex',
-            alignItems: 'center',
-            padding: 15,
-            fontSize: 16,
-            border: '1px solid #ddd',
-            borderRadius: 6,
-            marginBottom: 8,
-            width: '100%',
-            boxSizing: 'border-box',
+            position: "relative",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            padding: "14px 14px",
+            border: BORDER,
+            borderRadius: 12,
+            marginBottom: 10,
+            width: "100%",
+            boxSizing: "border-box",
+            background: "#ffffff",
+            boxShadow: SHADOW,
+            transition: "box-shadow .14s ease, border-color .14s ease, transform .14s ease",
+            transform: hovered ? "translateY(-1px)" : "translateY(0)",
           }}
         >
           {/* 아이콘 영역 */}
-          {isWikiLink ? (
-            wikiIcon ? (
-              wikiIcon.startsWith('http') ? (
-                <SmartImage
-                  src={withVersion(cdn(wikiIcon))}
-                  alt="doc icon"
-                  width={24}
-                  height={24}
-                  style={{
-                    width: 24,
-                    height: 24,
-                    marginRight: 8,
-                    objectFit: 'contain',
-                    display: 'block',
-                  }}
-                />
+          <div
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 12,
+              background: isWikiLink ? "rgba(37,99,235,0.10)" : "rgba(15,23,42,0.06)",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flex: "0 0 auto",
+              boxShadow: "0 1px 0 rgba(0,0,0,0.02) inset",
+            }}
+          >
+            {isWikiLink ? (
+              wikiIcon ? (
+                wikiIcon.startsWith("http") ? (
+                  <SmartImage
+                    src={withVersion(cdn(wikiIcon))}
+                    alt="doc icon"
+                    width={22}
+                    height={22}
+                    style={{
+                      width: 22,
+                      height: 22,
+                      objectFit: "contain",
+                      display: "block",
+                    }}
+                  />
+                ) : (
+                  <span style={{ fontSize: 20, lineHeight: 1 }}>{wikiIcon}</span>
+                )
               ) : (
-                <span
-                  style={{
-                    fontSize: 20,
-                    marginRight: 8,
-                    lineHeight: 1,
-                  }}
-                >
-                  {wikiIcon}
+                <span style={{ fontSize: 18, lineHeight: 1 }} aria-hidden>
+                  📄
                 </span>
               )
+            ) : externalFavicon && !faviconFailed ? (
+              <img
+                src={externalFavicon}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                width={20}
+                height={20}
+                referrerPolicy="no-referrer"
+                onError={() => setFaviconFailed(true)}
+                style={{
+                  width: 20,
+                  height: 20,
+                  objectFit: "contain",
+                  display: "block",
+                  borderRadius: 4,
+                }}
+              />
             ) : (
               <span
                 style={{
-                  width: 24,
-                  height: 24,
-                  marginRight: 8,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
                   fontSize: 18,
+                  lineHeight: 1,
+                  color: "#64748b",
                 }}
                 aria-hidden
               >
-                📄
+                🌐
               </span>
-            )
-          ) : externalFavicon ? (
-            <img
-              src={externalFavicon}
-              alt=""
-              loading="lazy"
-              decoding="async"
-              width={20}
-              height={20}
-              style={{
-                width: 20,
-                height: 20,
-                marginRight: 8,
-                objectFit: 'contain',
-                display: 'block',
-              }}
-            />
-          ) : (
-            <span
-              style={{
-                width: 24,
-                height: 24,
-                marginRight: 8,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#64748b',
-              }}
-              aria-hidden
-            >
-              ↗️
-            </span>
-          )}
+            )}
+          </div>
 
           {/* 텍스트 */}
-          <span
+          <div
             style={{
-              flexGrow: 1,
-              color: '#0070f3',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
+              flex: "1 1 auto",
+              minWidth: 0,
+              display: "flex",
+              flexDirection: "column",
+              gap: 3,
             }}
           >
-            {labelText}
-          </span>
+            <div
+              style={{
+                fontSize: 16,
+                fontWeight: 750,
+                color: "#0f172a",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                letterSpacing: "-0.1px",
+              }}
+            >
+              {labelText}
+            </div>
+
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 600,
+                color: "#64748b",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+              title={subText}
+            >
+              {subText}
+            </div>
+          </div>
+
+          {/* 오른쪽 이동 표시 */}
+          <div
+            style={{
+              flex: "0 0 auto",
+              color: hovered ? "#2563eb" : "#94a3b8",
+              fontSize: 18,
+              fontWeight: 900,
+              lineHeight: 1,
+              transform: hovered ? "translateX(1px)" : "translateX(0)",
+              transition: "transform .14s ease, color .14s ease",
+              userSelect: "none",
+            }}
+            aria-hidden
+          >
+            →
+          </div>
         </div>
       </a>
     </div>
