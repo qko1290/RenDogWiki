@@ -48,7 +48,7 @@ import {
 import HeadingIconSelectModal from './HeadingIconSelectModal';
 import { insertInlineImage } from './helpers/insertInlineImage';
 import ImageUrlInputModal from './ImageUrlInputModal';
-import PriceTableInsertModal, { type InsertedPriceItem } from './PriceTableInsertModal';
+import PriceTableInsertModal from './PriceTableInsertModal';
 import { insertWeaponInfo } from './helpers/insertWeaponInfo';
 
 import TablePicker from './TablePicker';
@@ -696,31 +696,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef, openInlineImageM
       <PriceTableInsertModal
         open={showPriceTableInsertModal}
         onClose={() => setShowPriceTableInsertModal(false)}
-        onInsert={({ cardsPerRow, items }) => {
-          // ✅ payload 기반: 선택된 아이템을 앞에서부터 카드 슬롯에 채움
-          //    (빈 슬롯 허용: cardsPerRow 길이에 맞춰 빈 카드 생성)
-          const built = Array.from({ length: cardsPerRow }, (_, i) => {
-            const picked: InsertedPriceItem | undefined = items?.[i];
-            if (!picked) {
-              return { name: '', image: '', prices: [], stages: [] };
-            }
-            return {
-              name: picked.name ?? '',
-              image: '',
-              prices: Array.isArray(picked.prices) ? picked.prices : [],
-              stages: [],
-              // name_key/mode는 PriceTableCard 내부 구조에 없으니(현재 기준) 저장하지 않음
-              // 다음 단계에서 구조 확장하면 여기에도 넣으면 됨.
-            };
-          });
-
+        onInsert={(cardsPerRow) => {
           const element = {
             type: 'price-table-card',
-            items: built,
+            items: Array(cardsPerRow).fill(null).map(() => ({
+              name: '',
+              name_key: '',
+              mode: 'block',   // 기본값 하나(단일가격 형식)로
+              image: '',
+              prices: [],
+            })),
             cardsPerRow,
             children: [{ text: '' }],
           };
-
           Transforms.insertNodes(editor, element as any);
           Transforms.insertNodes(editor, { type: 'paragraph', children: [{ text: '' }] } as any);
           setShowPriceTableInsertModal(false);
