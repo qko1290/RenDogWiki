@@ -1,28 +1,48 @@
 // =============================================
 // File: components/editor/render/PriceTableCard.tsx  (전체 코드)
 // =============================================
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ReactEditor, useSlateStatic } from 'slate-react';
 import type { RenderElementProps } from 'slate-react';
 import { Editor, Element as SlateElement, Path, Transforms } from 'slate';
+
 import ImageSelectModal from '@/components/image/ImageSelectModal';
 import { toProxyUrl } from '@lib/cdn';
+
 import type { PriceTableCardElement } from '@/types/slate';
 import type { PriceTableEditState } from './types';
 
-// -------------------- mode → stages(라벨) --------------------
+// ✅ 신규: 이름 클릭 시 아이템 선택 모달
+// (경로는 너 프로젝트 구조에 맞춰 조정)
+import PriceItemSelectModal from '../PriceItemSelectModal';
 
-const AWAKENING_FIELDS = ['봉인', '1각', '2각', '3각', '4각', 'MAX'] as const;
-const TRANSCEND_FIELDS = ['거가', '거불'] as const;
-const SINGLE_FIELDS = ['가격'] as const;
+// -------------------- 형식/스테이지 정의 --------------------
 
-/**
- * ✅ DB/프론트 공통 표준 mode
- * - 단일: block, cash, limited, box, armor, boss, monster, title, costume, fishing, scroll, rune
- * - 각성: epic, unique, legendary, divine, superior
- * - 초월: transcend_epic, transcend_unique, transcend_legendary, transcend_divine, transcend_superior
- */
-const SINGLE_PRICE_MODES = new Set([
+type PriceFormat =
+  | 'block'
+  | 'cash'
+  | 'limited'
+  | 'box'
+  | 'armor'
+  | 'boss'
+  | 'monster'
+  | 'title'
+  | 'costume'
+  | 'fishing'
+  | 'scroll'
+  | 'rune'
+  | 'epic'
+  | 'unique'
+  | 'legendary'
+  | 'divine'
+  | 'superior'
+  | 'transcend epic'
+  | 'transcend unique'
+  | 'transcend legendary'
+  | 'transcend divine'
+  | 'transcend superior';
+
+const SINGLE_PRICE_FORMATS: PriceFormat[] = [
   'block',
   'cash',
   'limited',
@@ -35,45 +55,28 @@ const SINGLE_PRICE_MODES = new Set([
   'fishing',
   'scroll',
   'rune',
-]);
+];
 
-const AWAKENING_MODES = new Set(['epic', 'unique', 'legendary', 'divine', 'superior']);
+const AWAKEN_FORMATS: PriceFormat[] = ['epic', 'unique', 'legendary', 'divine', 'superior'];
 
-const TRANSCEND_MODES = new Set([
-  'transcend_epic',
-  'transcend_unique',
-  'transcend_legendary',
-  'transcend_divine',
-  'transcend_superior',
-]);
+const TRANSCEND_FORMATS: PriceFormat[] = [
+  'transcend epic',
+  'transcend unique',
+  'transcend legendary',
+  'transcend divine',
+  'transcend superior',
+];
 
-function normalizeMode(mode: any): string {
-  return String(mode ?? '').trim().toLowerCase();
+function stagesByFormat(fmt?: string): string[] {
+  const f = String(fmt ?? '').trim().toLowerCase() as PriceFormat;
+
+  if (TRANSCEND_FORMATS.includes(f)) return ['거가', '거불'];
+  if (AWAKEN_FORMATS.includes(f)) return ['봉인', '1각', '2각', '3각', '4각', 'MAX'];
+  // default: 단일 가격
+  return ['가격'];
 }
 
-function getStagesByMode(mode: any): string[] {
-  const m = normalizeMode(mode);
-
-  if (AWAKENING_MODES.has(m)) return [...AWAKENING_FIELDS];
-  if (TRANSCEND_MODES.has(m)) return [...TRANSCEND_FIELDS];
-  if (SINGLE_PRICE_MODES.has(m)) return [...SINGLE_FIELDS];
-
-  // 알 수 없는 mode면 안전하게 단일로 처리
-  return [...SINGLE_FIELDS];
-}
-
-/** mode 라벨 길이에 맞춰 prices 배열 길이 보정 */
-function normalizePricesByStages(
-  prices: any,
-  stagesLen: number,
-): Array<string | number> {
-  const base = Array.isArray(prices) ? prices : [];
-  const out = new Array(stagesLen).fill('');
-  for (let i = 0; i < stagesLen; i++) out[i] = base[i] ?? '';
-  return out;
-}
-
-// -------------------- 유틸 --------------------
+// -------------------- UI 유틸 --------------------
 
 function getPriceBadgeColor(stage: string, _type?: string) {
   switch (stage) {
@@ -113,7 +116,7 @@ function autoFont(base: number, text: string, steps?: Array<[number, number]>) {
   return Math.max(11, (rules.at(-1)?.[1] ?? base) - 2);
 }
 
-/** 가격 텍스트: 필요시에만 줄바꿈 */
+/** 가격 텍스트: "~" 있을 때만 줄바꿈 힌트 */
 function PriceText({ value }: { value: string | number }) {
   const s = String(value ?? '');
   if (!s.includes('~')) return <span className="ptc-price-text">{s}</span>;
@@ -126,6 +129,16 @@ function PriceText({ value }: { value: string | number }) {
     </span>
   );
 }
+
+// -------------------- 선택 모달에서 받는 데이터 타입(가정) --------------------
+// 네 모달 구현에 맞춰 필드명/타입 조정 가능
+type PickedPriceItem = {
+  id: number;
+  name: string;
+  name_key: string;
+  mode: string; // = 위 PriceFormat 중 하나
+  prices: string[]; // "~" 포함 가능
+};
 
 // -------------------- 개별 카드 아이템 --------------------
 
@@ -154,21 +167,36 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
   onNextStage,
   setPriceTableEdit,
 }) => {
-  const [editingName, setEditingName] = useState(false);
-  const [editNameValue, setEditNameValue] = useState(item.name || '');
   const [imageModalOpen, setImageModalOpen] = useState(false);
 
-  // ✅ stages는 이제 item.mode로 결정
-  const stages: string[] = getStagesByMode(item?.mode);
-  const prices: Array<string | number> = normalizePricesByStages(item?.prices, stages.length);
+  // ✅ 이름 클릭 → 선택 모달
+  const [selectModalOpen, setSelectModalOpen] = useState(false);
+
+  const stages: string[] = useMemo(() => {
+    // item.stages가 남아있더라도, 이제는 "형식(mode)" 기준으로 프론트에서 스테이지를 결정
+    return stagesByFormat(item.mode);
+  }, [item.mode]);
+
+  const prices: string[] = useMemo(() => {
+    const raw = Array.isArray(item.prices) ? item.prices : [];
+    const norm = raw.map((v: any) => String(v ?? ''));
+
+    // 스테이지 길이에 맞게 보정
+    if (norm.length === stages.length) return norm;
+    const next = [...norm];
+    next.length = stages.length;
+    for (let i = 0; i < stages.length; i++) {
+      if (typeof next[i] === 'undefined') next[i] = '';
+    }
+    return next;
+  }, [item.prices, stages]);
 
   const curIdx = stageIndex ?? 0;
   const stage = stages[curIdx] ?? '';
   const priceVal = prices[curIdx] ?? '';
   const badgeColor = getPriceBadgeColor(stage, item.colorType);
 
-  const imgSrc =
-    item.image?.startsWith?.('http') ? toProxyUrl(item.image) : item.image;
+  const imgSrc = item.image?.startsWith?.('http') ? toProxyUrl(item.image) : item.image;
 
   const nameShown = item.name || '이름 없음';
   const nameFont = autoFont(20, String(nameShown), [
@@ -178,6 +206,7 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
     [16, 13],
     [20, 12],
   ]);
+
   const priceFont = autoFont(20, String(priceVal), [
     [8, 20],
     [12, 18],
@@ -187,25 +216,41 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
     [40, 11],
   ]);
 
-  const handleImageSelect = (url: string) => {
+  const patchItem = (patch: Record<string, any>) => {
     const el = Editor.node(editor, path)[0] as PriceTableCardElement;
-    const newItems = el.items.map((itm, i) =>
-      i === idx ? { ...itm, image: url } : itm,
-    );
+    const newItems = el.items.map((itm, i) => (i === idx ? { ...itm, ...patch } : itm));
     Transforms.setNodes(editor, { items: newItems }, { at: path });
+  };
+
+  const handleImageSelect = (url: string) => {
+    patchItem({ image: url });
     setImageModalOpen(false);
   };
 
-  const handleNameSave = () => {
-    const el = Editor.node(editor, path)[0] as PriceTableCardElement;
-    const newItems = el.items.map((itm, i) =>
-      i === idx ? { ...itm, name: editNameValue } : itm,
-    );
-    Transforms.setNodes(editor, { items: newItems }, { at: path });
-    setEditingName(false);
-  };
+  const handlePickItem = (picked: PickedPriceItem) => {
+    const newStages = stagesByFormat(picked.mode);
 
-  const showStageBadge = stages.length > 1; // ✅ 단일가격은 배지/좌우 넘김 의미 없음
+    // prices 길이도 스테이지에 맞게 보정
+    const raw = Array.isArray(picked.prices) ? picked.prices.map((v) => String(v ?? '')) : [];
+    const nextPrices = [...raw];
+    nextPrices.length = newStages.length;
+    for (let i = 0; i < newStages.length; i++) {
+      if (typeof nextPrices[i] === 'undefined') nextPrices[i] = '';
+    }
+
+    patchItem({
+      id: picked.id,
+      name: picked.name,
+      name_key: picked.name_key,
+      mode: picked.mode,
+      // ✅ 이제 stages는 저장해도 되고 안 해도 되지만,
+      // 기존 호환/디버깅 편하게 넣어두자(프론트 기준은 mode)
+      stages: newStages,
+      prices: nextPrices,
+    });
+
+    setSelectModalOpen(false);
+  };
 
   return (
     <div
@@ -228,7 +273,7 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
     >
-      {showStageBadge && (
+      {stages.length > 1 && (
         <div
           style={{
             position: 'absolute',
@@ -263,7 +308,7 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
         </div>
       )}
 
-      {hovered && showStageBadge && (
+      {hovered && stages.length > 1 && (
         <>
           <button
             type="button"
@@ -296,6 +341,7 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
           >
             ◀
           </button>
+
           <button
             type="button"
             aria-label="다음 단계"
@@ -330,10 +376,11 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
         </>
       )}
 
+      {/* 이미지 */}
       <div
         style={{
           marginBottom: 10,
-          marginTop: showStageBadge ? 34 : 18,
+          marginTop: 34,
           cursor: 'pointer',
           width: 65,
           height: 65,
@@ -385,7 +432,7 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
         onSelectImage={handleImageSelect}
       />
 
-      {/* 이름 */}
+      {/* ✅ 이름 (클릭하면 "편집 모달" 대신 "아이템 선택 모달") */}
       <div
         style={{
           fontWeight: 700,
@@ -400,57 +447,28 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
           alignItems: 'center',
           justifyContent: 'center',
           padding: 0,
+          cursor: 'pointer',
+        }}
+        title="아이템 선택"
+        onClick={(e) => {
+          e.stopPropagation();
+          // Slate selection 꼬임 방지
+          try {
+            Transforms.deselect(editor);
+          } catch {}
+          setSelectModalOpen(true);
         }}
       >
-        {editingName ? (
-          <input
-            value={editNameValue}
-            onChange={(e) => setEditNameValue(e.target.value)}
-            onBlur={handleNameSave}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleNameSave();
-              if (e.key === 'Escape') setEditingName(false);
-            }}
-            onFocus={() => {
-              try {
-                Transforms.deselect(editor);
-              } catch {
-                /* ignore */
-              }
-            }}
-            style={{
-              fontSize: nameFont,
-              fontWeight: 700,
-              color: '#333',
-              textAlign: 'center',
-              border: '1.5px solid #b4cafe',
-              borderRadius: 6,
-              padding: '2px 6px',
-              outline: 'none',
-              width: '80%',
-            }}
-          />
-        ) : (
-          <span
-            style={{ cursor: 'pointer', width: '100%' }}
-            onClick={(e) => {
-              e.stopPropagation();
-              setEditNameValue(item.name || '');
-              setEditingName(true);
-              try {
-                Transforms.deselect(editor);
-              } catch {
-                /* ignore */
-              }
-            }}
-            title="이름 수정"
-          >
-            {item.name || <span style={{ color: '#bbb' }}>이름 없음</span>}
-          </span>
-        )}
+        {item.name || <span style={{ color: '#bbb' }}>이름 없음</span>}
       </div>
 
-      {/* 가격 */}
+      <PriceItemSelectModal
+        open={selectModalOpen}
+        onClose={() => setSelectModalOpen(false)}
+        onSelect={handlePickItem}
+      />
+
+      {/* 가격 (클릭하면 PriceTableEditModal 흐름 유지) */}
       <div
         style={{
           fontWeight: 800,
@@ -469,16 +487,11 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
         onClick={(e) => {
           e.stopPropagation();
           window.dispatchEvent(new CustomEvent('editor:capture-scroll:price'));
-
-          // ✅ 이제 item.mode 기반으로 편집 모달에서 stages를 결정하도록 전달
           setPriceTableEdit({
             blockPath: path,
             idx,
-            item: {
-              ...item,
-              mode: normalizeMode(item?.mode) || 'block',
-              // stages는 더 이상 저장/전달하지 않음(프론트에서 mode로 계산)
-            },
+            // ✅ 이제 stages는 mode로 결정되므로 item에 mode만 확실히 전달
+            item: { ...item, mode: item.mode ?? 'block' },
           });
         }}
       >
@@ -527,21 +540,16 @@ export function PriceTableCard(props: PriceTableCardProps) {
   const [stageIdxArr, setStageIdxArr] = useState<number[]>(el.items.map(() => 0));
   const [hovered, setHovered] = useState<number | null>(null);
 
+  // 아이템 변경되면 stage index 초기화
   useEffect(() => {
-    // items가 바뀌면 각 카드의 stageIndex 초기화
     setStageIdxArr(el.items.map(() => 0));
   }, [el.items]);
 
   const handlePrev = (idx: number, len: number) => {
-    setStageIdxArr((arr) =>
-      arr.map((v, i) => (i === idx ? (v - 1 + len) % len : v)),
-    );
+    setStageIdxArr((arr) => arr.map((v, i) => (i === idx ? (v - 1 + len) % len : v)));
   };
-
   const handleNext = (idx: number, len: number) => {
-    setStageIdxArr((arr) =>
-      arr.map((v, i) => (i === idx ? (v + 1) % len : v)),
-    );
+    setStageIdxArr((arr) => arr.map((v, i) => (i === idx ? (v + 1) % len : v)));
   };
 
   return (
@@ -608,21 +616,20 @@ export function PriceTableCard(props: PriceTableCardProps) {
           }}
         >
           {el.items.map((item, idx) => {
-            const stages = getStagesByMode(item?.mode);
-            const len = stages.length;
-
+            // ✅ mode 기반으로 len 계산(hover 화살표가 정확히 동작)
+            const stages = stagesByFormat(item?.mode);
             return (
               <PriceCardItem
                 key={idx}
                 idx={idx}
                 item={item}
-                stageIndex={Math.max(0, Math.min(stageIdxArr[idx] ?? 0, len - 1))}
+                stageIndex={stageIdxArr[idx] ?? 0}
                 hovered={hovered === idx}
                 onHover={(h) => setHovered(h ? idx : null)}
                 editor={editorStatic}
                 path={path}
-                onPrevStage={() => handlePrev(idx, len)}
-                onNextStage={() => handleNext(idx, len)}
+                onPrevStage={(len) => handlePrev(idx, len)}
+                onNextStage={(len) => handleNext(idx, len)}
                 setPriceTableEdit={setPriceTableEdit}
               />
             );
