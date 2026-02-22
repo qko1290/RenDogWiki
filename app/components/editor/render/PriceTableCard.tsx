@@ -1,34 +1,82 @@
-// components/editor/render/PriceTableCard.tsx
-import React, { useEffect, useState } from 'react';
+// =============================================
+// File: components/editor/render/PriceTableCard.tsx  (전체 코드)
+// =============================================
+import React, { useEffect, useMemo, useState } from 'react';
 import { ReactEditor, useSlateStatic } from 'slate-react';
 import type { RenderElementProps } from 'slate-react';
 import { Editor, Element as SlateElement, Path, Transforms } from 'slate';
+
 import ImageSelectModal from '@/components/image/ImageSelectModal';
 import { toProxyUrl } from '@lib/cdn';
+
 import type { PriceTableCardElement } from '@/types/slate';
 import type { PriceTableEditState } from './types';
 
-// -------------------- 유틸 --------------------
+// ✅ 신규: 이름 클릭 시 아이템 선택 모달
+// (경로는 너 프로젝트 구조에 맞춰 조정)
+import PriceItemSelectModal from '../PriceItemSelectModal';
 
-// ✅ PHP(colors.js)와 동일 팔레트: [10강..1강]
-const RDW_PALETTE = [
-  '#5E2569', // 10
-  '#B746F8', // 9
-  '#F39C12', // 8
-  '#E74C3C', // 7
-  '#3498DB', // 6
-  '#1ABC9C', // 5
-  '#309C49', // 4
-  '#F1C40F', // 3
-  '#DDB89E', // 2
-  '#34495E', // 1
-] as const;
+// -------------------- 형식/스테이지 정의 --------------------
 
-function colorForLevel(lv: number) {
-  // lv: 1~10
-  if (!Number.isFinite(lv) || lv < 1 || lv > 10) return '#5b80f5';
-  return RDW_PALETTE[10 - lv];
+type PriceFormat =
+  | 'block'
+  | 'cash'
+  | 'limited'
+  | 'box'
+  | 'armor'
+  | 'boss'
+  | 'monster'
+  | 'title'
+  | 'costume'
+  | 'fishing'
+  | 'scroll'
+  | 'rune'
+  | 'epic'
+  | 'unique'
+  | 'legendary'
+  | 'divine'
+  | 'superior'
+  | 'transcend epic'
+  | 'transcend unique'
+  | 'transcend legendary'
+  | 'transcend divine'
+  | 'transcend superior';
+
+const SINGLE_PRICE_FORMATS: PriceFormat[] = [
+  'block',
+  'cash',
+  'limited',
+  'box',
+  'armor',
+  'boss',
+  'monster',
+  'title',
+  'costume',
+  'fishing',
+  'scroll',
+  'rune',
+];
+
+const AWAKEN_FORMATS: PriceFormat[] = ['epic', 'unique', 'legendary', 'divine', 'superior'];
+
+const TRANSCEND_FORMATS: PriceFormat[] = [
+  'transcend epic',
+  'transcend unique',
+  'transcend legendary',
+  'transcend divine',
+  'transcend superior',
+];
+
+function stagesByFormat(fmt?: string): string[] {
+  const f = String(fmt ?? '').trim().toLowerCase() as PriceFormat;
+
+  if (TRANSCEND_FORMATS.includes(f)) return ['거가', '거불'];
+  if (AWAKEN_FORMATS.includes(f)) return ['봉인', '1각', '2각', '3각', '4각', 'MAX'];
+  // default: 단일 가격
+  return ['가격'];
 }
+
+// -------------------- UI 유틸 --------------------
 
 function getPriceBadgeColor(stage: string, _type?: string) {
   switch (stage) {
@@ -50,14 +98,6 @@ function getPriceBadgeColor(stage: string, _type?: string) {
   }
 }
 
-function guessPriceMode(item: any): 'normal' | 'awakening' | 'transcend' {
-  if (!item.stages) return 'normal';
-  const set = new Set(item.stages);
-  if (item.stages.length === 6 && set.has('봉인') && set.has('MAX')) return 'awakening';
-  if (item.stages.includes('거가') && item.stages.includes('거불')) return 'transcend';
-  return 'normal';
-}
-
 // 길이에 따라 글자 크기 자동 축소
 function autoFont(base: number, text: string, steps?: Array<[number, number]>) {
   const len = Array.from(text ?? '').length;
@@ -76,34 +116,48 @@ function autoFont(base: number, text: string, steps?: Array<[number, number]>) {
   return Math.max(11, (rules.at(-1)?.[1] ?? base) - 2);
 }
 
-// -------------------- 가격 문자열(강화석 축약) 컬러라이즈 --------------------
+/** 가격 텍스트: "~" 있을 때만 줄바꿈 힌트 */
+
+// ✅ PHP(colors.js)와 동일 팔레트: [10강..1강]
+const RDW_PALETTE = [
+  '#5E2569', // 10
+  '#B746F8', // 9
+  '#F39C12', // 8
+  '#E74C3C', // 7
+  '#3498DB', // 6
+  '#1ABC9C', // 5
+  '#309C49', // 4
+  '#F1C40F', // 3
+  '#DDB89E', // 2
+  '#34495E', // 1
+] as const;
+
+function colorForLevel(lv: number) {
+  if (!Number.isFinite(lv) || lv < 1 || lv > 10) return '#5b80f5';
+  return RDW_PALETTE[10 - lv];
+}
 
 type ColoredChunk = { text: string; color?: string };
 
-// 숫자/콜론/물결만 허용(그 외는 그대로 텍스트로 출력)
+// 숫자/콜론/물결/공백만 “강화석 표기 가능 문자열”로 간주
 function isProbablyCompressedPrice(s: string) {
-  // 빈 값 / "0" 등도 허용
   return /^[0-9:~\s]+$/.test(s ?? '');
 }
 
 /**
- * 렌독 축약 표기 토큰화(표시용)
- * - 10:NN... 규칙 지원
- * - 10N / 10NN 규칙(남은 길이 짝수면 NN 추정) 지원
- * - 나머지: 2자리쌍 (lv + ct) 토큰
- *
- * 반환: [{text,color}] 형태 (token 전체를 해당 lv 색으로 칠함)
+ * 렌독 강화석 축약 표기 “표시용 토큰화”
+ * - 10:NN... / 10N... / 10NN... 지원
+ * - 나머지: 2자리쌍(lv + ct) 토큰
+ * - 토큰 전체를 해당 lv 색으로 칠함
  */
 function tokenizeCompressedForColor(input: string): ColoredChunk[] {
   const s0 = String(input ?? '').trim().replace(/\s+/g, '');
   if (!s0) return [{ text: '' }];
 
-  // "~"는 바깥에서 split 처리할 거라 여기서는 단일 값만 처리
   let s = s0;
-
   const out: ColoredChunk[] = [];
 
-  // Case: '10:NN...'  → 표시 토큰은 '10:NN' (10강 색)
+  // Case: '10:NN...' → 표시 토큰: '10:NN' (10강 색)
   if (s.startsWith('10:')) {
     const rest = s.slice(3);
     if (/^\d+$/.test(rest)) {
@@ -112,36 +166,32 @@ function tokenizeCompressedForColor(input: string): ColoredChunk[] {
       const use2 = rest.length >= 2 && (rest.length - 2) % 2 === 0;
       const take = use2 ? 2 : 1;
       const nPart = rest.slice(0, take);
-      out.push({ text: `10:${nPart}`, color: colorForLevel(10) });
 
-      // 남은 부분은 일반 2자리쌍 처리 대상으로 넘김
+      out.push({ text: `10:${nPart}`, color: colorForLevel(10) });
       s = rest.slice(take);
     } else {
-      // 이상한 입력이면 그냥 원문 출력
       return [{ text: s0 }];
     }
   }
 
-  // Case: '10N...' 또는 '10NN...'  → 표시 토큰은 '10N' or '10NN' (10강 색)
+  // Case: '10N...' / '10NN...' → 표시 토큰: '10N' or '10NN' (10강 색)
   if (s.startsWith('10')) {
     const rem = s.length - 2;
     if (rem >= 1) {
-      const two = rem >= 2 && rem % 2 === 0; // parseCompressed와 동일
+      const two = rem >= 2 && rem % 2 === 0;
       const take = two ? 2 : 1;
       const nPart = s.slice(2, 2 + take);
+
       out.push({ text: `10${nPart}`, color: colorForLevel(10) });
       s = s.slice(2 + take);
     } else {
-      // s가 "10"만 있는 경우
       out.push({ text: '10', color: colorForLevel(10) });
       s = '';
     }
   }
 
-  // 나머지 2자리쌍 (예: 61 52 ...)
-  // - lv(한자리)만 보고 색상 결정
+  // 나머지 2자리쌍: 예) 61 52 ...
   for (let i = 0; i < s.length; ) {
-    // 2자리 토큰이 안되면 남은 건 그대로
     if (i + 1 >= s.length) {
       out.push({ text: s.slice(i) });
       break;
@@ -152,11 +202,7 @@ function tokenizeCompressedForColor(input: string): ColoredChunk[] {
 
     if (Number.isFinite(lv) && lv >= 1 && lv <= 9) {
       out.push({ text: token, color: colorForLevel(lv) });
-    } else if (token.startsWith('0')) {
-      // 혹시 0으로 시작하는 이상치도 그냥 출력
-      out.push({ text: token });
     } else {
-      // lv가 1~9가 아니면(예: 문자 등) 그냥 출력
       out.push({ text: token });
     }
 
@@ -169,15 +215,19 @@ function tokenizeCompressedForColor(input: string): ColoredChunk[] {
 function ColoredCompressedText({ value }: { value: string | number }) {
   const raw = String(value ?? '');
   const s = raw.trim();
-
   if (!s) return <span className="ptc-price-text" />;
 
-  // "51~52" 같은 범위
+  // 범위: 6153~7263
   if (s.includes('~')) {
     const [left, right] = s.split('~', 2);
 
-    const leftChunks = isProbablyCompressedPrice(left) ? tokenizeCompressedForColor(left) : [{ text: left }];
-    const rightChunks = isProbablyCompressedPrice(right) ? tokenizeCompressedForColor(right) : [{ text: right }];
+    const leftChunks = isProbablyCompressedPrice(left)
+      ? tokenizeCompressedForColor(left)
+      : [{ text: left }];
+
+    const rightChunks = isProbablyCompressedPrice(right)
+      ? tokenizeCompressedForColor(right)
+      : [{ text: right }];
 
     return (
       <span className="ptc-price-text">
@@ -203,7 +253,7 @@ function ColoredCompressedText({ value }: { value: string | number }) {
     );
   }
 
-  // 단일 값
+  // 단일: 6152 / 10183 / 10:129312 ...
   const chunks = isProbablyCompressedPrice(s) ? tokenizeCompressedForColor(s) : [{ text: s }];
 
   return (
@@ -216,6 +266,29 @@ function ColoredCompressedText({ value }: { value: string | number }) {
     </span>
   );
 }
+
+function PriceText({ value }: { value: string | number }) {
+  const s = String(value ?? '');
+  if (!s.includes('~')) return <span className="ptc-price-text">{s}</span>;
+  const [left, right] = s.split('~', 2);
+  return (
+    <span className="ptc-price-text">
+      <span style={{ whiteSpace: 'nowrap' }}>{left}~</span>
+      <wbr />
+      <span style={{ whiteSpace: 'nowrap' }}>{right}</span>
+    </span>
+  );
+}
+
+// -------------------- 선택 모달에서 받는 데이터 타입(가정) --------------------
+// 네 모달 구현에 맞춰 필드명/타입 조정 가능
+type PickedPriceItem = {
+  id: number;
+  name: string;
+  name_key: string;
+  mode: string; // = 위 PriceFormat 중 하나
+  prices: string[]; // "~" 포함 가능
+};
 
 // -------------------- 개별 카드 아이템 --------------------
 
@@ -244,21 +317,36 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
   onNextStage,
   setPriceTableEdit,
 }) => {
-  const [editingName, setEditingName] = useState(false);
-  const [editNameValue, setEditNameValue] = useState(item.name || '');
   const [imageModalOpen, setImageModalOpen] = useState(false);
 
-  const stages: string[] = item.stages || ['가격'];
-  const prices: Array<string | number> =
-    Array.isArray(item.prices) && item.prices.length ? item.prices : [0];
+  // ✅ 이름 클릭 → 선택 모달
+  const [selectModalOpen, setSelectModalOpen] = useState(false);
+
+  const stages: string[] = useMemo(() => {
+    // item.stages가 남아있더라도, 이제는 "형식(mode)" 기준으로 프론트에서 스테이지를 결정
+    return stagesByFormat(item.mode);
+  }, [item.mode]);
+
+  const prices: string[] = useMemo(() => {
+    const raw = Array.isArray(item.prices) ? item.prices : [];
+    const norm = raw.map((v: any) => String(v ?? ''));
+
+    // 스테이지 길이에 맞게 보정
+    if (norm.length === stages.length) return norm;
+    const next = [...norm];
+    next.length = stages.length;
+    for (let i = 0; i < stages.length; i++) {
+      if (typeof next[i] === 'undefined') next[i] = '';
+    }
+    return next;
+  }, [item.prices, stages]);
 
   const curIdx = stageIndex ?? 0;
   const stage = stages[curIdx] ?? '';
   const priceVal = prices[curIdx] ?? '';
   const badgeColor = getPriceBadgeColor(stage, item.colorType);
 
-  const imgSrc =
-    item.image?.startsWith?.('http') ? toProxyUrl(item.image) : item.image;
+  const imgSrc = item.image?.startsWith?.('http') ? toProxyUrl(item.image) : item.image;
 
   const nameShown = item.name || '이름 없음';
   const nameFont = autoFont(20, String(nameShown), [
@@ -268,6 +356,7 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
     [16, 13],
     [20, 12],
   ]);
+
   const priceFont = autoFont(20, String(priceVal), [
     [8, 20],
     [12, 18],
@@ -277,22 +366,40 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
     [40, 11],
   ]);
 
-  const handleImageSelect = (url: string) => {
+  const patchItem = (patch: Record<string, any>) => {
     const el = Editor.node(editor, path)[0] as PriceTableCardElement;
-    const newItems = el.items.map((itm, i) =>
-      i === idx ? { ...itm, image: url } : itm,
-    );
+    const newItems = el.items.map((itm, i) => (i === idx ? { ...itm, ...patch } : itm));
     Transforms.setNodes(editor, { items: newItems }, { at: path });
+  };
+
+  const handleImageSelect = (url: string) => {
+    patchItem({ image: url });
     setImageModalOpen(false);
   };
 
-  const handleNameSave = () => {
-    const el = Editor.node(editor, path)[0] as PriceTableCardElement;
-    const newItems = el.items.map((itm, i) =>
-      i === idx ? { ...itm, name: editNameValue } : itm,
-    );
-    Transforms.setNodes(editor, { items: newItems }, { at: path });
-    setEditingName(false);
+  const handlePickItem = (picked: PickedPriceItem) => {
+    const newStages = stagesByFormat(picked.mode);
+
+    // prices 길이도 스테이지에 맞게 보정
+    const raw = Array.isArray(picked.prices) ? picked.prices.map((v) => String(v ?? '')) : [];
+    const nextPrices = [...raw];
+    nextPrices.length = newStages.length;
+    for (let i = 0; i < newStages.length; i++) {
+      if (typeof nextPrices[i] === 'undefined') nextPrices[i] = '';
+    }
+
+    patchItem({
+      id: picked.id,
+      name: picked.name,
+      name_key: picked.name_key,
+      mode: picked.mode,
+      // ✅ 이제 stages는 저장해도 되고 안 해도 되지만,
+      // 기존 호환/디버깅 편하게 넣어두자(프론트 기준은 mode)
+      stages: newStages,
+      prices: nextPrices,
+    });
+
+    setSelectModalOpen(false);
   };
 
   return (
@@ -351,7 +458,7 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
         </div>
       )}
 
-      {hovered && (
+      {hovered && stages.length > 1 && (
         <>
           <button
             type="button"
@@ -384,6 +491,7 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
           >
             ◀
           </button>
+
           <button
             type="button"
             aria-label="다음 단계"
@@ -418,6 +526,7 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
         </>
       )}
 
+      {/* 이미지 */}
       <div
         style={{
           marginBottom: 10,
@@ -466,13 +575,14 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
           />
         )}
       </div>
+
       <ImageSelectModal
         open={imageModalOpen}
         onClose={() => setImageModalOpen(false)}
         onSelectImage={handleImageSelect}
       />
 
-      {/* 이름 */}
+      {/* ✅ 이름 (클릭하면 "편집 모달" 대신 "아이템 선택 모달") */}
       <div
         style={{
           fontWeight: 700,
@@ -487,63 +597,34 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
           alignItems: 'center',
           justifyContent: 'center',
           padding: 0,
+          cursor: 'pointer',
+        }}
+        title="아이템 선택"
+        onClick={(e) => {
+          e.stopPropagation();
+          // Slate selection 꼬임 방지
+          try {
+            Transforms.deselect(editor);
+          } catch {}
+          setSelectModalOpen(true);
         }}
       >
-        {editingName ? (
-          <input
-            value={editNameValue}
-            onChange={(e) => setEditNameValue(e.target.value)}
-            onBlur={handleNameSave}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleNameSave();
-              if (e.key === 'Escape') setEditingName(false);
-            }}
-            onFocus={() => {
-              try {
-                Transforms.deselect(editor);
-              } catch {
-                /* ignore */
-              }
-            }}
-            style={{
-              fontSize: nameFont,
-              fontWeight: 700,
-              color: '#333',
-              textAlign: 'center',
-              border: '1.5px solid #b4cafe',
-              borderRadius: 6,
-              padding: '2px 6px',
-              outline: 'none',
-              width: '80%',
-            }}
-          />
-        ) : (
-          <span
-            style={{ cursor: 'pointer', width: '100%' }}
-            onClick={(e) => {
-              e.stopPropagation();
-              setEditNameValue(item.name || '');
-              setEditingName(true);
-              try {
-                Transforms.deselect(editor);
-              } catch {
-                /* ignore */
-              }
-            }}
-            title="이름 수정"
-          >
-            {item.name || <span style={{ color: '#bbb' }}>이름 없음</span>}
-          </span>
-        )}
+        {item.name || <span style={{ color: '#bbb' }}>이름 없음</span>}
       </div>
 
-      {/* 가격 */}
+      <PriceItemSelectModal
+        open={selectModalOpen}
+        onClose={() => setSelectModalOpen(false)}
+        onSelect={handlePickItem}
+      />
+
+      {/* 가격 (클릭하면 PriceTableEditModal 흐름 유지) */}
       <div
         style={{
           fontWeight: 800,
           fontSize: priceFont,
           lineHeight: 1.04,
-          color: '#5b80f5', // 기본 컬러(토큰은 내부 span에서 덮어씀)
+          color: '#5b80f5',
           textAlign: 'center',
           letterSpacing: 1,
           marginTop: 3,
@@ -559,7 +640,8 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
           setPriceTableEdit({
             blockPath: path,
             idx,
-            item: { ...item, mode: guessPriceMode(item) },
+            // ✅ 이제 stages는 mode로 결정되므로 item에 mode만 확실히 전달
+            item: { ...item, mode: item.mode ?? 'block' },
           });
         }}
       >
@@ -608,6 +690,7 @@ export function PriceTableCard(props: PriceTableCardProps) {
   const [stageIdxArr, setStageIdxArr] = useState<number[]>(el.items.map(() => 0));
   const [hovered, setHovered] = useState<number | null>(null);
 
+  // 아이템 변경되면 stage index 초기화
   useEffect(() => {
     setStageIdxArr(el.items.map(() => 0));
   }, [el.items]);
@@ -682,21 +765,25 @@ export function PriceTableCard(props: PriceTableCardProps) {
             maxWidth: 1040,
           }}
         >
-          {el.items.map((item, idx) => (
-            <PriceCardItem
-              key={idx}
-              idx={idx}
-              item={item}
-              stageIndex={stageIdxArr[idx] ?? 0}
-              hovered={hovered === idx}
-              onHover={(h) => setHovered(h ? idx : null)}
-              editor={editorStatic}
-              path={path}
-              onPrevStage={(len) => handlePrev(idx, len)}
-              onNextStage={(len) => handleNext(idx, len)}
-              setPriceTableEdit={setPriceTableEdit}
-            />
-          ))}
+          {el.items.map((item, idx) => {
+            // ✅ mode 기반으로 len 계산(hover 화살표가 정확히 동작)
+            const stages = stagesByFormat(item?.mode);
+            return (
+              <PriceCardItem
+                key={idx}
+                idx={idx}
+                item={item}
+                stageIndex={stageIdxArr[idx] ?? 0}
+                hovered={hovered === idx}
+                onHover={(h) => setHovered(h ? idx : null)}
+                editor={editorStatic}
+                path={path}
+                onPrevStage={(len) => handlePrev(idx, len)}
+                onNextStage={(len) => handleNext(idx, len)}
+                setPriceTableEdit={setPriceTableEdit}
+              />
+            );
+          })}
         </div>
       </div>
 
