@@ -775,6 +775,152 @@ function PriceText({ value }: { value: string | number }) {
   );
 }
 
+// ✅ 강화석 축약 표기 컬러 팔레트: [10강..1강] (php colors.js와 동일)
+const RDW_PALETTE = [
+  '#5E2569', // 10
+  '#B746F8', // 9
+  '#F39C12', // 8
+  '#E74C3C', // 7
+  '#3498DB', // 6
+  '#1ABC9C', // 5
+  '#309C49', // 4
+  '#F1C40F', // 3
+  '#DDB89E', // 2
+  '#34495E', // 1
+] as const;
+
+function colorForLevel(lv: number) {
+  if (!Number.isFinite(lv) || lv < 1 || lv > 10) return undefined;
+  return RDW_PALETTE[10 - lv];
+}
+
+type ColoredChunk = { text: string; color?: string };
+
+function isProbablyCompressedPrice(s: string) {
+  // 숫자 / 콜론 / 물결 / 공백만 포함하면 "강화석 표기"로 취급
+  return /^[0-9:~\s]+$/.test(s ?? '');
+}
+
+/**
+ * 렌독 강화석 축약 표기 “표시용 토큰화”
+ * - 10:NN... / 10N... / 10NN... 지원
+ * - 이후 2자리쌍(lv+ct) 토큰 단위로 색칠
+ */
+function tokenizeCompressedForColor(input: string): ColoredChunk[] {
+  const s0 = String(input ?? '').trim().replace(/\s+/g, '');
+  if (!s0) return [{ text: '' }];
+
+  let s = s0;
+  const out: ColoredChunk[] = [];
+
+  // Case: '10:NN...' → '10:NN' (10강 색)
+  if (s.startsWith('10:')) {
+    const rest = s.slice(3);
+    if (/^\d+$/.test(rest)) {
+      const use2 = rest.length >= 2 && (rest.length - 2) % 2 === 0;
+      const take = use2 ? 2 : 1;
+      const nPart = rest.slice(0, take);
+
+      out.push({ text: `10:${nPart}`, color: colorForLevel(10) });
+      s = rest.slice(take);
+    } else {
+      return [{ text: s0 }];
+    }
+  }
+
+  // Case: '10N...' / '10NN...' → '10N' or '10NN' (10강 색)
+  if (s.startsWith('10')) {
+    const rem = s.length - 2;
+    if (rem >= 1) {
+      const two = rem >= 2 && rem % 2 === 0;
+      const take = two ? 2 : 1;
+      const nPart = s.slice(2, 2 + take);
+
+      out.push({ text: `10${nPart}`, color: colorForLevel(10) });
+      s = s.slice(2 + take);
+    } else {
+      out.push({ text: '10', color: colorForLevel(10) });
+      s = '';
+    }
+  }
+
+  // 나머지 2자리쌍: 예) 61 52 ...
+  for (let i = 0; i < s.length; ) {
+    if (i + 1 >= s.length) {
+      out.push({ text: s.slice(i) });
+      break;
+    }
+
+    const token = s.slice(i, i + 2);
+    const lv = parseInt(token[0], 10);
+
+    if (Number.isFinite(lv) && lv >= 1 && lv <= 9) {
+      out.push({ text: token, color: colorForLevel(lv) });
+    } else {
+      out.push({ text: token });
+    }
+
+    i += 2;
+  }
+
+  return out.length ? out : [{ text: s0 }];
+}
+
+function ColoredCompressedText({ value }: { value: string | number }) {
+  const raw = String(value ?? '');
+  const s = raw.trim();
+  if (!s) return <span className="ptc-price-text" />;
+
+  // 범위: 6153~7263
+  if (s.includes('~')) {
+    const [left, right] = s.split('~', 2);
+
+    const leftChunks = isProbablyCompressedPrice(left)
+      ? tokenizeCompressedForColor(left)
+      : [{ text: left }];
+
+    const rightChunks = isProbablyCompressedPrice(right)
+      ? tokenizeCompressedForColor(right)
+      : [{ text: right }];
+
+    return (
+      <span className="ptc-price-text">
+        <span style={{ whiteSpace: 'nowrap' }}>
+          {leftChunks.map((c, i) => (
+            <span key={`l-${i}`} style={c.color ? { color: c.color } : undefined}>
+              {c.text}
+            </span>
+          ))}
+          <span style={{ color: '#5b80f5' }}>~</span>
+        </span>
+
+        <wbr />
+
+        <span style={{ whiteSpace: 'nowrap' }}>
+          {rightChunks.map((c, i) => (
+            <span key={`r-${i}`} style={c.color ? { color: c.color } : undefined}>
+              {c.text}
+            </span>
+          ))}
+        </span>
+      </span>
+    );
+  }
+
+  // 단일: 6152 / 10183 / 10:129312 ...
+  const chunks = isProbablyCompressedPrice(s) ? tokenizeCompressedForColor(s) : [{ text: s }];
+
+  return (
+    <span className="ptc-price-text">
+      {chunks.map((c, i) => (
+        <span key={i} style={c.color ? { color: c.color } : undefined}>
+          {c.text}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function nameFontSize(name?: string) {
   const n = (name ?? "").trim();
   if (n.length >= 9) return 16;
@@ -1217,6 +1363,47 @@ export default function WikiReadRenderer({ content, readOnly = true, onWikiRefCl
   return <>{rendered}</>;
 }
 
+// ✅ PriceTableCard(읽기용)도 에디터와 동일하게 "mode → stages"를 우선 사용
+type PriceFormat =
+  | 'block'
+  | 'cash'
+  | 'limited'
+  | 'box'
+  | 'armor'
+  | 'boss'
+  | 'monster'
+  | 'title'
+  | 'costume'
+  | 'fishing'
+  | 'scroll'
+  | 'rune'
+  | 'epic'
+  | 'unique'
+  | 'legendary'
+  | 'divine'
+  | 'superior'
+  | 'transcend epic'
+  | 'transcend unique'
+  | 'transcend legendary'
+  | 'transcend divine'
+  | 'transcend superior';
+
+const AWAKEN_FORMATS: PriceFormat[] = ['epic', 'unique', 'legendary', 'divine', 'superior'];
+const TRANSCEND_FORMATS: PriceFormat[] = [
+  'transcend epic',
+  'transcend unique',
+  'transcend legendary',
+  'transcend divine',
+  'transcend superior',
+];
+
+function stagesByFormat(fmt?: string): string[] {
+  const f = String(fmt ?? '').trim().toLowerCase() as PriceFormat;
+  if (TRANSCEND_FORMATS.includes(f)) return ['거가', '거불'];
+  if (AWAKEN_FORMATS.includes(f)) return ['봉인', '1각', '2각', '3각', '4각', 'MAX'];
+  return ['가격']; // 단일가
+}
+
 function PriceTableCardBlock({
   node,
   keyProp,
@@ -1234,7 +1421,9 @@ function PriceTableCardBlock({
       const copy = [...prev];
       const item = node.items[cardIdx];
       if (!item) return copy;
-      const len = item.stages?.length || 1;
+      const len = (Array.isArray(item.stages) && item.stages.length)
+        ? item.stages.length // 기존 데이터 호환
+        : stagesByFormat(item.mode).length; // ✅ 신규 로직
       copy[cardIdx] = (copy[cardIdx] + dir + len) % len;
       return copy;
     });
@@ -1269,7 +1458,10 @@ function PriceTableCardBlock({
         }}
       >
         {node.items.map((item: any, idx: number) => {
-          const stages: string[] = item.stages || ["가격"];
+          const stages: string[] =
+            Array.isArray(item.stages) && item.stages.length
+              ? item.stages // 기존 데이터 호환
+              : stagesByFormat(item.mode); // ✅ 신규 로직
           const prices: Array<string | number> =
             Array.isArray(item.prices) && item.prices.length
               ? item.prices
@@ -1477,7 +1669,7 @@ function PriceTableCardBlock({
                   minHeight: 28,
                 }}
               >
-                <PriceText value={priceVal} />
+                <ColoredCompressedText value={priceVal} />
               </div>
             </div>
           );
