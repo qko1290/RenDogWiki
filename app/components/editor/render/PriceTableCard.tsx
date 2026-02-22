@@ -1,4 +1,6 @@
-// components/editor/render/PriceTableCard.tsx
+// =============================================
+// File: components/editor/render/PriceTableCard.tsx  (전체 코드)
+// =============================================
 import React, { useEffect, useState } from 'react';
 import { ReactEditor, useSlateStatic } from 'slate-react';
 import type { RenderElementProps } from 'slate-react';
@@ -7,6 +9,69 @@ import ImageSelectModal from '@/components/image/ImageSelectModal';
 import { toProxyUrl } from '@lib/cdn';
 import type { PriceTableCardElement } from '@/types/slate';
 import type { PriceTableEditState } from './types';
+
+// -------------------- mode → stages(라벨) --------------------
+
+const AWAKENING_FIELDS = ['봉인', '1각', '2각', '3각', '4각', 'MAX'] as const;
+const TRANSCEND_FIELDS = ['거가', '거불'] as const;
+const SINGLE_FIELDS = ['가격'] as const;
+
+/**
+ * ✅ DB/프론트 공통 표준 mode
+ * - 단일: block, cash, limited, box, armor, boss, monster, title, costume, fishing, scroll, rune
+ * - 각성: epic, unique, legendary, divine, superior
+ * - 초월: transcend_epic, transcend_unique, transcend_legendary, transcend_divine, transcend_superior
+ */
+const SINGLE_PRICE_MODES = new Set([
+  'block',
+  'cash',
+  'limited',
+  'box',
+  'armor',
+  'boss',
+  'monster',
+  'title',
+  'costume',
+  'fishing',
+  'scroll',
+  'rune',
+]);
+
+const AWAKENING_MODES = new Set(['epic', 'unique', 'legendary', 'divine', 'superior']);
+
+const TRANSCEND_MODES = new Set([
+  'transcend_epic',
+  'transcend_unique',
+  'transcend_legendary',
+  'transcend_divine',
+  'transcend_superior',
+]);
+
+function normalizeMode(mode: any): string {
+  return String(mode ?? '').trim().toLowerCase();
+}
+
+function getStagesByMode(mode: any): string[] {
+  const m = normalizeMode(mode);
+
+  if (AWAKENING_MODES.has(m)) return [...AWAKENING_FIELDS];
+  if (TRANSCEND_MODES.has(m)) return [...TRANSCEND_FIELDS];
+  if (SINGLE_PRICE_MODES.has(m)) return [...SINGLE_FIELDS];
+
+  // 알 수 없는 mode면 안전하게 단일로 처리
+  return [...SINGLE_FIELDS];
+}
+
+/** mode 라벨 길이에 맞춰 prices 배열 길이 보정 */
+function normalizePricesByStages(
+  prices: any,
+  stagesLen: number,
+): Array<string | number> {
+  const base = Array.isArray(prices) ? prices : [];
+  const out = new Array(stagesLen).fill('');
+  for (let i = 0; i < stagesLen; i++) out[i] = base[i] ?? '';
+  return out;
+}
 
 // -------------------- 유틸 --------------------
 
@@ -28,14 +93,6 @@ function getPriceBadgeColor(stage: string, _type?: string) {
     default:
       return '#5cacee';
   }
-}
-
-function guessPriceMode(item: any): 'normal' | 'awakening' | 'transcend' {
-  if (!item.stages) return 'normal';
-  const set = new Set(item.stages);
-  if (item.stages.length === 6 && set.has('봉인') && set.has('MAX')) return 'awakening';
-  if (item.stages.includes('거가') && item.stages.includes('거불')) return 'transcend';
-  return 'normal';
 }
 
 // 길이에 따라 글자 크기 자동 축소
@@ -82,9 +139,7 @@ type PriceCardItemProps = {
   path: Path;
   onPrevStage: (len: number) => void;
   onNextStage: (len: number) => void;
-  setPriceTableEdit: React.Dispatch<
-    React.SetStateAction<PriceTableEditState>
-  >;
+  setPriceTableEdit: React.Dispatch<React.SetStateAction<PriceTableEditState>>;
 };
 
 const PriceCardItem: React.FC<PriceCardItemProps> = ({
@@ -103,9 +158,9 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
   const [editNameValue, setEditNameValue] = useState(item.name || '');
   const [imageModalOpen, setImageModalOpen] = useState(false);
 
-  const stages: string[] = item.stages || ['가격'];
-  const prices: Array<string | number> =
-    Array.isArray(item.prices) && item.prices.length ? item.prices : [0];
+  // ✅ stages는 이제 item.mode로 결정
+  const stages: string[] = getStagesByMode(item?.mode);
+  const prices: Array<string | number> = normalizePricesByStages(item?.prices, stages.length);
 
   const curIdx = stageIndex ?? 0;
   const stage = stages[curIdx] ?? '';
@@ -150,6 +205,8 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
     setEditingName(false);
   };
 
+  const showStageBadge = stages.length > 1; // ✅ 단일가격은 배지/좌우 넘김 의미 없음
+
   return (
     <div
       style={{
@@ -171,7 +228,7 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
     >
-      {stages.length > 1 && (
+      {showStageBadge && (
         <div
           style={{
             position: 'absolute',
@@ -206,7 +263,7 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
         </div>
       )}
 
-      {hovered && (
+      {hovered && showStageBadge && (
         <>
           <button
             type="button"
@@ -276,7 +333,7 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
       <div
         style={{
           marginBottom: 10,
-          marginTop: 34,
+          marginTop: showStageBadge ? 34 : 18,
           cursor: 'pointer',
           width: 65,
           height: 65,
@@ -321,6 +378,7 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
           />
         )}
       </div>
+
       <ImageSelectModal
         open={imageModalOpen}
         onClose={() => setImageModalOpen(false)}
@@ -410,13 +468,17 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
         title="가격 수정"
         onClick={(e) => {
           e.stopPropagation();
-          window.dispatchEvent(
-            new CustomEvent('editor:capture-scroll:price'),
-          );
+          window.dispatchEvent(new CustomEvent('editor:capture-scroll:price'));
+
+          // ✅ 이제 item.mode 기반으로 편집 모달에서 stages를 결정하도록 전달
           setPriceTableEdit({
             blockPath: path,
             idx,
-            item: { ...item, mode: guessPriceMode(item) },
+            item: {
+              ...item,
+              mode: normalizeMode(item?.mode) || 'block',
+              // stages는 더 이상 저장/전달하지 않음(프론트에서 mode로 계산)
+            },
           });
         }}
       >
@@ -435,9 +497,7 @@ export interface PriceTableCardProps {
   element: PriceTableCardElement;
   editor: any; // 지금은 사용 안 하지만 Element.tsx에서 넘기므로 허용
   priceTableEdit: PriceTableEditState;
-  setPriceTableEdit: React.Dispatch<
-    React.SetStateAction<PriceTableEditState>
-  >;
+  setPriceTableEdit: React.Dispatch<React.SetStateAction<PriceTableEditState>>;
 }
 
 export function PriceTableCard(props: PriceTableCardProps) {
@@ -464,12 +524,11 @@ export function PriceTableCard(props: PriceTableCardProps) {
     return () => window.removeEventListener('keydown', handler, true);
   }, [editorStatic]);
 
-  const [stageIdxArr, setStageIdxArr] = useState<number[]>(
-    el.items.map(() => 0),
-  );
+  const [stageIdxArr, setStageIdxArr] = useState<number[]>(el.items.map(() => 0));
   const [hovered, setHovered] = useState<number | null>(null);
 
   useEffect(() => {
+    // items가 바뀌면 각 카드의 stageIndex 초기화
     setStageIdxArr(el.items.map(() => 0));
   }, [el.items]);
 
@@ -478,6 +537,7 @@ export function PriceTableCard(props: PriceTableCardProps) {
       arr.map((v, i) => (i === idx ? (v - 1 + len) % len : v)),
     );
   };
+
   const handleNext = (idx: number, len: number) => {
     setStageIdxArr((arr) =>
       arr.map((v, i) => (i === idx ? (v + 1) % len : v)),
@@ -547,21 +607,26 @@ export function PriceTableCard(props: PriceTableCardProps) {
             maxWidth: 1040,
           }}
         >
-          {el.items.map((item, idx) => (
-            <PriceCardItem
-              key={idx}
-              idx={idx}
-              item={item}
-              stageIndex={stageIdxArr[idx] ?? 0}
-              hovered={hovered === idx}
-              onHover={(h) => setHovered(h ? idx : null)}
-              editor={editorStatic}
-              path={path}
-              onPrevStage={(len) => handlePrev(idx, len)}
-              onNextStage={(len) => handleNext(idx, len)}
-              setPriceTableEdit={setPriceTableEdit}
-            />
-          ))}
+          {el.items.map((item, idx) => {
+            const stages = getStagesByMode(item?.mode);
+            const len = stages.length;
+
+            return (
+              <PriceCardItem
+                key={idx}
+                idx={idx}
+                item={item}
+                stageIndex={Math.max(0, Math.min(stageIdxArr[idx] ?? 0, len - 1))}
+                hovered={hovered === idx}
+                onHover={(h) => setHovered(h ? idx : null)}
+                editor={editorStatic}
+                path={path}
+                onPrevStage={() => handlePrev(idx, len)}
+                onNextStage={() => handleNext(idx, len)}
+                setPriceTableEdit={setPriceTableEdit}
+              />
+            );
+          })}
         </div>
       </div>
 

@@ -139,12 +139,47 @@ export type InlineImageElement = {
   children: [{ text: string }];
 };
 
+export type PriceTableMode =
+  // 단일가격
+  | 'block'
+  | 'cash'
+  | 'limited'
+  | 'box'
+  | 'armor'
+  | 'boss'
+  | 'monster'
+  | 'title'
+  | 'costume'
+  | 'fishing'
+  | 'scroll'
+  | 'rune'
+  // 각성(봉인~MAX)
+  | 'epic'
+  | 'unique'
+  | 'legendary'
+  | 'divine'
+  | 'superior'
+  // 초월(거가/거불)
+  | 'transcend_epic'
+  | 'transcend_unique'
+  | 'transcend_legendary'
+  | 'transcend_divine'
+  | 'transcend_superior';
+
 // 시세표 카드
 export type PriceTableCardItem = {
+  id?: number;              // (선택) DB row id를 들고 다니고 싶으면
   name?: string;
+  name_key?: string;        // (선택) 추후 검색/동기화에 유리
+  mode: PriceTableMode;     // 필수: 프론트에서 mode로 라벨을 결정함
   image?: string | null;
-  stages?: string[];
-  prices?: Array<string | number>;
+
+  // "~" 포함을 위해 문자열 기반으로 통일 (DB text[]와 동일)
+  prices?: string[];
+
+  // 더 이상 저장/사용하지 않음 (프론트에서 mode로 계산)
+  // stages?: string[];
+
   colorType?: 'default' | 'green' | 'yellow' | string;
 };
 
