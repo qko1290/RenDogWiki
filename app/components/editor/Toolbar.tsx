@@ -1,7 +1,6 @@
 // =============================================
 // File: app/components/editor/Toolbar.tsx
 // =============================================
-
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -34,7 +33,9 @@ import {
 import HeadingIconSelectModal from './HeadingIconSelectModal';
 import { insertInlineImage } from './helpers/insertInlineImage';
 import ImageUrlInputModal from './ImageUrlInputModal';
-import PriceTableInsertModal from './PriceTableInsertModal';
+import PriceTableInsertModal, {
+  type PriceTableInsertPayload,
+} from './PriceTableInsertModal';
 import { insertWeaponInfo } from './helpers/insertWeaponInfo';
 
 import TablePicker from './TablePicker';
@@ -132,6 +133,14 @@ const insertVideoNode = (editor: any, url: string) => {
   try {
     ReactEditor.focus(editor);
   } catch {}
+};
+
+// ✅ price-table-card 초기 아이템 (null 금지)
+const EMPTY_PRICE_TABLE_ITEM = {
+  name: '',
+  image: '',
+  prices: [] as string[],
+  stages: [] as string[],
 };
 
 export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef, openInlineImageModalRef }) => {
@@ -699,26 +708,40 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef, openInlineImageM
       >
         <FontAwesomeIcon icon={faDollarSign} />
       </button>
+
       <PriceTableInsertModal
         open={showPriceTableInsertModal}
         onClose={() => setShowPriceTableInsertModal(false)}
-        onInsert={(cardsPerRow) => {
+        onInsert={(payload: PriceTableInsertPayload) => {
+          const { cardsPerRow, items } = payload;
+
+          // ✅ cardsPerRow 길이에 맞춰 안전하게 패딩
+          const builtItems = Array.from({ length: cardsPerRow }, (_, i) => {
+            const p = items?.[i];
+            if (!p) return { ...EMPTY_PRICE_TABLE_ITEM };
+
+            // 현재 단계: 최소 매핑 (name, prices만)
+            // 다음 단계에서 mode/name_key 기반으로 stages 자동 생성/세팅 가능
+            return {
+              ...EMPTY_PRICE_TABLE_ITEM,
+              name: p.name ?? '',
+              prices: Array.isArray(p.prices) ? p.prices : [],
+            };
+          });
+
           const element = {
             type: 'price-table-card',
-            items: Array(cardsPerRow).fill(null).map(() => ({
-              name: '',
-              image: '',
-              prices: [],
-              stages: [],
-            })),
+            items: builtItems,
             cardsPerRow,
             children: [{ text: '' }],
           };
+
           Transforms.insertNodes(editor, element as any);
           Transforms.insertNodes(
             editor,
             { type: 'paragraph', children: [{ text: '' }] } as any,
           );
+
           setShowPriceTableInsertModal(false);
         }}
       />
@@ -737,7 +760,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef, openInlineImageM
       >
         <FontAwesomeIcon icon={faTable} />
       </button>
-      
+
       {/* 퀘스트 / NPC / QNA 삽입 (ID만 입력) */}
       <DropdownButton
         label={<span style={{ fontSize: 16, lineHeight: 1 }}>🧩</span>}
