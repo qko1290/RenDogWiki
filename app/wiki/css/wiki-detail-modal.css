@@ -5,13 +5,26 @@
   position: fixed;
   inset: 0;
   z-index: 21000;
-  background: rgba(0,0,0,.28);
+
+  /* 기존: rgba(0,0,0,.28) + blur(2px)
+     개선: 위키 톤 어둡게 + 블러 강화 + 은은한 비네트 */
+  background:
+    radial-gradient(1200px 600px at 50% 20%, rgba(59,130,246,.12), rgba(0,0,0,0) 60%),
+    rgba(2, 6, 23, .46);
   display: flex;
   align-items: center;
   justify-content: center;
-  /* 모달 외곽 여백 고정 */
+
   padding: 24px;
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+
+  animation: rdModalFadeIn 140ms ease-out;
+}
+
+@keyframes rdModalFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 /* 모달 본체: 가로/컬럼 고정 */
@@ -20,101 +33,209 @@
   min-height: 500px;
   background: #fff;
   border-radius: 24px;
-  box-shadow: 0 12px 48px rgba(0,0,0,.18);
+
+  /* 기존 그림자 업그레이드 (위키 느낌) */
+  box-shadow:
+    0 18px 60px rgba(2, 6, 23, .22),
+    0 10px 26px rgba(15, 23, 42, .10);
+
   overflow: hidden;
 
   display: grid;
-  grid-template-columns: 620px 560px; /* 좌 520 / 우 460 고정 */
+  grid-template-columns: 620px 560px; /* 유지 */
   column-gap: 0;
+
+  /* 얇은 테두리로 고급스러움 */
+  border: 1px solid rgba(15, 23, 42, .10);
+
+  transform: translateY(8px) scale(.99);
+  opacity: 0;
+  animation: rdModalPop 180ms ease-out forwards;
+  position: relative;
+}
+
+@keyframes rdModalPop {
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* 상단 포인트 라인(위키 톤) */
+.npc-modal-main::before{
+  content: "";
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: 3px;
+  background: linear-gradient(90deg,
+    rgba(59,130,246,0),
+    rgba(59,130,246,.75),
+    rgba(59,130,246,0)
+  );
+  pointer-events: none;
 }
 
 /* ───────── 좌측 영역(프로필+사진) ───────── */
 .npc-modal-left{
-  width: 620px;                     /* 컬럼 너비와 동일 */
+  width: 620px;                     /* 유지 */
   height: auto;
-  background: #f7f9fc;
+
+  /* 기존 #f7f9fc → 조금 더 위키스럽게 */
+  background:
+    radial-gradient(900px 420px at 30% -10%, rgba(59,130,246,.12), rgba(255,255,255,0) 60%),
+    linear-gradient(180deg, #f7faff, #f7f9fc);
+
   border-right: 1px solid #eef1f6;
   display: flex;
   flex-direction: column;
   align-items: center;
   box-sizing: border-box;
+
+  padding-top: 18px;
 }
+
+/* 프로필 박스 느낌 추가 (구조는 그대로) */
 .npc-modal-profile{
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 10px;
-}
-.npc-modal-icon{
-  width: 48px; height: 48px;       /* 아이콘 고정 */
-  border-radius: 10px;
-  object-fit: cover;
-  border: 1.5px solid #e5e8ef;
-  background: #fff;
-}
-.npc-modal-name{
-  font-size: 24px;                  /* 이름 크기 고정 */
-  font-weight: 800;
+  margin-bottom: 12px;
+
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(15, 23, 42, .10);
+  background: rgba(255,255,255,.78);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, .08), 0 2px 6px rgba(15, 23, 42, .04);
 }
 
-/* 사진 슬라이더: 가로/세로 완전 고정 (좌 패딩 16px 기준 → 520-32=488) */
+/* 아이콘 고정(유지) + 디테일 */
+.npc-modal-icon{
+  width: 48px; height: 48px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 1.5px solid rgba(15, 23, 42, .10);
+  background: #fff;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, .10);
+}
+
+/* 이름 타이포 개선 */
+.npc-modal-name{
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: 0.2px;
+  font-family: Pretendard, Malgun Gothic, sans-serif;
+  color: #0f172a;
+}
+
+/* 사진 슬라이더: 가로/세로 완전 고정 */
 .npc-picture-slider,
 .npc-picture-slider-empty{
   position: relative;
   width: 588px;
   height: 400px;
-  border-radius: 14px;
+  border-radius: 16px;
   overflow: hidden;
-  background: #fff;
-  box-shadow: 0 6px 20px rgba(0,0,0,.08);
+
+  /* 사진 영역 프레임 느낌 */
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.9), rgba(248,250,252,1));
+  border: 1px solid rgba(15, 23, 42, .10);
+
+  box-shadow: 0 16px 36px rgba(15, 23, 42, .10), 0 4px 10px rgba(15, 23, 42, .06);
 }
+
+/* 상단 광택 */
+.npc-picture-slider::before,
+.npc-picture-slider-empty::before{
+  content:"";
+  position:absolute;
+  left:0; right:0; top:0;
+  height: 56px;
+  background: linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,0));
+  pointer-events:none;
+  z-index: 2;
+}
+
 .npc-picture-img{
   width: 588px;
   height: 400px;
   object-fit: cover;
 }
+
 .npc-picture-slider-empty{
   display: grid;
   place-items: center;
-  color: #9aa1ab;
-  background: #f2f5f9;
+  color: #94a3b8;
+  background: linear-gradient(180deg, #f2f5f9, #eef2f7);
 }
 
-/* 슬라이더 버튼 고정 */
+/* 슬라이더 버튼 고정 (톤만 개선) */
 .npc-picture-slider-btn{
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 40px; height: 40px;
-  border: 0; border-radius: 9999px;
-  background: rgba(0,0,0,.35);
+  width: 42px; height: 42px;
+  border: 1px solid rgba(255,255,255,.22);
+  border-radius: 9999px;
+
+  background: rgba(15, 23, 42, .38);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+
   display: grid; place-items: center;
   cursor: pointer;
+
+  box-shadow: 0 12px 26px rgba(2, 6, 23, .22), 0 2px 6px rgba(2, 6, 23, .10);
+  transition: transform 140ms ease, background 140ms ease, box-shadow 140ms ease;
+  z-index: 3;
 }
-.npc-picture-slider-btn-left{ left: 8px; }
-.npc-picture-slider-btn-right{ right: 8px; }
+.npc-picture-slider-btn:hover{
+  transform: translateY(-50%) scale(1.03);
+  background: rgba(15, 23, 42, .48);
+  box-shadow: 0 16px 34px rgba(2, 6, 23, .26), 0 3px 8px rgba(2, 6, 23, .12);
+}
+.npc-picture-slider-btn-left{ left: 10px; }
+.npc-picture-slider-btn-right{ right: 10px; }
 
 /* ───────── 우측 영역(정보 폼) ───────── */
 .npc-modal-right{
-  width: 520px;                    /* 컬럼 너비와 동일 */
-  padding: 16px;                   /* 내부 패딩 고정 */
+  width: 520px;                    /* 유지 */
+  padding: 16px;                   /* 유지 */
   display: flex;
   flex-direction: column;
   gap: 8px;
   box-sizing: border-box;
   font-size: 15px;
+
+  background:
+    radial-gradient(900px 420px at 80% -10%, rgba(59,130,246,.10), rgba(255,255,255,0) 60%),
+    linear-gradient(180deg, #ffffff, #fbfdff);
 }
 
-/* 닫기 버튼 */
+/* 닫기 버튼 (디테일만) */
 .npc-modal-close-btn{
   position: absolute;
   right: 16px; top: 12px;
-  width: 36px; height: 36px;
-  border: 0; border-radius: 9999px;
-  background: #fff;
-  box-shadow: 0 2px 10px rgba(0,0,0,.12);
+  width: 38px; height: 38px;
+  border: 1px solid rgba(15, 23, 42, .10);
+  border-radius: 9999px;
+
+  background: rgba(255,255,255,.92);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, .12), 0 2px 6px rgba(15, 23, 42, .06);
   cursor: pointer;
-  font-size: 20px; color: #666;
+
+  font-size: 20px;
+  color: #64748b;
+
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+.npc-modal-close-btn:hover{
+  transform: translateY(-1px);
+  border-color: rgba(147,197,253,.85);
+  color: #0f172a;
+  box-shadow:
+    0 12px 28px rgba(2, 132, 199, 0.16),
+    0 3px 8px rgba(15, 23, 42, 0.08);
 }
 
 /* 페이지 스크롤 잠금 */
@@ -125,60 +246,122 @@ body.rd-modal-open{ overflow: hidden; }
   width: 520px;
   height: 44px;
   padding: 4px 8px;
-  background:#fff;
-  border:1px solid #e7eef6;
-  border-radius:18px;
-  box-shadow:0 1px 0 rgba(0,0,0,.02), 0 2px 10px rgba(30,90,160,.03);
 
-  display:grid;
-  grid-template-columns: 120px 1fr;/* 라벨 120 고정 + 값 */
-  gap:10px;
+  /* 단순 흰색 → 미세 그라데이션 + 테두리 톤 */
+  background: linear-gradient(180deg, #ffffff, #fbfdff);
+  border: 1px solid rgba(15, 23, 42, .10);
+  border-radius: 18px;
+
+  /* 기존 그림자보다 “위키 카드” 느낌 */
+  box-shadow:
+    0 1px 0 rgba(15,23,42,.02),
+    0 10px 24px rgba(15,23,42,.08),
+    0 2px 6px rgba(15,23,42,.05);
+
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 10px;
   box-sizing: border-box;
+
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
 }
+.npc-modal-right .mgr-pill-row:hover{
+  border-color: rgba(147,197,253,.9);
+  box-shadow:
+    0 12px 28px rgba(2, 132, 199, 0.12),
+    0 3px 8px rgba(15, 23, 42, 0.07);
+  transform: translateY(-1px);
+}
+
 .npc-modal-right .mgr-pill-row--multi{
-  height: 220px;                   /* 대사 전용 고정 높이(크게) */
+  height: 220px;
   align-items:flex-start;
   padding: 12px 14px;
 }
+
 .npc-modal-right .mgr-pill-label{
-  height: 34px;                    /* 라벨 높이 고정 */
+  height: 34px;
   display:flex; align-items:center; justify-content:center;
   padding: 0 0px;
-  border-radius:999px;
-  color:#2a5fb7; font-weight:800; font-size:13px;
-  background:linear-gradient(180deg,#f2f7ff,#eaf2ff);
-  border:1px solid #dbe8ff;
+  border-radius: 999px;
+
+  color:#2457b6;
+  font-weight: 900;
+  font-size: 13px;
+  letter-spacing: .2px;
+
+  background: linear-gradient(180deg,#f2f7ff,#eaf2ff);
+  border: 1px solid rgba(59,130,246,.18);
+
+  /* 은은한 포인트 */
+  box-shadow: 0 6px 14px rgba(59,130,246,.10);
 }
+
 .npc-modal-right .mgr-pill-value{
-  display:flex; align-items:center; gap:8px; color:#222;
+  display:flex; align-items:center; gap:8px; color:#0f172a;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
+
+/* 멀티 영역 */
 .npc-modal-right .mgr-pill-row--multi .mgr-pill-value{
-  width: 100%; height: 180px;      /* (220 전체 - 패딩/라벨 여유) → 스크롤 영역 고정 */
-  white-space:pre-wrap;
-  overflow:auto;
-  line-height:1.55;
+  width: 100%; height: 180px;
+  white-space: pre-wrap;
+  overflow: auto;
+  line-height: 1.55;
 }
+
+/* 스크롤바 톤(선택) */
+.npc-modal-right .mgr-pill-row--multi .mgr-pill-value::-webkit-scrollbar{
+  width: 10px;
+}
+.npc-modal-right .mgr-pill-row--multi .mgr-pill-value::-webkit-scrollbar-thumb{
+  background: rgba(148,163,184,.45);
+  border-radius: 999px;
+  border: 2px solid rgba(255,255,255,.7);
+}
+.npc-modal-right .mgr-pill-row--multi .mgr-pill-value::-webkit-scrollbar-track{
+  background: rgba(241,245,249,.7);
+  border-radius: 999px;
+}
+
 .npc-modal-right .mgr-placeholder{ color:#a8b2c3; }
 
 /* 칩(보상) 크기 고정 */
 .npc-modal-right .mgr-chip{
   display:inline-flex; align-items:center; gap:6px;
   height: 32px;
-  padding:0 10px;
-  font-size:14px;
-  background:#fff; border:1px solid #e8ebf2; border-radius:999px; box-shadow:0 1px 0 rgba(0,0,0,.02);
+  padding: 0 10px;
+  font-size: 14px;
+
+  background: linear-gradient(180deg, #ffffff, #fbfdff);
+  border: 1px solid rgba(15, 23, 42, .10);
+  border-radius: 999px;
+
+  box-shadow: 0 1px 0 rgba(15,23,42,.02), 0 10px 20px rgba(15,23,42,.06);
 }
-.npc-modal-right .mgr-chip img{ width:18px; height:18px; object-fit:contain; border-radius:4px; }
-.npc-modal-right .mgr-chip-emoji{ width:18px; text-align:center; font-size:16px; }
+.npc-modal-right .mgr-chip img{
+  width:18px; height:18px; object-fit:contain; border-radius:4px;
+}
+.npc-modal-right .mgr-chip-emoji{
+  width:18px; text-align:center; font-size:16px;
+}
 
-.npc-modal-right .quest-detail-loc{ color:#2357b2; } /* 포인트 색 */
+/* 좌표 포인트 색 + 칩 느낌 강화 */
+.npc-modal-right .quest-detail-loc{
+  color: #1d4ed8; /* 기존 #2357b2 보다 살짝 선명 */
+  font-weight: 800;
 
+  /* 숫자/콤마가 한 글자씩 세로로 쪼개지는 것 방지 */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+/* 기존: flex → block override 유지 */
 .npc-modal-right .mgr-pill-row--multi .mgr-pill-value{
-  display: block;          /* flex → block */
-  align-items: unset;      /* 상속된 중앙정렬 해제 */
-  padding-top: 6px;        /* 살짝 여백 */
-  height: 180px;           /* 기존 값 유지 */
+  display: block;
+  align-items: unset;
+  padding-top: 6px;
+  height: 180px;
   overflow: auto;
   white-space: pre-wrap;
   line-height: 1.55;
@@ -186,15 +369,15 @@ body.rd-modal-open{ overflow: hidden; }
 
 /* 퀘스트 전용: 내용이 길면 높이 자동 확장 */
 .npc-modal-right .mgr-pill-row--quest {
-  height: auto;              /* 고정 높이 제거 */
-  min-height: 38px;          /* 기본 최소 높이는 유지 */
+  height: auto;
+  min-height: 38px;
   align-items: center;
   padding: 4px 8px;
 }
 
 .npc-modal-right .mgr-pill-row--quest .mgr-pill-value {
-  white-space: pre-wrap;     /* 줄바꿈 반영 */
-  overflow: hidden;          /* 잘리지 않도록 */
+  white-space: pre-wrap;
+  overflow: hidden;
   line-height: 1.55;
   display: flex;
   align-items: center;
