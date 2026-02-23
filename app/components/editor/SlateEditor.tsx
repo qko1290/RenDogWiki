@@ -28,6 +28,7 @@ import { faImage } from '@fortawesome/free-solid-svg-icons';
 import TableContextMenu from './TableContextMenu';
 import type { WikiRefKind } from './render/types';
 import { toProxyUrl } from '@lib/cdn';
+import { getDragRect } from './helpers/tableDrag';
 
 type DocState = {
   id?: number;
@@ -216,6 +217,26 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     return e;
   }, []);
 
+  // ✅ FIX: 안전한 Path 체크/셀렉트 헬퍼 (드래그 삭제로 path가 날아가면 여기서 방어)
+  const safeHasPath = useCallback((p: Path | null) => {
+    if (!p) return false;
+    try {
+      return Editor.hasPath(editor, p);
+    } catch {
+      return false;
+    }
+  }, [editor]);
+
+  const safeSelectPoint = useCallback((at: any) => {
+    try {
+      Transforms.select(editor, at);
+      ReactEditor.focus(editor);
+      return true;
+    } catch {
+      return false;
+    }
+  }, [editor]);
+
   // 상태
   const selectionRef = useRef<Range | null>(null);    // 최근 커서(에디터 onChange에서 갱신)
   const savedSelectionRef = useRef<Range | null>(null); // 모달 열기 시점 커서 저장
@@ -362,6 +383,44 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     if (el) el.scrollTop = lastYRef.current;
   };
 
+  const focusNoScroll = useCallback(() => {
+    try {
+      const dom = ReactEditor.toDOMNode(editor, editor);
+      (dom as HTMLElement)?.focus?.({ preventScroll: true } as any);
+    } catch {}
+  }, [editor]);
+
+  const restoreCaret = useCallback(() => {
+    const sel = savedSelectionRef.current;
+    let restored = false;
+
+    // ✅ 외부 인풋 진입 중에는 selection 복원하지 않고 바로 deselect
+    const active = document.activeElement as HTMLElement | null;
+    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
+      try { Transforms.deselect(editor); } catch {}
+      savedSelectionRef.current = null;
+      return;
+    }
+
+    if (sel) {
+      try {
+        Transforms.select(editor, sel);
+        focusNoScroll();   // ← preventScroll로 포커스
+        restored = true;
+      } catch {
+        restored = false;
+      }
+    }
+
+    if (!restored) {
+      const point = Editor.end(editor, []);
+      Transforms.select(editor, point);
+      focusNoScroll();     // ← preventScroll로 포커스
+    }
+
+    savedSelectionRef.current = null;
+  }, [editor, focusNoScroll]);
+
   const handlePriceModalClose = () => {
     setPriceTableEdit({ blockPath: null, idx: null, item: null });
     stopFreeze();
@@ -440,15 +499,26 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
   // (기존) 링크 포커스 복원은 유지
   useEffect(() => {
     if (moveCursorPending && lastLinkPath) {
-      const after = Editor.after(editor, lastLinkPath);
-      if (after) {
-        Transforms.select(editor, after);
-        ReactEditor.focus(editor);
+      // ✅ FIX: 드래그 삭제로 lastLinkPath가 사라졌을 수 있음 → hasPath + try/catch 방어
+      if (!safeHasPath(lastLinkPath)) {
+        setMoveCursorPending(false);
+        setLastLinkPath(null);
+        return;
       }
-      setMoveCursorPending(false);
-      setLastLinkPath(null);
+
+      try {
+        const after = Editor.after(editor, lastLinkPath);
+        if (after) {
+          safeSelectPoint(after);
+        }
+      } catch {
+        // path/point 계산 중 예외 → 상태 정리
+      } finally {
+        setMoveCursorPending(false);
+        setLastLinkPath(null);
+      }
     }
-  }, [doc.content, moveCursorPending, lastLinkPath, editor]);
+  }, [doc.content, moveCursorPending, lastLinkPath, editor, safeHasPath, safeSelectPoint]);
 
   const headings = useMemo(() => extractHeadings(doc.content), [doc.content]);
   const handleIconClick = (element: CustomElement) => {
@@ -555,6 +625,80 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       alert('저장 완료!');
     } catch { alert('문서 저장 실패'); }
   };
+
+  const isSelectionInsideTable = useCallback(() => {
+    const { selection } = editor;
+    if (!selection) return false;
+    const cell = Editor.above(editor, {
+      at: selection,
+      match: n => SlateElement.isElement(n) && (n as any).type === 'table-cell',
+    });
+    return !!cell;
+  }, [editor]);
+
+  const buildTSVFromRect = useCallback(() => {
+    const rectInfo = getDragRect();
+    if (!rectInfo) return null;
+
+    const { tablePath, r0, c0, r1, c1 } = rectInfo;
+    try {
+      const rows: string[] = [];
+      for (let r = r0; r <= r1; r++) {
+        const cols: string[] = [];
+        for (let c = c0; c <= c1; c++) {
+          const cellPath = [...tablePath, r, c];
+          const cellNode = Node.get(editor, cellPath);
+          // table-cell 안의 텍스트만
+          cols.push(Node.string(cellNode).replace(/\r?\n/g, '\n'));
+        }
+        rows.push(cols.join('\t'));
+      }
+      return rows.join('\n');
+    } catch {
+      return null;
+    }
+  }, [editor]);
+
+  const onCopyTableSafe = useCallback((e: React.ClipboardEvent) => {
+    // 1) 엑셀식 드래그(rect)가 남아있다면: 그 영역을 TSV로 복사
+    const tsv = buildTSVFromRect();
+    if (tsv != null) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.clipboardData.setData('text/plain', tsv);
+      // ✅ html은 일부러 안 넣음 (td 복사 방지)
+      return;
+    }
+
+    // 2) 일반 텍스트 드래그 선택인데 table-cell 내부라면: text/plain만
+    if (!isSelectionInsideTable()) return;
+
+    const { selection } = editor;
+    if (!selection) return;
+
+    const text = Editor.string(editor, selection);
+    e.preventDefault();
+    e.stopPropagation();
+    e.clipboardData.setData('text/plain', text);
+  }, [editor, buildTSVFromRect, isSelectionInsideTable]);
+
+  const onPasteTableSafe = useCallback((e: React.ClipboardEvent) => {
+    if (!isSelectionInsideTable()) return;
+
+    // 표 안에서는 table/td 같은 HTML이 들어오면 “셀 붙여넣기”가 발생할 수 있어서 차단
+    const html = e.clipboardData.getData('text/html') || '';
+    const hasTableHtml = /<(table|tbody|tr|td|th)\b/i.test(html);
+
+    const text = e.clipboardData.getData('text/plain');
+    if (hasTableHtml || typeof text === 'string') {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // 기본: plain text만 삽입
+      // (개행은 그대로 들어가게 두면 셀 안 paragraph/줄바꿈 정책에 따라 동작)
+      Transforms.insertText(editor, text ?? '');
+    }
+  }, [editor, isSelectionInsideTable]);
 
   const openInlineImageModalRef = useRef<(() => void) | null>(null);
 
@@ -827,44 +971,6 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     }
   };
 
-  const focusNoScroll = useCallback(() => {
-    try {
-      const dom = ReactEditor.toDOMNode(editor, editor);
-      (dom as HTMLElement)?.focus?.({ preventScroll: true } as any);
-    } catch {}
-  }, [editor]);
-
-  const restoreCaret = useCallback(() => {
-    const sel = savedSelectionRef.current;
-    let restored = false;
-
-    // ✅ 외부 인풋 진입 중에는 selection 복원하지 않고 바로 deselect
-    const active = document.activeElement as HTMLElement | null;
-    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
-      try { Transforms.deselect(editor); } catch {}
-      savedSelectionRef.current = null;
-      return;
-    }
-
-    if (sel) {
-      try {
-        Transforms.select(editor, sel);
-        focusNoScroll();   // ← preventScroll로 포커스
-        restored = true;
-      } catch {
-        restored = false;
-      }
-    }
-
-    if (!restored) {
-      const point = Editor.end(editor, []);
-      Transforms.select(editor, point);
-      focusNoScroll();     // ← preventScroll로 포커스
-    }
-
-    savedSelectionRef.current = null;
-  }, [editor, focusNoScroll]);
-
   return (
     <>
       <div className="editor-layout">
@@ -942,14 +1048,8 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
                         style={{
                           width: 36,
                           height: 36,
-
-                          // ✅ "문서에 적용된 아이콘 이미지에 맞게" 보이도록: 기본은 cover가 자연스러움
                           objectFit: 'cover',
-
-                          // ✅ 아이콘 썸네일은 정사각형 컷이 많아서 cover + radius가 가장 덜 깨져 보임
                           borderRadius: 8,
-
-                          // 배경/테두리는 최소화 (원본이 투명 PNG면 보기 좋게)
                           background: 'transparent',
                           border: '1px solid #e5e7eb',
                         }}
@@ -1004,7 +1104,14 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
               value={doc.content.length > 0 ? doc.content : EMPTY_INITIAL_VALUE}
               onChange={newValue => {
                 setDoc(prev => ({ ...prev, content: newValue }));
-                if (editor.selection) selectionRef.current = editor.selection;
+
+                // ✅ (미세 방어) selection이 존재해도 예외 케이스에서 깨지는 라이브러리 버전이 있어서 방어
+                try {
+                  if (editor.selection) selectionRef.current = editor.selection;
+                  else selectionRef.current = null;
+                } catch {
+                  selectionRef.current = null;
+                }
               }}
             >
               <div className="editor-toolbar-wrapper">
@@ -1019,13 +1126,16 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
                 readOnly={false}
                 style={{
                   fontFamily: "'NanumSquareRound', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
-                  fontSize: '19px',       // 기본 글자 크기
+                  fontSize: '19px',
                 }}
                 onKeyDown={onKeyDown}
                 placeholder="문서를 작성하세요..."
                 spellCheck={false}
                 className="editor-slate-content"
                 onBlur={() => { selectionRef.current = editor.selection; }}
+                onCopy={onCopyTableSafe}
+                onCut={onCopyTableSafe}   // 잘라내기도 동일하게 처리 (원하면 분리 가능)
+                onPaste={onPasteTableSafe}
               />
             </Slate>
           </div>
