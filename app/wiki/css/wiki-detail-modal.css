@@ -33,13 +33,14 @@ body.rd-modal-open{ overflow: hidden; }
   min-height: 500px;
 
   /* 전체를 다크 카드로 */
-  background: linear-gradient(180deg, #1b2230, #151b26);
+  background: #fff;
   border-radius: 24px;
 
   /* 깊이감 */
+  border: 1px solid rgba(15, 23, 42, .10);
   box-shadow:
-    0 28px 90px rgba(0,0,0,.42),
-    0 14px 40px rgba(0,0,0,.26);
+    0 24px 70px rgba(15, 23, 42, .18),
+    0 10px 24px rgba(15, 23, 42, .10);
 
   overflow: hidden;
 
@@ -48,7 +49,6 @@ body.rd-modal-open{ overflow: hidden; }
   column-gap: 0;
 
   position: relative;
-  border: 1px solid rgba(255,255,255,.06);
 }
 
 /* 대각 장식(스샷 느낌) */
@@ -80,11 +80,8 @@ body.rd-modal-open{ overflow: hidden; }
   height: auto;
 
   /* 좌측은 약간 밝은 다크 톤 */
-  background:
-    radial-gradient(900px 520px at 30% 0%, rgba(59,130,246,.18), rgba(0,0,0,0) 65%),
-    linear-gradient(180deg, #202a3a, #171f2c);
-
-  border-right: 1px solid rgba(255,255,255,.06);
+  background: linear-gradient(180deg, #f8fafc, #f3f6fb);
+  border-right: 1px solid #eef1f6;
 
   display: flex;
   flex-direction: column;
@@ -213,9 +210,7 @@ body.rd-modal-open{ overflow: hidden; }
   font-size: 15px;
 
   /* 스샷처럼 어두운 패널 + 대각 라인 */
-  background:
-    radial-gradient(760px 420px at 70% 10%, rgba(59,130,246,.18), rgba(0,0,0,0) 60%),
-    linear-gradient(180deg, #1a2130, #141a25);
+  background: linear-gradient(180deg, #fbfdff, #ffffff);
   position: relative;
 }
 
@@ -418,4 +413,99 @@ body.rd-modal-open{ overflow: hidden; }
   line-height: 1.55;
   display: flex;
   align-items: center;
+}
+
+/* ✅ 기존 알약형 해제 → 카드형 행(Row)으로 */
+.npc-modal-right .mgr-pill-row{
+  width: 520px;
+  height: auto;                 /* 고정 높이 해제 */
+  padding: 12px 14px;
+  border-radius: 16px;
+
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, .10);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, .08), 0 2px 6px rgba(15, 23, 42, .05);
+
+  /* ✅ 2칸 그리드 -> 세로 스택 */
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  position: relative;
+  overflow: hidden;
+
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+/* 왼쪽 포인트 바(위키 느낌) */
+.npc-modal-right .mgr-pill-row::before{
+  content:"";
+  position:absolute;
+  left:0; top:0; bottom:0;
+  width: 4px;
+  background: linear-gradient(180deg, rgba(59,130,246,.65), rgba(59,130,246,.20));
+}
+
+/* 호버 */
+.npc-modal-right .mgr-pill-row:hover{
+  border-color: rgba(147,197,253,.95);
+  box-shadow: 0 12px 28px rgba(2, 132, 199, 0.14), 0 3px 8px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+/* ✅ 라벨: 캡션 스타일 (알약 배경 제거) */
+.npc-modal-right .mgr-pill-label{
+  height: auto;                 /* 고정 높이 해제 */
+  justify-content: flex-start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .2px;
+  color: #2563eb;
+
+  /* 포인트 바와 간격 */
+  padding-left: 10px;
+}
+
+/* ✅ 값: 더 크게/가독성 좋게 */
+.npc-modal-right .mgr-pill-value{
+  padding-left: 10px;           /* 포인트 바/라벨 정렬 */
+  white-space: normal;          /* 값 줄바꿈 허용 */
+  overflow: visible;
+  text-overflow: initial;
+
+  color: #0f172a;
+  font-weight: 700;
+}
+
+/* 좌표: 칩 느낌 + 깨짐 방지 */
+.npc-modal-right .quest-detail-loc{
+  display: inline-flex;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(37, 99, 235, .22);
+  background: rgba(59,130,246,.08);
+
+  color: #1d4ed8;
+  font-weight: 900;
+
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+/* 멀티는 그대로 유지하되 카드형에 맞게 */
+.npc-modal-right .mgr-pill-row--multi{
+  height: auto;                 /* 기존 220 고정이 싫으면 auto로 */
+  min-height: 220px;
+}
+
+.npc-modal-right .mgr-pill-row--multi .mgr-pill-value{
+  height: 180px;                /* 기존 유지 */
+  overflow: auto;
+  white-space: pre-wrap;
+  line-height: 1.55;
 }
