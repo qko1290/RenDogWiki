@@ -1447,8 +1447,8 @@ export default function WikiPageInner({ user }: Props) {
                 ) : headList.length > 0 ? (
                   <HeadGrid
                     heads={headList.slice(
-                      headPage * 21,
-                      (headPage + 1) * 21,
+                      headPage * 24,
+                      (headPage + 1) * 24,
                     )}
                     onClick={setSelectedHead}
                     selectedHeadId={selectedHead?.id || null}
@@ -1479,35 +1479,26 @@ export default function WikiPageInner({ user }: Props) {
               )}
 
               {specialMeta?.kind === 'head' &&
-                headList.length > 21 &&
+                headList.length > 24 &&
                 !hold && (
                   <div className="wiki-paging-bar">
                     <button
-                      onClick={() =>
-                        setHeadPage(p => Math.max(0, p - 1))
-                      }
+                      onClick={() => setHeadPage(p => Math.max(0, p - 1))}
                       disabled={headPage === 0}
                       className="wiki-paging-btn"
                     >
                       ◀
                     </button>
                     <span className="wiki-paging-text">
-                      {headPage + 1} /{' '}
-                      {Math.ceil(headList.length / 21)}
+                      {headPage + 1} / {Math.ceil(headList.length / 24)}
                     </span>
                     <button
                       onClick={() =>
                         setHeadPage(p =>
-                          Math.min(
-                            Math.ceil(headList.length / 21) - 1,
-                            p + 1,
-                          ),
+                          Math.min(Math.ceil(headList.length / 24) - 1, p + 1),
                         )
                       }
-                      disabled={
-                        headPage ===
-                        Math.ceil(headList.length / 21) - 1
-                      }
+                      disabled={headPage === Math.ceil(headList.length / 24) - 1}
                       className="wiki-paging-btn"
                     >
                       ▶
