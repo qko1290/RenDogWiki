@@ -297,7 +297,7 @@ const CategoryTree: React.FC<Props> = ({
     }, 0);
   };
 
-  // ✅ 로고 클릭 시: 시작 문서 열기 + 모든 카테고리 접기
+  // ✅ 로고 클릭 시: 시작 문서 열기 + 모든 카테고리(열린 path 전체) 접기
   useEffect(() => {
     const onClick = async (e: MouseEvent) => {
       try {
@@ -314,7 +314,6 @@ const CategoryTree: React.FC<Props> = ({
 
         if (!looksLikeLogo) return;
 
-        // 로딩 중이면 로고 클릭 무시(가드)
         if (!interactionReady) {
           e.preventDefault();
           e.stopPropagation();
@@ -329,18 +328,28 @@ const CategoryTree: React.FC<Props> = ({
         e.preventDefault();
         e.stopPropagation();
 
-        // ✅ 1) 모든 루트 카테고리를 닫아 "전체 접기"
-        // - 열린 것만 닫도록 isPathOpen 체크
-        // - 닫기는 closeTreeWithChildren가 하위까지 처리
-        for (const node of categories) {
-          const p = [node.id];
-          if (isPathOpen(p)) {
-            try {
-              // eslint-disable-next-line no-await-in-loop
-              await closeTreeWithChildren(node, p);
-            } catch {
-              // ignore
-            }
+        // ✅ 0) “카테고리 경로 선택”이 남아있으면 자동 펼침 로직이 다시 열 수 있어서 먼저 제거
+        setSelectedCategoryPath(null);
+
+        // ✅ 1) 현재 열린 모든 openPaths를 “깊은 것부터” 닫기
+        // - openPaths는 props라 직접 초기화가 불가 → closeTreeWithChildren를 이용해 상태를 실제로 닫아줌
+        const snapshot = [...openPaths];
+        snapshot.sort((a, b) => b.length - a.length); // 깊은 것부터
+
+        for (const p of snapshot) {
+          // p는 [catId, catId, ...] 형태
+          if (!Array.isArray(p) || p.length === 0) continue;
+          if (!isPathOpen(p)) continue;
+
+          const lastId = p[p.length - 1];
+          const node = categoryIdMap[lastId];
+          if (!node) continue;
+
+          try {
+            // eslint-disable-next-line no-await-in-loop
+            await closeTreeWithChildren(node, p);
+          } catch {
+            // ignore
           }
         }
 
@@ -355,11 +364,13 @@ const CategoryTree: React.FC<Props> = ({
     return () => document.removeEventListener("click", onClick, true);
   }, [
     allDocuments,
-    categories,
+    categoryIdMap,
     closeTreeWithChildren,
     fetchDoc,
     interactionReady,
     isPathOpen,
+    openPaths,
+    setSelectedCategoryPath,
   ]);
 
   const isReallyOpen = (path: number[]) => isPathOpen(path) && !isClosing(path);
