@@ -936,6 +936,44 @@ function nameFontSize(name?: string) {
   return 20;
 }
 
+function wrapNameIfNeeded(name: string) {
+  const raw = String(name ?? "");
+  const trimmed = raw.trim();
+
+  const len = Array.from(trimmed).length;
+  const spaceCount = (trimmed.match(/\s/g) ?? []).length;
+
+  // 조건: 10글자 이상 + 띄어쓰기 2개 이상
+  if (!(len >= 10 && spaceCount >= 2)) {
+    return { broken: false, parts: [trimmed] as string[] };
+  }
+
+  // "7글자 이후"에 등장하는 첫 띄어쓰기 위치를 찾는다
+  const chars = Array.from(trimmed);
+  let idxAfter7 = -1;
+
+  for (let i = 0; i < chars.length; i++) {
+    if (i < 7) continue;
+    if (chars[i] === " ") {
+      idxAfter7 = i;
+      break;
+    }
+  }
+
+  // 이후 띄어쓰기 못 찾으면 줄바꿈 안 함
+  if (idxAfter7 === -1) {
+    return { broken: false, parts: [trimmed] as string[] };
+  }
+
+  const first = chars.slice(0, idxAfter7).join("").trimEnd();
+  const second = chars.slice(idxAfter7 + 1).join("").trimStart();
+
+  // 두 번째가 비면 줄바꿈 의미 없으니 방어
+  if (!second) return { broken: false, parts: [trimmed] as string[] };
+
+  return { broken: true, parts: [first, second] as string[] };
+}
+
 /** 숫자/문자 폰트 크기를 정규화: 숫자는 px, 단위가 있으면 그대로 */
 function normalizeFontSize(v: unknown): string | number | undefined {
   if (v == null) return undefined;
@@ -1480,7 +1518,11 @@ function PriceTableCardBlock({
           const priceVal = prices[cardIdx] ?? "";
           const badgeColor = getPriceBadgeColor(stage, item.colorType);
 
-          const name = item.name?.trim() ? item.name : "이름 없음";
+          const nameRaw = item.name?.trim() ? item.name : "이름 없음";
+          const wrapped = wrapNameIfNeeded(nameRaw);
+
+          // ✅ 줄바꿈 발생 시 17pt(=17px) 고정, 아니면 기존 로직 유지
+          const nameSize = wrapped.broken ? 17 : nameFontSize(item.name);
           const priceSize = autoFont(20, String(priceVal));
 
           const image = item.image ? (
@@ -1646,7 +1688,7 @@ function PriceTableCardBlock({
               <div
                 style={{
                   fontWeight: 700,
-                  fontSize: nameFontSize(item.name),
+                  fontSize: nameSize,              // ✅ 여기
                   lineHeight: 1.12,
                   marginBottom: 0,
                   color: item.name ? "#333" : "#bbb",
@@ -1657,9 +1699,19 @@ function PriceTableCardBlock({
                   alignItems: "center",
                   justifyContent: "center",
                   padding: 0,
+
+                  // ✅ 줄바꿈 발생 시 두 줄 표시를 위해 nowrap 해제
+                  whiteSpace: wrapped.broken ? "normal" : "nowrap",
                 }}
               >
-                {name}
+                {wrapped.broken ? (
+                  <>
+                    <span style={{ display: "block" }}>{wrapped.parts[0]}</span>
+                    <span style={{ display: "block" }}>{wrapped.parts[1]}</span>
+                  </>
+                ) : (
+                  nameRaw
+                )}
               </div>
 
               {/* 가격: 필요시에만 ~ 뒤가 다음 줄로 + 길면 폰트 축소 */}
