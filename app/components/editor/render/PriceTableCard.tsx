@@ -397,16 +397,36 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
     [item.name]
   );
 
-  // ✅ 줄바꿈이 발생하면 무조건 17pt
-  const nameFont = nameBroke
-    ? 17
-    : autoFont(20, String(nameShown), [
+  // ✅ "줄바꿈 발생한 경우"에만: 줄바꿈 이전(첫 줄) 텍스트 기준으로 16pt 조건 추가
+  const nameFont = useMemo(() => {
+    if (!nameBroke) {
+      return autoFont(20, String(nameShown), [
         [7, 18],
         [9, 16],
         [12, 14],
         [16, 13],
         [20, 12],
       ]);
+    }
+
+    // smartNameBreakInfo와 동일 기준(7글자 이후 첫 공백)으로 "첫 줄" 계산
+    const full = String(item.name ?? '');
+    const chars = Array.from(full);
+    const breakAt = chars.findIndex((ch, i) => i >= 7 && ch === ' ');
+
+    if (breakAt === -1) return 17;
+
+    const first = chars.slice(0, breakAt).join('');
+    const firstLen = Array.from(first).length;
+    const firstSpaceCount = (first.match(/\s/g) ?? []).length;
+
+    // ✅ 추가 규칙:
+    // 줄바꿈 지점 이전 글자수 >= 8 && (줄바꿈 이전에) 띄어쓰기 >= 1  → 16pt
+    if (firstLen >= 8 && firstSpaceCount >= 1) return 16;
+
+    // ✅ 기본: 줄바꿈 발생시 17pt 고정
+    return 17;
+  }, [nameBroke, nameShown, item.name]);
 
   const priceFont = autoFont(20, String(priceVal), [
     [8, 20],
