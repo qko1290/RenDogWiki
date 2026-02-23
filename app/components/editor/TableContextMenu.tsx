@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Editor, Path, Node as SlateNode, Transforms, Element as SlateElement } from 'slate';
+import { Editor, Path, Node as SlateNode, Transforms } from 'slate';
 import { ReactEditor } from 'slate-react';
 import {
   getSelectedRectOrCell,
@@ -136,14 +136,12 @@ export default function TableContextMenu({ editor }: Props) {
   // ✅ 행 추가(아래) 헬퍼
   const insertRowBelow = () => {
     try {
-      // cellPath: [tableIndex, rowIndex, cellIndex, ...]
       const rowIndex = cellPath[cellPath.length - 2] as number;
       const rowPath = [...tablePath, rowIndex];
 
       const rowNode = SlateNode.get(editor, rowPath) as any;
       if (!rowNode || !Array.isArray(rowNode.children)) return;
 
-      // 기존 행의 셀 개수만큼 새 셀 생성
       const newRow: any = {
         type: 'table-row',
         children: rowNode.children.map((cell: any) => {
@@ -156,16 +154,12 @@ export default function TableContextMenu({ editor }: Props) {
               },
             ],
           };
-
-          // 필요하면 colspan/rowspan 복사
           if (cell.colspan != null) newCell.colspan = cell.colspan;
           if (cell.rowspan != null) newCell.rowspan = cell.rowspan;
-
           return newCell;
         }),
       };
 
-      // 현재 행 바로 아래에 삽입
       Transforms.insertNodes(editor, newRow, {
         at: [...tablePath, rowIndex + 1],
       });
@@ -174,49 +168,55 @@ export default function TableContextMenu({ editor }: Props) {
     }
   };
 
-  // ✅ (신규) 셀 내용(텍스트)만 추출
-  const getCellText = (p: Path) => {
-    try {
-      const cell = SlateNode.get(editor, p) as any;
-      return SlateNode.string(cell);
-    } catch {
-      return '';
-    }
+  // ✅ (신규) Slate fragment 인코딩 (inline-image 포함한 셀 내부 노드를 그대로 복사)
+  const encodeSlateFragment = (fragment: any) => {
+    // Slate 공식 패턴: btoa(encodeURIComponent(JSON.stringify(fragment)))
+    const json = JSON.stringify(fragment);
+    return window.btoa(encodeURIComponent(json));
   };
 
-  // ✅ (신규) rect 범위 TSV 생성 (엑셀/시트 호환)
-  const buildTSVFromRect = () => {
+  const copyCellInnerContents = async () => {
+    // 1) 셀 노드 가져오기
+    let cellNode: any = null;
     try {
-      const { r0, c0, r1, c1 } = rect;
-      const lines: string[] = [];
-
-      for (let r = r0; r <= r1; r++) {
-        const cols: string[] = [];
-        for (let c = c0; c <= c1; c++) {
-          const p = [...rect.tablePath, r, c];
-          cols.push(getCellText(p).replace(/\r?\n/g, '\n'));
-        }
-        lines.push(cols.join('\t'));
-      }
-      return lines.join('\n');
+      cellNode = SlateNode.get(editor, cellPath);
     } catch {
-      return '';
+      cellNode = null;
     }
-  };
+    if (!cellNode) return;
 
-  // ✅ (신규) clipboard writeText (fallback 포함)
-  const writeClipboardText = async (text: string) => {
-    const t = String(text ?? '');
-    // 최신 브라우저
-    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(t);
+    // 2) 셀 "내부"만: table-cell의 children(보통 paragraph들)
+    const fragment = Array.isArray(cellNode.children) ? cellNode.children : [];
+    const plain = SlateNode.string(cellNode) ?? '';
+
+    // 3) 클립보드에 Slate fragment + plain text 동시 저장
+    //    - fragment가 있으면 에디터에 붙여넣기 시 inline-image까지 그대로 복원됨
+    //    - HTML(<td>)은 아예 넣지 않아서 “셀 자체 붙여넣기” 원천 차단
+    const encoded = encodeSlateFragment(fragment);
+
+    // ClipboardItem 지원 브라우저: mime 여러 개 넣기 가능
+    const nav: any = typeof navigator !== 'undefined' ? navigator : null;
+    if (nav?.clipboard?.write && typeof (window as any).ClipboardItem === 'function') {
+      const item = new (window as any).ClipboardItem({
+        'application/x-slate-fragment': new Blob([encoded], {
+          type: 'application/x-slate-fragment',
+        }),
+        'text/plain': new Blob([plain], { type: 'text/plain' }),
+      });
+      await nav.clipboard.write([item]);
       return;
     }
 
-    // fallback: 임시 textarea
+    // fallback: plain text만이라도
+    if (nav?.clipboard?.writeText) {
+      await nav.clipboard.writeText(plain);
+      return;
+    }
+
+    // 최후 fallback: execCommand
     if (typeof document !== 'undefined') {
       const ta = document.createElement('textarea');
-      ta.value = t;
+      ta.value = plain;
       ta.style.position = 'fixed';
       ta.style.left = '-9999px';
       ta.style.top = '0';
@@ -230,26 +230,6 @@ export default function TableContextMenu({ editor }: Props) {
       }
     }
   };
-
-  // ✅ (신규) 메뉴 액션: 단일 셀 내용 복사
-  const copyCurrentCellText = async () => {
-    // slate table-cell path는 rect.tablePath + r + c 로 안정적으로 뽑는다
-    const r = rect.r0;
-    const c = rect.c0;
-    const p = [...rect.tablePath, r, c];
-    const text = getCellText(p);
-    await writeClipboardText(text);
-  };
-
-  // ✅ (신규) 메뉴 액션: 선택 영역(여러 셀) 내용 복사 (TSV)
-  const copyRectTextTSV = async () => {
-    const tsv = buildTSVFromRect();
-    await writeClipboardText(tsv);
-  };
-
-  // “선택 영역”이 실제로 여러 셀인지
-  const isMultiCell =
-    rect.r0 !== rect.r1 || rect.c0 !== rect.c1;
 
   return (
     <div
@@ -265,21 +245,16 @@ export default function TableContextMenu({ editor }: Props) {
         boxShadow: '0 6px 18px rgba(0,0,0,.12)',
         padding: 4,
         zIndex: 99999,
-        minWidth: 140,
-        maxWidth: 220,
+        minWidth: 160,
+        maxWidth: 240,
         fontSize: 13,
       }}
       role="menu"
       aria-label="표 메뉴"
     >
-      {/* ✅ (신규) 복사 기능 */}
-      <MenuItem onClick={actAsync(copyCurrentCellText)}>
+      {/* ✅ 단일 복사 메뉴: 셀 내부(텍스트 + inline-image 포함)만 복사 */}
+      <MenuItem onClick={actAsync(copyCellInnerContents)}>
         셀 내용 복사
-      </MenuItem>
-      <MenuItem
-        onClick={isMultiCell ? actAsync(copyRectTextTSV) : actAsync(copyCurrentCellText)}
-      >
-        {isMultiCell ? '선택 영역 내용 복사' : '선택 셀 내용 복사'}
       </MenuItem>
 
       <MenuDivider />
@@ -317,7 +292,7 @@ export default function TableContextMenu({ editor }: Props) {
         열 분할
       </MenuItem>
 
-      {/* ✅ 새로 추가된 기능: 행 추가(아래) */}
+      {/* 행 추가(아래) */}
       <MenuItem onClick={act(insertRowBelow)}>
         행 추가(아래)
       </MenuItem>
@@ -343,7 +318,7 @@ export default function TableContextMenu({ editor }: Props) {
           : '삭제(행/열 전체 선택 시)'}
       </MenuItem>
 
-      {/* ✅ 표 전체 삭제 */}
+      {/* 표 전체 삭제 */}
       <MenuDivider />
       <MenuItem
         danger
