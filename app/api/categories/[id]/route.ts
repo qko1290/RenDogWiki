@@ -59,7 +59,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       ? Array.from(
           new Set(
             body.mode_tags
-              .map((s: unknown) => (typeof s === 'string' ? s.trim().toLowerCase() : ''))
+              .map((s: unknown) => (typeof s === 'string' ? s.trim() : ''))
               .filter(Boolean)
           )
         )
