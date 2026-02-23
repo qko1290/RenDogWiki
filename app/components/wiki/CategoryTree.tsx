@@ -1,13 +1,10 @@
 // =============================================
 // File: components/wiki/CategoryTree.tsx
-// (대표 문서 우선 오픈, 이미지 lazy/async/CloudFront 우회, 루트 문서 정렬 유지)
-// + 초기 로딩 가드(interactionReady) 및 안전장치 추가
-// + CollapsibleList: 서브트리 열림 상태 변화에 따라 height를 auto로 보정
 // =============================================
 "use client";
 
 import React, { useRef, useLayoutEffect, useMemo, useEffect } from "react";
-import SmartImage from "../common/SmartImage"; // ✅ 이미지 우회/최적화 공통 컴포넌트 (직접 사용은 안 해도 import 유지)
+import SmartImage from "../common/SmartImage"; // ✅ import 유지
 import { toProxyUrl } from "@lib/cdn";
 
 type CategoryNode = {
@@ -17,6 +14,9 @@ type CategoryNode = {
   order?: number;
   document_id?: number;
   children?: CategoryNode[];
+
+  // ✅ 추가: 모드 태그(서버에서 내려온다고 가정)
+  mode_tags?: string[];
 };
 
 type Document = {
@@ -57,8 +57,10 @@ type Props = {
   isClosing: (path: number[]) => boolean;
   finalizeClose: (path: number[]) => void;
 
-  /** 👇 초기 로딩 끝나 상호작용 가능한지 여부 */
   interactionReady: boolean;
+
+  // ✅ 추가: 현재 선택된 모드
+  mode: string;
 };
 
 function pathToStr(path: number[]) {
@@ -87,7 +89,6 @@ function CollapsibleList({
   onCollapseEnd,
   className,
   children,
-  /** 🔑 서브트리 안에서 열린 path 개수 → 바뀔 때마다 부모 높이 보정용 */
   contentVersion = 0,
 }: {
   isOpen: boolean;
@@ -117,7 +118,6 @@ function CollapsibleList({
     const prevOpen = prevOpenRef.current;
     prevOpenRef.current = isOpen;
 
-    // === 최초 마운트 ===
     if (first) {
       firstRef.current = false;
       el.style.overflow = "hidden";
@@ -131,7 +131,6 @@ function CollapsibleList({
       return;
     }
 
-    // === 열림 상태 토글: 닫힘 → 열림 ===
     if (prevOpen === false && isOpen === true) {
       const full = el.scrollHeight;
       el.style.overflow = "hidden";
@@ -147,7 +146,6 @@ function CollapsibleList({
       const onEnd = (e: TransitionEvent) => {
         if (e.propertyName !== "height") return;
         el.removeEventListener("transitionend", onEnd);
-        // 애니메이션 끝나면 height: auto 로 풀어줘서 자식 변경에 따라 자연스럽게 늘어나도록
         el.style.transition = "";
         if (prevOpenRef.current) {
           el.style.height = "auto";
@@ -158,12 +156,10 @@ function CollapsibleList({
         el.style.height = "auto";
       } else {
         el.addEventListener("transitionend", onEnd);
-
-        // ⚠️ 일부 환경에서 transitionend 누락될 수 있으니 fail-safe
         window.setTimeout(() => {
           const node = ref.current;
           if (!node) return;
-          if (!prevOpenRef.current) return; // 이미 닫혔으면 무시
+          if (!prevOpenRef.current) return;
           node.style.transition = "";
           node.style.height = "auto";
         }, D + 320);
@@ -171,9 +167,7 @@ function CollapsibleList({
       return;
     }
 
-    // === 열림 상태 토글: 열림 → 닫힘 ===
     if (prevOpen === true && isOpen === false) {
-      // isClosing = false 인 경우엔 즉시 접기
       if (!isClosing) {
         el.style.overflow = "hidden";
         el.style.height = "0px";
@@ -181,7 +175,6 @@ function CollapsibleList({
         return;
       }
 
-      // isClosing = true → 부드럽게 접기
       const full = el.scrollHeight;
       el.style.overflow = "hidden";
       el.style.height = full + "px";
@@ -208,10 +201,7 @@ function CollapsibleList({
       return;
     }
 
-    // === 여기까지 왔다는 건: isOpen / isClosing 값은 그대로인데 contentVersion만 바뀐 경우도 포함 ===
-    // → 이미 열려 있는 상태에서 2차/3차 카테고리 열리면서 내부 컨텐츠 높이가 늘어난 상황 등을 케어
     if (isOpen && !isClosing) {
-      // 어떤 환경에서 height가 예전에 잡힌 px 값으로 남아있어도 강제로 auto로 풀어줌
       if (el.style.height !== "auto") {
         el.style.transition = "";
         el.style.overflow = "hidden";
@@ -251,24 +241,58 @@ const CategoryTree: React.FC<Props> = ({
   isClosing,
   finalizeClose,
   interactionReady,
+  mode,
 }) => {
-  // 숨길 루트 대표 문서 ID
   const HIDE_ROOT_DOC_ID = 73;
+
+  // ✅ 현재 모드 정규화 (서버가 소문자 저장하면 여기서 맞춰도 됨)
+  // - 네가 “RPG”로 쓰기로 했으니 기본은 그대로 두고,
+  //   혹시 서버에 rpg로 저장된 데이터가 섞여도 매칭되게 lower 비교만 사용
+  const modeLower = String(mode || "").trim().toLowerCase();
+
+  // ✅ 모드 필터: "상속 포함"
+  // - parentIncluded=true면 하위는 태그 없어도 포함
+  // - parentIncluded=false면 본인 mode_tags에 mode가 있으면 포함
+  // - 자식 중 포함되는 게 있으면 부모도 포함(부모만 보고 숨겨지면 네비가 끊김)
+  const filterTreeByMode = (nodes: CategoryNode[], parentIncluded: boolean): CategoryNode[] => {
+    const out: CategoryNode[] = [];
+    for (const n of nodes) {
+      const ownTags = Array.isArray(n.mode_tags) ? n.mode_tags : [];
+      const ownIncluded =
+        parentIncluded ||
+        ownTags.some((t) => String(t).trim().toLowerCase() === modeLower);
+
+      const nextChildren = n.children?.length
+        ? filterTreeByMode(n.children, ownIncluded)
+        : [];
+
+      // ✅ 포함 조건:
+      // - 본인 포함(ownIncluded) OR
+      // - 자식 중 하나라도 포함(= nextChildren.length>0)
+      if (ownIncluded || nextChildren.length > 0) {
+        out.push({ ...n, children: nextChildren });
+      }
+    }
+    return out;
+  };
+
+  // ✅ 필터된 루트 카테고리
+  const filteredCategories = useMemo(() => {
+    if (!modeLower) return categories; // (안전) mode가 비었으면 전체
+    return filterTreeByMode(categories, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categories, modeLower]);
 
   // ✅ 루트 카테고리 하나를 열 때, 다른 루트 카테고리는 전부 닫기
   const closeOtherRootCategories = async (keepRootId: number) => {
-    // 루트 카테고리만 대상 (categories는 루트 배열)
-    for (const root of categories) {
+    for (const root of filteredCategories) {
       if (root.id === keepRootId) continue;
       const p = [root.id];
       if (!isPathOpen(p)) continue;
-
       try {
         // eslint-disable-next-line no-await-in-loop
         await closeTreeWithChildren(root, p);
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
   };
 
@@ -303,7 +327,6 @@ const CategoryTree: React.FC<Props> = ({
     [allDocuments]
   );
 
-  // 📌 특정 path를 prefix로 가지는 openPaths 개수 (서브트리 열림 상태 버전)
   const countOpenInSubtree = (basePath: number[]) => {
     if (openPaths.length === 0) return 0;
     return openPaths.reduce((cnt, p) => {
@@ -315,7 +338,6 @@ const CategoryTree: React.FC<Props> = ({
     }, 0);
   };
 
-  // 로고(홈 링크) 클릭 시, 숨긴 루트 대표 문서(id===73) 열기
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
       try {
@@ -332,7 +354,6 @@ const CategoryTree: React.FC<Props> = ({
 
         if (!looksLikeLogo) return;
         if (!interactionReady) {
-          // 초기 로딩 중엔 로고 클릭은 무시 (뒤에서 openRootDocById가 처리)
           e.preventDefault();
           e.stopPropagation();
           return;
@@ -347,9 +368,7 @@ const CategoryTree: React.FC<Props> = ({
         e.stopPropagation();
 
         fetchDoc([0], rootRep.title, rootRep.id, { clearCategoryPath: true });
-      } catch {
-        // no-op
-      }
+      } catch {}
     };
 
     document.addEventListener("click", onClick, true);
@@ -358,12 +377,10 @@ const CategoryTree: React.FC<Props> = ({
 
   const isReallyOpen = (path: number[]) => isPathOpen(path) && !isClosing(path);
 
-  // 클릭 가드 유틸
   const guardClick = (e: React.MouseEvent | React.KeyboardEvent) => {
     if (!interactionReady) {
       e.preventDefault();
       e.stopPropagation();
-      // 시각적 비활성화는 CSS로 처리(.is-disabled)
       return true;
     }
     return false;
@@ -381,13 +398,10 @@ const CategoryTree: React.FC<Props> = ({
 
       const isCategoryActive = equalsPath(selectedCategoryPath, currentPath);
       const panelId = `wiki-doc-list-${key}`;
-
-      // 🔑 이 카테고리 이하에서 열린 path 개수 (자식/손자 포함)
       const subtreeOpenVersion = countOpenInSubtree(currentPath);
 
       return (
         <li key={`cat-${node.id}`}>
-          {/* === 카테고리 행 === */}
           <button
             className={`wiki-nav-item ${isCategoryActive ? "active" : ""} ${
               interactionReady ? "" : "is-disabled"
@@ -398,33 +412,20 @@ const CategoryTree: React.FC<Props> = ({
               const currentPath = [...parentPath, node.id];
               const isOpenNow = isPathOpen(currentPath);
 
-              // ✅ 일반 토글
               try {
-                // ✅ 루트 카테고리를 "열려고" 하는 순간, 다른 루트는 전부 닫기
-                // - parentPath.length === 0 → 루트
-                // - !isOpenNow → 지금 닫혀있음 → 이제 열리는 상황
                 if (parentPath.length === 0 && !isOpenNow) {
                   await closeOtherRootCategories(node.id);
                 }
 
                 if (node.document_id != null) {
-                  if (isOpenNow) {
-                    await closeTreeWithChildren(node, currentPath);
-                  } else {
-                    await togglePath(currentPath);
-                  }
+                  if (isOpenNow) await closeTreeWithChildren(node, currentPath);
+                  else await togglePath(currentPath);
                 } else {
-                  if (isOpenNow) {
-                    await closeTreeWithChildren(node, currentPath);
-                  } else {
-                    handleArrowClick(node, currentPath);
-                  }
+                  if (isOpenNow) await closeTreeWithChildren(node, currentPath);
+                  else handleArrowClick(node, currentPath);
                 }
-              } catch {
-                // interaction safety
-              }
+              } catch {}
 
-              // ✅ 대표 문서 우선 오픈
               if (node.document_id != null) {
                 const repId = Number(node.document_id);
                 const repFromList = allDocuments.find((d) => d.id === repId);
@@ -441,36 +442,25 @@ const CategoryTree: React.FC<Props> = ({
                         const data = await r.json();
                         title = data?.title || "";
                       }
-                    } catch {
-                      // ignore
-                    }
+                    } catch {}
                   }
 
                   if (title) {
                     fetchDoc(currentPath, title, repId, { clearCategoryPath: true });
-                    return; // 👈 펼침/접힘 적용하지 않음
+                    return;
                   }
                 }
               }
 
-              // ✅ 일반 토글
               try {
                 if (node.document_id != null) {
-                  if (isOpenNow) {
-                    await closeTreeWithChildren(node, currentPath);
-                  } else {
-                    await togglePath(currentPath);
-                  }
+                  if (isOpenNow) await closeTreeWithChildren(node, currentPath);
+                  else await togglePath(currentPath);
                 } else {
-                  if (isOpenNow) {
-                    await closeTreeWithChildren(node, currentPath);
-                  } else {
-                    handleArrowClick(node, currentPath);
-                  }
+                  if (isOpenNow) await closeTreeWithChildren(node, currentPath);
+                  else handleArrowClick(node, currentPath);
                 }
-              } catch {
-                // interaction safety
-              }
+              } catch {}
             }}
             onKeyDown={(e) => {
               if ((e.key === "Enter" || e.key === " ") && guardClick(e)) return;
@@ -485,7 +475,7 @@ const CategoryTree: React.FC<Props> = ({
               <span className="wiki-cat-icon-token">
                 {node.icon?.startsWith("http") ? (
                   <img
-                    src={toProxyUrl(node.icon)} // ✅ CloudFront로 리라이트
+                    src={toProxyUrl(node.icon)}
                     alt=""
                     aria-hidden="true"
                     className="wiki-category-icon-img"
@@ -509,7 +499,6 @@ const CategoryTree: React.FC<Props> = ({
                   if (guardClick(e as any)) return;
                   e.stopPropagation();
 
-                  // ✅ 루트 화살표로 "열기" 할 때도 다른 루트 접기
                   const isOpenNow = isPathOpen(currentPath);
                   if (parentPath.length === 0 && !isOpenNow) {
                     await closeOtherRootCategories(node.id);
@@ -525,13 +514,7 @@ const CategoryTree: React.FC<Props> = ({
                 }}
                 aria-hidden="true"
               >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 16 16"
-                  style={{ display: "block" }}
-                  className="wiki-arrow-svg"
-                >
+                <svg width="16" height="16" viewBox="0 0 16 16" style={{ display: "block" }} className="wiki-arrow-svg">
                   <polyline
                     points="5,4 11,8 5,12"
                     fill="none"
@@ -545,7 +528,6 @@ const CategoryTree: React.FC<Props> = ({
             )}
           </button>
 
-          {/* === 하위 문서/카테고리 === */}
           <CollapsibleList
             isOpen={open}
             isClosing={closing}
@@ -555,7 +537,6 @@ const CategoryTree: React.FC<Props> = ({
           >
             {shouldRender && (
               <>
-                {/* 문서 목록 */}
                 {docs.map((doc) => {
                   const isDocActive = selectedDocId === doc.id;
                   return (
@@ -578,7 +559,7 @@ const CategoryTree: React.FC<Props> = ({
                       <span style={{ marginRight: "0.3em" }}>
                         {doc.icon?.startsWith("http") ? (
                           <img
-                            src={toProxyUrl(doc.icon)} // ✅ CloudFront로 리라이트
+                            src={toProxyUrl(doc.icon)}
                             alt=""
                             aria-hidden="true"
                             loading="lazy"
@@ -597,7 +578,6 @@ const CategoryTree: React.FC<Props> = ({
                   );
                 })}
 
-                {/* 하위 카테고리 재귀 */}
                 {node.children && renderTree(node.children, currentPath)}
               </>
             )}
@@ -608,8 +588,10 @@ const CategoryTree: React.FC<Props> = ({
 
   return (
     <ul className="wiki-nav-list">
-      {renderTree(categories)}
-      {/* ✅ 루트 문서: 대표(73)만 제외 + 정렬 */}
+      {/* ✅ 여기서 filteredCategories 사용 */}
+      {renderTree(filteredCategories)}
+
+      {/* 루트 문서(대표 73 제외) */}
       {rootDocs.map((doc) => {
         const isDocActive = selectedDocId === doc.id;
         return (
@@ -630,7 +612,7 @@ const CategoryTree: React.FC<Props> = ({
                 <span className="wiki-cat-icon-token">
                   {doc.icon?.startsWith("http") ? (
                     <img
-                      src={toProxyUrl(doc.icon)} // ✅ CloudFront로 리라이트
+                      src={toProxyUrl(doc.icon)}
                       alt=""
                       aria-hidden="true"
                       className="wiki-category-icon-img"

@@ -3,11 +3,11 @@
 // =============================================
 'use client';
 
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import HamburgerMenu from "@/components/common/HamburgerMenu";
+import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
+import HamburgerMenu from '@/components/common/HamburgerMenu';
 import '@/wiki/css/header.css';
-import SearchBox from "@/components/common/SearchBox";
+import SearchBox from '@/components/common/SearchBox';
 import logo from '../../image/logo.png';
 import Image from 'next/image';
 
@@ -20,7 +20,7 @@ type WikiHeaderProps = {
   } | null;
 };
 
-// ✅ 모드 옵션 확장
+// ✅ 모드 옵션 (All 제거)
 const MODE_OPTIONS = [
   { label: 'RPG', tag: 'RPG' as const },
   { label: '렌독런', tag: '렌독런' as const },
@@ -28,7 +28,9 @@ const MODE_OPTIONS = [
   { label: '부엉이타운', tag: '부엉이타운' as const },
 ] as const;
 
+const DEFAULT_MODE = 'RPG';
 const MODE_TAG_SET = new Set(MODE_OPTIONS.map(m => m.tag));
+
 const MODE_PARAM = 'mode';
 const MODE_STORAGE = 'wiki:mode';
 const MODE_EVENT = 'wiki-mode-change';
@@ -36,39 +38,65 @@ const MODE_EVENT = 'wiki-mode-change';
 export default function WikiHeader({ user }: WikiHeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // 초기 모드: URL > localStorage > null(전체)
+  // ✅ 초기 모드: URL > localStorage > DEFAULT_MODE
   const initialMode = useMemo(() => {
-    if (typeof window === 'undefined') return null;
-    const urlMode = new URLSearchParams(window.location.search).get(MODE_PARAM);
-    const stored = window.localStorage.getItem(MODE_STORAGE) || '';
-    const base = urlMode ?? (stored || null);
-    return base && MODE_TAG_SET.has(base as any) ? base : null;
+    if (typeof window === 'undefined') return DEFAULT_MODE;
+
+    const urlModeRaw = new URLSearchParams(window.location.search).get(MODE_PARAM);
+    const storedRaw = window.localStorage.getItem(MODE_STORAGE) || '';
+
+    const urlMode = urlModeRaw && MODE_TAG_SET.has(urlModeRaw as any) ? urlModeRaw : null;
+    const stored = storedRaw && MODE_TAG_SET.has(storedRaw as any) ? storedRaw : null;
+
+    return (urlMode ?? stored ?? DEFAULT_MODE) as string;
   }, []);
-  const [mode, setMode] = useState<string | null>(initialMode);
+
+  const [mode, setMode] = useState<string>(initialMode);
 
   // Esc로 햄버거 닫기
   useEffect(() => {
     if (!isMenuOpen) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsMenuOpen(false); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsMenuOpen(false);
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [isMenuOpen]);
 
-  // 모드 적용: URL/로컬스토리지/이벤트 동기화
-  const applyMode = (next: string | null) => {
-    setMode(next);
+  // ✅ 모드 적용: 항상 유효 태그만, null 불가
+  const applyMode = (next: string) => {
+    const safe = MODE_TAG_SET.has(next as any) ? next : DEFAULT_MODE;
+
+    setMode(safe);
+
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
-      if (next) url.searchParams.set(MODE_PARAM, next);
-      else url.searchParams.delete(MODE_PARAM);
+      url.searchParams.set(MODE_PARAM, safe);
       window.history.replaceState({}, '', url);
 
-      if (next) localStorage.setItem(MODE_STORAGE, next);
-      else localStorage.removeItem(MODE_STORAGE);
+      localStorage.setItem(MODE_STORAGE, safe);
 
-      window.dispatchEvent(new CustomEvent(MODE_EVENT, { detail: { mode: next } }));
+      window.dispatchEvent(
+        new CustomEvent(MODE_EVENT, { detail: { mode: safe } })
+      );
     }
   };
+
+  // ✅ 최초 렌더에서 URL/LS가 비어있으면 RPG를 URL에도 박아넣기
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    const cur = url.searchParams.get(MODE_PARAM);
+    if (!cur || !MODE_TAG_SET.has(cur as any)) {
+      url.searchParams.set(MODE_PARAM, mode || DEFAULT_MODE);
+      window.history.replaceState({}, '', url);
+      localStorage.setItem(MODE_STORAGE, mode || DEFAULT_MODE);
+      window.dispatchEvent(
+        new CustomEvent(MODE_EVENT, { detail: { mode: mode || DEFAULT_MODE } })
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleLogout() {
     try {
@@ -89,7 +117,7 @@ export default function WikiHeader({ user }: WikiHeaderProps) {
           <span>RDWIKI</span>
         </Link>
 
-        {/* ✅ 모드 옵션: All + 4개 */}
+        {/* ✅ 모드 옵션: 4개만 */}
         <div
           style={{
             display: 'flex',
@@ -101,35 +129,15 @@ export default function WikiHeader({ user }: WikiHeaderProps) {
           }}
           aria-label="모드 선택"
         >
-          <button
-            type="button"
-            onClick={() => applyMode(null)}
-            aria-pressed={mode === null}
-            title="전체 보기"
-            style={{
-              background: 'transparent',
-              border: 0,
-              padding: 0,
-              fontSize: 15,
-              fontWeight: mode === null ? 800 : 600,
-              letterSpacing: 0.2,
-              color: mode === null ? '#6f4cff' : '#6b7280',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            All
-          </button>
-
           {MODE_OPTIONS.map((m) => {
             const active = mode === m.tag;
             return (
               <button
                 key={m.tag}
                 type="button"
-                onClick={() => applyMode(active ? null : m.tag)}
+                onClick={() => applyMode(m.tag)}
                 aria-pressed={active}
-                title={`${m.label}만 보기`}
+                title={`${m.label} 보기`}
                 style={{
                   background: 'transparent',
                   border: 0,

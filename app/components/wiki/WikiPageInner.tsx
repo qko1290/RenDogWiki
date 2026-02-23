@@ -172,7 +172,8 @@ function parseSpecial(raw?: string | null): SpecialMeta {
 }
 
 export default function WikiPageInner({ user }: Props) {
-  const [mode, setMode] = useState<string | null>(getInitialMode());
+  const DEFAULT_MODE = 'RPG';
+  const [mode, setMode] = useState<string>(getInitialMode() ?? DEFAULT_MODE);
 
   const [categories, setCategories] = useState<CategoryNode[]>([]);
   const [categoryIdToPathMap, setCategoryIdToPathMap] = useState<
@@ -1350,6 +1351,7 @@ export default function WikiPageInner({ user }: Props) {
                 isClosing={isClosing}
                 finalizeClose={finalizeClose}
                 interactionReady={interactionReady}
+                mode={mode ?? 'RPG'}
               />
             </div>
           </aside>
