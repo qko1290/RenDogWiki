@@ -116,6 +116,39 @@ function autoFont(base: number, text: string, steps?: Array<[number, number]>) {
   return Math.max(11, (rules.at(-1)?.[1] ?? base) - 2);
 }
 
+/**
+ * ✅ 이름 줄바꿈 규칙
+ * - 10글자 이상 + 띄어쓰기 2개 이상이면
+ * - 7글자 "이후"에 처음 나오는 띄어쓰기 지점부터 줄바꿈
+ *   (해당 공백은 제거하고 다음 줄로 보냄)
+ */
+function renderNameWithSmartBreak(nameRaw: string | null | undefined) {
+  const name = String(nameRaw ?? '');
+  const chars = Array.from(name);
+  const len = chars.length;
+  const spaceCount = chars.reduce((acc, ch) => (ch === ' ' ? acc + 1 : acc), 0);
+
+  if (len < 10 || spaceCount < 2) return name;
+
+  // "7글자 다음 띄어쓰기" → 인덱스 7(=8번째 글자 위치)부터 탐색
+  const breakAt = chars.findIndex((ch, i) => i >= 7 && ch === ' ');
+  if (breakAt === -1) return name;
+
+  const first = chars.slice(0, breakAt).join('');
+  const second = chars.slice(breakAt + 1).join(''); // 공백 제거
+
+  // second가 비면 굳이 줄바꿈 안 함
+  if (!second.trim()) return name;
+
+  return (
+    <span>
+      {first}
+      <br />
+      {second}
+    </span>
+  );
+}
+
 /** 가격 텍스트: "~" 있을 때만 줄바꿈 힌트 */
 
 // ✅ PHP(colors.js)와 동일 팔레트: [10강..1강]
@@ -591,13 +624,14 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
           marginBottom: 0,
           color: item.name ? '#333' : '#bbb',
           textAlign: 'center',
-          minHeight: 24,
+          minHeight: 40, // ✅ 2줄 가능하니 살짝 여유
           width: '100%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           padding: 0,
           cursor: 'pointer',
+          whiteSpace: 'normal', // ✅ 줄바꿈 허용
         }}
         title="아이템 선택"
         onClick={(e) => {
@@ -609,7 +643,11 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
           setSelectModalOpen(true);
         }}
       >
-        {item.name || <span style={{ color: '#bbb' }}>이름 없음</span>}
+        {item.name ? (
+          renderNameWithSmartBreak(item.name)
+        ) : (
+          <span style={{ color: '#bbb' }}>이름 없음</span>
+        )}
       </div>
 
       <PriceItemSelectModal
