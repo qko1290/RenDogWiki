@@ -1,6 +1,6 @@
 // =============================================
 // File: components/wiki/HeadGrid.tsx
-// (6열 + 좌표 전체 표시 + 카드 UI 개선)
+// (6열 + 좌표 전체 표시 + Game UI 스타일)
 // =============================================
 import React from "react";
 import { toProxyUrl } from "@lib/cdn";
@@ -51,62 +51,110 @@ export default function HeadGrid({
 
         const coordText = `(${head.location_x}, ${head.location_y}, ${head.location_z})`;
 
+        const baseBorder = isSelected ? "#35b6ff" : "rgba(0,0,0,0.18)";
+        const innerBorder = isSelected ? "rgba(53,182,255,0.65)" : "rgba(255,255,255,0.10)";
+
         return (
           <div
             key={head.id}
             onClick={() => onClick?.(head)}
             style={{
-              cursor: "pointer",
-              borderRadius: 16,
-              padding: 10,
-              height: 132,
               position: "relative",
+              height: 140,
+              borderRadius: 14,
+              cursor: "pointer",
               userSelect: "none",
+              padding: 10,
+              textAlign: "center",
 
-              background: isSelected
-                ? "linear-gradient(180deg, #eff8ff 0%, #ffffff 70%)"
-                : "linear-gradient(180deg, #ffffff 0%, #fbfbfb 100%)",
+              // 게임 UI 프레임 느낌: 어두운 베이스 + 미세한 그라데이션
+              background:
+                "linear-gradient(180deg, rgba(32,36,44,0.95) 0%, rgba(20,22,28,0.98) 100%)",
 
-              border: isSelected ? "1px solid #78c7ff" : "1px solid #e6e6e6",
+              // 바깥 프레임 테두리
+              border: `1px solid ${baseBorder}`,
+
+              // 깊이감(그림자) + 선택 글로우
               boxShadow: isSelected
-                ? "0 10px 24px rgba(35, 140, 255, 0.12)"
-                : "0 8px 18px rgba(0, 0, 0, 0.06)",
+                ? "0 0 0 3px rgba(53,182,255,0.22), 0 14px 28px rgba(0,0,0,0.35)"
+                : "0 14px 28px rgba(0,0,0,0.35)",
 
               transition:
                 "transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease",
+              minWidth: 0,
+              overflow: "hidden",
             }}
             onMouseEnter={(e) => {
               (e.currentTarget as HTMLDivElement).style.transform =
                 "translateY(-2px)";
               (e.currentTarget as HTMLDivElement).style.boxShadow = isSelected
-                ? "0 12px 26px rgba(35, 140, 255, 0.14)"
-                : "0 12px 26px rgba(0, 0, 0, 0.08)";
+                ? "0 0 0 3px rgba(53,182,255,0.26), 0 18px 34px rgba(0,0,0,0.40)"
+                : "0 18px 34px rgba(0,0,0,0.40)";
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLDivElement).style.transform = "none";
               (e.currentTarget as HTMLDivElement).style.boxShadow = isSelected
-                ? "0 10px 24px rgba(35, 140, 255, 0.12)"
-                : "0 8px 18px rgba(0, 0, 0, 0.06)";
+                ? "0 0 0 3px rgba(53,182,255,0.22), 0 14px 28px rgba(0,0,0,0.35)"
+                : "0 14px 28px rgba(0,0,0,0.35)";
             }}
           >
-            {/* 상단 작은 배지 */}
+            {/* 상단 광택(shine) */}
             <div
               style={{
                 position: "absolute",
-                top: 10,
-                left: 10,
-                fontSize: 12,
-                fontWeight: 800,
-                padding: "4px 8px",
-                borderRadius: 999,
-                background: isSelected ? "#dff3ff" : "#f2f2f2",
-                color: isSelected ? "#0b74b8" : "#666",
-                border: isSelected ? "1px solid #bfe9ff" : "1px solid #e8e8e8",
-                letterSpacing: 0.2,
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 42,
+                background:
+                  "linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.00) 100%)",
+                pointerEvents: "none",
               }}
-            >
-              #{head.order}
-            </div>
+            />
+
+            {/* 안쪽 프레임(인셋) */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 6,
+                borderRadius: 10,
+                border: `1px solid ${innerBorder}`,
+                boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.25)",
+                pointerEvents: "none",
+              }}
+            />
+
+            {/* 선택 상태 코너 장식 */}
+            {isSelected && (
+              <>
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 8,
+                    left: 8,
+                    width: 10,
+                    height: 10,
+                    borderTop: "2px solid rgba(53,182,255,0.9)",
+                    borderLeft: "2px solid rgba(53,182,255,0.9)",
+                    borderRadius: 2,
+                    pointerEvents: "none",
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 8,
+                    right: 8,
+                    width: 10,
+                    height: 10,
+                    borderTop: "2px solid rgba(53,182,255,0.9)",
+                    borderRight: "2px solid rgba(53,182,255,0.9)",
+                    borderRadius: 2,
+                    pointerEvents: "none",
+                  }}
+                />
+              </>
+            )}
 
             <div
               style={{
@@ -115,23 +163,25 @@ export default function HeadGrid({
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: 6,
-                textAlign: "center",
+                gap: 7,
+                paddingTop: 2,
               }}
             >
-              {/* 썸네일 래퍼 */}
+              {/* 썸네일: 프레임+광택 */}
               <div
                 style={{
-                  width: 54,
-                  height: 54,
-                  borderRadius: 16,
+                  width: 58,
+                  height: 58,
+                  borderRadius: 14,
                   display: "grid",
                   placeItems: "center",
-                  background: isSelected
-                    ? "linear-gradient(180deg, #e7f6ff 0%, #ffffff 100%)"
-                    : "linear-gradient(180deg, #f6f6f6 0%, #ffffff 100%)",
-                  border: "1px solid rgba(0,0,0,0.06)",
-                  boxShadow: "0 6px 14px rgba(0,0,0,0.06)",
+                  background:
+                    "linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.02) 100%)",
+                  border: isSelected
+                    ? "1px solid rgba(53,182,255,0.55)"
+                    : "1px solid rgba(255,255,255,0.10)",
+                  boxShadow:
+                    "inset 0 0 0 1px rgba(0,0,0,0.35), 0 10px 18px rgba(0,0,0,0.35)",
                 }}
               >
                 {thumbSrc ? (
@@ -142,64 +192,55 @@ export default function HeadGrid({
                     decoding="async"
                     draggable={false}
                     style={{
-                      width: 44,
-                      height: 44,
+                      width: 46,
+                      height: 46,
                       borderRadius: 12,
                       objectFit: "cover",
-                      background: "#fff",
-                      border: "1px solid rgba(0,0,0,0.08)",
+                      background: "#111",
+                      border: "1px solid rgba(0,0,0,0.35)",
+                      boxShadow: "0 6px 14px rgba(0,0,0,0.35)",
                     }}
                   />
                 ) : (
-                  <span style={{ fontSize: 32, color: "#bdbdbd" }}>🪖</span>
+                  <span style={{ fontSize: 32, color: "rgba(255,255,255,0.40)" }}>
+                    🪖
+                  </span>
                 )}
               </div>
 
-              {/* 큰 제목 */}
+              {/* 타이틀: 게임 UI 느낌(글로우) */}
               <div
                 style={{
                   fontSize: 18,
                   fontWeight: 900,
-                  color: "#111",
                   letterSpacing: 0.2,
+                  color: "rgba(255,255,255,0.94)",
                   fontFamily: "Pretendard, Malgun Gothic, sans-serif",
+                  textShadow: isSelected
+                    ? "0 0 10px rgba(53,182,255,0.35), 0 2px 0 rgba(0,0,0,0.55)"
+                    : "0 2px 0 rgba(0,0,0,0.55)",
                 }}
               >
                 {head.order}번
               </div>
 
-              {/* 좌표 (전부 표시, 줄바꿈 OK) */}
+              {/* 좌표: 전부 표시(줄바꿈 OK), 다만 폭을 넘어가면 2줄 이상으로 자연스럽게 */}
               <div
                 style={{
-                  fontSize: 13,
-                  color: "#5b5b5b",
+                  fontSize: 12.5,
                   lineHeight: "16px",
-                  padding: "0 6px",
+                  padding: "0 8px",
+                  color: "rgba(255,255,255,0.72)",
                   wordBreak: "break-word",
                   fontVariantNumeric: "tabular-nums",
                   fontFamily:
                     "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
+                  textShadow: "0 1px 0 rgba(0,0,0,0.55)",
                 }}
               >
                 {coordText}
               </div>
             </div>
-
-            {/* 선택 링(오른쪽 위 점) */}
-            {isSelected && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: 10,
-                  right: 10,
-                  width: 10,
-                  height: 10,
-                  borderRadius: 999,
-                  background: "#2aa8ff",
-                  boxShadow: "0 0 0 4px rgba(42,168,255,0.18)",
-                }}
-              />
-            )}
           </div>
         );
       })}
