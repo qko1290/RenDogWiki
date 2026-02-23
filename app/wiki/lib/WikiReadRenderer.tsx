@@ -579,6 +579,14 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
     ? "0 12px 28px rgba(2, 132, 199, 0.16), 0 3px 8px rgba(15, 23, 42, 0.08)"
     : "0 10px 24px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.05)";
 
+  const titleFontPx = autoFont(16, labelText, [
+    [18, 16],
+    [26, 15],
+    [34, 14],
+    [42, 13],
+    [60, 12],
+  ]);
+
   return (
     <div style={{ position: "relative", ...wrapperStyle }}>
       <a
@@ -693,7 +701,7 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
           >
             <div
               style={{
-                fontSize: 16,
+                fontSize: titleFontPx, // ✅ 글자수 기반 폰트
                 fontWeight: 750,
                 color: "#0f172a",
                 overflow: "hidden",
@@ -2314,12 +2322,27 @@ function renderNode(
       const plainText = stripReact(children).replace(/\u200B/g, "").trim();
       const isEmpty = plainText.length === 0;
 
+      const baseFont = 19;
+
+      // 문단 길이에 따른 폰트 자동 축소(원하면 rules 조절 가능)
+      const paragraphFontPx = isEmpty
+        ? baseFont
+        : autoFont(baseFont, plainText, [
+            [40, baseFont],        // 40자 이하면 19
+            [80, baseFont - 1],    // 80자 이하면 18
+            [120, baseFont - 2],   // 120자 이하면 17
+            [170, baseFont - 3],   // 170자 이하면 16
+            [230, baseFont - 4],   // 230자 이하면 15
+            [320, baseFont - 5],   // 320자 이하면 14
+            [450, baseFont - 6],   // 450자 이하면 13
+          ]);
+
       const style: React.CSSProperties = {
         textAlign: node.textAlign || "left",
         margin: 0,
         lineHeight: 1.6,
-        fontSize: "19px",
-        whiteSpace: "pre-wrap", // ✅ 여러 공백/개행 유지
+        fontSize: `${paragraphFontPx}px`, // ✅ 글자수 기반 폰트
+        whiteSpace: "pre-wrap",
         minHeight: isEmpty ? "1.6em" : undefined,
       };
 
