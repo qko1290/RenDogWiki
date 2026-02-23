@@ -3,7 +3,6 @@
 // (대표 문서 우선 오픈, 이미지 lazy/async/CloudFront 우회, 루트 문서 정렬 유지)
 // + 초기 로딩 가드(interactionReady) 및 안전장치 추가
 // + CollapsibleList: 서브트리 열림 상태 변화에 따라 height를 auto로 보정
-// + ✅ 로고 클릭 시: 시작 문서(루트 대표)로 이동 + 모든 카테고리 접기
 // =============================================
 "use client";
 
@@ -209,8 +208,10 @@ function CollapsibleList({
       return;
     }
 
-    // === isOpen / isClosing 값은 그대로인데 contentVersion만 바뀐 경우 ===
+    // === 여기까지 왔다는 건: isOpen / isClosing 값은 그대로인데 contentVersion만 바뀐 경우도 포함 ===
+    // → 이미 열려 있는 상태에서 2차/3차 카테고리 열리면서 내부 컨텐츠 높이가 늘어난 상황 등을 케어
     if (isOpen && !isClosing) {
+      // 어떤 환경에서 height가 예전에 잡힌 px 값으로 남아있어도 강제로 auto로 풀어줌
       if (el.style.height !== "auto") {
         el.style.transition = "";
         el.style.overflow = "hidden";
@@ -253,6 +254,23 @@ const CategoryTree: React.FC<Props> = ({
 }) => {
   // 숨길 루트 대표 문서 ID
   const HIDE_ROOT_DOC_ID = 73;
+
+  // ✅ 루트 카테고리 하나를 열 때, 다른 루트 카테고리는 전부 닫기
+  const closeOtherRootCategories = async (keepRootId: number) => {
+    // 루트 카테고리만 대상 (categories는 루트 배열)
+    for (const root of categories) {
+      if (root.id === keepRootId) continue;
+      const p = [root.id];
+      if (!isPathOpen(p)) continue;
+
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await closeTreeWithChildren(root, p);
+      } catch {
+        // ignore
+      }
+    }
+  };
 
   // 카테고리별 문서 캐시 (루트 제외) + 정렬
   const docsByPath = useMemo(() => {
@@ -297,9 +315,9 @@ const CategoryTree: React.FC<Props> = ({
     }, 0);
   };
 
-  // ✅ 로고 클릭 시: 시작 문서 열기 + 모든 카테고리(열린 path 전체) 접기
+  // 로고(홈 링크) 클릭 시, 숨긴 루트 대표 문서(id===73) 열기
   useEffect(() => {
-    const onClick = async (e: MouseEvent) => {
+    const onClick = (e: MouseEvent) => {
       try {
         const target = e.target as HTMLElement | null;
         const a = target?.closest("a") as HTMLAnchorElement | null;
@@ -313,8 +331,8 @@ const CategoryTree: React.FC<Props> = ({
           a.classList.contains("wiki-logo");
 
         if (!looksLikeLogo) return;
-
         if (!interactionReady) {
+          // 초기 로딩 중엔 로고 클릭은 무시 (뒤에서 openRootDocById가 처리)
           e.preventDefault();
           e.stopPropagation();
           return;
@@ -328,32 +346,6 @@ const CategoryTree: React.FC<Props> = ({
         e.preventDefault();
         e.stopPropagation();
 
-        // ✅ 0) “카테고리 경로 선택”이 남아있으면 자동 펼침 로직이 다시 열 수 있어서 먼저 제거
-        setSelectedCategoryPath(null);
-
-        // ✅ 1) 현재 열린 모든 openPaths를 “깊은 것부터” 닫기
-        // - openPaths는 props라 직접 초기화가 불가 → closeTreeWithChildren를 이용해 상태를 실제로 닫아줌
-        const snapshot = [...openPaths];
-        snapshot.sort((a, b) => b.length - a.length); // 깊은 것부터
-
-        for (const p of snapshot) {
-          // p는 [catId, catId, ...] 형태
-          if (!Array.isArray(p) || p.length === 0) continue;
-          if (!isPathOpen(p)) continue;
-
-          const lastId = p[p.length - 1];
-          const node = categoryIdMap[lastId];
-          if (!node) continue;
-
-          try {
-            // eslint-disable-next-line no-await-in-loop
-            await closeTreeWithChildren(node, p);
-          } catch {
-            // ignore
-          }
-        }
-
-        // ✅ 2) 시작 문서(루트 대표)로 이동
         fetchDoc([0], rootRep.title, rootRep.id, { clearCategoryPath: true });
       } catch {
         // no-op
@@ -362,16 +354,7 @@ const CategoryTree: React.FC<Props> = ({
 
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);
-  }, [
-    allDocuments,
-    categoryIdMap,
-    closeTreeWithChildren,
-    fetchDoc,
-    interactionReady,
-    isPathOpen,
-    openPaths,
-    setSelectedCategoryPath,
-  ]);
+  }, [allDocuments, fetchDoc, interactionReady]);
 
   const isReallyOpen = (path: number[]) => isPathOpen(path) && !isClosing(path);
 
@@ -380,6 +363,7 @@ const CategoryTree: React.FC<Props> = ({
     if (!interactionReady) {
       e.preventDefault();
       e.stopPropagation();
+      // 시각적 비활성화는 CSS로 처리(.is-disabled)
       return true;
     }
     return false;
@@ -413,6 +397,32 @@ const CategoryTree: React.FC<Props> = ({
 
               const currentPath = [...parentPath, node.id];
               const isOpenNow = isPathOpen(currentPath);
+
+              // ✅ 일반 토글
+              try {
+                // ✅ 루트 카테고리를 "열려고" 하는 순간, 다른 루트는 전부 닫기
+                // - parentPath.length === 0 → 루트
+                // - !isOpenNow → 지금 닫혀있음 → 이제 열리는 상황
+                if (parentPath.length === 0 && !isOpenNow) {
+                  await closeOtherRootCategories(node.id);
+                }
+
+                if (node.document_id != null) {
+                  if (isOpenNow) {
+                    await closeTreeWithChildren(node, currentPath);
+                  } else {
+                    await togglePath(currentPath);
+                  }
+                } else {
+                  if (isOpenNow) {
+                    await closeTreeWithChildren(node, currentPath);
+                  } else {
+                    handleArrowClick(node, currentPath);
+                  }
+                }
+              } catch {
+                // interaction safety
+              }
 
               // ✅ 대표 문서 우선 오픈
               if (node.document_id != null) {
@@ -475,7 +485,7 @@ const CategoryTree: React.FC<Props> = ({
               <span className="wiki-cat-icon-token">
                 {node.icon?.startsWith("http") ? (
                   <img
-                    src={toProxyUrl(node.icon)}
+                    src={toProxyUrl(node.icon)} // ✅ CloudFront로 리라이트
                     alt=""
                     aria-hidden="true"
                     className="wiki-category-icon-img"
@@ -495,9 +505,16 @@ const CategoryTree: React.FC<Props> = ({
             {(node.children?.length || docs.length) > 0 && (
               <span
                 className={`wiki-category-arrow${open ? " open" : ""}`}
-                onClick={(e) => {
+                onClick={async (e) => {
                   if (guardClick(e as any)) return;
                   e.stopPropagation();
+
+                  // ✅ 루트 화살표로 "열기" 할 때도 다른 루트 접기
+                  const isOpenNow = isPathOpen(currentPath);
+                  if (parentPath.length === 0 && !isOpenNow) {
+                    await closeOtherRootCategories(node.id);
+                  }
+
                   handleArrowClick(node, currentPath);
                 }}
                 style={{
@@ -561,7 +578,7 @@ const CategoryTree: React.FC<Props> = ({
                       <span style={{ marginRight: "0.3em" }}>
                         {doc.icon?.startsWith("http") ? (
                           <img
-                            src={toProxyUrl(doc.icon)}
+                            src={toProxyUrl(doc.icon)} // ✅ CloudFront로 리라이트
                             alt=""
                             aria-hidden="true"
                             loading="lazy"
@@ -613,7 +630,7 @@ const CategoryTree: React.FC<Props> = ({
                 <span className="wiki-cat-icon-token">
                   {doc.icon?.startsWith("http") ? (
                     <img
-                      src={toProxyUrl(doc.icon)}
+                      src={toProxyUrl(doc.icon)} // ✅ CloudFront로 리라이트
                       alt=""
                       aria-hidden="true"
                       className="wiki-category-icon-img"
