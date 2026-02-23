@@ -117,36 +117,44 @@ function autoFont(base: number, text: string, steps?: Array<[number, number]>) {
 }
 
 /**
- * ✅ 이름 줄바꿈 규칙
+ * ✅ 이름 줄바꿈 규칙 + "줄바꿈 발생 여부"까지 반환
  * - 10글자 이상 + 띄어쓰기 2개 이상이면
- * - 7글자 "이후"에 처음 나오는 띄어쓰기 지점부터 줄바꿈
+ * - 7글자 이후에 처음 등장하는 띄어쓰기 지점부터 줄바꿈
  *   (해당 공백은 제거하고 다음 줄로 보냄)
  */
-function renderNameWithSmartBreak(nameRaw: string | null | undefined) {
+function smartNameBreakInfo(nameRaw: string | null | undefined) {
   const name = String(nameRaw ?? '');
   const chars = Array.from(name);
   const len = chars.length;
   const spaceCount = chars.reduce((acc, ch) => (ch === ' ' ? acc + 1 : acc), 0);
 
-  if (len < 10 || spaceCount < 2) return name;
+  if (len < 10 || spaceCount < 2) {
+    return { node: name as React.ReactNode, broke: false };
+  }
 
-  // "7글자 다음 띄어쓰기" → 인덱스 7(=8번째 글자 위치)부터 탐색
+  // "7글자 다음 띄어쓰기" → 인덱스 7(=8번째 글자 위치)부터 공백 탐색
   const breakAt = chars.findIndex((ch, i) => i >= 7 && ch === ' ');
-  if (breakAt === -1) return name;
+  if (breakAt === -1) {
+    return { node: name as React.ReactNode, broke: false };
+  }
 
   const first = chars.slice(0, breakAt).join('');
   const second = chars.slice(breakAt + 1).join(''); // 공백 제거
 
-  // second가 비면 굳이 줄바꿈 안 함
-  if (!second.trim()) return name;
+  if (!second.trim()) {
+    return { node: name as React.ReactNode, broke: false };
+  }
 
-  return (
-    <span>
-      {first}
-      <br />
-      {second}
-    </span>
-  );
+  return {
+    node: (
+      <span>
+        {first}
+        <br />
+        {second}
+      </span>
+    ),
+    broke: true,
+  };
 }
 
 /** 가격 텍스트: "~" 있을 때만 줄바꿈 힌트 */
@@ -382,13 +390,23 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
   const imgSrc = item.image?.startsWith?.('http') ? toProxyUrl(item.image) : item.image;
 
   const nameShown = item.name || '이름 없음';
-  const nameFont = autoFont(20, String(nameShown), [
-    [7, 18],
-    [9, 16],
-    [12, 14],
-    [16, 13],
-    [20, 12],
-  ]);
+
+  // ✅ 줄바꿈 가공(표시용) + 줄바꿈 발생 여부
+  const { node: nameNode, broke: nameBroke } = useMemo(
+    () => smartNameBreakInfo(item.name),
+    [item.name]
+  );
+
+  // ✅ 줄바꿈이 발생하면 무조건 17pt
+  const nameFont = nameBroke
+    ? 17
+    : autoFont(20, String(nameShown), [
+        [7, 18],
+        [9, 16],
+        [12, 14],
+        [16, 13],
+        [20, 12],
+      ]);
 
   const priceFont = autoFont(20, String(priceVal), [
     [8, 20],
@@ -624,7 +642,7 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
           marginBottom: 0,
           color: item.name ? '#333' : '#bbb',
           textAlign: 'center',
-          minHeight: 40, // ✅ 2줄 가능하니 살짝 여유
+          minHeight: 40, // ✅ 2줄 가능하니 여유
           width: '100%',
           display: 'flex',
           alignItems: 'center',
@@ -643,11 +661,7 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
           setSelectModalOpen(true);
         }}
       >
-        {item.name ? (
-          renderNameWithSmartBreak(item.name)
-        ) : (
-          <span style={{ color: '#bbb' }}>이름 없음</span>
-        )}
+        {item.name ? nameNode : <span style={{ color: '#bbb' }}>이름 없음</span>}
       </div>
 
       <PriceItemSelectModal
