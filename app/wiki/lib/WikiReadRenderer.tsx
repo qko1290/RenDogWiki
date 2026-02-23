@@ -1555,26 +1555,32 @@ function PriceTableCardBlock({
 
           const nameShown = item.name?.trim() ? item.name : "이름 없음";
 
-          const chars = Array.from(nameShown);
-          const len = chars.length;
-          const spaceCount = (nameShown.match(/\s/g) ?? []).length;
+          // ✅ 기존 줄바꿈 규칙 결과
+          const { node: nameNode, broke: nameBroke } = smartNameBreakInfo(nameShown);
 
-          // ✅ 기존 줄바꿈 규칙
-          const { node: nameNode, broke: nameBroke } =
-            smartNameBreakInfo(nameShown);
+          // ✅ 줄바꿈이 발생한 경우, "줄바꿈 이전(첫 줄)" 텍스트를 구해서 조건 판정
+          let brokePrefixLen = 0;
+          let brokePrefixSpaceCount = 0;
 
-          // ✅ 추가 규칙:
-          // 8글자 이상 + 띄어쓰기 1개 이상 (단, 줄바꿈은 발생하지 않은 경우)
-          // → 폰트 16pt 고정
-          const eightAndOneSpace =
-            !nameBroke && len >= 8 && spaceCount >= 1;
+          if (nameBroke) {
+            const chars = Array.from(String(nameShown ?? ""));
+            const breakAt = chars.findIndex((ch, i) => i >= 7 && ch === " "); // smartNameBreakInfo와 동일 기준
 
+            if (breakAt !== -1) {
+              const first = chars.slice(0, breakAt).join(""); // 줄바꿈 이전
+              brokePrefixLen = Array.from(first).length;
+              brokePrefixSpaceCount = (first.match(/\s/g) ?? []).length;
+            }
+          }
+
+          // ✅ 폰트 결정
           let nameFont: number;
 
           if (nameBroke) {
-            nameFont = 17;               // 줄바꿈 발생 → 17pt 고정
-          } else if (eightAndOneSpace) {
-            nameFont = 16;               // 🔥 새 규칙
+            // 🔥 추가 규칙:
+            // "줄바꿈 지점 이전" 글자수가 8글자 이상 && 띄어쓰기 1개 이상이면 16pt
+            const prefixRule = brokePrefixLen >= 8 && brokePrefixSpaceCount >= 1;
+            nameFont = prefixRule ? 16 : 17; // 기본은 17pt 고정
           } else {
             nameFont = autoFont(20, String(nameShown), [
               [7, 18],
@@ -1584,6 +1590,7 @@ function PriceTableCardBlock({
               [20, 12],
             ]);
           }
+
           const priceSize = autoFont(20, String(priceVal));
 
           const image = item.image ? (
