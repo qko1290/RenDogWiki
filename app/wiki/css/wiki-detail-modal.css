@@ -1,27 +1,27 @@
 /* wiki/css/wiki-detail-modal.css */
-/* (원래 구조 유지 + 깔끔한 톤/그림자/호버만 개선) */
+/* - NanumSquareRound 모달 전체 적용
+   - 왼쪽 배경이 아래까지 안 채워지는 문제 해결(스트레치 강제)
+   - pill: 오른쪽이 더 긴 반반 알약(두번째 스샷 느낌)
+*/
 
 /* ───────── 공통 레이어 ───────── */
 .npc-modal-backdrop{
   position: fixed;
   inset: 0;
   z-index: 21000;
-
-  /* 기존 rgba(0,0,0,.28) → 더 부드러운 톤 */
   background: rgba(15, 23, 42, .38);
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   padding: 24px;
-
-  /* 살짝만 고급스럽게 */
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
 
-/* 모달 본체: 가로/컬럼 고정 (유지) */
+/* 페이지 스크롤 잠금 */
+body.rd-modal-open{ overflow: hidden; }
+
+/* ───────── 모달 본체: 가로/컬럼 고정 ───────── */
 .npc-modal-main{
   width: 980px;
   min-height: 500px;
@@ -29,7 +29,6 @@
   border-radius: 24px;
   overflow: hidden;
 
-  /* 그림자/테두리만 정돈 */
   border: 1px solid rgba(15, 23, 42, .10);
   box-shadow:
     0 24px 70px rgba(15, 23, 42, .18),
@@ -40,9 +39,15 @@
   column-gap: 0;
 
   position: relative;
+
+  /* ✅ (중요) 오른쪽이 길어져도 왼쪽이 높이 따라 늘어나도록 */
+  align-items: stretch;
+
+  /* ✅ 1) 모달 전체 폰트 */
+  font-family: "NanumSquareRound", "NanumSquare", Pretendard, "Malgun Gothic", system-ui, sans-serif;
 }
 
-/* 상단 얇은 포인트 라인(과하지 않게) */
+/* 상단 얇은 포인트 라인 */
 .npc-modal-main::before{
   content:"";
   position:absolute;
@@ -55,11 +60,11 @@
 /* ───────── 좌측 영역(프로필+사진) ───────── */
 .npc-modal-left{
   width: 620px;
-  height: auto;
+  /* ✅ (중요) 왼쪽 배경이 아래까지 꽉 차도록 */
+  height: 100%;
+  align-self: stretch;
 
-  /* 단색 → 아주 약한 그라데이션 */
   background: linear-gradient(180deg, #f8fafc, #f3f6fb);
-
   border-right: 1px solid rgba(15, 23, 42, .06);
 
   display: flex;
@@ -68,6 +73,9 @@
   box-sizing: border-box;
 
   padding-top: 16px;
+
+  /* 배경 채움 안정화 */
+  position: relative;
 }
 
 .npc-modal-profile{
@@ -76,7 +84,6 @@
   gap: 10px;
   margin-bottom: 12px;
 
-  /* 헤더 카드 느낌만 살짝 */
   padding: 10px 12px;
   border-radius: 16px;
   border: 1px solid rgba(15, 23, 42, .08);
@@ -88,7 +95,6 @@
   width: 48px; height: 48px;
   border-radius: 12px;
   object-fit: cover;
-
   border: 1.5px solid rgba(15, 23, 42, .10);
   background: #fff;
   box-shadow: 0 8px 16px rgba(15, 23, 42, .10);
@@ -99,10 +105,9 @@
   font-weight: 900;
   letter-spacing: .2px;
   color: #0f172a;
-  font-family: Pretendard, Malgun Gothic, sans-serif;
 }
 
-/* 사진 슬라이더: 고정 유지 + 프레임감만 */
+/* 사진 슬라이더: 고정 유지 */
 .npc-picture-slider,
 .npc-picture-slider-empty{
   position: relative;
@@ -110,9 +115,7 @@
   height: 400px;
   border-radius: 16px;
   overflow: hidden;
-
   background: #fff;
-
   border: 1px solid rgba(15, 23, 42, .10);
   box-shadow: 0 16px 36px rgba(15, 23, 42, .10), 0 4px 10px rgba(15, 23, 42, .06);
 }
@@ -130,7 +133,7 @@
   background: linear-gradient(180deg, #f2f5f9, #eef2f7);
 }
 
-/* 슬라이더 버튼 고정 (톤/호버만 개선) */
+/* 슬라이더 버튼 */
 .npc-picture-slider-btn{
   position: absolute;
   top: 50%;
@@ -138,15 +141,12 @@
   width: 40px; height: 40px;
   border: 1px solid rgba(255,255,255,.30);
   border-radius: 9999px;
-
   background: rgba(2, 6, 23, .32);
   display: grid;
   place-items: center;
   cursor: pointer;
-
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-
   box-shadow: 0 12px 24px rgba(2, 6, 23, .22);
   transition: transform 140ms ease, background 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
 }
@@ -165,33 +165,26 @@
   padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   box-sizing: border-box;
   font-size: 15px;
-
-  /* 우측도 아주 미세하게 */
   background: linear-gradient(180deg, #fbfdff, #ffffff);
 }
 
-/* 닫기 버튼 (조금 더 깔끔하게) */
+/* 닫기 버튼 */
 .npc-modal-close-btn{
   position: absolute;
   right: 16px;
   top: 12px;
-
   width: 36px;
   height: 36px;
-
   border: 1px solid rgba(15, 23, 42, .10);
   border-radius: 9999px;
-
   background: rgba(255,255,255,.92);
   box-shadow: 0 10px 22px rgba(15, 23, 42, .10), 0 2px 6px rgba(15, 23, 42, .06);
-
   cursor: pointer;
   font-size: 20px;
   color: #64748b;
-
   transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease, color 140ms ease;
 }
 .npc-modal-close-btn:hover{
@@ -201,90 +194,79 @@
   box-shadow: 0 12px 28px rgba(2, 132, 199, 0.14), 0 3px 8px rgba(15, 23, 42, 0.08);
 }
 
-/* 페이지 스크롤 잠금 */
-body.rd-modal-open{ overflow: hidden; }
-
-/* ───────── 우측 Pill 고정 레이아웃 (구조 유지 + 더 깔끔하게) ───────── */
+/* ───────── 우측 Pill: 반반 알약(오른쪽 더 긴) ───────── */
 .npc-modal-right .mgr-pill-row{
   width: 520px;
   height: 44px;
-  padding: 6px 10px;
-
-  /* 단색 → 미세 그라데이션 */
-  background: linear-gradient(180deg, #ffffff, #fbfdff);
+  padding: 0;
+  border-radius: 9999px;
+  background: #ffffff;
   border: 1px solid rgba(15, 23, 42, .10);
-  border-radius: 18px;
-
   box-shadow: 0 10px 22px rgba(15, 23, 42, .06), 0 2px 6px rgba(15, 23, 42, .04);
 
   display: grid;
-  grid-template-columns: 120px 1fr;
-  gap: 10px;
+  grid-template-columns: 140px 1fr; /* ✅ 오른쪽이 더 길게 */
+  gap: 0;
   box-sizing: border-box;
+
+  align-items: center;
+  overflow: hidden;
 
   transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
 }
+
 .npc-modal-right .mgr-pill-row:hover{
   transform: translateY(-1px);
   border-color: rgba(147,197,253,.95);
   box-shadow: 0 12px 28px rgba(2, 132, 199, 0.12), 0 3px 8px rgba(15, 23, 42, 0.07);
 }
 
-/* multi row는 기존 유지 */
-.npc-modal-right .mgr-pill-row--multi{
-  height: 220px;
-  align-items:flex-start;
-  padding: 12px 14px;
-}
-
-/* 라벨: 기존 느낌 유지하되 더 정갈하게 */
+/* 왼쪽 반쪽(라벨) */
 .npc-modal-right .mgr-pill-label{
-  height: 34px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
-  border-radius: 999px;
-  color:#2457b6;
+  padding: 0 14px;
+  margin: 0;
+
+  background: linear-gradient(180deg, #f2f7ff, #eaf2ff);
+  border-right: 1px solid rgba(59,130,246,.18);
+
+  color: #2457b6;
   font-weight: 900;
   font-size: 13px;
   letter-spacing: .2px;
-
-  background: linear-gradient(180deg, #f3f7ff, #eaf2ff);
-  border: 1px solid rgba(59,130,246,.18);
-
-  box-shadow: 0 6px 14px rgba(59,130,246,.10);
 }
 
+/* 오른쪽 반쪽(값) */
 .npc-modal-right .mgr-pill-value{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  color:#0f172a;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
 
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-}
+  padding: 0 16px;
+  gap: 8px;
 
-/* multi 값 영역 */
-.npc-modal-right .mgr-pill-row--multi .mgr-pill-value{
-  width: 100%;
-  height: 180px;
-  white-space: pre-wrap;
-  overflow: auto;
-  line-height: 1.55;
+  color: #0f172a;
+  font-weight: 800;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* placeholder */
-.npc-modal-right .mgr-placeholder{ color:#94a3b8; }
+.npc-modal-right .mgr-placeholder{ color:#94a3b8; font-weight: 700; }
 
-/* 칩(보상)도 카드 톤에 맞게 */
+/* 칩(보상) */
 .npc-modal-right .mgr-chip{
   display:inline-flex;
   align-items:center;
   gap:6px;
-  height: 32px;
+  height: 30px;
   padding:0 10px;
   font-size:14px;
 
@@ -300,140 +282,48 @@ body.rd-modal-open{ overflow: hidden; }
   width:18px; text-align:center; font-size:16px;
 }
 
-/* 좌표 포인트: 더 선명 + 줄바꿈 깨짐 방지 */
+/* 좌표: 모노스페이스 유지 + 깨짐 방지 */
 .npc-modal-right .quest-detail-loc{
-  color:#1d4ed8;
-  font-weight: 900;
-
-  word-break: keep-all;
-  overflow-wrap: anywhere;
-}
-
-/* flex → block override 유지 */
-.npc-modal-right .mgr-pill-row--multi .mgr-pill-value{
-  display: block;
-  align-items: unset;
-  padding-top: 6px;
-  height: 180px;
-  overflow: auto;
-  white-space: pre-wrap;
-  line-height: 1.55;
-}
-
-/* 퀘스트 전용: 내용이 길면 높이 자동 확장 */
-.npc-modal-right .mgr-pill-row--quest {
-  height: auto;
-  min-height: 38px;
-  align-items: center;
-  padding: 6px 10px;
-}
-
-.npc-modal-right .mgr-pill-row--quest .mgr-pill-value {
-  white-space: pre-wrap;
-  overflow: hidden;
-  line-height: 1.55;
-  display: flex;
-  align-items: center;
-}
-
-/* ───────── 우측 Pill: 반반 알약(오른쪽 더 긴) ───────── */
-.npc-modal-right .mgr-pill-row{
-  width: 520px;
-  height: 44px;
-  padding: 0;                 /* ✅ 내부 패딩 제거 (pill 안쪽은 label/value가 담당) */
-  border-radius: 9999px;      /* ✅ 완전 알약 */
-  background: #ffffff;
-  border: 1px solid rgba(15, 23, 42, .10);
-  box-shadow: 0 10px 22px rgba(15, 23, 42, .06), 0 2px 6px rgba(15, 23, 42, .04);
-
-  display: grid;
-  grid-template-columns: 140px 1fr; /* ✅ 왼쪽 조금 넓혀서 ‘반반’ 느낌 (원하면 120으로) */
-  gap: 0;
-  box-sizing: border-box;
-
-  align-items: center;        /* ✅ 세로 중앙 고정 */
-  overflow: hidden;           /* ✅ 안쪽이 pill 밖으로 안 나가게 */
-  transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
-}
-
-.npc-modal-right .mgr-pill-row:hover{
-  transform: translateY(-1px);
-  border-color: rgba(147,197,253,.95);
-  box-shadow: 0 12px 28px rgba(2, 132, 199, 0.12), 0 3px 8px rgba(15, 23, 42, 0.07);
-}
-
-/* ✅ 왼쪽 반쪽(라벨) */
-.npc-modal-right .mgr-pill-label{
-  height: 100%;
-  display: flex;
-  align-items: center;        /* ✅ 세로 중앙 */
-  justify-content: center;
-
-  padding: 0 14px;
-  margin: 0;
-
-  border-radius: 9999px;      /* ✅ 좌측도 pill 느낌 */
-  background: linear-gradient(180deg, #f2f7ff, #eaf2ff);
-  border-right: 1px solid rgba(59,130,246,.18);
-
-  color: #2457b6;
-  font-weight: 900;
-  font-size: 13px;
-  letter-spacing: .2px;
-
-  box-shadow: none;           /* ✅ 기존 라벨 그림자 제거 (깔끔하게) */
-}
-
-/* ✅ 오른쪽 반쪽(값) */
-.npc-modal-right .mgr-pill-value{
-  height: 100%;
-  display: flex;
-  align-items: center;        /* ✅ 세로 중앙 */
-  justify-content: flex-start;
-
-  padding: 0 16px;
-  gap: 8px;
-
-  color: #0f172a;
-  font-weight: 800;
-
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* 좌표 포인트는 그대로 (깨짐 방지 포함) */
-.npc-modal-right .quest-detail-loc{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-variant-numeric: tabular-nums;
   color:#1d4ed8;
   font-weight: 900;
   word-break: keep-all;
   overflow-wrap: anywhere;
 }
 
-/* ───────── 멀티 row는 기존처럼 유지 (높이 커야 하니까 pill 구조는 예외) ───────── */
+/* ───────── 대사(멀티) 영역은 알약이 아니라 카드형 유지 ───────── */
 .npc-modal-right .mgr-pill-row--multi{
   height: 220px;
   padding: 12px 14px;
-  border-radius: 18px;              /* ✅ 멀티는 알약 말고 카드로 */
+  border-radius: 18px;
+
   display: grid;
   grid-template-columns: 120px 1fr;
   gap: 10px;
+
   align-items: flex-start;
   overflow: hidden;
 }
 
-/* 멀티에서 라벨/값 스타일은 기존 로직 유지하되 ‘아래 붙는 문제’ 방지 */
-.npc-modal-right .mgr-pill-row--multi .mgr-pill-label{
-  height: 34px;
-  border-right: 0;
-  border-radius: 999px;
-}
-
+/* 멀티 값 영역 */
 .npc-modal-right .mgr-pill-row--multi .mgr-pill-value{
+  width: 100%;
   height: 180px;
   overflow: auto;
   white-space: pre-wrap;
   line-height: 1.55;
-  display: block; /* 너가 이미 override 해둔 그대로 */
+  display: block;
   padding-top: 6px;
+}
+
+/* 퀘스트 전용: 줄바꿈 허용 */
+.npc-modal-right .mgr-pill-row--quest{
+  height: auto;
+  min-height: 44px;
+}
+.npc-modal-right .mgr-pill-row--quest .mgr-pill-value{
+  white-space: pre-wrap;
+  overflow: hidden;
+  line-height: 1.55;
 }
