@@ -682,25 +682,43 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     e.clipboardData.setData('text/plain', text);
   }, [editor, buildTSVFromRect, isSelectionInsideTable]);
 
+  const SLATE_FRAG_PREFIX = '__RDWIKI_SLATE_FRAGMENT__=';
+
+  const decodeSlateFragment = (encoded: string) => {
+    const json = decodeURIComponent(window.atob(encoded));
+    return JSON.parse(json);
+  };
+
   const onPasteTableSafe = useCallback((e: React.ClipboardEvent) => {
     if (!isSelectionInsideTable()) return;
 
-    // ✅ 1) Slate fragment가 있으면 "그대로 통과" (inline-image 포함 복원됨)
-    //    - 우리 컨텍스트 메뉴 복사도 이걸 사용
-    const slateFrag =
-      e.clipboardData.getData('application/x-slate-fragment') ||
-      e.clipboardData.getData('text/x-slate-fragment'); // 호환용
+    const text = e.clipboardData.getData('text/plain') || '';
 
-    if (slateFrag && slateFrag.length > 0) {
-      return; // preventDefault 하지 않음 → Slate가 fragment paste 처리
+    // ✅ 0) 우리 컨텍스트메뉴 복사 토큰이면: 직접 fragment 삽입 (inline-image 포함)
+    if (text.startsWith(SLATE_FRAG_PREFIX)) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const firstLineEnd = text.indexOf('\n');
+      const header = firstLineEnd >= 0 ? text.slice(0, firstLineEnd) : text;
+      const encoded = header.slice(SLATE_FRAG_PREFIX.length).trim();
+
+      try {
+        const fragment = decodeSlateFragment(encoded);
+        // fragment는 "셀 내부 children 배열"이므로 그대로 insertFragment 가능
+        Transforms.insertFragment(editor, fragment);
+      } catch {
+        // 디코딩 실패면 그냥 남은 텍스트라도 넣기
+        const fallback = firstLineEnd >= 0 ? text.slice(firstLineEnd + 1) : '';
+        if (fallback) Transforms.insertText(editor, fallback);
+      }
+      return;
     }
 
-    // ✅ 2) 표/td HTML이 들어오는 "외부 표 복붙"만 차단하고 text/plain만 넣기
+    // ✅ 1) 외부 표 HTML만 차단 (기존 로직 유지)
     const html = e.clipboardData.getData('text/html') || '';
     const hasTableHtml = /<(table|tbody|tr|td|th)\b/i.test(html);
-
     if (hasTableHtml) {
-      const text = e.clipboardData.getData('text/plain') || '';
       e.preventDefault();
       e.stopPropagation();
       Transforms.insertText(editor, text);

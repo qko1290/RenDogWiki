@@ -175,8 +175,10 @@ export default function TableContextMenu({ editor }: Props) {
     return window.btoa(encodeURIComponent(json));
   };
 
+  // ✅ Slate fragment 토큰 (plain text에 숨겨서 보관)
+  const SLATE_FRAG_PREFIX = '__RDWIKI_SLATE_FRAGMENT__=';
+  
   const copyCellInnerContents = async () => {
-    // 1) 셀 노드 가져오기
     let cellNode: any = null;
     try {
       cellNode = SlateNode.get(editor, cellPath);
@@ -185,53 +187,34 @@ export default function TableContextMenu({ editor }: Props) {
     }
     if (!cellNode) return;
 
-    // 2) 셀 "내부"만: table-cell의 children(보통 paragraph들)
+    // ✅ 셀 내부(텍스트+inline-image 포함) = table-cell.children
     const fragment = Array.isArray(cellNode.children) ? cellNode.children : [];
     const plain = SlateNode.string(cellNode) ?? '';
 
-    // 3) 클립보드에 Slate fragment + plain text 동시 저장
-    //    - fragment가 있으면 에디터에 붙여넣기 시 inline-image까지 그대로 복원됨
-    //    - HTML(<td>)은 아예 넣지 않아서 “셀 자체 붙여넣기” 원천 차단
     const encoded = encodeSlateFragment(fragment);
 
-    // ClipboardItem 지원 브라우저: mime 여러 개 넣기 가능
-    const nav: any = typeof navigator !== 'undefined' ? navigator : null;
-    if (nav?.clipboard?.write && typeof (window as any).ClipboardItem === 'function') {
-      const item = new (window as any).ClipboardItem({
-        'application/x-slate-fragment': new Blob([encoded], {
-          type: 'application/x-slate-fragment',
-        }),
-        // ✅ 호환용으로 하나 더
-        'text/x-slate-fragment': new Blob([encoded], {
-          type: 'text/x-slate-fragment',
-        }),
-        'text/plain': new Blob([plain], { type: 'text/plain' }),
-      });
-      await nav.clipboard.write([item]);
+    // ✅ 커스텀 MIME 대신 plain text에 “토큰 + fragment”를 심어둔다
+    //    (외부 앱에 붙여넣으면 토큰이 보일 수 있으니, 첫 줄에만 넣고 나머지는 텍스트)
+    const payload = `${SLATE_FRAG_PREFIX}${encoded}\n${plain}`;
+
+    // clipboard writeText는 paste에서 항상 읽힌다
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(payload);
       return;
     }
 
-    // fallback: plain text만이라도
-    if (nav?.clipboard?.writeText) {
-      await nav.clipboard.writeText(plain);
-      return;
-    }
-
-    // 최후 fallback: execCommand
-    if (typeof document !== 'undefined') {
-      const ta = document.createElement('textarea');
-      ta.value = plain;
-      ta.style.position = 'fixed';
-      ta.style.left = '-9999px';
-      ta.style.top = '0';
-      ta.setAttribute('readonly', 'true');
-      document.body.appendChild(ta);
-      ta.select();
-      try {
-        document.execCommand('copy');
-      } finally {
-        document.body.removeChild(ta);
-      }
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = payload;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    ta.style.top = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand('copy');
+    } finally {
+      document.body.removeChild(ta);
     }
   };
 
