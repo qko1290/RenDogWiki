@@ -1,6 +1,6 @@
 // =============================================
 // File: components/wiki/HeadGrid.tsx
-// (6열 + 좌표 전체 표시 + 깔끔한 카드 UI + hover border/shadow)
+// (6열 고정 + 카드 최소폭 보장 + 좌표 전체 표시 + 깔끔한 hover)
 // =============================================
 "use client";
 
@@ -20,7 +20,6 @@ type Props = {
   heads: Head[];
   onClick?: (head: Head) => void;
   selectedHeadId?: number | null;
-  /** 현재 머리들이 속한 마을의 공통 head 아이콘 (village.head_icon) */
   headIcon?: string | null;
 };
 
@@ -40,10 +39,15 @@ export default function HeadGrid({
   return (
     <div
       style={{
+        // ✅ 6열 유지하면서, 칸이 너무 좁아지지 않도록 minmax로 최소 폭 보장
         display: "grid",
-        gridTemplateColumns: "repeat(6, 1fr)", // ✅ 6열
+        gridTemplateColumns: "repeat(6, minmax(170px, 1fr))",
         gap: 18,
         margin: "20px 0",
+
+        // ✅ 화면이 좁으면 6열을 억지로 줄이지 말고 가로 스크롤로 유지
+        overflowX: "auto",
+        paddingBottom: 6,
       }}
     >
       {heads.map((head) => {
@@ -57,7 +61,7 @@ export default function HeadGrid({
 
         const thumbSrc = villageIcon ?? headPicture;
 
-        // ✅ 좌표는 전부 보이게(말줄임 X), 줄바꿈은 허용
+        // ✅ 좌표는 전부 보이게(말줄임 X)
         const coordText = `(${head.location_x}, ${head.location_y}, ${head.location_z})`;
 
         // ✅ 요청한 hover 스타일 그대로 사용
@@ -66,9 +70,9 @@ export default function HeadGrid({
           ? "0 12px 28px rgba(2, 132, 199, 0.16), 0 3px 8px rgba(15, 23, 42, 0.08)"
           : "0 10px 24px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.05)";
 
-        // 선택 상태는 “깔끔하게”만 강조 (과하지 않게)
-        const selectedRing = selected ? "0 0 0 3px rgba(147, 197, 253, 0.35)" : "none";
-        const bg = selected ? "#f8fbff" : "#fff";
+        const selectedRing = selected
+          ? "0 0 0 3px rgba(147, 197, 253, 0.35)"
+          : "none";
 
         return (
           <div
@@ -83,16 +87,17 @@ export default function HeadGrid({
               padding: "14px 14px",
               borderRadius: 14,
               border: BORDER,
-              background: bg,
+              background: selected ? "#f8fbff" : "#fff",
               boxShadow: SHADOW,
               outline: selectedRing,
               cursor: "pointer",
-              transition: "transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease",
+              transition:
+                "transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease",
               transform: hovered ? "translateY(-2px)" : "translateY(0)",
-              minWidth: 0,
+              minWidth: 0, // 내부 텍스트 overflow 계산용
             }}
           >
-            {/* 왼쪽 아이콘 */}
+            {/* 아이콘 */}
             <div
               style={{
                 width: 40,
@@ -126,7 +131,7 @@ export default function HeadGrid({
               )}
             </div>
 
-            {/* 가운데 텍스트 */}
+            {/* 텍스트 */}
             <div style={{ minWidth: 0, flex: "1 1 auto" }}>
               <div
                 style={{
@@ -147,9 +152,12 @@ export default function HeadGrid({
                   fontSize: 12.5,
                   color: "#64748b",
                   lineHeight: "16px",
-                  // ✅ 좌표는 전부 보이게: 말줄임 X
+
+                  // ✅ "문자 단위" 쪼개짐 방지
+                  wordBreak: "normal",
+                  overflowWrap: "normal",
                   whiteSpace: "normal",
-                  wordBreak: "break-word",
+
                   fontVariantNumeric: "tabular-nums",
                   fontFamily:
                     "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
@@ -159,7 +167,7 @@ export default function HeadGrid({
               </div>
             </div>
 
-            {/* 오른쪽 화살표 */}
+            {/* 화살표 */}
             <div
               style={{
                 flex: "0 0 auto",
@@ -174,7 +182,6 @@ export default function HeadGrid({
               }}
               aria-hidden
             >
-              {/* 간단한 chevron-right */}
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                 <path
                   d="M10 6l6 6-6 6"
