@@ -335,3 +335,105 @@ body.rd-modal-open{ overflow: hidden; }
   display: flex;
   align-items: center;
 }
+
+/* ───────── 우측 Pill: 반반 알약(오른쪽 더 긴) ───────── */
+.npc-modal-right .mgr-pill-row{
+  width: 520px;
+  height: 44px;
+  padding: 0;                 /* ✅ 내부 패딩 제거 (pill 안쪽은 label/value가 담당) */
+  border-radius: 9999px;      /* ✅ 완전 알약 */
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, .10);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, .06), 0 2px 6px rgba(15, 23, 42, .04);
+
+  display: grid;
+  grid-template-columns: 140px 1fr; /* ✅ 왼쪽 조금 넓혀서 ‘반반’ 느낌 (원하면 120으로) */
+  gap: 0;
+  box-sizing: border-box;
+
+  align-items: center;        /* ✅ 세로 중앙 고정 */
+  overflow: hidden;           /* ✅ 안쪽이 pill 밖으로 안 나가게 */
+  transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.npc-modal-right .mgr-pill-row:hover{
+  transform: translateY(-1px);
+  border-color: rgba(147,197,253,.95);
+  box-shadow: 0 12px 28px rgba(2, 132, 199, 0.12), 0 3px 8px rgba(15, 23, 42, 0.07);
+}
+
+/* ✅ 왼쪽 반쪽(라벨) */
+.npc-modal-right .mgr-pill-label{
+  height: 100%;
+  display: flex;
+  align-items: center;        /* ✅ 세로 중앙 */
+  justify-content: center;
+
+  padding: 0 14px;
+  margin: 0;
+
+  border-radius: 9999px;      /* ✅ 좌측도 pill 느낌 */
+  background: linear-gradient(180deg, #f2f7ff, #eaf2ff);
+  border-right: 1px solid rgba(59,130,246,.18);
+
+  color: #2457b6;
+  font-weight: 900;
+  font-size: 13px;
+  letter-spacing: .2px;
+
+  box-shadow: none;           /* ✅ 기존 라벨 그림자 제거 (깔끔하게) */
+}
+
+/* ✅ 오른쪽 반쪽(값) */
+.npc-modal-right .mgr-pill-value{
+  height: 100%;
+  display: flex;
+  align-items: center;        /* ✅ 세로 중앙 */
+  justify-content: flex-start;
+
+  padding: 0 16px;
+  gap: 8px;
+
+  color: #0f172a;
+  font-weight: 800;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 좌표 포인트는 그대로 (깨짐 방지 포함) */
+.npc-modal-right .quest-detail-loc{
+  color:#1d4ed8;
+  font-weight: 900;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+/* ───────── 멀티 row는 기존처럼 유지 (높이 커야 하니까 pill 구조는 예외) ───────── */
+.npc-modal-right .mgr-pill-row--multi{
+  height: 220px;
+  padding: 12px 14px;
+  border-radius: 18px;              /* ✅ 멀티는 알약 말고 카드로 */
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 10px;
+  align-items: flex-start;
+  overflow: hidden;
+}
+
+/* 멀티에서 라벨/값 스타일은 기존 로직 유지하되 ‘아래 붙는 문제’ 방지 */
+.npc-modal-right .mgr-pill-row--multi .mgr-pill-label{
+  height: 34px;
+  border-right: 0;
+  border-radius: 999px;
+}
+
+.npc-modal-right .mgr-pill-row--multi .mgr-pill-value{
+  height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  line-height: 1.55;
+  display: block; /* 너가 이미 override 해둔 그대로 */
+  padding-top: 6px;
+}
