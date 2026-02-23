@@ -3,11 +3,14 @@
 // (삭제 권한) 본인이 만든 항목만 삭제 가능: minecraft_name 기준
 // - Village/Head 생성 시 uploader 저장
 // - 삭제 버튼은 관리자이거나(항상 허용) uploader===user.minecraft_name 일 때만 활성화
+//
+// + FIX: 머리 선택(리스트 클릭) 시 가운데 리스트 스크롤이 0으로 초기화되는 문제 방지
+//   - 선택 직전 scrollTop 저장 → selectedHead 변경 직후 useLayoutEffect로 복원
 // =============================================
 
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef, useLayoutEffect } from 'react';
 import WikiHeader from '@/components/common/Header';
 import { ModalCard } from '@/components/common/RdModal';
 import ImageSelectModal from '@/components/image/ImageSelectModal';
@@ -97,6 +100,36 @@ export default function HeadManager() {
   const [editLoc, setEditLoc] = useState<[number, number, number]>([0, 0, 0]);
   const [editPics, setEditPics] = useState<string[]>([]);
 
+  // -----------------------------
+  // FIX: 머리 리스트 스크롤 위치 유지
+  // -----------------------------
+  const listAreaRef = useRef<HTMLDivElement | null>(null);
+  const pendingScrollTopRef = useRef<number | null>(null);
+
+  const getHeadScrollEl = () => {
+    // SortableList에 className="mgr-list"가 적용됨 (스크롤 컨테이너가 이 요소인 케이스가 대부분)
+    const root = listAreaRef.current;
+    if (!root) return null;
+
+    // 1) 가장 우선: mgr-list 자체
+    const list = root.querySelector('.mgr-list') as HTMLElement | null;
+    if (list) return list;
+
+    // 2) 혹시 스크롤이 list-area에 걸린 경우 대비
+    return root as unknown as HTMLElement;
+  };
+
+  useLayoutEffect(() => {
+    // selectedHead 변경 직후 저장해둔 scrollTop 복원
+    const pending = pendingScrollTopRef.current;
+    if (pending == null) return;
+
+    const el = getHeadScrollEl();
+    if (el) el.scrollTop = pending;
+
+    pendingScrollTopRef.current = null;
+  }, [selectedHead?.id]);
+
   /** 사진 배열 정규화: 배열 | JSON 문자열 | null 모두 처리 */
   const normalizePics = (pics: any): string[] => {
     if (Array.isArray(pics)) return [...pics];
@@ -105,7 +138,9 @@ export default function HeadManager() {
       try {
         const v = JSON.parse(pics);
         return Array.isArray(v) ? v : [];
-      } catch { return []; }
+      } catch {
+        return [];
+      }
     }
     return [];
   };
@@ -292,9 +327,9 @@ export default function HeadManager() {
   /** 키보드 액세스 */
   const onKeyActivate =
     (fn: () => void) =>
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); }
-    };
+      (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); }
+      };
 
   /** 모달 열기: 사진 편집(열 때 즉시 동기화) */
   const openEditPics = useCallback(() => {
@@ -323,7 +358,7 @@ export default function HeadManager() {
         <div className="rd-field">
           <label className="rd-label">마을 이름</label>
           <input className="rd-input" placeholder="마을 이름" maxLength={40}
-                 value={villageName} onChange={(e) => setVillageName(e.target.value)} />
+            value={villageName} onChange={(e) => setVillageName(e.target.value)} />
         </div>
         <div className="rd-field">
           <label className="rd-label">마을 아이콘</label>
@@ -402,7 +437,7 @@ export default function HeadManager() {
         <div className="rd-field">
           <label className="rd-label">마을 이름</label>
           <input className="rd-input" maxLength={40}
-                 value={editVillageName} onChange={(e) => setEditVillageName(e.target.value)} />
+            value={editVillageName} onChange={(e) => setEditVillageName(e.target.value)} />
         </div>
         <div className="rd-field">
           <label className="rd-label">마을 아이콘</label>
@@ -456,7 +491,7 @@ export default function HeadManager() {
       {/* ───────── 머리 추가 ───────── */}
       <ModalCard
         open={headModalOpen}
-        onClose={() => { setHeadModalOpen(false); setTmpLoc([0,0,0]); setTmpPictures([]); }}
+        onClose={() => { setHeadModalOpen(false); setTmpLoc([0, 0, 0]); setTmpPictures([]); }}
         title="머리찾기 추가"
         actions={
           <>
@@ -468,7 +503,7 @@ export default function HeadManager() {
         <div className="rd-field">
           <label className="rd-label">좌표</label>
           <div className="rd-coord-row">
-            {(['X','Y','Z'] as const).map((label, i) => (
+            {(['X', 'Y', 'Z'] as const).map((label, i) => (
               <div key={label} className="rd-coord-item">
                 <span className="rd-chip-label">{label}</span>
                 <input
@@ -478,7 +513,7 @@ export default function HeadManager() {
                   value={Number.isNaN(tmpLoc[i]) ? '' : tmpLoc[i]}
                   onChange={(e) => {
                     const n = e.currentTarget.value === '' ? Number.NaN : e.currentTarget.valueAsNumber;
-                    setTmpLoc(v => { const a = [...v] as [number,number,number]; a[i] = n; return a; });
+                    setTmpLoc(v => { const a = [...v] as [number, number, number]; a[i] = n; return a; });
                   }}
                 />
               </div>
@@ -507,7 +542,7 @@ export default function HeadManager() {
             ))}
           </div>
 
-        <div style={{ display:'flex', justifyContent:'flex-end', marginTop:8 }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
             <button type="button" className="rd-btn secondary" onClick={() => setImageModalOpen(true)}>
               + 사진 추가
             </button>
@@ -555,7 +590,7 @@ export default function HeadManager() {
         </div>
 
         {/* 중: 리스트 */}
-        <div className="mgr-list-area">
+        <div className="mgr-list-area" ref={listAreaRef}>
           <SectionHeader
             title={selectedVillage ? `${selectedVillage.name} 머리찾기` : '머리찾기 목록'}
             right={
@@ -580,7 +615,13 @@ export default function HeadManager() {
               itemClassName="mgr-list-item"
               items={sortedHeads}
               selectedId={selectedHead?.id}
-              onSelect={(it) => setSelectedHead(it)}
+              onSelect={(it) => {
+                // ✅ 선택 직전 현재 스크롤 위치를 저장
+                const el = getHeadScrollEl();
+                pendingScrollTopRef.current = el ? el.scrollTop : null;
+
+                setSelectedHead(it);
+              }}
               onReorder={handleReorder}
               useOverlay={false}
               renderItem={(h) => (
@@ -718,7 +759,7 @@ export default function HeadManager() {
       >
         <div className="rd-field">
           <div className="rd-coord-row" role="group" aria-label="좌표 입력">
-            {(['X','Y','Z'] as const).map((label, i) => (
+            {(['X', 'Y', 'Z'] as const).map((label, i) => (
               <div key={label} className="rd-coord-item">
                 <span className="rd-chip-label">{label}</span>
                 <input
@@ -728,7 +769,7 @@ export default function HeadManager() {
                   value={Number.isNaN(editLoc[i]) ? '' : editLoc[i]}
                   onChange={(e) => {
                     const n = e.currentTarget.value === '' ? Number.NaN : e.currentTarget.valueAsNumber;
-                    setEditLoc(v => { const a = [...v] as [number,number,number]; a[i] = n; return a; });
+                    setEditLoc(v => { const a = [...v] as [number, number, number]; a[i] = n; return a; });
                   }}
                 />
               </div>
@@ -759,7 +800,7 @@ export default function HeadManager() {
             ))}
           </div>
 
-          <div style={{ display:'flex', justifyContent:'flex-end', marginTop:8 }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
             <button type="button" className="rd-btn secondary" onClick={() => setImageModalOpen(true)}>
               + 사진 추가
             </button>

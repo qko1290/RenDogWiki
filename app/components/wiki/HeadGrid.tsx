@@ -39,7 +39,7 @@ export default function HeadGrid({
         margin: "20px 0",
       }}
     >
-      {heads.map((head) => {
+      {heads.slice(0, 24).map((head) => {
         const hovered = hoveredId === head.id;
 
         const villageIcon =
