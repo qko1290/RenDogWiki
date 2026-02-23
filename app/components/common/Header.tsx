@@ -20,8 +20,18 @@ type WikiHeaderProps = {
   } | null;
 };
 
-// 단일 모드만 사용: newbie
-const ONLY_MODE = { label: '뉴비', tag: '뉴비' as const };
+// ✅ 모드 옵션 확장
+const MODE_OPTIONS = [
+  { label: 'RPG', tag: 'RPG' as const },
+  { label: '렌독런', tag: '렌독런' as const },
+  { label: '마인팜', tag: '마인팜' as const },
+  { label: '부엉이타운', tag: '부엉이타운' as const },
+] as const;
+
+const MODE_TAG_SET = new Set(MODE_OPTIONS.map(m => m.tag));
+const MODE_PARAM = 'mode';
+const MODE_STORAGE = 'wiki:mode';
+const MODE_EVENT = 'wiki-mode-change';
 
 export default function WikiHeader({ user }: WikiHeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -29,10 +39,10 @@ export default function WikiHeader({ user }: WikiHeaderProps) {
   // 초기 모드: URL > localStorage > null(전체)
   const initialMode = useMemo(() => {
     if (typeof window === 'undefined') return null;
-    const urlMode = new URLSearchParams(window.location.search).get('mode');
-    const stored = window.localStorage.getItem('wiki:mode') || '';
+    const urlMode = new URLSearchParams(window.location.search).get(MODE_PARAM);
+    const stored = window.localStorage.getItem(MODE_STORAGE) || '';
     const base = urlMode ?? (stored || null);
-    return base === ONLY_MODE.tag ? base : null;
+    return base && MODE_TAG_SET.has(base as any) ? base : null;
   }, []);
   const [mode, setMode] = useState<string | null>(initialMode);
 
@@ -49,14 +59,14 @@ export default function WikiHeader({ user }: WikiHeaderProps) {
     setMode(next);
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
-      if (next) url.searchParams.set('mode', next);
-      else url.searchParams.delete('mode');
+      if (next) url.searchParams.set(MODE_PARAM, next);
+      else url.searchParams.delete(MODE_PARAM);
       window.history.replaceState({}, '', url);
 
-      if (next) localStorage.setItem('wiki:mode', next);
-      else localStorage.removeItem('wiki:mode');
+      if (next) localStorage.setItem(MODE_STORAGE, next);
+      else localStorage.removeItem(MODE_STORAGE);
 
-      window.dispatchEvent(new CustomEvent('wiki-mode-change', { detail: { mode: next } }));
+      window.dispatchEvent(new CustomEvent(MODE_EVENT, { detail: { mode: next } }));
     }
   };
 
@@ -70,8 +80,6 @@ export default function WikiHeader({ user }: WikiHeaderProps) {
     }
   }
 
-  const isNewbie = mode === ONLY_MODE.tag;
-
   return (
     <header className="wiki-header">
       <div className="wiki-header-inner">
@@ -81,7 +89,7 @@ export default function WikiHeader({ user }: WikiHeaderProps) {
           <span>RDWIKI</span>
         </Link>
 
-        {/* 모드 옵션: All / 뉴비 */}
+        {/* ✅ 모드 옵션: All + 4개 */}
         <div
           style={{
             display: 'flex',
@@ -105,30 +113,39 @@ export default function WikiHeader({ user }: WikiHeaderProps) {
               fontSize: 15,
               fontWeight: mode === null ? 800 : 600,
               letterSpacing: 0.2,
-              color: mode === null ? '#6f4cff' : '#6b7280', // active: 거의 검정, inactive: 회색
+              color: mode === null ? '#6f4cff' : '#6b7280',
               cursor: 'pointer',
+              whiteSpace: 'nowrap',
             }}
           >
             All
           </button>
-          <button
-            type="button"
-            onClick={() => applyMode(isNewbie ? null : ONLY_MODE.tag)}
-            aria-pressed={isNewbie}
-            title="뉴비만 보기"
-            style={{
-              background: 'transparent',
-              border: 0,
-              padding: 0,
-              fontSize: 15,
-              fontWeight: isNewbie ? 800 : 600,
-              letterSpacing: 0.2,
-              color: isNewbie ? '#6f4cff' : '#6b7280',
-              cursor: 'pointer',
-            }}
-          >
-            {ONLY_MODE.label}
-          </button>
+
+          {MODE_OPTIONS.map((m) => {
+            const active = mode === m.tag;
+            return (
+              <button
+                key={m.tag}
+                type="button"
+                onClick={() => applyMode(active ? null : m.tag)}
+                aria-pressed={active}
+                title={`${m.label}만 보기`}
+                style={{
+                  background: 'transparent',
+                  border: 0,
+                  padding: 0,
+                  fontSize: 15,
+                  fontWeight: active ? 800 : 600,
+                  letterSpacing: 0.2,
+                  color: active ? '#6f4cff' : '#6b7280',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {m.label}
+              </button>
+            );
+          })}
         </div>
 
         {/* 검색 */}

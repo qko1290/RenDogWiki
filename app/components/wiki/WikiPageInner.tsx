@@ -70,7 +70,7 @@ type Props = {
 const MODE_PARAM = 'mode';
 const MODE_STORAGE = 'wiki:mode';
 const MODE_EVENT = 'wiki-mode-change';
-const MODE_WHITELIST = new Set(['뉴비']);
+const MODE_WHITELIST = new Set(['RPG', '렌독런', '마인팜', '부엉이타운']);
 
 // ✅ 루트 대표 문서 ID 하드코딩
 const ROOT_FEATURED_DOC_ID = 73;

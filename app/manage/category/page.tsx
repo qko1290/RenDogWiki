@@ -54,7 +54,12 @@ type Document = {
   uploader?: string;
 };
 
-const MODE_OPTIONS: Array<{ key: string; label: string }> = [{ key: '뉴비', label: '뉴비' }];
+const MODE_OPTIONS: Array<{ key: string; label: string }> = [
+  { key: 'RPG', label: 'RPG' },
+  { key: '렌독런', label: '렌독런' },
+  { key: '마인팜', label: '마인팜' },
+  { key: '부엉이타운', label: '부엉이타운' },
+];
 
 const chipStyle: React.CSSProperties = {
   padding: '2px 10px',
@@ -394,7 +399,7 @@ export default function CategoryManager() {
     const map = new Map<number, string[]>();
     const getOwnTags = (n: Category) =>
       (selected && selected.id === n.id ? (selected.mode_tags ?? []) : (n.mode_tags ?? []))
-        .map((t) => String(t).trim().toLowerCase())
+        .map((t) => String(t).trim())
         .filter(Boolean);
     const dfs = (node: Category, parentSet: Set<string>) => {
       const merged = new Set(parentSet);
@@ -724,7 +729,7 @@ export default function CategoryManager() {
     if (!selected || selected.id === 0) return;
 
     const modeTags = Array.isArray(selected.mode_tags)
-      ? Array.from(new Set(selected.mode_tags.map((s) => String(s).trim().toLowerCase()).filter(Boolean)))
+      ? Array.from(new Set(selected.mode_tags.map((s) => String(s).trim()).filter(Boolean)))
       : [];
 
     const payload = {
