@@ -1555,20 +1555,35 @@ function PriceTableCardBlock({
 
           const nameShown = item.name?.trim() ? item.name : "이름 없음";
 
-          // ✅ 줄바꿈 규칙 적용 + broke 여부
-          const { node: nameNode, broke: nameBroke } = smartNameBreakInfo(nameShown);
+          const chars = Array.from(nameShown);
+          const len = chars.length;
+          const spaceCount = (nameShown.match(/\s/g) ?? []).length;
 
-          // ✅ 글자수 기반 폰트 변화 (에디터와 동일 step)
-          // ✅ 단, 줄바꿈 발생하면 17pt(=17px) 고정
-          const nameFont = nameBroke
-            ? 17
-            : autoFont(20, String(nameShown), [
-                [7, 18],
-                [9, 16],
-                [12, 14],
-                [16, 13],
-                [20, 12],
-              ]);
+          // ✅ 기존 줄바꿈 규칙
+          const { node: nameNode, broke: nameBroke } =
+            smartNameBreakInfo(nameShown);
+
+          // ✅ 추가 규칙:
+          // 8글자 이상 + 띄어쓰기 1개 이상 (단, 줄바꿈은 발생하지 않은 경우)
+          // → 폰트 16pt 고정
+          const eightAndOneSpace =
+            !nameBroke && len >= 8 && spaceCount >= 1;
+
+          let nameFont: number;
+
+          if (nameBroke) {
+            nameFont = 17;               // 줄바꿈 발생 → 17pt 고정
+          } else if (eightAndOneSpace) {
+            nameFont = 16;               // 🔥 새 규칙
+          } else {
+            nameFont = autoFont(20, String(nameShown), [
+              [7, 18],
+              [9, 16],
+              [12, 14],
+              [16, 13],
+              [20, 12],
+            ]);
+          }
           const priceSize = autoFont(20, String(priceVal));
 
           const image = item.image ? (
