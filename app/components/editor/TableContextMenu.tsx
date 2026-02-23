@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Editor, Path, Node as SlateNode, Transforms } from 'slate';
+import { Editor, Path, Node as SlateNode, Transforms, Element as SlateElement } from 'slate';
 import { ReactEditor } from 'slate-react';
 import {
   getSelectedRectOrCell,
@@ -82,6 +82,21 @@ export default function TableContextMenu({ editor }: Props) {
     setOpen(false);
   };
 
+  // ✅ 비동기(clipboard) 액션 래퍼
+  const actAsync = (fn: () => Promise<void>) => async () => {
+    try {
+      ReactEditor.focus(editor as any);
+    } catch {
+      /* ignore */
+    }
+    try {
+      await fn();
+    } finally {
+      clearDrag();
+      setOpen(false);
+    }
+  };
+
   // 현재 셀이 속한 표 path
   const tablePath = findTablePath(editor, cellPath);
 
@@ -159,6 +174,83 @@ export default function TableContextMenu({ editor }: Props) {
     }
   };
 
+  // ✅ (신규) 셀 내용(텍스트)만 추출
+  const getCellText = (p: Path) => {
+    try {
+      const cell = SlateNode.get(editor, p) as any;
+      return SlateNode.string(cell);
+    } catch {
+      return '';
+    }
+  };
+
+  // ✅ (신규) rect 범위 TSV 생성 (엑셀/시트 호환)
+  const buildTSVFromRect = () => {
+    try {
+      const { r0, c0, r1, c1 } = rect;
+      const lines: string[] = [];
+
+      for (let r = r0; r <= r1; r++) {
+        const cols: string[] = [];
+        for (let c = c0; c <= c1; c++) {
+          const p = [...rect.tablePath, r, c];
+          cols.push(getCellText(p).replace(/\r?\n/g, '\n'));
+        }
+        lines.push(cols.join('\t'));
+      }
+      return lines.join('\n');
+    } catch {
+      return '';
+    }
+  };
+
+  // ✅ (신규) clipboard writeText (fallback 포함)
+  const writeClipboardText = async (text: string) => {
+    const t = String(text ?? '');
+    // 최신 브라우저
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(t);
+      return;
+    }
+
+    // fallback: 임시 textarea
+    if (typeof document !== 'undefined') {
+      const ta = document.createElement('textarea');
+      ta.value = t;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      ta.style.top = '0';
+      ta.setAttribute('readonly', 'true');
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+      } finally {
+        document.body.removeChild(ta);
+      }
+    }
+  };
+
+  // ✅ (신규) 메뉴 액션: 단일 셀 내용 복사
+  const copyCurrentCellText = async () => {
+    // slate table-cell path는 rect.tablePath + r + c 로 안정적으로 뽑는다
+    const r = rect.r0;
+    const c = rect.c0;
+    const p = [...rect.tablePath, r, c];
+    const text = getCellText(p);
+    await writeClipboardText(text);
+  };
+
+  // ✅ (신규) 메뉴 액션: 선택 영역(여러 셀) 내용 복사 (TSV)
+  const copyRectTextTSV = async () => {
+    const tsv = buildTSVFromRect();
+    await writeClipboardText(tsv);
+  };
+
+  // “선택 영역”이 실제로 여러 셀인지
+  const isMultiCell =
+    rect.r0 !== rect.r1 || rect.c0 !== rect.c1;
+
   return (
     <div
       ref={boxRef}
@@ -180,6 +272,18 @@ export default function TableContextMenu({ editor }: Props) {
       role="menu"
       aria-label="표 메뉴"
     >
+      {/* ✅ (신규) 복사 기능 */}
+      <MenuItem onClick={actAsync(copyCurrentCellText)}>
+        셀 내용 복사
+      </MenuItem>
+      <MenuItem
+        onClick={isMultiCell ? actAsync(copyRectTextTSV) : actAsync(copyCurrentCellText)}
+      >
+        {isMultiCell ? '선택 영역 내용 복사' : '선택 셀 내용 복사'}
+      </MenuItem>
+
+      <MenuDivider />
+
       {/* 표 자체 정렬 (표 블록 align) */}
       <MenuItem
         onClick={act(() => setTableAlign('left'))}
