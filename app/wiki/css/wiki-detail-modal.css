@@ -1,173 +1,82 @@
 /* wiki/css/wiki-detail-modal.css */
-/* (Profile Card 스타일: dark panel + accent + diagonal shine)
-   - 구조/레이아웃(grid/width/height) 유지
-*/
 
 /* ───────── 공통 레이어 ───────── */
 .npc-modal-backdrop{
   position: fixed;
   inset: 0;
   z-index: 21000;
-
-  /* 더 깊은 다크 + 살짝 컬러 헤이즈 */
-  background:
-    radial-gradient(1200px 700px at 35% 25%, rgba(59,130,246,.16), rgba(0,0,0,0) 62%),
-    radial-gradient(900px 520px at 70% 65%, rgba(0,0,0,.35), rgba(0,0,0,0) 60%),
-    rgba(2, 6, 23, .66);
-
+  background: rgba(0,0,0,.28);
   display: flex;
   align-items: center;
   justify-content: center;
-
+  /* 모달 외곽 여백 고정 */
   padding: 24px;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 
-/* 페이지 스크롤 잠금 */
-body.rd-modal-open{ overflow: hidden; }
-
-/* ───────── 모달 본체: 가로/컬럼 고정 (유지) ───────── */
+/* 모달 본체: 가로/컬럼 고정 */
 .npc-modal-main{
   width: 980px;
   min-height: 500px;
-
-  /* 전체를 다크 카드로 */
   background: #fff;
   border-radius: 24px;
-
-  /* 깊이감 */
-  border: 1px solid rgba(15, 23, 42, .10);
-  box-shadow:
-    0 24px 70px rgba(15, 23, 42, .18),
-    0 10px 24px rgba(15, 23, 42, .10);
-
+  box-shadow: 0 12px 48px rgba(0,0,0,.18);
   overflow: hidden;
 
   display: grid;
-  grid-template-columns: 620px 560px; /* 유지 */
+  grid-template-columns: 620px 560px; /* 좌 520 / 우 460 고정 */
   column-gap: 0;
-
-  position: relative;
-}
-
-/* 대각 장식(스샷 느낌) */
-.npc-modal-main::before{
-  content:"";
-  position:absolute;
-  inset:-40px -80px auto auto;
-  width: 520px;
-  height: 720px;
-  transform: rotate(12deg);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,0));
-  opacity: .45;
-  pointer-events:none;
-}
-.npc-modal-main::after{
-  content:"";
-  position:absolute;
-  inset:0;
-  background:
-    linear-gradient(120deg, rgba(255,255,255,.06) 0%, rgba(255,255,255,0) 32%, rgba(255,255,255,.04) 60%, rgba(255,255,255,0) 100%);
-  opacity:.35;
-  pointer-events:none;
 }
 
 /* ───────── 좌측 영역(프로필+사진) ───────── */
 .npc-modal-left{
-  width: 620px;                     /* 유지 */
+  width: 620px;                     /* 컬럼 너비와 동일 */
   height: auto;
-
-  /* 좌측은 약간 밝은 다크 톤 */
-  background: linear-gradient(180deg, #f8fafc, #f3f6fb);
+  background: #f7f9fc;
   border-right: 1px solid #eef1f6;
-
   display: flex;
   flex-direction: column;
   align-items: center;
   box-sizing: border-box;
-
-  padding-top: 18px;
 }
-
-/* 프로필 헤더: "카드" 느낌 */
 .npc-modal-profile{
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 12px;
-
-  padding: 12px 14px;
-  border-radius: 18px;
-
-  background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.06));
-  border: 1px solid rgba(255,255,255,.10);
-  box-shadow: 0 14px 34px rgba(0,0,0,.30), 0 2px 8px rgba(0,0,0,.18);
-
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  margin-bottom: 10px;
 }
-
 .npc-modal-icon{
-  width: 48px; height: 48px;       /* 유지 */
-  border-radius: 12px;
+  width: 48px; height: 48px;       /* 아이콘 고정 */
+  border-radius: 10px;
   object-fit: cover;
-
-  border: 1px solid rgba(255,255,255,.14);
-  background: rgba(0,0,0,.12);
-
-  box-shadow: 0 10px 18px rgba(0,0,0,.30);
+  border: 1.5px solid #e5e8ef;
+  background: #fff;
 }
-
 .npc-modal-name{
-  font-size: 24px;                  /* 유지 */
-  font-weight: 900;
-  letter-spacing: .2px;
-
-  color: rgba(255,255,255,.92);
-  text-shadow: 0 2px 0 rgba(0,0,0,.35);
+  font-size: 24px;                  /* 이름 크기 고정 */
+  font-weight: 800;
 }
 
-/* 사진 슬라이더: 가로/세로 완전 고정 (유지) */
+/* 사진 슬라이더: 가로/세로 완전 고정 (좌 패딩 16px 기준 → 520-32=488) */
 .npc-picture-slider,
 .npc-picture-slider-empty{
   position: relative;
   width: 588px;
   height: 400px;
-  border-radius: 16px;
+  border-radius: 14px;
   overflow: hidden;
-
-  /* 다크 프레임 + 살짝 광택 */
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.04));
-  border: 1px solid rgba(255,255,255,.10);
-
-  box-shadow: 0 22px 52px rgba(0,0,0,.38), 0 6px 16px rgba(0,0,0,.22);
+  background: #fff;
+  box-shadow: 0 6px 20px rgba(0,0,0,.08);
 }
-
-.npc-picture-slider::before,
-.npc-picture-slider-empty::before{
-  content:"";
-  position:absolute;
-  inset:0 0 auto 0;
-  height: 64px;
-  background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,0));
-  pointer-events:none;
-  z-index:2;
-}
-
 .npc-picture-img{
   width: 588px;
   height: 400px;
   object-fit: cover;
 }
-
 .npc-picture-slider-empty{
   display: grid;
   place-items: center;
-  color: rgba(255,255,255,.55);
-  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+  color: #9aa1ab;
+  background: #f2f5f9;
 }
 
 /* 슬라이더 버튼 고정 */
@@ -176,52 +85,23 @@ body.rd-modal-open{ overflow: hidden; }
   top: 50%;
   transform: translateY(-50%);
   width: 40px; height: 40px;
-  border: 1px solid rgba(255,255,255,.14);
-  border-radius: 9999px;
-
-  background: rgba(0,0,0,.38);
+  border: 0; border-radius: 9999px;
+  background: rgba(0,0,0,.35);
   display: grid; place-items: center;
   cursor: pointer;
-
-  box-shadow: 0 14px 34px rgba(0,0,0,.35), 0 2px 10px rgba(0,0,0,.22);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-
-  transition: transform 140ms ease, background 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
-  z-index: 3;
 }
-.npc-picture-slider-btn:hover{
-  transform: translateY(-50%) scale(1.04);
-  background: rgba(0,0,0,.48);
-  border-color: rgba(147,197,253,.55);
-  box-shadow: 0 18px 44px rgba(0,0,0,.42), 0 4px 12px rgba(0,0,0,.26);
-}
-.npc-picture-slider-btn-left{ left: 10px; }
-.npc-picture-slider-btn-right{ right: 10px; }
+.npc-picture-slider-btn-left{ left: 8px; }
+.npc-picture-slider-btn-right{ right: 8px; }
 
 /* ───────── 우측 영역(정보 폼) ───────── */
 .npc-modal-right{
-  width: 520px;                    /* 유지 */
-  padding: 16px;                   /* 유지 */
+  width: 520px;                    /* 컬럼 너비와 동일 */
+  padding: 16px;                   /* 내부 패딩 고정 */
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   box-sizing: border-box;
   font-size: 15px;
-
-  /* 스샷처럼 어두운 패널 + 대각 라인 */
-  background: linear-gradient(180deg, #fbfdff, #ffffff);
-  position: relative;
-}
-
-.npc-modal-right::before{
-  content:"";
-  position:absolute;
-  inset:0;
-  background:
-    linear-gradient(115deg, rgba(255,255,255,.06) 0%, rgba(255,255,255,0) 28%, rgba(255,255,255,.04) 62%, rgba(255,255,255,0) 100%);
-  opacity: .45;
-  pointer-events:none;
 }
 
 /* 닫기 버튼 */
@@ -229,171 +109,75 @@ body.rd-modal-open{ overflow: hidden; }
   position: absolute;
   right: 16px; top: 12px;
   width: 36px; height: 36px;
-  border-radius: 9999px;
-
-  border: 1px solid rgba(255,255,255,.16);
-  background: rgba(0,0,0,.22);
-
-  box-shadow: 0 12px 26px rgba(0,0,0,.35), 0 2px 8px rgba(0,0,0,.18);
+  border: 0; border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(0,0,0,.12);
   cursor: pointer;
-
-  font-size: 20px;
-  color: rgba(255,255,255,.78);
-
-  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease, background 140ms ease;
+  font-size: 20px; color: #666;
 }
-.npc-modal-close-btn:hover{
-  transform: translateY(-1px);
-  border-color: rgba(147,197,253,.65);
-  background: rgba(0,0,0,.30);
-  box-shadow: 0 16px 34px rgba(0,0,0,.42), 0 3px 10px rgba(0,0,0,.22);
-}
+
+/* 페이지 스크롤 잠금 */
+body.rd-modal-open{ overflow: hidden; }
 
 /* ───────── 우측 Pill 고정 레이아웃 ───────── */
 .npc-modal-right .mgr-pill-row{
   width: 520px;
   height: 44px;
   padding: 4px 8px;
+  background:#fff;
+  border:1px solid #e7eef6;
+  border-radius:18px;
+  box-shadow:0 1px 0 rgba(0,0,0,.02), 0 2px 10px rgba(30,90,160,.03);
 
-  /* 스샷처럼 다크 바 */
-  background: rgba(10, 14, 22, .42);
-  border: 1px solid rgba(255,255,255,.10);
-  border-radius: 18px;
-
-  box-shadow: 0 10px 24px rgba(0,0,0,.28), 0 2px 8px rgba(0,0,0,.18);
-
-  display: grid;
-  grid-template-columns: 120px 1fr;/* 유지 */
-  gap: 10px;
+  display:grid;
+  grid-template-columns: 120px 1fr;/* 라벨 120 고정 + 값 */
+  gap:10px;
   box-sizing: border-box;
-
-  position: relative;
-  overflow: hidden;
-
-  transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
 }
-
-/* 바 안쪽 광택 */
-.npc-modal-right .mgr-pill-row::before{
-  content:"";
-  position:absolute;
-  inset:0 0 auto 0;
-  height: 20px;
-  background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,0));
-  pointer-events:none;
-}
-
-.npc-modal-right .mgr-pill-row:hover{
-  transform: translateY(-1px);
-  border-color: rgba(147,197,253,.55);
-  box-shadow: 0 12px 28px rgba(0,0,0,.34), 0 3px 10px rgba(0,0,0,.22);
-}
-
 .npc-modal-right .mgr-pill-row--multi{
-  height: 220px;                   /* 유지 */
+  height: 220px;                   /* 대사 전용 고정 높이(크게) */
   align-items:flex-start;
   padding: 12px 14px;
 }
-
-/* 라벨: 스샷처럼 컬러 바/칩 */
 .npc-modal-right .mgr-pill-label{
-  height: 34px;                    /* 유지 */
+  height: 34px;                    /* 라벨 높이 고정 */
   display:flex; align-items:center; justify-content:center;
+  padding: 0 0px;
   border-radius:999px;
-
-  color:#e8f0ff;
-  font-weight: 900;
-  font-size: 13px;
-  letter-spacing: .2px;
-
-  background: linear-gradient(180deg, rgba(59,130,246,.45), rgba(59,130,246,.25));
-  border: 1px solid rgba(147,197,253,.35);
-
-  box-shadow: 0 10px 20px rgba(0,0,0,.25), 0 0 0 4px rgba(59,130,246,.10);
+  color:#2a5fb7; font-weight:800; font-size:13px;
+  background:linear-gradient(180deg,#f2f7ff,#eaf2ff);
+  border:1px solid #dbe8ff;
 }
-
-/* 값 영역 */
 .npc-modal-right .mgr-pill-value{
-  display:flex;
-  align-items:center;
-  gap:8px;
-
-  color: rgba(255,255,255,.88);
-
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
+  display:flex; align-items:center; gap:8px; color:#222;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
-
-/* 멀티 영역 */
 .npc-modal-right .mgr-pill-row--multi .mgr-pill-value{
-  width: 100%;
-  height: 180px;
-  white-space: pre-wrap;
-  overflow: auto;
-  line-height: 1.55;
+  width: 100%; height: 180px;      /* (220 전체 - 패딩/라벨 여유) → 스크롤 영역 고정 */
+  white-space:pre-wrap;
+  overflow:auto;
+  line-height:1.55;
 }
-
-/* 스크롤바 (다크 톤) */
-.npc-modal-right .mgr-pill-row--multi .mgr-pill-value::-webkit-scrollbar{
-  width: 10px;
-}
-.npc-modal-right .mgr-pill-row--multi .mgr-pill-value::-webkit-scrollbar-thumb{
-  background: rgba(148,163,184,.35);
-  border-radius: 999px;
-  border: 2px solid rgba(10,14,22,.40);
-}
-.npc-modal-right .mgr-pill-row--multi .mgr-pill-value::-webkit-scrollbar-track{
-  background: rgba(10,14,22,.22);
-  border-radius: 999px;
-}
-
-.npc-modal-right .mgr-placeholder{ color: rgba(255,255,255,.45); }
+.npc-modal-right .mgr-placeholder{ color:#a8b2c3; }
 
 /* 칩(보상) 크기 고정 */
 .npc-modal-right .mgr-chip{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-
+  display:inline-flex; align-items:center; gap:6px;
   height: 32px;
   padding:0 10px;
   font-size:14px;
-
-  background: rgba(10, 14, 22, .35);
-  border: 1px solid rgba(255,255,255,.12);
-  border-radius:999px;
-
-  box-shadow: 0 10px 22px rgba(0,0,0,.24), 0 2px 8px rgba(0,0,0,.16);
-  color: rgba(255,255,255,.88);
+  background:#fff; border:1px solid #e8ebf2; border-radius:999px; box-shadow:0 1px 0 rgba(0,0,0,.02);
 }
-.npc-modal-right .mgr-chip img{
-  width:18px; height:18px;
-  object-fit:contain;
-  border-radius:4px;
-}
-.npc-modal-right .mgr-chip-emoji{
-  width:18px;
-  text-align:center;
-  font-size:16px;
-}
+.npc-modal-right .mgr-chip img{ width:18px; height:18px; object-fit:contain; border-radius:4px; }
+.npc-modal-right .mgr-chip-emoji{ width:18px; text-align:center; font-size:16px; }
 
-/* 좌표 포인트 */
-.npc-modal-right .quest-detail-loc{
-  color: #93c5fd; /* 밝은 블루 포인트 */
-  font-weight: 900;
+.npc-modal-right .quest-detail-loc{ color:#2357b2; } /* 포인트 색 */
 
-  /* 숫자가 한 글자씩 세로로 깨지는 현상 방지 */
-  word-break: keep-all;
-  overflow-wrap: anywhere;
-}
-
-/* 기존: flex → block override 유지 */
 .npc-modal-right .mgr-pill-row--multi .mgr-pill-value{
-  display: block;
-  align-items: unset;
-  padding-top: 6px;
-  height: 180px;
+  display: block;          /* flex → block */
+  align-items: unset;      /* 상속된 중앙정렬 해제 */
+  padding-top: 6px;        /* 살짝 여백 */
+  height: 180px;           /* 기존 값 유지 */
   overflow: auto;
   white-space: pre-wrap;
   line-height: 1.55;
@@ -401,111 +185,16 @@ body.rd-modal-open{ overflow: hidden; }
 
 /* 퀘스트 전용: 내용이 길면 높이 자동 확장 */
 .npc-modal-right .mgr-pill-row--quest {
-  height: auto;
-  min-height: 38px;
+  height: auto;              /* 고정 높이 제거 */
+  min-height: 38px;          /* 기본 최소 높이는 유지 */
   align-items: center;
   padding: 4px 8px;
 }
 
 .npc-modal-right .mgr-pill-row--quest .mgr-pill-value {
-  white-space: pre-wrap;
-  overflow: hidden;
+  white-space: pre-wrap;     /* 줄바꿈 반영 */
+  overflow: hidden;          /* 잘리지 않도록 */
   line-height: 1.55;
   display: flex;
   align-items: center;
-}
-
-/* ✅ 기존 알약형 해제 → 카드형 행(Row)으로 */
-.npc-modal-right .mgr-pill-row{
-  width: 520px;
-  height: auto;                 /* 고정 높이 해제 */
-  padding: 12px 14px;
-  border-radius: 16px;
-
-  background: #fff;
-  border: 1px solid rgba(15, 23, 42, .10);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, .08), 0 2px 6px rgba(15, 23, 42, .05);
-
-  /* ✅ 2칸 그리드 -> 세로 스택 */
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-
-  position: relative;
-  overflow: hidden;
-
-  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
-}
-
-/* 왼쪽 포인트 바(위키 느낌) */
-.npc-modal-right .mgr-pill-row::before{
-  content:"";
-  position:absolute;
-  left:0; top:0; bottom:0;
-  width: 4px;
-  background: linear-gradient(180deg, rgba(59,130,246,.65), rgba(59,130,246,.20));
-}
-
-/* 호버 */
-.npc-modal-right .mgr-pill-row:hover{
-  border-color: rgba(147,197,253,.95);
-  box-shadow: 0 12px 28px rgba(2, 132, 199, 0.14), 0 3px 8px rgba(15, 23, 42, 0.08);
-  transform: translateY(-1px);
-}
-
-/* ✅ 라벨: 캡션 스타일 (알약 배경 제거) */
-.npc-modal-right .mgr-pill-label{
-  height: auto;                 /* 고정 높이 해제 */
-  justify-content: flex-start;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: .2px;
-  color: #2563eb;
-
-  /* 포인트 바와 간격 */
-  padding-left: 10px;
-}
-
-/* ✅ 값: 더 크게/가독성 좋게 */
-.npc-modal-right .mgr-pill-value{
-  padding-left: 10px;           /* 포인트 바/라벨 정렬 */
-  white-space: normal;          /* 값 줄바꿈 허용 */
-  overflow: visible;
-  text-overflow: initial;
-
-  color: #0f172a;
-  font-weight: 700;
-}
-
-/* 좌표: 칩 느낌 + 깨짐 방지 */
-.npc-modal-right .quest-detail-loc{
-  display: inline-flex;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(37, 99, 235, .22);
-  background: rgba(59,130,246,.08);
-
-  color: #1d4ed8;
-  font-weight: 900;
-
-  word-break: keep-all;
-  overflow-wrap: anywhere;
-}
-
-/* 멀티는 그대로 유지하되 카드형에 맞게 */
-.npc-modal-right .mgr-pill-row--multi{
-  height: auto;                 /* 기존 220 고정이 싫으면 auto로 */
-  min-height: 220px;
-}
-
-.npc-modal-right .mgr-pill-row--multi .mgr-pill-value{
-  height: 180px;                /* 기존 유지 */
-  overflow: auto;
-  white-space: pre-wrap;
-  line-height: 1.55;
 }
