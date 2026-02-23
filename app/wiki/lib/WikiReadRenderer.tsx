@@ -1450,6 +1450,41 @@ function stagesByFormat(fmt?: string): string[] {
   return ['가격']; // 단일가
 }
 
+function smartNameBreakInfo(nameRaw: string | null | undefined) {
+  const name = String(nameRaw ?? "");
+  const chars = Array.from(name);
+  const len = chars.length;
+  const spaceCount = chars.reduce((acc, ch) => (ch === " " ? acc + 1 : acc), 0);
+
+  if (len < 10 || spaceCount < 2) {
+    return { node: name as React.ReactNode, broke: false };
+  }
+
+  // 7글자 이후(= index 7부터) 공백 탐색
+  const breakAt = chars.findIndex((ch, i) => i >= 7 && ch === " ");
+  if (breakAt === -1) {
+    return { node: name as React.ReactNode, broke: false };
+  }
+
+  const first = chars.slice(0, breakAt).join("");
+  const second = chars.slice(breakAt + 1).join(""); // 공백 제거
+
+  if (!second.trim()) {
+    return { node: name as React.ReactNode, broke: false };
+  }
+
+  return {
+    node: (
+      <span>
+        {first}
+        <br />
+        {second}
+      </span>
+    ),
+    broke: true,
+  };
+}
+
 function PriceTableCardBlock({
   node,
   keyProp,
@@ -1518,11 +1553,22 @@ function PriceTableCardBlock({
           const priceVal = prices[cardIdx] ?? "";
           const badgeColor = getPriceBadgeColor(stage, item.colorType);
 
-          const nameRaw = item.name?.trim() ? item.name : "이름 없음";
-          const wrapped = wrapNameIfNeeded(nameRaw);
+          const nameShown = item.name?.trim() ? item.name : "이름 없음";
 
-          // ✅ 줄바꿈 발생 시 17pt(=17px) 고정, 아니면 기존 로직 유지
-          const nameSize = wrapped.broken ? 17 : nameFontSize(item.name);
+          // ✅ 줄바꿈 규칙 적용 + broke 여부
+          const { node: nameNode, broke: nameBroke } = smartNameBreakInfo(nameShown);
+
+          // ✅ 글자수 기반 폰트 변화 (에디터와 동일 step)
+          // ✅ 단, 줄바꿈 발생하면 17pt(=17px) 고정
+          const nameFont = nameBroke
+            ? 17
+            : autoFont(20, String(nameShown), [
+                [7, 18],
+                [9, 16],
+                [12, 14],
+                [16, 13],
+                [20, 12],
+              ]);
           const priceSize = autoFont(20, String(priceVal));
 
           const image = item.image ? (
@@ -1688,30 +1734,21 @@ function PriceTableCardBlock({
               <div
                 style={{
                   fontWeight: 700,
-                  fontSize: nameSize,              // ✅ 여기
+                  fontSize: nameFont,     // ✅ 핵심: 글자수 기반 + 줄바꿈이면 17 고정
                   lineHeight: 1.12,
                   marginBottom: 0,
                   color: item.name ? "#333" : "#bbb",
                   textAlign: "center",
-                  minHeight: 24,
+                  minHeight: 40,          // ✅ 2줄 가능
                   width: "100%",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   padding: 0,
-
-                  // ✅ 줄바꿈 발생 시 두 줄 표시를 위해 nowrap 해제
-                  whiteSpace: wrapped.broken ? "normal" : "nowrap",
+                  whiteSpace: "normal",   // ✅ 줄바꿈 허용
                 }}
               >
-                {wrapped.broken ? (
-                  <>
-                    <span style={{ display: "block" }}>{wrapped.parts[0]}</span>
-                    <span style={{ display: "block" }}>{wrapped.parts[1]}</span>
-                  </>
-                ) : (
-                  nameRaw
-                )}
+                {item.name ? nameNode : <span style={{ color: "#bbb" }}>이름 없음</span>}
               </div>
 
               {/* 가격: 필요시에만 ~ 뒤가 다음 줄로 + 길면 폰트 축소 */}
