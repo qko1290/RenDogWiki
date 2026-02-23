@@ -201,6 +201,10 @@ export default function TableContextMenu({ editor }: Props) {
         'application/x-slate-fragment': new Blob([encoded], {
           type: 'application/x-slate-fragment',
         }),
+        // ✅ 호환용으로 하나 더
+        'text/x-slate-fragment': new Blob([encoded], {
+          type: 'text/x-slate-fragment',
+        }),
         'text/plain': new Blob([plain], { type: 'text/plain' }),
       });
       await nav.clipboard.write([item]);

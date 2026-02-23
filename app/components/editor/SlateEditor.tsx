@@ -685,18 +685,25 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
   const onPasteTableSafe = useCallback((e: React.ClipboardEvent) => {
     if (!isSelectionInsideTable()) return;
 
-    // 표 안에서는 table/td 같은 HTML이 들어오면 “셀 붙여넣기”가 발생할 수 있어서 차단
+    // ✅ 1) Slate fragment가 있으면 "그대로 통과" (inline-image 포함 복원됨)
+    //    - 우리 컨텍스트 메뉴 복사도 이걸 사용
+    const slateFrag =
+      e.clipboardData.getData('application/x-slate-fragment') ||
+      e.clipboardData.getData('text/x-slate-fragment'); // 호환용
+
+    if (slateFrag && slateFrag.length > 0) {
+      return; // preventDefault 하지 않음 → Slate가 fragment paste 처리
+    }
+
+    // ✅ 2) 표/td HTML이 들어오는 "외부 표 복붙"만 차단하고 text/plain만 넣기
     const html = e.clipboardData.getData('text/html') || '';
     const hasTableHtml = /<(table|tbody|tr|td|th)\b/i.test(html);
 
-    const text = e.clipboardData.getData('text/plain');
-    if (hasTableHtml || typeof text === 'string') {
+    if (hasTableHtml) {
+      const text = e.clipboardData.getData('text/plain') || '';
       e.preventDefault();
       e.stopPropagation();
-
-      // 기본: plain text만 삽입
-      // (개행은 그대로 들어가게 두면 셀 안 paragraph/줄바꿈 정책에 따라 동작)
-      Transforms.insertText(editor, text ?? '');
+      Transforms.insertText(editor, text);
     }
   }, [editor, isSelectionInsideTable]);
 
