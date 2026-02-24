@@ -1,5 +1,8 @@
 // =============================================
-// File: components/editor/render/PriceTableCard.tsx  (전체 코드)
+// File: components/editor/render/PriceTableCard.tsx  (전체 코드 / 수정본)
+// - ✅ 렌더링 시점에 DB에서 최신 시세를 가져와 "표시용"으로 반영
+// - ✅ 저장 없이도 최신 시세가 보이도록 (Slate 문서 자체는 건드리지 않음)
+// - ✅ 간단 캐시(TTL) + in-flight dedupe로 과도한 요청 방지
 // =============================================
 import React, { useEffect, useMemo, useState } from 'react';
 import { ReactEditor, useSlateStatic } from 'slate-react';
@@ -13,7 +16,6 @@ import type { PriceTableCardElement } from '@/types/slate';
 import type { PriceTableEditState } from './types';
 
 // ✅ 신규: 이름 클릭 시 아이템 선택 모달
-// (경로는 너 프로젝트 구조에 맞춰 조정)
 import PriceItemSelectModal from '../PriceItemSelectModal';
 
 // -------------------- 형식/스테이지 정의 --------------------
@@ -72,7 +74,6 @@ function stagesByFormat(fmt?: string): string[] {
 
   if (TRANSCEND_FORMATS.includes(f)) return ['거가', '거불'];
   if (AWAKEN_FORMATS.includes(f)) return ['봉인', '1각', '2각', '3각', '4각', 'MAX'];
-  // default: 단일 가격
   return ['가격'];
 }
 
@@ -98,7 +99,6 @@ function getPriceBadgeColor(stage: string, _type?: string) {
   }
 }
 
-// 길이에 따라 글자 크기 자동 축소
 function autoFont(base: number, text: string, steps?: Array<[number, number]>) {
   const len = Array.from(text ?? '').length;
   const rules: Array<[number, number]> =
@@ -120,7 +120,6 @@ function autoFont(base: number, text: string, steps?: Array<[number, number]>) {
  * ✅ 이름 줄바꿈 규칙 + "줄바꿈 발생 여부"까지 반환
  * - 10글자 이상 + 띄어쓰기 2개 이상이면
  * - 7글자 이후에 처음 등장하는 띄어쓰기 지점부터 줄바꿈
- *   (해당 공백은 제거하고 다음 줄로 보냄)
  */
 function smartNameBreakInfo(nameRaw: string | null | undefined) {
   const name = String(nameRaw ?? '');
@@ -132,14 +131,13 @@ function smartNameBreakInfo(nameRaw: string | null | undefined) {
     return { node: name as React.ReactNode, broke: false };
   }
 
-  // "7글자 다음 띄어쓰기" → 인덱스 7(=8번째 글자 위치)부터 공백 탐색
   const breakAt = chars.findIndex((ch, i) => i >= 7 && ch === ' ');
   if (breakAt === -1) {
     return { node: name as React.ReactNode, broke: false };
   }
 
   const first = chars.slice(0, breakAt).join('');
-  const second = chars.slice(breakAt + 1).join(''); // 공백 제거
+  const second = chars.slice(breakAt + 1).join('');
 
   if (!second.trim()) {
     return { node: name as React.ReactNode, broke: false };
@@ -156,8 +154,6 @@ function smartNameBreakInfo(nameRaw: string | null | undefined) {
     broke: true,
   };
 }
-
-/** 가격 텍스트: "~" 있을 때만 줄바꿈 힌트 */
 
 // ✅ PHP(colors.js)와 동일 팔레트: [10강..1강]
 const RDW_PALETTE = [
@@ -185,12 +181,6 @@ function isProbablyCompressedPrice(s: string) {
   return /^[0-9:~\s]+$/.test(s ?? '');
 }
 
-/**
- * 렌독 강화석 축약 표기 “표시용 토큰화”
- * - 10:NN... / 10N... / 10NN... 지원
- * - 나머지: 2자리쌍(lv + ct) 토큰
- * - 토큰 전체를 해당 lv 색으로 칠함
- */
 function tokenizeCompressedForColor(input: string): ColoredChunk[] {
   const s0 = String(input ?? '').trim().replace(/\s+/g, '');
   if (!s0) return [{ text: '' }];
@@ -198,12 +188,10 @@ function tokenizeCompressedForColor(input: string): ColoredChunk[] {
   let s = s0;
   const out: ColoredChunk[] = [];
 
-  // Case: '10:NN...' → 표시 토큰: '10:NN' (10강 색)
+  // Case: '10:NN...'
   if (s.startsWith('10:')) {
     const rest = s.slice(3);
     if (/^\d+$/.test(rest)) {
-      // parseCompressed와 동일한 추론:
-      // 가능한 한 10강을 2자리로 우선 해석 (뒤 2자리쌍 정렬을 위해)
       const use2 = rest.length >= 2 && (rest.length - 2) % 2 === 0;
       const take = use2 ? 2 : 1;
       const nPart = rest.slice(0, take);
@@ -215,7 +203,7 @@ function tokenizeCompressedForColor(input: string): ColoredChunk[] {
     }
   }
 
-  // Case: '10N...' / '10NN...' → 표시 토큰: '10N' or '10NN' (10강 색)
+  // Case: '10N...' / '10NN...'
   if (s.startsWith('10')) {
     const rem = s.length - 2;
     if (rem >= 1) {
@@ -231,7 +219,7 @@ function tokenizeCompressedForColor(input: string): ColoredChunk[] {
     }
   }
 
-  // 나머지 2자리쌍: 예) 61 52 ...
+  // 나머지 2자리쌍
   for (let i = 0; i < s.length; ) {
     if (i + 1 >= s.length) {
       out.push({ text: s.slice(i) });
@@ -294,7 +282,6 @@ function ColoredCompressedText({ value }: { value: string | number }) {
     );
   }
 
-  // 단일: 6152 / 10183 / 10:129312 ...
   const chunks = isProbablyCompressedPrice(s) ? tokenizeCompressedForColor(s) : [{ text: s }];
 
   return (
@@ -308,28 +295,81 @@ function ColoredCompressedText({ value }: { value: string | number }) {
   );
 }
 
-function PriceText({ value }: { value: string | number }) {
-  const s = String(value ?? '');
-  if (!s.includes('~')) return <span className="ptc-price-text">{s}</span>;
-  const [left, right] = s.split('~', 2);
-  return (
-    <span className="ptc-price-text">
-      <span style={{ whiteSpace: 'nowrap' }}>{left}~</span>
-      <wbr />
-      <span style={{ whiteSpace: 'nowrap' }}>{right}</span>
-    </span>
-  );
-}
+// -------------------- 선택 모달에서 받는 데이터 타입 --------------------
 
-// -------------------- 선택 모달에서 받는 데이터 타입(가정) --------------------
-// 네 모달 구현에 맞춰 필드명/타입 조정 가능
 type PickedPriceItem = {
   id: number;
   name: string;
   name_key: string;
-  mode: string; // = 위 PriceFormat 중 하나
-  prices: string[]; // "~" 포함 가능
+  mode: string;
+  prices: string[];
 };
+
+// -------------------- ✅ 라이브(최신) 시세 로딩/캐시 --------------------
+
+// 캐시 TTL (원하면 10초/30초/60초로 조절)
+const PRICE_CACHE_TTL_MS = 60_000;
+
+// key: "id:123" or "key:xxx"
+type CacheEntry = { ts: number; item: PickedPriceItem };
+
+// 모듈 스코프 캐시(페이지 내 공유)
+const priceCache = new Map<string, CacheEntry>();
+const inflight = new Map<string, Promise<PickedPriceItem | null>>();
+
+function makeCacheKey(id?: number | null, nameKey?: string | null) {
+  if (Number.isFinite(id as any) && (id as number) > 0) return `id:${id}`;
+  const nk = String(nameKey ?? '').trim();
+  if (nk) return `key:${nk}`;
+  return '';
+}
+
+async function fetchLatestPriceItem(id?: number | null, nameKey?: string | null) {
+  const key = makeCacheKey(id, nameKey);
+  if (!key) return null;
+
+  const now = Date.now();
+  const hit = priceCache.get(key);
+  if (hit && now - hit.ts <= PRICE_CACHE_TTL_MS) return hit.item;
+
+  const inFlight = inflight.get(key);
+  if (inFlight) return inFlight;
+
+  const p = (async () => {
+    try {
+      const url =
+        key.startsWith('id:')
+          ? `/api/prices/get?id=${encodeURIComponent(String(id))}`
+          : `/api/prices/get?name_key=${encodeURIComponent(String(nameKey ?? ''))}`;
+
+      // 최신 보장 목적: no-store
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) return null;
+      const data = (await res.json()) as any;
+
+      const it = data?.item;
+      if (!it) return null;
+
+      const normalized: PickedPriceItem = {
+        id: Number(it.id),
+        name: String(it.name ?? ''),
+        name_key: String(it.name_key ?? ''),
+        mode: String(it.mode ?? ''),
+        prices: Array.isArray(it.prices) ? it.prices.map((v: any) => String(v ?? '')) : [],
+      };
+
+      priceCache.set(key, { ts: Date.now(), item: normalized });
+      return normalized;
+    } catch {
+      return null;
+    } finally {
+      inflight.delete(key);
+    }
+  })();
+
+  inflight.set(key, p);
+  return p;
+}
 
 // -------------------- 개별 카드 아이템 --------------------
 
@@ -359,12 +399,9 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
   setPriceTableEdit,
 }) => {
   const [imageModalOpen, setImageModalOpen] = useState(false);
-
-  // ✅ 이름 클릭 → 선택 모달
   const [selectModalOpen, setSelectModalOpen] = useState(false);
 
   const stages: string[] = useMemo(() => {
-    // item.stages가 남아있더라도, 이제는 "형식(mode)" 기준으로 프론트에서 스테이지를 결정
     return stagesByFormat(item.mode);
   }, [item.mode]);
 
@@ -372,7 +409,6 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
     const raw = Array.isArray(item.prices) ? item.prices : [];
     const norm = raw.map((v: any) => String(v ?? ''));
 
-    // 스테이지 길이에 맞게 보정
     if (norm.length === stages.length) return norm;
     const next = [...norm];
     next.length = stages.length;
@@ -391,13 +427,11 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
 
   const nameShown = item.name || '이름 없음';
 
-  // ✅ 줄바꿈 가공(표시용) + 줄바꿈 발생 여부
   const { node: nameNode, broke: nameBroke } = useMemo(
     () => smartNameBreakInfo(item.name),
     [item.name]
   );
 
-  // ✅ "줄바꿈 발생한 경우"에만: 줄바꿈 이전(첫 줄) 텍스트 기준으로 16pt 조건 추가
   const nameFont = useMemo(() => {
     if (!nameBroke) {
       return autoFont(20, String(nameShown), [
@@ -409,7 +443,6 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
       ]);
     }
 
-    // smartNameBreakInfo와 동일 기준(7글자 이후 첫 공백)으로 "첫 줄" 계산
     const full = String(item.name ?? '');
     const chars = Array.from(full);
     const breakAt = chars.findIndex((ch, i) => i >= 7 && ch === ' ');
@@ -420,11 +453,7 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
     const firstLen = Array.from(first).length;
     const firstSpaceCount = (first.match(/\s/g) ?? []).length;
 
-    // ✅ 추가 규칙:
-    // 줄바꿈 지점 이전 글자수 >= 8 && (줄바꿈 이전에) 띄어쓰기 >= 1  → 16pt
     if (firstLen >= 8 && firstSpaceCount >= 1) return 16;
-
-    // ✅ 기본: 줄바꿈 발생시 17pt 고정
     return 17;
   }, [nameBroke, nameShown, item.name]);
 
@@ -451,7 +480,6 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
   const handlePickItem = (picked: PickedPriceItem) => {
     const newStages = stagesByFormat(picked.mode);
 
-    // prices 길이도 스테이지에 맞게 보정
     const raw = Array.isArray(picked.prices) ? picked.prices.map((v) => String(v ?? '')) : [];
     const nextPrices = [...raw];
     nextPrices.length = newStages.length;
@@ -464,8 +492,6 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
       name: picked.name,
       name_key: picked.name_key,
       mode: picked.mode,
-      // ✅ 이제 stages는 저장해도 되고 안 해도 되지만,
-      // 기존 호환/디버깅 편하게 넣어두자(프론트 기준은 mode)
       stages: newStages,
       prices: nextPrices,
     });
@@ -653,7 +679,7 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
         onSelectImage={handleImageSelect}
       />
 
-      {/* ✅ 이름 (클릭하면 "편집 모달" 대신 "아이템 선택 모달") */}
+      {/* 이름 (클릭하면 아이템 선택 모달) */}
       <div
         style={{
           fontWeight: 700,
@@ -662,19 +688,18 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
           marginBottom: 0,
           color: item.name ? '#333' : '#bbb',
           textAlign: 'center',
-          minHeight: 40, // ✅ 2줄 가능하니 여유
+          minHeight: 40,
           width: '100%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           padding: 0,
           cursor: 'pointer',
-          whiteSpace: 'normal', // ✅ 줄바꿈 허용
+          whiteSpace: 'normal',
         }}
         title="아이템 선택"
         onClick={(e) => {
           e.stopPropagation();
-          // Slate selection 꼬임 방지
           try {
             Transforms.deselect(editor);
           } catch {}
@@ -712,7 +737,6 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
           setPriceTableEdit({
             blockPath: path,
             idx,
-            // ✅ 이제 stages는 mode로 결정되므로 item에 mode만 확실히 전달
             item: { ...item, mode: item.mode ?? 'block' },
           });
         }}
@@ -725,12 +749,11 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
 
 // -------------------- 메인 렌더러 --------------------
 
-// Element.tsx 에서 넘겨주는 실제 props 모양
 export interface PriceTableCardProps {
   attributes: RenderElementProps['attributes'];
   children: React.ReactNode;
   element: PriceTableCardElement;
-  editor: any; // 지금은 사용 안 하지만 Element.tsx에서 넘기므로 허용
+  editor: any;
   priceTableEdit: PriceTableEditState;
   setPriceTableEdit: React.Dispatch<React.SetStateAction<PriceTableEditState>>;
 }
@@ -762,10 +785,91 @@ export function PriceTableCard(props: PriceTableCardProps) {
   const [stageIdxArr, setStageIdxArr] = useState<number[]>(el.items.map(() => 0));
   const [hovered, setHovered] = useState<number | null>(null);
 
+  // ✅ 라이브 시세 반영된 "표시용 items"
+  const [liveMap, setLiveMap] = useState<Map<string, PickedPriceItem>>(new Map());
+
   // 아이템 변경되면 stage index 초기화
   useEffect(() => {
     setStageIdxArr(el.items.map(() => 0));
   }, [el.items]);
+
+  // ✅ 이 카드에 포함된 아이템들의 identity 시그니처 (id/name_key 기반)
+  const itemsSignature = useMemo(() => {
+    return (el.items ?? [])
+      .map((it: any) => makeCacheKey(it?.id ?? null, it?.name_key ?? null))
+      .filter(Boolean)
+      .join('|');
+  }, [el.items]);
+
+  // ✅ 렌더링 시점(= mount + itemsSignature 변화 시점)에 최신 시세를 가져와서 표시용으로만 덮어씀
+  useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      const items = Array.isArray(el.items) ? el.items : [];
+      const targets = items
+        .map((it: any) => {
+          const key = makeCacheKey(it?.id ?? null, it?.name_key ?? null);
+          return { key, id: it?.id ?? null, name_key: it?.name_key ?? null };
+        })
+        .filter((t) => !!t.key);
+
+      if (targets.length === 0) {
+        if (alive) setLiveMap(new Map());
+        return;
+      }
+
+      const results = await Promise.all(
+        targets.map(async (t) => {
+          const latest = await fetchLatestPriceItem(t.id, t.name_key);
+          return { key: t.key, latest };
+        })
+      );
+
+      if (!alive) return;
+
+      const next = new Map<string, PickedPriceItem>();
+      for (const r of results) {
+        if (r.latest) next.set(r.key, r.latest);
+      }
+      setLiveMap(next);
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [itemsSignature, el.items]);
+
+  // ✅ "표시용" 최종 items: 문서에 저장된 item + (라이브 시세) 병합
+  // - image 같은 사용자 커스텀 값은 문서에 저장된 값을 유지
+  // - name/mode/prices는 최신 값을 우선 반영
+  const viewItems = useMemo(() => {
+    const items = Array.isArray(el.items) ? el.items : [];
+    return items.map((it: any) => {
+      const key = makeCacheKey(it?.id ?? null, it?.name_key ?? null);
+      const latest = key ? liveMap.get(key) : null;
+
+      if (!latest) return it;
+
+      const newStages = stagesByFormat(latest.mode);
+      const raw = Array.isArray(latest.prices) ? latest.prices.map((v) => String(v ?? '')) : [];
+      const nextPrices = [...raw];
+      nextPrices.length = newStages.length;
+      for (let i = 0; i < newStages.length; i++) {
+        if (typeof nextPrices[i] === 'undefined') nextPrices[i] = '';
+      }
+
+      return {
+        ...it,
+        id: latest.id ?? it.id,
+        name: latest.name ?? it.name,
+        name_key: latest.name_key ?? it.name_key,
+        mode: latest.mode ?? it.mode,
+        stages: newStages,
+        prices: nextPrices,
+      };
+    });
+  }, [el.items, liveMap]);
 
   const handlePrev = (idx: number, len: number) => {
     setStageIdxArr((arr) => arr.map((v, i) => (i === idx ? (v - 1 + len) % len : v)));
@@ -837,8 +941,7 @@ export function PriceTableCard(props: PriceTableCardProps) {
             maxWidth: 1040,
           }}
         >
-          {el.items.map((item, idx) => {
-            // ✅ mode 기반으로 len 계산(hover 화살표가 정확히 동작)
+          {viewItems.map((item, idx) => {
             const stages = stagesByFormat(item?.mode);
             return (
               <PriceCardItem
