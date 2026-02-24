@@ -1485,6 +1485,67 @@ function smartNameBreakInfo(nameRaw: string | null | undefined) {
   };
 }
 
+type PriceValue = string | number;
+
+function coercePriceArray(v: any): PriceValue[] | null {
+  if (!v) return null;
+  if (Array.isArray(v)) return v as PriceValue[];
+  return null;
+}
+
+/**
+ * ✅ "최신 시세" 우선 가격 배열 선택 로직
+ * - (1) item.latestPrices / item.pricesLatest / item.prices_latest 같은 "최신" 필드가 있으면 그걸 우선
+ * - (2) item.prices (기본 필드)
+ * - (3) stage별 map 형태(예: item.priceByStage, item.pricesByStage)가 있으면 stages 순서로 배열화
+ * - (4) 단일 price / value가 있으면 모든 stage에 채움
+ * - (5) 없으면 0으로 채움
+ *
+ * 🔥 에디터에서 실제로 쓰는 필드명이 다를 수 있어서, 호환 키들을 넓게 잡아둠.
+ * (너 DB/모달 연동하면서 latest 필드명을 하나로 확정했으면 그 키만 남기면 됨)
+ */
+function resolvePricesForStages(item: any, stages: string[]): PriceValue[] {
+  const latest =
+    coercePriceArray(item.latestPrices) ??
+    coercePriceArray(item.pricesLatest) ??
+    coercePriceArray(item.prices_latest) ??
+    coercePriceArray(item.dbPrices) ??
+    coercePriceArray(item.db_prices);
+
+  if (latest && latest.length) {
+    // 길이 보정
+    if (latest.length >= stages.length) return latest.slice(0, stages.length);
+    return latest.concat(Array(stages.length - latest.length).fill(0));
+  }
+
+  const base = coercePriceArray(item.prices);
+  if (base && base.length) {
+    if (base.length >= stages.length) return base.slice(0, stages.length);
+    return base.concat(Array(stages.length - base.length).fill(0));
+  }
+
+  const byStage =
+    item.priceByStage ??
+    item.pricesByStage ??
+    item.prices_by_stage ??
+    item.price_map ??
+    null;
+
+  if (byStage && typeof byStage === "object") {
+    return stages.map((st) => {
+      const v = byStage[st];
+      return v == null || v === "" ? 0 : v;
+    });
+  }
+
+  const single = item.price ?? item.value ?? item.latestPrice ?? item.priceLatest;
+  if (single != null && single !== "") {
+    return Array(stages.length).fill(single);
+  }
+
+  return Array(stages.length).fill(0);
+}
+
 function PriceTableCardBlock({
   node,
   keyProp,
@@ -1543,10 +1604,7 @@ function PriceTableCardBlock({
             Array.isArray(item.stages) && item.stages.length
               ? item.stages // 기존 데이터 호환
               : stagesByFormat(item.mode); // ✅ 신규 로직
-          const prices: Array<string | number> =
-            Array.isArray(item.prices) && item.prices.length
-              ? item.prices
-              : Array(stages.length).fill(0);
+          const prices: Array<string | number> = resolvePricesForStages(item, stages);
 
           const cardIdx = indexes[idx] ?? 0;
           const stage = stages[cardIdx] || "";
