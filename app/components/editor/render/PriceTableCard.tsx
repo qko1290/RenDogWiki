@@ -438,7 +438,7 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
         [7, 18],
         [9, 16],
         [12, 14],
-        [15, 13],
+        [16, 13],
         [20, 12],
       ]);
     }
@@ -453,7 +453,7 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
     const firstLen = Array.from(first).length;
     const firstSpaceCount = (first.match(/\s/g) ?? []).length;
 
-    if (firstLen >= 8 && firstSpaceCount >= 1) return 16;
+    if (firstLen >= 8 && firstSpaceCount >= 1) return 15;
     return 17;
   }, [nameBroke, nameShown, item.name]);
 
