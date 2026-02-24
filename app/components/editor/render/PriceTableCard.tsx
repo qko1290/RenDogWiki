@@ -438,7 +438,7 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
         [7, 18],
         [9, 16],
         [12, 14],
-        [16, 13],
+        [15, 13],
         [20, 12],
       ]);
     }
