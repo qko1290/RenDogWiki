@@ -9,7 +9,7 @@
  * - 서버/클라이언트 헤딩 ID 불일치 경고 억제를 위해 heading에 suppressHydrationWarning 사용
  */
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { Descendant, Text } from "slate";
 
 // ⬇️ 추가: CDN 치환/버전 유틸 + 최적화 이미지 컴포넌트
@@ -1546,6 +1546,87 @@ function resolvePricesForStages(item: any, stages: string[]): PriceValue[] {
   return Array(stages.length).fill(0);
 }
 
+// -------------------- ✅ 라이브(최신) 시세 로딩/캐시 (Read Renderer용) --------------------
+
+// 캐시 TTL
+const READ_PRICE_CACHE_TTL_MS = 60_000;
+
+// HMR/페이지 공유를 위해 globalThis에 보관
+const READ_PRICE_CACHE_KEY = "__rdwiki_price_cache__";
+const READ_PRICE_INFLIGHT_KEY = "__rdwiki_price_inflight__";
+
+type LivePriceItem = {
+  id: number;
+  name: string;
+  name_key: string;
+  mode: string;
+  prices: string[];
+};
+
+type CacheEntry = { ts: number; item: LivePriceItem };
+
+const readPriceCache: Map<string, CacheEntry> =
+  (globalThis as any)[READ_PRICE_CACHE_KEY] ?? new Map<string, CacheEntry>();
+(globalThis as any)[READ_PRICE_CACHE_KEY] = readPriceCache;
+
+const readInflight: Map<string, Promise<LivePriceItem | null>> =
+  (globalThis as any)[READ_PRICE_INFLIGHT_KEY] ?? new Map<string, Promise<LivePriceItem | null>>();
+(globalThis as any)[READ_PRICE_INFLIGHT_KEY] = readInflight;
+
+function makePriceCacheKey(id?: number | null, nameKey?: string | null) {
+  if (Number.isFinite(id as any) && (id as number) > 0) return `id:${id}`;
+  const nk = String(nameKey ?? "").trim();
+  if (nk) return `key:${nk}`;
+  return "";
+}
+
+async function fetchLatestPriceItemRead(id?: number | null, nameKey?: string | null) {
+  const key = makePriceCacheKey(id, nameKey);
+  if (!key) return null;
+
+  const now = Date.now();
+  const hit = readPriceCache.get(key);
+  if (hit && now - hit.ts <= READ_PRICE_CACHE_TTL_MS) return hit.item;
+
+  const inflightHit = readInflight.get(key);
+  if (inflightHit) return inflightHit;
+
+  const p = (async () => {
+    try {
+      const url =
+        key.startsWith("id:")
+          ? `/api/prices/get?id=${encodeURIComponent(String(id))}`
+          : `/api/prices/get?name_key=${encodeURIComponent(String(nameKey ?? ""))}`;
+
+      // 최신 보장(클라 fetch 기준)
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) return null;
+
+      const data = (await res.json()) as any;
+      const it = data?.item;
+      if (!it) return null;
+
+      const normalized: LivePriceItem = {
+        id: Number(it.id),
+        name: String(it.name ?? ""),
+        name_key: String(it.name_key ?? ""),
+        mode: String(it.mode ?? ""),
+        prices: Array.isArray(it.prices) ? it.prices.map((v: any) => String(v ?? "")) : [],
+      };
+
+      readPriceCache.set(key, { ts: Date.now(), item: normalized });
+      return normalized;
+    } catch {
+      return null;
+    } finally {
+      readInflight.delete(key);
+    }
+  })();
+
+  readInflight.set(key, p);
+  return p;
+}
+
 function PriceTableCardBlock({
   node,
   keyProp,
@@ -1553,19 +1634,111 @@ function PriceTableCardBlock({
   node: any;
   keyProp: React.Key;
 }) {
-  const [indexes, setIndexes] = useState<number[]>(() =>
-    node.items.map(() => 0)
-  );
+  const [indexes, setIndexes] = useState<number[]>(() => node.items.map(() => 0));
   const [hovered, setHovered] = useState<number | null>(null);
+
+  // ✅ 라이브 시세 맵
+  const [liveMap, setLiveMap] = useState<Map<string, LivePriceItem>>(new Map());
+
+  // ✅ node.items 길이/구성이 바뀌면 인덱스 배열도 맞춰줌
+  useEffect(() => {
+    const len = Array.isArray(node.items) ? node.items.length : 0;
+    setIndexes((prev) => {
+      if (prev.length === len) return prev;
+      return Array.from({ length: len }, (_, i) => prev[i] ?? 0);
+    });
+  }, [node.items]);
+
+  // ✅ 이 카드의 아이템 시그니처(id/name_key)
+  const itemsSignature = useMemo(() => {
+    const items = Array.isArray(node.items) ? node.items : [];
+    return items
+      .map((it: any) => makePriceCacheKey(it?.id ?? null, it?.name_key ?? null))
+      .filter(Boolean)
+      .join("|");
+  }, [node.items]);
+
+  // ✅ mount + itemsSignature 변화 시 최신 시세 로딩
+  useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      const items = Array.isArray(node.items) ? node.items : [];
+      const targets = items
+        .map((it: any) => {
+          const key = makePriceCacheKey(it?.id ?? null, it?.name_key ?? null);
+          return { key, id: it?.id ?? null, name_key: it?.name_key ?? null };
+        })
+        .filter((t: { key: string; id: number | null; name_key: string | null }) => !!t.key);
+
+      if (targets.length === 0) {
+        if (alive) setLiveMap(new Map());
+        return;
+      }
+
+      const results = await Promise.all(
+        targets.map(async (t: { key: string; id: number | null; name_key: string | null }) => {
+          const latest = await fetchLatestPriceItemRead(t.id, t.name_key);
+          return { key: t.key, latest };
+        })
+      );
+
+      if (!alive) return;
+
+      const next = new Map<string, LivePriceItem>();
+      for (const r of results) {
+        if (r.latest) next.set(r.key, r.latest);
+      }
+      setLiveMap(next);
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [itemsSignature, node.items]);
+
+  // ✅ 표시용 items: 문서 item + (라이브 시세) 병합
+  // - image 같은 커스텀은 문서 값을 유지
+  // - name/mode/prices는 최신 우선
+  const viewItems = useMemo(() => {
+    const items = Array.isArray(node.items) ? node.items : [];
+    return items.map((it: any) => {
+      const key = makePriceCacheKey(it?.id ?? null, it?.name_key ?? null);
+      const latest = key ? liveMap.get(key) : null;
+
+      if (!latest) return it;
+
+      const newStages = stagesByFormat(latest.mode);
+      const raw = Array.isArray(latest.prices) ? latest.prices.map((v) => String(v ?? "")) : [];
+      const nextPrices = [...raw];
+      nextPrices.length = newStages.length;
+      for (let i = 0; i < newStages.length; i++) {
+        if (typeof nextPrices[i] === "undefined") nextPrices[i] = "";
+      }
+
+      return {
+        ...it,
+        id: latest.id ?? it.id,
+        name: latest.name ?? it.name,
+        name_key: latest.name_key ?? it.name_key,
+        mode: latest.mode ?? it.mode,
+        stages: newStages,
+        prices: nextPrices,
+      };
+    });
+  }, [node.items, liveMap]);
 
   const setCardIdx = (cardIdx: number, dir: -1 | 1) => {
     setIndexes((prev) => {
       const copy = [...prev];
-      const item = node.items[cardIdx];
+      const item = viewItems[cardIdx]; // ✅ viewItems 기준
       if (!item) return copy;
-      const len = (Array.isArray(item.stages) && item.stages.length)
-        ? item.stages.length // 기존 데이터 호환
-        : stagesByFormat(item.mode).length; // ✅ 신규 로직
+
+      const len =
+        Array.isArray(item.stages) && item.stages.length
+          ? item.stages.length
+          : stagesByFormat(item.mode).length;
+
       copy[cardIdx] = (copy[cardIdx] + dir + len) % len;
       return copy;
     });
@@ -1599,7 +1772,7 @@ function PriceTableCardBlock({
           maxWidth: 1040,
         }}
       >
-        {node.items.map((item: any, idx: number) => {
+        {viewItems.map((item: any, idx: number) => {
           const stages: string[] =
             Array.isArray(item.stages) && item.stages.length
               ? item.stages // 기존 데이터 호환
