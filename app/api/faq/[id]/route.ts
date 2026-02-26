@@ -1,11 +1,21 @@
 // =============================================
 // File: app/api/faq/[id]/route.ts
-// (FAQ 단건 조회/수정/삭제 - 42P18 타입 오류 해결 + no-store 캐시 억제)
+// (FAQ 단건 조회/수정/삭제 - no-store 강제 + dynamic 강제)
 // =============================================
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
 
 export const runtime = 'nodejs';
+
+// ✅ Next/서버 레벨 캐시까지 확실히 방지
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+  Pragma: 'no-cache',
+  Expires: '0',
+};
 
 /** PG text[] -> string[] */
 function pgArrayToJs(input: unknown): string[] {
@@ -45,7 +55,7 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
   try {
     const id = Number(params.id);
     if (!Number.isFinite(id) || id <= 0) {
-      return NextResponse.json({ error: 'Invalid id' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json({ error: 'Invalid id' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const rows = await sql`
@@ -55,20 +65,23 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
       LIMIT 1
     `;
     const r = rows[0];
-    if (!r) return new NextResponse(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
+    if (!r) return new NextResponse(null, { status: 204, headers: NO_STORE_HEADERS });
 
-    return NextResponse.json({
-      id: r.id,
-      title: r.title,
-      content: r.content,
-      tags: pgArrayToJs(r.tags),
-      uploader: r.uploader,
-      created_at: r.created_at,
-      updated_at: r.updated_at,
-    }, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json(
+      {
+        id: r.id,
+        title: r.title,
+        content: r.content,
+        tags: pgArrayToJs(r.tags),
+        uploader: r.uploader,
+        created_at: r.created_at,
+        updated_at: r.updated_at,
+      },
+      { headers: NO_STORE_HEADERS }
+    );
   } catch (e) {
     console.error('FAQ 단건 조회 실패:', e);
-    return NextResponse.json({ error: 'Server error' }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ error: 'Server error' }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }
 
@@ -76,11 +89,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   try {
     const id = Number(params.id);
     if (!Number.isFinite(id) || id <= 0) {
-      return NextResponse.json({ error: 'Invalid id' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json({ error: 'Invalid id' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const body = await req.json();
-    const title: string | null   = body?.title   != null ? String(body.title).trim()   : null;
+    const title: string | null = body?.title != null ? String(body.title).trim() : null;
     const content: string | null = body?.content != null ? String(body.content).trim() : null;
     const tagsCsv: string | null = normalizeTagsToCsv(body?.tags);
 
@@ -102,21 +115,24 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
     const r = rows[0];
     if (!r) {
-      return NextResponse.json({ error: 'not found' }, { status: 404, headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json({ error: 'not found' }, { status: 404, headers: NO_STORE_HEADERS });
     }
 
-    return NextResponse.json({
-      id: r.id,
-      title: r.title,
-      content: r.content,
-      tags: pgArrayToJs(r.tags),
-      uploader: r.uploader,
-      created_at: r.created_at,
-      updated_at: r.updated_at,
-    }, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json(
+      {
+        id: r.id,
+        title: r.title,
+        content: r.content,
+        tags: pgArrayToJs(r.tags),
+        uploader: r.uploader,
+        created_at: r.created_at,
+        updated_at: r.updated_at,
+      },
+      { headers: NO_STORE_HEADERS }
+    );
   } catch (e) {
     console.error('FAQ 수정 실패:', e);
-    return NextResponse.json({ error: 'Server error' }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ error: 'Server error' }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }
 
@@ -124,13 +140,13 @@ export async function DELETE(_: NextRequest, { params }: { params: { id: string 
   try {
     const id = Number(params.id);
     if (!Number.isFinite(id) || id <= 0) {
-      return NextResponse.json({ error: 'Invalid id' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json({ error: 'Invalid id' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     await sql`DELETE FROM faq_questions WHERE id = ${id}`;
-    return NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (e) {
     console.error('FAQ 삭제 실패:', e);
-    return NextResponse.json({ error: 'Server error' }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ error: 'Server error' }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }
