@@ -48,9 +48,7 @@ function useAuthFlags(user: User) {
         if (!cancelled) setFlags({ canWrite: false, isAdmin: false, loading: false });
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [user?.id]);
 
   return flags;
@@ -79,16 +77,34 @@ export function FaqDetailModal({
 }) {
   return (
     <>
-      <div className="faq-modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
+      <div
+        className="faq-modal-backdrop"
+        onClick={onClose}
+        role="dialog"
+        aria-modal="true"
+      >
         <div className="faq-modal" onClick={(e) => e.stopPropagation()}>
           <div className="faq-modal-header">
             <div className="faq-modal-title">
               <span className="faq-qa q">Q</span>
               <h3>{sel.title}</h3>
             </div>
-            <button className="faq-modal-close" onClick={onClose} aria-label="close">
-              <svg className="x-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8">
-                <path d="M6 6L18 18M18 6L6 18" strokeLinecap="round" />
+            <button
+              className="faq-modal-close"
+              onClick={onClose}
+              aria-label="close"
+            >
+              <svg
+                className="x-ic"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.8"
+              >
+                <path
+                  d="M6 6L18 18M18 6L6 18"
+                  strokeLinecap="round"
+                />
               </svg>
             </button>
           </div>
@@ -104,107 +120,51 @@ export function FaqDetailModal({
 
       <style jsx global>{`
         .faq-modal-backdrop {
-          position: fixed;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.45);
-          display: grid;
-          place-items: center;
-          padding: 16px;
-          z-index: 1000;
+          position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+          display: grid; place-items: center; padding: 16px; z-index: 1000;
         }
         .faq-modal {
-          width: min(760px, 100%);
-          background: #fff;
-          border-radius: 20px;
-          padding: 18px 18px 20px;
-          box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+          width: min(760px, 100%); background: #fff; border-radius: 20px;
+          padding: 18px 18px 20px; box-shadow: 0 24px 80px rgba(0,0,0,0.28);
         }
         .faq-modal-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-          margin-bottom: 8px;
+          display: flex; align-items: center; justify-content: space-between;
+          gap: 10px; margin-bottom: 8px;
         }
-        .faq-modal-title {
-          display: inline-flex;
-          align-items: center;
-          gap: 12px;
-        }
-        .faq-modal-title h3 {
-          margin: 0;
-          font-size: 20px;
-          font-weight: 800;
-          color: #0f172a;
-        }
-        .faq-modal-close {
-          width: 36px;
-          height: 36px;
-          display: grid;
-          place-items: center;
-          background: transparent;
-          border: 0;
-          border-radius: 0;
+        .faq-modal-title { display: inline-flex; align-items: center; gap: 12px; }
+        .faq-modal-title h3 { margin: 0; font-size: 20px; font-weight: 800; color: #0f172a; }
+        .faq-modal-close{
+          width: 36px; height: 36px;
+          display: grid; place-items: center;
+          background: transparent; border: 0; border-radius: 0;
           color: #ef4444;
           cursor: pointer;
-          transition: transform 0.12s ease;
+          transition: transform .12s ease;
         }
-        .faq-modal-close:hover {
-          transform: scale(1.06);
-        }
-        .faq-modal-close:focus {
-          outline: none;
-        }
-        .faq-modal-close .x-ic {
-          width: 18px;
-          height: 18px;
-        }
-        .faq-modal-body {
-          display: grid;
-          gap: 10px;
-          margin-top: 6px;
-        }
+        .faq-modal-close:hover{ transform: scale(1.06); }
+        .faq-modal-close:focus{ outline: none; }
+        .faq-modal-close .x-ic{ width: 18px; height: 18px; }
+        .faq-modal-body { display: grid; gap: 10px; margin-top: 6px; }
 
         .faq-qa {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 22px;
-          height: 22px;
-          border-radius: 999px;
-          font-weight: 900;
-          font-size: 13.5px;
-          line-height: 1;
-          vertical-align: middle;
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 22px; height: 22px; border-radius: 999px;
+          font-weight: 900; font-size: 13.5px; line-height: 1; vertical-align: middle;
           transform: translateY(-1px);
           flex: 0 0 22px;
         }
-        .faq-qa.q {
-          background: #eaf2ff;
-          color: #1d4ed8;
-        }
-        .faq-qa.a {
-          background: #ffe9e9;
-          color: #dc2626;
-        }
+        .faq-qa.q { background: #eaf2ff; color: #1d4ed8; }
+        .faq-qa.a { background: #ffe9e9; color: #dc2626; }
 
         .qa-line {
-          display: flex;
-          align-items: flex-start;
-          gap: 12px;
-          border-radius: 12px;
-          padding: 12px 14px;
+          display: flex; align-items: flex-start; gap: 12px;
+          border-radius: 12px; padding: 12px 14px;
         }
         .qa-line.a {
           background: #fff5f5;
           border: 1px solid #ffe2e2;
         }
-        .qa-text {
-          margin: 0;
-          white-space: pre-wrap;
-          font: inherit;
-          color: #111827;
-        }
+        .qa-text { margin: 0; white-space: pre-wrap; font: inherit; color: #111827; }
       `}</style>
     </>
   );
@@ -221,31 +181,41 @@ export default function FaqList({
   user: User;
   refreshSignal?: number;
 }) {
-  const { isAdmin } = useAuthFlags(user);
+  const { canWrite, isAdmin } = useAuthFlags(user);
+
   const [items, setItems] = useState<FaqItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [sel, setSel] = useState<FaqItem | null>(null);
   const [editTarget, setEditTarget] = useState<FaqItem | null>(null);
 
+  const [createOpen, setCreateOpen] = useState(false);
+
   const [menu, setMenu] = useState<{ open: boolean; id: number | null; x: number; y: number }>({
-    open: false,
-    id: null,
-    x: 0,
-    y: 0,
+    open: false, id: null, x: 0, y: 0
   });
 
   // --- 페이징 ---
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 12;
+
   const pageCount = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
-  const viewItems = useMemo(() => items.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [items, page]);
+  const viewItems = useMemo(
+    () => items.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE),
+    [items, page]
+  );
+
+  // ✅ “질문이 적을 때도” 페이징이 안 올라가게: wrap 높이를 ‘항상 동일’하게 유지
+  // - row 실제 높이(디자인 기준)를 넉넉히 잡아서(52)
+  // - 카드/페이징/여백을 포함한 높이를 고정(min-height)
+  const ROW_PITCH = 52; // 한 줄(패딩 포함) 체감 높이
+  const WRAP_BUFFER = 44; // “아주 살짝 위로” 문제 방지용 버퍼
 
   useEffect(() => {
     const maxIdx = Math.max(0, Math.ceil(items.length / PAGE_SIZE) - 1);
     if (page > maxIdx) setPage(0);
   }, [items, page]);
 
-  // 서버 쿼리(필터만 반영)
+  // 서버 쿼리 (필터만)
   const qs = useMemo(() => {
     const usp = new URLSearchParams();
     if (query) usp.set('q', query);
@@ -253,27 +223,24 @@ export default function FaqList({
     return usp.toString();
   }, [query, tags]);
 
-  // ✅ 100개 제한이 있어도 전부 로드(100단위 반복 호출)
   async function refresh() {
     setLoading(true);
     try {
-      const limit = 100;
+      const limit = 100; // 서버 제한 대응
       let offset = 0;
       let all: FaqItem[] = [];
 
-      const MAX_ROUNDS = 200; // 20,000개 안전장치
+      const MAX_ROUNDS = 200; // 안전장치
       let rounds = 0;
 
       while (rounds < MAX_ROUNDS) {
-        const r = await fetch(`/api/faq?${qs}${qs ? '&' : ''}limit=${limit}&offset=${offset}`, {
-          cache: 'no-store',
-        });
-
+        const r = await fetch(`/api/faq?${qs}&limit=${limit}&offset=${offset}`, { cache: 'no-store' });
         const data = r.ok ? await r.json() : null;
         const chunk = Array.isArray(data?.items) ? (data.items as FaqItem[]) : [];
 
         all = all.concat(chunk);
 
+        // 더 이상 받을 게 없으면 종료
         if (chunk.length < limit) break;
 
         offset += limit;
@@ -296,9 +263,7 @@ export default function FaqList({
       const el = e.target as HTMLElement | null;
       if (!el?.closest('.faq-popover') && !el?.closest('.faq-menu-btn')) close();
     };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
-    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
 
     document.addEventListener('mousedown', onPointer, true);
     document.addEventListener('touchstart', onPointer, true);
@@ -315,15 +280,8 @@ export default function FaqList({
     };
   }, [menu.open]);
 
-  useEffect(() => {
-    refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [qs]);
-
-  useEffect(() => {
-    if (refreshSignal) refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshSignal]);
+  useEffect(() => { refresh(); }, [qs]);
+  useEffect(() => { if (refreshSignal) refresh(); }, [refreshSignal]);
 
   const handleDelete = async (id: number) => {
     if (!confirm('정말 삭제할까요?')) return;
@@ -331,60 +289,99 @@ export default function FaqList({
     if (r.ok) refresh();
   };
 
+  const pagingWindow = useMemo(() => {
+    // 페이지가 많아도 버튼이 너무 길어지지 않게 (현재 129개 기준 11페이지 정도라 충분하지만, 안전하게)
+    const total = pageCount;
+    const cur = page;
+    const windowSize = 9; // 가운데 기준으로 9개 정도
+    if (total <= windowSize) return Array.from({ length: total }, (_, i) => i);
+
+    const half = Math.floor(windowSize / 2);
+    let start = Math.max(0, cur - half);
+    let end = Math.min(total - 1, start + windowSize - 1);
+    start = Math.max(0, end - windowSize + 1);
+
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+  }, [page, pageCount]);
+
   return (
-    <div className="faq-wrap">
-      {/* 리스트 카드 (✅ 높이 늘리지 않음: 내용만큼만) */}
+    <div
+      className="faq-wrap"
+      style={{
+        minHeight: `calc(${ROW_PITCH}px * ${PAGE_SIZE} + 64px + ${WRAP_BUFFER}px)`,
+      }}
+    >
+      {/* 상단 버튼 영역: 질문 추가(세그먼트 스타일) */}
+      {(canWrite || isAdmin) && (
+        <div className="faq-topbar">
+          <div className="toolbar-seg" role="group" aria-label="faq actions">
+            <button
+              className="seg-btn"
+              onClick={() => setCreateOpen(true)}
+              type="button"
+            >
+              <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+              </svg>
+              질문 추가
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 리스트 카드 */}
       <div className="faq-list-card">
-        {loading ? (
-          <div className="faq-row muted">불러오는 중…</div>
-        ) : items.length === 0 ? (
-          <div className="faq-row muted">등록된 질문이 없습니다.</div>
-        ) : (
-          viewItems.map((it) => (
-            <div key={it.id} className="faq-row">
-              <button
-                className="faq-title"
-                onClick={async () => {
-                  const fresh = await fetchFaqDetail(it.id);
-                  setSel(fresh ?? it);
-                }}
-                title={it.title}
-              >
-                <span className="faq-q">Q</span>
-                <span className="faq-title-text">{it.title}</span>
-              </button>
+        <div className="faq-list-body">
+          {loading ? (
+            <div className="faq-row muted">불러오는 중…</div>
+          ) : items.length === 0 ? (
+            <div className="faq-row muted">등록된 질문이 없습니다.</div>
+          ) : (
+            viewItems.map(it => (
+              <div key={it.id} className="faq-row">
+                <button
+                  className="faq-title"
+                  onClick={async () => {
+                    const fresh = await fetchFaqDetail(it.id);
+                    setSel(fresh ?? it);
+                  }}
+                  title={it.title}
+                >
+                  <span className="faq-q">Q</span>
+                  <span className="faq-title-text">{it.title}</span>
+                </button>
 
-              {isAdmin && (
-                <div className="faq-menu" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    className="faq-menu-btn"
-                    aria-label="more"
-                    onClick={(e) => {
-                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                      const x = Math.min(window.innerWidth - 100 - 8, Math.max(8, rect.right - 100));
-                      const y = rect.bottom + 6;
+                {isAdmin && (
+                  <div className="faq-menu" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      className="faq-menu-btn"
+                      aria-label="more"
+                      onClick={(e) => {
+                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                        const x = Math.min(window.innerWidth - 100 - 8, Math.max(8, rect.right - 100));
+                        const y = rect.bottom + 6;
 
-                      setMenu((m) => ({
-                        open: !(m.open && m.id === it.id),
-                        id: it.id,
-                        x,
-                        y,
-                      }));
-                    }}
-                    aria-expanded={menu.open && menu.id === it.id}
-                  >
-                    ⋯
-                  </button>
-                </div>
-              )}
-            </div>
-          ))
-        )}
+                        setMenu((m) => ({
+                          open: !(m.open && m.id === it.id),
+                          id: it.id,
+                          x,
+                          y,
+                        }));
+                      }}
+                      aria-expanded={menu.open && menu.id === it.id}
+                      type="button"
+                    >
+                      ⋯
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
-      {/* ✅ 카드 밖(바깥) 여백: 질문이 적으면 이게 늘어나서 페이징 위치 고정 */}
-      <div className="faq-between-spacer" aria-hidden="true" />
-
+      {/* 메뉴 팝오버 */}
       {menu.open && (
         <div
           className="faq-menu-pop faq-popover open"
@@ -394,7 +391,7 @@ export default function FaqList({
             top: menu.y,
             zIndex: 2000,
             minWidth: 100,
-            width: 100,
+            width: 100
           }}
           role="menu"
         >
@@ -404,8 +401,9 @@ export default function FaqList({
               const id = menu.id!;
               setMenu({ open: false, id: null, x: 0, y: 0 });
               const fresh = await fetchFaqDetail(id);
-              setEditTarget(fresh ?? items.find((i) => i.id === id) ?? null);
+              setEditTarget(fresh ?? (items.find(i => i.id === id) || null));
             }}
+            type="button"
           >
             수정
           </button>
@@ -417,36 +415,80 @@ export default function FaqList({
               setMenu({ open: false, id: null, x: 0, y: 0 });
               handleDelete(id);
             }}
+            type="button"
           >
             삭제
           </button>
         </div>
       )}
 
-      {/* 페이징 (✅ 항상 같은 위치 느낌: wrap의 min-height + spacer로 고정) */}
+      {/* ✅ 리스트-페이징 사이 공간(항상 동일하게) */}
+      <div className="faq-between-spacer" aria-hidden />
+
+      {/* 페이징: 세그먼트 버튼 스타일 */}
       {pageCount > 1 && (
         <div className="faq-paging">
-          <button className="faq-page-btn" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}>
-            ◀
-          </button>
+          <div className="toolbar-seg" role="navigation" aria-label="faq paging">
+            <button
+              className="seg-btn"
+              onClick={() => setPage(p => Math.max(0, p - 1))}
+              disabled={page === 0}
+              type="button"
+              aria-label="prev"
+              title="이전"
+            >
+              <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M15 6l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
 
-          <ul className="faq-pages">
-            {Array.from({ length: pageCount }).map((_, i) => (
-              <li key={i}>
-                <button className={`faq-page ${i === page ? 'active' : ''}`} onClick={() => setPage(i)}>
+            {/* 번호들 */}
+            <div className="faq-page-strip" aria-label="pages">
+              {pagingWindow[0] > 0 && (
+                <>
+                  <button className={`seg-btn ${page === 0 ? 'active' : ''}`} onClick={() => setPage(0)} type="button">1</button>
+                  {pagingWindow[0] > 1 && <span className="faq-ellipsis">…</span>}
+                </>
+              )}
+
+              {pagingWindow.map((i) => (
+                <button
+                  key={i}
+                  className={`seg-btn ${i === page ? 'active' : ''}`}
+                  onClick={() => setPage(i)}
+                  type="button"
+                >
                   {i + 1}
                 </button>
-              </li>
-            ))}
-          </ul>
+              ))}
 
-          <button
-            className="faq-page-btn"
-            onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
-            disabled={page === pageCount - 1}
-          >
-            ▶
-          </button>
+              {pagingWindow[pagingWindow.length - 1] < pageCount - 1 && (
+                <>
+                  {pagingWindow[pagingWindow.length - 1] < pageCount - 2 && <span className="faq-ellipsis">…</span>}
+                  <button
+                    className={`seg-btn ${page === pageCount - 1 ? 'active' : ''}`}
+                    onClick={() => setPage(pageCount - 1)}
+                    type="button"
+                  >
+                    {pageCount}
+                  </button>
+                </>
+              )}
+            </div>
+
+            <button
+              className="seg-btn"
+              onClick={() => setPage(p => Math.min(pageCount - 1, p + 1))}
+              disabled={page === pageCount - 1}
+              type="button"
+              aria-label="next"
+              title="다음"
+            >
+              <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
         </div>
       )}
 
@@ -471,36 +513,54 @@ export default function FaqList({
         />
       )}
 
+      {/* 생성 모달 */}
+      {createOpen && (
+        <FaqUpsertModal
+          open
+          mode="create"
+          onClose={() => setCreateOpen(false)}
+          onSaved={async () => {
+            setCreateOpen(false);
+            await refresh();
+          }}
+        />
+      )}
+
       <style jsx>{`
-        /* ✅ wrap 자체를 "고정된 세로 슬롯"으로 만들기 */
-        /* - 질문이 적으면 faq-between-spacer가 늘어나고
-           - 질문이 많으면 spacer가 줄어들어 0에 수렴
-           => 페이징이 항상 같은 위치 근처에 유지됨 */
+        /* 레이아웃 고정 */
         .faq-wrap{
           padding-top: 12px;
           display: flex;
           flex-direction: column;
-
-          /* ✅ 여기 버퍼를 늘려서 “12개 꽉 찬 페이지” 높이랑 정확히 맞추기 */
-          /* 기존: min-height: calc(52px * 12 + 64px); */
-          min-height: calc(52px * 12 + 64px + 32px); /* ← 24~48px 사이로 조절 추천 */
         }
 
-        /* 카드 컨테이너(✅ 내용만큼만) */
+        .faq-topbar{
+          display: flex;
+          justify-content: flex-end;
+          margin-bottom: 10px;
+        }
+
+        /* 카드 */
         .faq-list-card {
           border: 1px solid var(--border, #e5e7eb);
           border-radius: 14px;
           padding: 6px;
           background: #fff;
-          box-shadow: 0 8px 24px rgba(16, 24, 40, 0.04);
+          box-shadow: 0 8px 24px rgba(16,24,40,0.04);
         }
 
-        /* ✅ 카드 밖 빈공간(질문 적을 때 여기만 늘어난다) */
-        .faq-between-spacer {
+        /* 리스트 바디: 최소 높이 확보(페이징 위치 고정의 핵심) */
+        .faq-list-body{
+          min-height: calc(${ROW_PITCH}px * ${PAGE_SIZE});
+          display: block;
+        }
+
+        .faq-between-spacer{
           flex: 1 1 auto;
-          min-height: 12px; /* 너무 붙어 보이지 않게 최소 간격 */
+          min-height: 12px; /* 페이징과 카드 사이 안전 여백 */
         }
 
+        /* row */
         .faq-row {
           display: flex;
           align-items: center;
@@ -508,18 +568,13 @@ export default function FaqList({
           padding: 10px 14px;
           border-top: 1px solid var(--border, #eef0f2);
           gap: 12px;
-          transition: background 0.15s ease;
+          transition: background .15s ease;
         }
-        .faq-row:first-child {
-          border-top: 0;
-        }
-        .faq-row.muted {
-          color: #888;
-        }
-        .faq-row:hover {
-          background: #f8fafc;
-        }
+        .faq-row:first-child { border-top: 0; }
+        .faq-row.muted { color: #888; }
+        .faq-row:hover { background: #f8fafc; }
 
+        /* 제목 */
         .faq-title {
           position: relative;
           display: inline-flex;
@@ -527,135 +582,113 @@ export default function FaqList({
           gap: 10px;
           font-size: 16px;
           font-weight: 700;
-          background: none;
-          border: 0;
+          background: none; border: 0;
           padding: 2px 0;
           cursor: pointer;
-          text-align: left;
-          flex: 1 1 auto;
+          text-align: left; flex: 1 1 auto;
           color: #0f172a;
         }
-
         .faq-q {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 22px;
-          height: 22px;
-          border-radius: 999px;
-          background: #eaf2ff;
-          color: #1d4ed8;
-          font-weight: 900;
-          font-size: 13.5px;
-          line-height: 1;
-          vertical-align: middle;
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 22px; height: 22px; border-radius: 999px;
+          background: #eaf2ff; color: #1d4ed8;
+          font-weight: 900; font-size: 13.5px; line-height: 1;
           transform: translateY(-1px);
           flex: 0 0 22px;
         }
         .faq-title-text {
+          overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+
+        /* 점3개 */
+        .faq-menu { position: relative; }
+        .faq-menu-btn {
+          width: 32px; height: 32px; border-radius: 8px;
+          border: 1px solid var(--border, #e5e7eb); background: #fff; cursor: pointer;
+          font-size: 20px; line-height: 0; display: grid; place-items: center;
+          transition: background .15s;
+        }
+        .faq-menu-btn:hover { background: #f3f4f6; }
+
+        .faq-menu-pop {
+          position: absolute; right: 0; top: 38px; min-width: 140px;
+          border: 1px solid var(--border, #e5e7eb); border-radius: 10px; background: #fff;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+          padding: 6px; display: none; z-index: 10;
+        }
+        .faq-menu-pop.open { display: block; }
+        .faq-menu-pop button {
+          width: 100%; text-align: left; padding: 8px 10px;
+          background: none; border: 0; border-radius: 8px; cursor: pointer;
+        }
+        .faq-menu-pop button:hover { background: #f3f4f6; }
+        .faq-menu-pop .danger { color: #d11; }
+
+        /* 페이징 */
+        .faq-paging{
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: 44px;
+          margin-top: 0;
+          padding-bottom: 2px;
+        }
+
+        /* ✅ 너가 준 “세그먼트 버튼” 스타일 적용 */
+        .toolbar-seg {
+          display: inline-flex;
+          align-items: stretch;
+          background: #fff;
+          border: 1px solid #e5e7eb;
+          border-radius: 12px;
           overflow: hidden;
-          text-overflow: ellipsis;
+          box-shadow: 0 1px 2px rgba(0,0,0,.02);
+        }
+
+        .seg-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 14px;
+          border: 0;
+          background: transparent;
+          cursor: pointer;
+          font-weight: 600;
+          font-size: .95rem;
+          color: #4b5563;
+          line-height: 1;
+          transition: background .15s, color .15s;
           white-space: nowrap;
         }
 
-        .faq-menu {
-          position: relative;
-        }
-        .faq-menu-btn {
-          width: 32px;
-          height: 32px;
-          border-radius: 8px;
-          border: 1px solid var(--border, #e5e7eb);
-          background: #fff;
-          cursor: pointer;
-          font-size: 20px;
-          line-height: 0;
-          display: grid;
-          place-items: center;
-          transition: background 0.15s;
-        }
-        .faq-menu-btn:hover {
-          background: #f3f4f6;
-        }
-        .faq-menu-pop {
-          position: absolute;
-          right: 0;
-          top: 38px;
-          min-width: 140px;
-          border: 1px solid var(--border, #e5e7eb);
-          border-radius: 10px;
-          background: #fff;
-          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-          padding: 6px;
-          display: none;
-          z-index: 10;
-        }
-        .faq-menu-pop.open {
-          display: block;
-        }
-        .faq-menu-pop button {
-          width: 100%;
-          text-align: left;
-          padding: 8px 10px;
-          background: none;
-          border: 0;
-          border-radius: 8px;
-          cursor: pointer;
-        }
-        .faq-menu-pop button:hover {
-          background: #f3f4f6;
-        }
-        .faq-menu-pop .danger {
-          color: #d11;
-        }
+        /* 세그먼트 구분선 */
+        .seg-btn + .seg-btn { border-left: 1px solid #e5e7eb; }
 
-        /* 페이징 */
-        .faq-paging {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 10px;
+        .seg-btn .ico { width: 20px; height: 20px; }
+        .seg-btn:hover { background: #f3f4f6; }
+        .seg-btn:disabled { opacity: .55; cursor: not-allowed; }
 
-          /* 페이징 영역 자체 높이 고정(레이아웃 흔들림 방지) */
-          min-height: 44px;
-          margin-top: 0;
-        }
-        .faq-page-btn {
-          background: none;
-          border: 1px solid #e5e7eb;
-          border-radius: 8px;
-          padding: 6px 10px;
-          cursor: pointer;
-        }
-        .faq-page-btn:disabled {
-          opacity: 0.5;
-          cursor: default;
-        }
-        .faq-pages {
-          display: flex;
-          gap: 6px;
-          list-style: none;
-          padding: 0;
-          margin: 0;
-
-          flex-wrap: wrap;
-          justify-content: center;
-          max-width: 720px;
-        }
-        .faq-page {
-          min-width: 36px;
-          height: 32px;
-          padding: 0 8px;
-          border: 1px solid #e5e7eb;
-          border-radius: 8px;
-          background: #fff;
-          cursor: pointer;
-          font-weight: 600;
-        }
-        .faq-page.active {
-          border-color: #1d4ed8;
+        /* 현재 페이지 강조 */
+        .seg-btn.active{
           color: #1d4ed8;
           background: #eef5ff;
+        }
+
+        /* 페이지 스트립 */
+        .faq-page-strip{
+          display: inline-flex;
+          align-items: stretch;
+        }
+
+        /* “…”은 세그먼트 버튼이 아니므로, 버튼 사이 느낌만 맞춤 */
+        .faq-ellipsis{
+          display: inline-flex;
+          align-items: center;
+          padding: 0 10px;
+          color: #9ca3af;
+          font-weight: 700;
+          border-left: 1px solid #e5e7eb;
+          user-select: none;
         }
       `}</style>
     </div>
