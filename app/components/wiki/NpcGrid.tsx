@@ -118,7 +118,9 @@ export default function NpcGrid({
                     <span className="npc-emoji">{npc.icon || "🧑"}</span>
                   )}
                 </div>
-                <div className="npc-name">{npc.name}</div>
+                <div className={`npc-name${npc.name.trim().length >= 5 ? " is-long" : ""}`}>
+                  {npc.name}
+                </div>
               </div>
             </div>
           );
@@ -265,6 +267,11 @@ export default function NpcGrid({
           text-overflow: ellipsis;
           white-space: nowrap;
           max-width: 90%;
+        }
+
+        .npc-name.is-long {
+          font-size: calc(var(--name) * 0.82);
+          letter-spacing: 0;
         }
 
         /* 뱃지(깔끔한 칩 스타일) */
