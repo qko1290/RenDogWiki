@@ -118,9 +118,20 @@ export default function NpcGrid({
                     <span className="npc-emoji">{npc.icon || "🧑"}</span>
                   )}
                 </div>
-                <div className={`npc-name${npc.name.trim().length >= 5 ? " is-long" : ""}`}>
-                  {npc.name}
-                </div>
+                {(() => {
+                  const compactLen = npc.name.replace(/\s+/g, "").length;
+
+                  let nameClass = "";
+                  if (compactLen >= 9) nameClass = " is-xlong";
+                  else if (compactLen >= 7) nameClass = " is-longer";
+                  else if (compactLen >= 5) nameClass = " is-long";
+
+                  return (
+                    <div className={`npc-name${nameClass}`}>
+                      {npc.name}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           );
@@ -266,12 +277,22 @@ export default function NpcGrid({
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
-          max-width: 90%;
+          max-width: 98%;
         }
 
         .npc-name.is-long {
           font-size: calc(var(--name) * 0.82);
           letter-spacing: 0;
+        }
+
+        .npc-name.is-longer {
+          font-size: calc(var(--name) * 0.72);
+          letter-spacing: -0.2px;
+        }
+
+        .npc-name.is-xlong {
+          font-size: calc(var(--name) * 0.62);
+          letter-spacing: -0.35px;
         }
 
         /* 뱃지(깔끔한 칩 스타일) */
