@@ -226,7 +226,6 @@ export default function FaqList({
   const [loading, setLoading] = useState(false);
   const [sel, setSel] = useState<FaqItem | null>(null);
   const [editTarget, setEditTarget] = useState<FaqItem | null>(null);
-  const [createOpen, setCreateOpen] = useState(false);
 
   const [menu, setMenu] = useState<{ open: boolean; id: number | null; x: number; y: number }>({
     open: false,
@@ -334,19 +333,6 @@ export default function FaqList({
 
   return (
     <div className="faq-wrap">
-      {/* 질문 추가 버튼: 1개만 */}
-      {(canWrite || isAdmin) && (
-        <div className="faq-topbar">
-          <div className="toolbar-seg">
-            <button className="seg-btn" type="button" onClick={() => setCreateOpen(true)}>
-              <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-              </svg>
-              질문 추가
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* 리스트 카드 (✅ 내용만큼만, 높이 안 늘림) */}
       <div className="faq-list-card">
@@ -507,19 +493,6 @@ export default function FaqList({
         />
       )}
 
-      {/* 생성 모달 */}
-      {createOpen && (
-        <FaqUpsertModal
-          open
-          mode="create"
-          onClose={() => setCreateOpen(false)}
-          onSaved={async () => {
-            setCreateOpen(false);
-            await refresh();
-          }}
-        />
-      )}
-
       <style jsx>{`
         /* wrap 자체를 고정된 세로 슬롯으로 */
         .faq-wrap {
@@ -527,12 +500,6 @@ export default function FaqList({
           display: flex;
           flex-direction: column;
           min-height: calc(52px * 12 + 64px + 32px);
-        }
-
-        .faq-topbar {
-          display: flex;
-          justify-content: flex-end;
-          margin-bottom: 10px;
         }
 
         /* 카드 컨테이너(✅ 내용만큼만) */

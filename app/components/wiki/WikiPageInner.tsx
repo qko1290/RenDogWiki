@@ -1828,17 +1828,18 @@ function FaqAddButton({ onClick }: { onClick: () => void }) {
         onClick={onClick}
         title="질문 추가"
         aria-label="질문 추가"
+        type="button"
       >
         <svg
           className="faq-add-ic"
-          stroke="currentColor"
-          strokeWidth="1.5" 
           viewBox="0 0 24 24"
           fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
           xmlns="http://www.w3.org/2000/svg"
         >
           <path
-            d="M12 6v12M6 12h12"
+            d="M12 5v14M5 12h14"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
@@ -1849,33 +1850,47 @@ function FaqAddButton({ onClick }: { onClick: () => void }) {
       <style jsx>{`
         .faq-add-group {
           display: inline-flex;
-          overflow: hidden;
+          align-items: stretch;
           background: #fff;
-          border: 1px solid #b7f0d0;
+          border: 1px solid #e5e7eb;
           border-radius: 12px;
-          box-shadow: 0 1px 0 rgba(16, 185, 129, 0.06);
+          overflow: hidden;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+          flex: 0 0 auto;
         }
+
         .faq-add-seg {
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          padding: 8px 12px;
-          font-weight: 600;
-          color: #4b5563;
+          padding: 8px 14px;
+          border: 0;
           background: transparent;
-          border: none;
           cursor: pointer;
-          transition: background 0.2s ease, color 0.2s ease,
-            border-color 0.2s ease;
-          height: 36px;
+          font-weight: 600;
+          font-size: 0.95rem;
+          color: #4b5563;
+          line-height: 1;
+          white-space: nowrap;
+          height: 38px;
+          transition: background 0.15s, color 0.15s;
         }
+
         .faq-add-seg:hover {
-          background: #ecfdf5;
+          background: #f3f4f6;
         }
+
+        .faq-add-seg:focus-visible {
+          outline: none;
+          box-shadow: inset 0 0 0 2px rgba(56, 179, 93, 0.18);
+        }
+
         .faq-add-ic {
           width: 20px;
           height: 20px;
+          flex: 0 0 20px;
         }
+
         .faq-add-label {
           line-height: 1;
         }
