@@ -476,15 +476,14 @@ export default function FaqList({
         /* - 질문이 적으면 faq-between-spacer가 늘어나고
            - 질문이 많으면 spacer가 줄어들어 0에 수렴
            => 페이징이 항상 같은 위치 근처에 유지됨 */
-        .faq-wrap {
+        .faq-wrap{
           padding-top: 12px;
-
           display: flex;
           flex-direction: column;
 
-          /* 12줄 + 페이징 공간 + 여유 */
-          /* 필요하면 숫자만 조절 */
-          min-height: calc(52px * 12 + 64px);
+          /* ✅ 여기 버퍼를 늘려서 “12개 꽉 찬 페이지” 높이랑 정확히 맞추기 */
+          /* 기존: min-height: calc(52px * 12 + 64px); */
+          min-height: calc(52px * 12 + 64px + 32px); /* ← 24~48px 사이로 조절 추천 */
         }
 
         /* 카드 컨테이너(✅ 내용만큼만) */
