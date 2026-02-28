@@ -199,6 +199,10 @@ export default function FaqList({
     () => items.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE),
     [items, page]
   );
+  const rowHeight = 44; // 한 줄 높이 (현재 디자인 기준)
+  const missingRows = Math.max(0, PAGE_SIZE - viewItems.length);
+  const bottomPadding = missingRows * rowHeight;
+
   useEffect(() => {
     const maxIdx = Math.max(0, Math.ceil(items.length / PAGE_SIZE) - 1);
     if (page > maxIdx) setPage(0);
@@ -308,7 +312,10 @@ export default function FaqList({
   return (
     <div className="faq-wrap">
       {/* 리스트 카드 */}
-      <div className="faq-list-card">
+      <div
+        className="faq-list-card"
+        style={{ paddingBottom: bottomPadding }}
+      >
         <div className="faq-list-body">
           {loading ? (
             <div className="faq-row muted">불러오는 중…</div>
