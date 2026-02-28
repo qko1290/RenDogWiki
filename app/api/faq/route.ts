@@ -49,25 +49,82 @@ export async function GET(req: NextRequest) {
   try {
     const sp = req.nextUrl.searchParams;
     const q = (sp.get('q') ?? '').trim();
+    const qNoSpace = q.replace(/\s+/g, ''); // ✅ 태그 비교용: 공백 제거
     const tagsCsv = (sp.get('tags') ?? '').trim();
     const limit = Math.max(1, Math.min(100, Number(sp.get('limit') ?? 20)));
     const offset = Math.max(0, Number(sp.get('offset') ?? 0));
 
-    // ✅ 캐시 제거: 매 요청마다 DB 최신 조회
     const rows = await sql`
-      SELECT id, title, content, tags, uploader, created_at, updated_at
+      SELECT
+        id,
+        title,
+        content,
+        tags,
+        uploader,
+        created_at,
+        updated_at,
+        CASE
+          -- 1순위: 태그 일치 (입력값/DB태그 모두 공백 제거 후 비교)
+          WHEN ${q} <> '' AND EXISTS (
+            SELECT 1
+            FROM unnest(tags) AS tag
+            WHERE REPLACE(tag, ' ', '') ILIKE ${'%' + qNoSpace + '%'}
+          ) THEN 0
+
+          -- 2순위: 제목 일치
+          WHEN ${q} <> '' AND title ILIKE ${'%' + q + '%'} THEN 1
+
+          -- 3순위: 내용 일치
+          WHEN ${q} <> '' AND content ILIKE ${'%' + q + '%'} THEN 2
+
+          ELSE 3
+        END AS match_priority
       FROM faq_questions
-      WHERE (${q} = '' OR title ILIKE ${'%' + q + '%'} OR content ILIKE ${'%' + q + '%'})
-        AND (${tagsCsv} = '' OR tags && string_to_array(${tagsCsv}, ','))
-      ORDER BY created_at DESC
+      WHERE (
+        ${q} = ''
+        OR EXISTS (
+          SELECT 1
+          FROM unnest(tags) AS tag
+          WHERE REPLACE(tag, ' ', '') ILIKE ${'%' + qNoSpace + '%'}
+        )
+        OR title ILIKE ${'%' + q + '%'}
+        OR content ILIKE ${'%' + q + '%'}
+      )
+      AND (
+        ${tagsCsv} = ''
+        OR EXISTS (
+          SELECT 1
+          FROM unnest(tags) AS tag
+          JOIN unnest(string_to_array(${tagsCsv}, ',')) AS input_tag ON TRUE
+          WHERE REPLACE(tag, ' ', '') = REPLACE(TRIM(input_tag), ' ', '')
+        )
+      )
+      ORDER BY match_priority ASC, created_at DESC
       LIMIT ${limit} OFFSET ${offset}
     `;
 
     const totalRows = await sql`
       SELECT COUNT(*) AS cnt
       FROM faq_questions
-      WHERE (${q} = '' OR title ILIKE ${'%' + q + '%'} OR content ILIKE ${'%' + q + '%'})
-        AND (${tagsCsv} = '' OR tags && string_to_array(${tagsCsv}, ','))
+      WHERE (
+        ${q} = ''
+        OR EXISTS (
+          SELECT 1
+          FROM unnest(tags) AS tag
+          WHERE REPLACE(tag, ' ', '') ILIKE ${'%' + qNoSpace + '%'}
+        )
+        OR title ILIKE ${'%' + q + '%'}
+        OR content ILIKE ${'%' + q + '%'}
+      )
+      AND (
+        ${tagsCsv} = ''
+        OR EXISTS (
+          SELECT 1
+          FROM unnest(tags) AS tag
+          JOIN unnest(string_to_array(${tagsCsv}, ',')) AS input_tag ON TRUE
+          WHERE REPLACE(tag, ' ', '') = REPLACE(TRIM(input_tag), ' ', '')
+        )
+      )
     `;
 
     const data = {
