@@ -229,6 +229,12 @@ export default function WikiPageInner({ user }: Props) {
   const [selectedHead, setSelectedHead] = useState<HeadRow | null>(null);
   const [headPage, setHeadPage] = useState(0);
 
+  const NPC_PAGE_SIZE = 21;
+  const HEAD_PAGE_SIZE = 24;
+
+  const npcPageCount = Math.max(1, Math.ceil(npcList.length / NPC_PAGE_SIZE));
+  const headPageCount = Math.max(1, Math.ceil(headList.length / HEAD_PAGE_SIZE));
+
   const [headVillageIcon, setHeadVillageIcon] = useState<string | null>(null);
 
   const [faqQuery, setFaqQuery] = useState('');
@@ -1442,21 +1448,119 @@ export default function WikiPageInner({ user }: Props) {
                   refreshSignal={faqRefreshSignal}
                 />
               ) : specialMeta?.kind === 'head' ? (
-                headLoading ? (
-                  <BookLoader />
-                ) : headList.length > 0 ? (
-                  <HeadGrid
-                    heads={headList.slice(
-                      headPage * 24,
-                      (headPage + 1) * 24,
+                <div className="wiki-paged-section wiki-paged-section--head">
+                  <div className="wiki-paged-body">
+                    {headLoading ? (
+                      <BookLoader />
+                    ) : headList.length > 0 ? (
+                      <HeadGrid
+                        heads={headList.slice(
+                          headPage * HEAD_PAGE_SIZE,
+                          (headPage + 1) * HEAD_PAGE_SIZE,
+                        )}
+                        onClick={setSelectedHead}
+                        selectedHeadId={selectedHead?.id || null}
+                        headIcon={headVillageIcon}
+                      />
+                    ) : (
+                      <div>등록된 머리가 없습니다.</div>
                     )}
-                    onClick={setSelectedHead}
-                    selectedHeadId={selectedHead?.id || null}
-                    headIcon={headVillageIcon}
-                  />
-                ) : (
-                  <div>등록된 머리가 없습니다.</div>
-                )
+                  </div>
+
+                  {headList.length > HEAD_PAGE_SIZE && !hold && (
+                    <div className="wiki-paging-bar">
+                      <div className="wiki-paging-seg">
+                        <button
+                          type="button"
+                          onClick={() => setHeadPage((p) => Math.max(0, p - 1))}
+                          disabled={headPage === 0}
+                          className="wiki-paging-btn"
+                          aria-label="이전 페이지"
+                        >
+                          <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                            <path d="M15 6l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+
+                        <span className="wiki-paging-text">
+                          {headPage + 1} / {headPageCount}
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setHeadPage((p) => Math.min(headPageCount - 1, p + 1))
+                          }
+                          disabled={headPage === headPageCount - 1}
+                          className="wiki-paging-btn next"
+                          aria-label="다음 페이지"
+                        >
+                          <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                            <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : specialMeta?.kind === 'npc' ||
+                specialMeta?.kind === 'quest' ? (
+                <div className="wiki-paged-section wiki-paged-section--npc">
+                  <div className="wiki-paged-body">
+                    {npcLoading ? (
+                      <BookLoader />
+                    ) : npcList.length > 0 ? (
+                      <NpcGrid
+                        npcs={npcList.slice(
+                          npcPage * NPC_PAGE_SIZE,
+                          (npcPage + 1) * NPC_PAGE_SIZE,
+                        )}
+                        onClick={(npc) => {
+                          setSelectedNpcMode(null);
+                          setSelectedNpc(npc);
+                        }}
+                      />
+                    ) : (
+                      <div>등록된 NPC가 없습니다.</div>
+                    )}
+                  </div>
+
+                  {npcList.length > NPC_PAGE_SIZE && !hold && (
+                    <div className="wiki-paging-bar">
+                      <div className="wiki-paging-seg">
+                        <button
+                          type="button"
+                          onClick={() => setNpcPage((p) => Math.max(0, p - 1))}
+                          disabled={npcPage === 0}
+                          className="wiki-paging-btn"
+                          aria-label="이전 페이지"
+                        >
+                          <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                            <path d="M15 6l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+
+                        <span className="wiki-paging-text">
+                          {npcPage + 1} / {npcPageCount}
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setNpcPage((p) => Math.min(npcPageCount - 1, p + 1))
+                          }
+                          disabled={npcPage === npcPageCount - 1}
+                          className="wiki-paging-btn next"
+                          aria-label="다음 페이지"
+                        >
+                          <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                            <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               ) : specialMeta?.kind === 'npc' ||
                 specialMeta?.kind === 'quest' ? (
                 npcLoading ? (
@@ -1477,71 +1581,6 @@ export default function WikiPageInner({ user }: Props) {
               ) : (
                 <BookLoader />
               )}
-
-              {specialMeta?.kind === 'head' &&
-                headList.length > 24 &&
-                !hold && (
-                  <div className="wiki-paging-bar">
-                    <button
-                      onClick={() => setHeadPage(p => Math.max(0, p - 1))}
-                      disabled={headPage === 0}
-                      className="wiki-paging-btn"
-                    >
-                      ◀
-                    </button>
-                    <span className="wiki-paging-text">
-                      {headPage + 1} / {Math.ceil(headList.length / 24)}
-                    </span>
-                    <button
-                      onClick={() =>
-                        setHeadPage(p =>
-                          Math.min(Math.ceil(headList.length / 24) - 1, p + 1),
-                        )
-                      }
-                      disabled={headPage === Math.ceil(headList.length / 24) - 1}
-                      className="wiki-paging-btn"
-                    >
-                      ▶
-                    </button>
-                  </div>
-                )}
-              {(specialMeta?.kind === 'npc' ||
-                specialMeta?.kind === 'quest') &&
-                npcList.length > 21 &&
-                !hold && (
-                  <div className="wiki-paging-bar">
-                    <button
-                      onClick={() =>
-                        setNpcPage(p => Math.max(0, p - 1))
-                      }
-                      disabled={npcPage === 0}
-                      className="wiki-paging-btn"
-                    >
-                      ◀
-                    </button>
-                    <span className="wiki-paging-text">
-                      {npcPage + 1} /{' '}
-                      {Math.ceil(npcList.length / 21)}
-                    </span>
-                    <button
-                      onClick={() =>
-                        setNpcPage(p =>
-                          Math.min(
-                            Math.ceil(npcList.length / 21) - 1,
-                            p + 1,
-                          ),
-                        )
-                      }
-                      disabled={
-                        npcPage ===
-                        Math.ceil(npcList.length / 21) - 1
-                      }
-                      className="wiki-paging-btn"
-                    >
-                      ▶
-                    </button>
-                  </div>
-                )}
 
               {selectedNpc && !hold && (
                 <NpcDetailModal
@@ -1668,6 +1707,94 @@ export default function WikiPageInner({ user }: Props) {
         :root {
           --wiki-round-font: 'Jua', 'Pretendard', 'Malgun Gothic',
             system-ui, sans-serif;
+        }
+
+        .wiki-paged-section {
+          display: flex;
+          flex-direction: column;
+        }
+
+        /* ✅ 본문 높이 고정 슬롯
+          - 요소가 적어도 이 영역이 유지돼서 페이징 위치가 안 흔들림 */
+        .wiki-paged-body {
+          flex: 0 0 auto;
+        }
+
+        .wiki-paged-section--npc .wiki-paged-body {
+          min-height: 520px;
+        }
+
+        .wiki-paged-section--head .wiki-paged-body {
+          min-height: 620px;
+        }
+
+        /* 페이징 */
+        .wiki-paging-bar {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 44px;
+          margin-top: 0;
+        }
+
+        .wiki-paging-seg {
+          display: inline-flex;
+          align-items: stretch;
+          background: #fff;
+          border: 1px solid #e5e7eb;
+          border-radius: 12px;
+          overflow: hidden;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+        }
+
+        .wiki-paging-btn,
+        .wiki-paging-text {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 8px 14px;
+          min-width: 44px;
+          height: 38px;
+          border: 0;
+          background: transparent;
+          font-weight: 600;
+          font-size: 0.95rem;
+          color: #4b5563;
+          line-height: 1;
+        }
+
+        .wiki-paging-btn {
+          cursor: pointer;
+          transition: background 0.15s, color 0.15s;
+        }
+
+        .wiki-paging-btn:hover {
+          background: #f3f4f6;
+        }
+
+        .wiki-paging-btn:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
+        }
+
+        .wiki-paging-btn .ico {
+          width: 20px;
+          height: 20px;
+          flex: 0 0 20px;
+        }
+
+        .wiki-paging-btn:first-child {
+          border-right: 1px solid #e5e7eb;
+        }
+
+        .wiki-paging-btn.next {
+          border-left: 1px solid #e5e7eb;
+        }
+
+        .wiki-paging-text {
+          white-space: nowrap;
+          user-select: none;
         }
       `}</style>
     </div>
