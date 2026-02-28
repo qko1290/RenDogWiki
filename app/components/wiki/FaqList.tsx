@@ -102,7 +102,6 @@ export function FaqDetailModal({
         </div>
       </div>
 
-      {/* WikiPageInner에서도 동일 스타일로 보이도록(기존 모달 CSS와 동일) */}
       <style jsx global>{`
         .faq-modal-backdrop {
           position: fixed;
@@ -238,7 +237,6 @@ export default function FaqList({
   // --- 페이징 ---
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 12;
-
   const pageCount = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
   const viewItems = useMemo(() => items.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [items, page]);
 
@@ -263,18 +261,19 @@ export default function FaqList({
       let offset = 0;
       let all: FaqItem[] = [];
 
-      // 안전장치(무한루프 방지)
-      const MAX_ROUNDS = 200; // 100 * 200 = 20,000개
+      const MAX_ROUNDS = 200; // 20,000개 안전장치
       let rounds = 0;
 
       while (rounds < MAX_ROUNDS) {
-        const r = await fetch(`/api/faq?${qs}${qs ? '&' : ''}limit=${limit}&offset=${offset}`, { cache: 'no-store' });
+        const r = await fetch(`/api/faq?${qs}${qs ? '&' : ''}limit=${limit}&offset=${offset}`, {
+          cache: 'no-store',
+        });
+
         const data = r.ok ? await r.json() : null;
         const chunk = Array.isArray(data?.items) ? (data.items as FaqItem[]) : [];
 
         all = all.concat(chunk);
 
-        // 더 이상 받을 게 없으면 종료
         if (chunk.length < limit) break;
 
         offset += limit;
@@ -334,63 +333,57 @@ export default function FaqList({
 
   return (
     <div className="faq-wrap">
-      {/* 리스트 카드 */}
+      {/* 리스트 카드 (✅ 높이 늘리지 않음: 내용만큼만) */}
       <div className="faq-list-card">
-        <div className="faq-list-body">
-          {loading ? (
-            <div className="faq-row muted">불러오는 중…</div>
-          ) : items.length === 0 ? (
-            <div className="faq-row muted">등록된 질문이 없습니다.</div>
-          ) : (
-            <>
-              {viewItems.map((it) => (
-                <div key={it.id} className="faq-row">
-                  {/* 제목(왼쪽): 항상 단건 최신값으로 모달 오픈 */}
+        {loading ? (
+          <div className="faq-row muted">불러오는 중…</div>
+        ) : items.length === 0 ? (
+          <div className="faq-row muted">등록된 질문이 없습니다.</div>
+        ) : (
+          viewItems.map((it) => (
+            <div key={it.id} className="faq-row">
+              <button
+                className="faq-title"
+                onClick={async () => {
+                  const fresh = await fetchFaqDetail(it.id);
+                  setSel(fresh ?? it);
+                }}
+                title={it.title}
+              >
+                <span className="faq-q">Q</span>
+                <span className="faq-title-text">{it.title}</span>
+              </button>
+
+              {isAdmin && (
+                <div className="faq-menu" onClick={(e) => e.stopPropagation()}>
                   <button
-                    className="faq-title"
-                    onClick={async () => {
-                      const fresh = await fetchFaqDetail(it.id);
-                      setSel(fresh ?? it);
+                    className="faq-menu-btn"
+                    aria-label="more"
+                    onClick={(e) => {
+                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                      const x = Math.min(window.innerWidth - 100 - 8, Math.max(8, rect.right - 100));
+                      const y = rect.bottom + 6;
+
+                      setMenu((m) => ({
+                        open: !(m.open && m.id === it.id),
+                        id: it.id,
+                        x,
+                        y,
+                      }));
                     }}
-                    title={it.title}
+                    aria-expanded={menu.open && menu.id === it.id}
                   >
-                    <span className="faq-q">Q</span>
-                    <span className="faq-title-text">{it.title}</span>
+                    ⋯
                   </button>
-
-                  {/* 점3개 메뉴 – 관리자만 표시 */}
-                  {isAdmin && (
-                    <div className="faq-menu" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        className="faq-menu-btn"
-                        aria-label="more"
-                        onClick={(e) => {
-                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                          const x = Math.min(window.innerWidth - 100 - 8, Math.max(8, rect.right - 100));
-                          const y = rect.bottom + 6;
-
-                          setMenu((m) => ({
-                            open: !(m.open && m.id === it.id),
-                            id: it.id,
-                            x,
-                            y,
-                          }));
-                        }}
-                        aria-expanded={menu.open && menu.id === it.id}
-                      >
-                        ⋯
-                      </button>
-                    </div>
-                  )}
                 </div>
-              ))}
-
-              {/* ✅ 질문이 PAGE_SIZE보다 적으면, 카드 높이는 유지하고 남는 공간만 내부에서 채움 */}
-              {viewItems.length < PAGE_SIZE && <div className="faq-spacer" aria-hidden="true" />}
-            </>
-          )}
-        </div>
+              )}
+            </div>
+          ))
+        )}
       </div>
+
+      {/* ✅ 카드 밖(바깥) 여백: 질문이 적으면 이게 늘어나서 페이징 위치 고정 */}
+      <div className="faq-between-spacer" aria-hidden="true" />
 
       {menu.open && (
         <div
@@ -430,7 +423,7 @@ export default function FaqList({
         </div>
       )}
 
-      {/* 페이징 (✅ 위치 고정: 카드가 항상 같은 높이이므로 아래로 밀리지 않음) */}
+      {/* 페이징 (✅ 항상 같은 위치 느낌: wrap의 min-height + spacer로 고정) */}
       {pageCount > 1 && (
         <div className="faq-paging">
           <button className="faq-page-btn" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}>
@@ -460,7 +453,7 @@ export default function FaqList({
       {/* 상세 모달(Q/A 뷰) */}
       {sel && <FaqDetailModal sel={sel} onClose={() => setSel(null)} />}
 
-      {/* ✨ 수정도 같은 모달 재사용 */}
+      {/* 수정 모달 */}
       {editTarget && (
         <FaqUpsertModal
           open
@@ -478,14 +471,23 @@ export default function FaqList({
         />
       )}
 
-      {/* 스타일 */}
       <style jsx>{`
-        /* 상단 간격 */
+        /* ✅ wrap 자체를 "고정된 세로 슬롯"으로 만들기 */
+        /* - 질문이 적으면 faq-between-spacer가 늘어나고
+           - 질문이 많으면 spacer가 줄어들어 0에 수렴
+           => 페이징이 항상 같은 위치 근처에 유지됨 */
         .faq-wrap {
           padding-top: 12px;
+
+          display: flex;
+          flex-direction: column;
+
+          /* 12줄 + 페이징 공간 + 여유 */
+          /* 필요하면 숫자만 조절 */
+          min-height: calc(52px * 12 + 64px);
         }
 
-        /* 카드 컨테이너: ✅ 항상 같은 높이(12개 줄 기준) 유지 */
+        /* 카드 컨테이너(✅ 내용만큼만) */
         .faq-list-card {
           border: 1px solid var(--border, #e5e7eb);
           border-radius: 14px;
@@ -494,21 +496,12 @@ export default function FaqList({
           box-shadow: 0 8px 24px rgba(16, 24, 40, 0.04);
         }
 
-        /* ✅ 내부를 세로 플렉스: 남는 공간은 spacer가 먹음 */
-        .faq-list-body {
-          display: flex;
-          flex-direction: column;
-
-          /* ⚠️ 여기 값이 핵심: "12줄이 들어갈 최소 높이" */
-          /* 현재 .faq-row 패딩(10px*2) + 텍스트 + border 포함하면 50~54px 근처라서 52px로 잡음 */
-          min-height: calc(52px * 12);
-        }
-
-        .faq-spacer {
+        /* ✅ 카드 밖 빈공간(질문 적을 때 여기만 늘어난다) */
+        .faq-between-spacer {
           flex: 1 1 auto;
+          min-height: 12px; /* 너무 붙어 보이지 않게 최소 간격 */
         }
 
-        /* 행 */
         .faq-row {
           display: flex;
           align-items: center;
@@ -528,7 +521,6 @@ export default function FaqList({
           background: #f8fafc;
         }
 
-        /* 제목 버튼 */
         .faq-title {
           position: relative;
           display: inline-flex;
@@ -545,7 +537,6 @@ export default function FaqList({
           color: #0f172a;
         }
 
-        /* Q 토큰 (리스트) */
         .faq-q {
           display: inline-flex;
           align-items: center;
@@ -568,7 +559,6 @@ export default function FaqList({
           white-space: nowrap;
         }
 
-        /* 점3개 메뉴 */
         .faq-menu {
           position: relative;
         }
@@ -620,14 +610,16 @@ export default function FaqList({
           color: #d11;
         }
 
-        /* 페이징: ✅ 높이 고정(질문 수/페이지 수로 위아래 흔들리지 않게) */
+        /* 페이징 */
         .faq-paging {
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 10px;
-          margin-top: 12px;
+
+          /* 페이징 영역 자체 높이 고정(레이아웃 흔들림 방지) */
           min-height: 44px;
+          margin-top: 0;
         }
         .faq-page-btn {
           background: none;
@@ -647,7 +639,6 @@ export default function FaqList({
           padding: 0;
           margin: 0;
 
-          /* 페이지 개수 많아져도 레이아웃이 튀지 않게 완충 */
           flex-wrap: wrap;
           justify-content: center;
           max-width: 720px;
