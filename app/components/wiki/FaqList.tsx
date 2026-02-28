@@ -229,17 +229,41 @@ export default function FaqList({
     const usp = new URLSearchParams();
     if (query) usp.set('q', query);
     if (tags?.length) usp.set('tags', tags.join(','));
-    usp.set('limit', '100');
-    usp.set('offset', '0');
     return usp.toString();
   }, [query, tags]);
 
   async function refresh() {
     setLoading(true);
     try {
-      const r = await fetch(`/api/faq?${qs}`, { cache: 'no-store' });
-      const data = r.ok ? await r.json() : { items: [] };
-      setItems(Array.isArray(data.items) ? data.items : []);
+      const limit = 100; // 서버가 100까지만 허용이니까 100단위로 반복 호출
+      let offset = 0;
+      let all: FaqItem[] = [];
+      let total = Infinity;
+
+      // 안전장치(무한루프 방지)
+      const MAX_ROUNDS = 200; // 100 * 200 = 20,000개까지 가능
+      let rounds = 0;
+
+      while (all.length < total && rounds < MAX_ROUNDS) {
+        const r = await fetch(
+          `/api/faq?${qs}&limit=${limit}&offset=${offset}`,
+          { cache: 'no-store' }
+        );
+
+        const data = r.ok ? await r.json() : null;
+        const chunk = Array.isArray(data?.items) ? (data.items as FaqItem[]) : [];
+        total = Number.isFinite(Number(data?.total)) ? Number(data.total) : all.length;
+
+        all = all.concat(chunk);
+
+        // 더 이상 받을 게 없으면 종료
+        if (chunk.length < limit) break;
+
+        offset += limit;
+        rounds += 1;
+      }
+
+      setItems(all);
     } catch {
       setItems([]);
     } finally {
@@ -285,54 +309,56 @@ export default function FaqList({
     <div className="faq-wrap">
       {/* 리스트 카드 */}
       <div className="faq-list-card">
-        {loading ? (
-          <div className="faq-row muted">불러오는 중…</div>
-        ) : items.length === 0 ? (
-          <div className="faq-row muted">등록된 질문이 없습니다.</div>
-        ) : (
-          viewItems.map(it => (
-            <div key={it.id} className="faq-row">
-              {/* 제목(왼쪽): 항상 단건 최신값으로 모달 오픈 */}
-              <button
-                className="faq-title"
-                onClick={async () => {
-                  const fresh = await fetchFaqDetail(it.id);
-                  setSel(fresh ?? it);
-                }}
-                title={it.title}
-              >
-                <span className="faq-q">Q</span>
-                <span className="faq-title-text">{it.title}</span>
-              </button>
+        <div className="faq-list-body">
+          {loading ? (
+            <div className="faq-row muted">불러오는 중…</div>
+          ) : items.length === 0 ? (
+            <div className="faq-row muted">등록된 질문이 없습니다.</div>
+          ) : (
+            viewItems.map(it => (
+              <div key={it.id} className="faq-row">
+                {/* 제목(왼쪽): 항상 단건 최신값으로 모달 오픈 */}
+                <button
+                  className="faq-title"
+                  onClick={async () => {
+                    const fresh = await fetchFaqDetail(it.id);
+                    setSel(fresh ?? it);
+                  }}
+                  title={it.title}
+                >
+                  <span className="faq-q">Q</span>
+                  <span className="faq-title-text">{it.title}</span>
+                </button>
 
-              {/* 점3개 메뉴 – 관리자만 표시 */}
-              {isAdmin && (
-                <div className="faq-menu" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    className="faq-menu-btn faq-menu-btn"
-                    aria-label="more"
-                    onClick={(e) => {
-                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                      const x = Math.min(
-                        window.innerWidth - 100 - 8,
-                        Math.max(8, rect.right - 100)
-                      );
-                      const y = rect.bottom + 6;
+                {/* 점3개 메뉴 – 관리자만 표시 */}
+                {isAdmin && (
+                  <div className="faq-menu" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      className="faq-menu-btn faq-menu-btn"
+                      aria-label="more"
+                      onClick={(e) => {
+                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                        const x = Math.min(
+                          window.innerWidth - 100 - 8,
+                          Math.max(8, rect.right - 100)
+                        );
+                        const y = rect.bottom + 6;
 
-                      setMenu((m) => ({
-                        open: !(m.open && m.id === it.id),
-                        id: it.id,
-                        x,
-                        y,
-                      }));
-                    }}
-                    aria-expanded={menu.open && menu.id === it.id}
-                  >⋯</button>
-                </div>
-              )}
-            </div>
-          ))
-        )}
+                        setMenu((m) => ({
+                          open: !(m.open && m.id === it.id),
+                          id: it.id,
+                          x,
+                          y,
+                        }));
+                      }}
+                      aria-expanded={menu.open && menu.id === it.id}
+                    >⋯</button>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
       </div>
       
       {menu.open && (
@@ -565,6 +591,11 @@ export default function FaqList({
         }
         .faq-page.active {
           border-color: #1d4ed8; color: #1d4ed8; background: #eef5ff;
+        }
+        .faq-list-body{
+          /* 대충 한 줄 높이(패딩 포함)를 44px 정도로 잡고 PAGE_SIZE=12 줄 공간 확보 */
+          min-height: calc(44px * 12);
+          display: block;
         }
       `}</style>
     </div>
