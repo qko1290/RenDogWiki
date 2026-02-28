@@ -61,6 +61,11 @@ export default function NpcGrid({
     return npcs.slice(start, start + pageSize);
   }, [npcs, curPage, pageSize]);
 
+  const placeholders = useMemo(
+    () => Array.from({ length: Math.max(0, pageSize - view.length) }),
+    [pageSize, view.length]
+  );
+
   const goPage = (p: number) => {
     const next = Math.min(Math.max(0, p), pageCount - 1);
     if (typeof page === "number" && onPageChange) onPageChange(next);
@@ -97,7 +102,6 @@ export default function NpcGrid({
               }}
               className={`npc-card${selected ? " is-selected" : ""}`}
             >
-              {/* 뱃지: 카드 기준 우상단 ‘걸침’ */}
               {tag && (
                 <span className={`npc-tag-badge tag-${slug(tag)}`} aria-hidden>
                   {tag}
@@ -123,31 +127,48 @@ export default function NpcGrid({
             </div>
           );
         })}
+
+        {/* ✅ 마지막 페이지에서 개수가 부족해도 높이 유지용 빈 슬롯 */}
+        {placeholders.map((_, i) => (
+          <div
+            key={`npc-placeholder-${curPage}-${i}`}
+            className="npc-card npc-card-placeholder"
+            aria-hidden="true"
+          />
+        ))}
       </div>
 
       {showPager && pageCount > 1 && (
         <div className="npc-pager" role="navigation" aria-label="NPC 페이지">
-          <button
-            type="button"
-            className="npc-pg-btn"
-            onClick={() => goPage(curPage - 1)}
-            disabled={curPage === 0}
-            aria-label="이전 페이지"
-          >
-            ◀
-          </button>
-          <span className="npc-pg-text">
-            {curPage + 1} / {pageCount}
-          </span>
-          <button
-            type="button"
-            className="npc-pg-btn"
-            onClick={() => goPage(curPage + 1)}
-            disabled={curPage >= pageCount - 1}
-            aria-label="다음 페이지"
-          >
-            ▶
-          </button>
+          <div className="npc-paging-seg">
+            <button
+              type="button"
+              className="npc-pg-btn"
+              onClick={() => goPage(curPage - 1)}
+              disabled={curPage === 0}
+              aria-label="이전 페이지"
+            >
+              <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M15 6l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+
+            <span className="npc-pg-text">
+              {curPage + 1} / {pageCount}
+            </span>
+
+            <button
+              type="button"
+              className="npc-pg-btn next"
+              onClick={() => goPage(curPage + 1)}
+              disabled={curPage >= pageCount - 1}
+              aria-label="다음 페이지"
+            >
+              <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
         </div>
       )}
 
@@ -340,26 +361,78 @@ export default function NpcGrid({
             inset 0 0 0 1px
               color-mix(in oklab, var(--c) 18%, transparent);
         }
+              
+        .npc-card-placeholder {
+          visibility: hidden;
+          pointer-events: none;
+        }
 
+        /* 페이징 */
         .npc-pager {
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 20px;
           margin: 10px 0 0;
+          min-height: 44px; /* ✅ 항상 같은 높이 */
         }
-        .npc-pg-btn {
-          font-size: 20px;
-          background: none;
-          border: none;
-          cursor: pointer;
+
+        .npc-paging-seg {
+          display: inline-flex;
+          align-items: stretch;
+          background: #fff;
+          border: 1px solid #e5e7eb;
+          border-radius: 12px;
+          overflow: hidden;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
         }
-        .npc-pg-btn:disabled {
-          opacity: 0.5;
-          cursor: default;
-        }
+
+        .npc-pg-btn,
         .npc-pg-text {
-          font-size: 16px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 8px 14px;
+          min-width: 44px;
+          height: 38px;
+          border: 0;
+          background: transparent;
+          font-weight: 600;
+          font-size: 0.95rem;
+          color: #4b5563;
+          line-height: 1;
+        }
+
+        .npc-pg-btn {
+          cursor: pointer;
+          transition: background 0.15s, color 0.15s;
+        }
+
+        .npc-pg-btn:hover {
+          background: #f3f4f6;
+        }
+
+        .npc-pg-btn:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
+        }
+
+        .npc-pg-btn .ico {
+          width: 20px;
+          height: 20px;
+        }
+
+        .npc-pg-btn:first-child {
+          border-right: 1px solid #e5e7eb;
+        }
+
+        .npc-pg-btn.next {
+          border-left: 1px solid #e5e7eb;
+        }
+
+        .npc-pg-text {
+          user-select: none;
+          white-space: nowrap;
         }
       `}</style>
     </div>
