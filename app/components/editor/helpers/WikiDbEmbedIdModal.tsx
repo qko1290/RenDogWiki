@@ -1,5 +1,5 @@
 // =============================================
-// File: components/editor/WikiDbEmbedIdModal.tsx  (전체 코드 교체)
+// File: components/editor/WikiDbEmbedIdModal.tsx  (전체 코드)
 // (이름 검색 → 리스트 선택 → id 반환 모달)
 // - quest/npc/qna 공용
 // - 검색어 입력 시 /api/wiki-embed/search 호출
@@ -9,6 +9,7 @@
 // 1) 선택 미리보기 영역 제거
 // 2) NPC는 이름만 표시 (메타 제거)
 // 3) 지우기 버튼 제거
+// 4) ✅ 모달 최대 높이 고정 + 리스트 스크롤
 // =============================================
 'use client';
 
@@ -36,16 +37,10 @@ function labelOf(kind: WikiEmbedKind) {
   return 'QNA';
 }
 
-export default function WikiDbEmbedIdModal({
-  open,
-  kind,
-  onClose,
-  onSubmit,
-}: Props) {
+export default function WikiDbEmbedIdModal({ open, kind, onClose, onSubmit }: Props) {
   const label = useMemo(() => labelOf(kind), [kind]);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const listRef = useRef<HTMLDivElement | null>(null);
 
   const [q, setQ] = useState('');
   const [rows, setRows] = useState<SearchItem[]>([]);
@@ -53,7 +48,6 @@ export default function WikiDbEmbedIdModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 모달 열릴 때 초기화
   useEffect(() => {
     if (!open) return;
 
@@ -74,7 +68,6 @@ export default function WikiDbEmbedIdModal({
     };
   }, [open, kind]);
 
-  // 검색
   useEffect(() => {
     if (!open) return;
 
@@ -92,18 +85,14 @@ export default function WikiDbEmbedIdModal({
         setError(null);
 
         const res = await fetch(
-          `/api/wiki-embed/search?kind=${kind}&q=${encodeURIComponent(
-            query
-          )}&limit=30&ts=${Date.now()}`,
+          `/api/wiki-embed/search?kind=${kind}&q=${encodeURIComponent(query)}&limit=30&ts=${Date.now()}`,
           { cache: 'no-store', signal: controller.signal }
         );
 
         if (!res.ok) throw new Error();
 
         const data = await res.json();
-        const items: SearchItem[] = Array.isArray(data?.items)
-          ? data.items
-          : [];
+        const items: SearchItem[] = Array.isArray(data?.items) ? data.items : [];
 
         setRows(items);
         setSelectedIdx(items.length ? 0 : -1);
@@ -137,23 +126,16 @@ export default function WikiDbEmbedIdModal({
       onClose();
       return;
     }
-
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setSelectedIdx((prev) =>
-        Math.min(rows.length - 1, prev + 1)
-      );
+      setSelectedIdx((prev) => Math.min(rows.length - 1, prev + 1));
       return;
     }
-
     if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setSelectedIdx((prev) =>
-        Math.max(0, prev - 1)
-      );
+      setSelectedIdx((prev) => Math.max(0, prev - 1));
       return;
     }
-
     if (e.key === 'Enter') {
       e.preventDefault();
       commit();
@@ -186,20 +168,21 @@ export default function WikiDbEmbedIdModal({
         style={{
           width: 680,
           maxWidth: '100%',
+          // ✅ 화면 밖으로 커지지 않도록 상한 고정
+          maxHeight: 'calc(100vh - 80px)',
           background: '#fff',
           borderRadius: 14,
           border: '1px solid #e5e7eb',
           boxShadow: '0 18px 60px rgba(0,0,0,.18)',
           overflow: 'hidden',
           display: 'grid',
-          gridTemplateRows: 'auto auto 1fr auto',
+          // ✅ 가운데(리스트)만 늘어나고, 모달은 maxHeight 안에서 멈춤
+          gridTemplateRows: 'auto auto minmax(0, 1fr) auto',
         }}
       >
         {/* header */}
         <div style={{ padding: 16, borderBottom: '1px solid #eef0f2' }}>
-          <div style={{ fontSize: 15, fontWeight: 900 }}>
-            {label} 검색
-          </div>
+          <div style={{ fontSize: 15, fontWeight: 900 }}>{label} 검색</div>
           <div style={{ fontSize: 12.5, color: '#64748b', marginTop: 4 }}>
             이름으로 검색 후 선택하면 ID가 자동 입력됩니다.
           </div>
@@ -224,27 +207,21 @@ export default function WikiDbEmbedIdModal({
           />
         </div>
 
-        {/* list */}
+        {/* list (스크롤 영역) */}
         <div
-          ref={listRef}
           style={{
             padding: 10,
             overflowY: 'auto',
-            minHeight: 320,
+            // ✅ grid minmax(0,1fr) + overflowY 조합에서 필수
+            minHeight: 0,
           }}
         >
           {!q.trim() ? (
-            <div style={{ color: '#94a3b8', padding: 12 }}>
-              검색어를 입력하세요.
-            </div>
+            <div style={{ color: '#94a3b8', padding: 12 }}>검색어를 입력하세요.</div>
           ) : loading ? (
-            <div style={{ color: '#94a3b8', padding: 12 }}>
-              검색 중...
-            </div>
+            <div style={{ color: '#94a3b8', padding: 12 }}>검색 중...</div>
           ) : rows.length === 0 ? (
-            <div style={{ color: '#94a3b8', padding: 12 }}>
-              결과 없음
-            </div>
+            <div style={{ color: '#94a3b8', padding: 12 }}>결과 없음</div>
           ) : (
             rows.map((r, idx) => {
               const active = idx === selectedIdx;
@@ -258,9 +235,7 @@ export default function WikiDbEmbedIdModal({
                     textAlign: 'left',
                     padding: '10px 12px',
                     borderRadius: 10,
-                    border: active
-                      ? '1px solid #93c5fd'
-                      : '1px solid #e5e7eb',
+                    border: active ? '1px solid #93c5fd' : '1px solid #e5e7eb',
                     background: active ? '#eff6ff' : '#fff',
                     cursor: 'pointer',
                     display: 'flex',
@@ -277,10 +252,7 @@ export default function WikiDbEmbedIdModal({
                       loading="lazy"
                       decoding="async"
                       draggable={false}
-                      style={{
-                        borderRadius: 8,
-                        objectFit: 'cover',
-                      }}
+                      style={{ borderRadius: 8, objectFit: 'cover' }}
                     />
                   )}
 
@@ -298,36 +270,17 @@ export default function WikiDbEmbedIdModal({
                     </div>
 
                     {showSubtitle && r.subtitle && (
-                      <div
-                        style={{
-                          fontSize: 12,
-                          color: '#64748b',
-                        }}
-                      >
-                        {r.subtitle}
-                      </div>
+                      <div style={{ fontSize: 12, color: '#64748b' }}>{r.subtitle}</div>
                     )}
                   </div>
 
-                  <div
-                    style={{
-                      marginLeft: 'auto',
-                      fontSize: 12,
-                      color: '#94a3b8',
-                    }}
-                  >
-                    #{r.id}
-                  </div>
+                  <div style={{ marginLeft: 'auto', fontSize: 12, color: '#94a3b8' }}>#{r.id}</div>
                 </button>
               );
             })
           )}
 
-          {error && (
-            <div style={{ color: '#dc2626', padding: 12 }}>
-              {error}
-            </div>
-          )}
+          {error && <div style={{ color: '#dc2626', padding: 12 }}>{error}</div>}
         </div>
 
         {/* footer */}
