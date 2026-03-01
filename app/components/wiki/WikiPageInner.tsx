@@ -589,10 +589,11 @@ export default function WikiPageInner({ user }: Props) {
     const key = pathToStr(path);
     setClosingMap(prev => ({ ...prev, [key]: true }));
     if (node.children?.length) {
-      node.children.forEach(child => {
+      node.children.forEach((child) => {
         const childPath = [...path, child.id];
-        if (isPathOpen(childPath))
-          void closeTreeWithChildren(node, childPath);
+        if (isPathOpen(childPath)) {
+          void closeTreeWithChildren(child, childPath); // ✅ child를 넘겨야 함
+        }
       });
     }
   };
