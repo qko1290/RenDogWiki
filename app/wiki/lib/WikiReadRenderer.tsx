@@ -53,6 +53,18 @@ const wikiDocDetailCache: Map<string, WikiDocDetail> =
 
 // ───────────────────────────────────────────────────────────────
 
+function decodeTitleForDisplay(raw: string | null | undefined) {
+  // URL에서 들어온 title: 언더스코어를 공백으로 취급
+  const s = String(raw ?? "");
+  return s.replace(/_/g, " ").trim();
+}
+
+function encodeTitleForShare(raw: string | null | undefined) {
+  // 공유(복사용) title: 공백을 언더스코어로
+  const s = String(raw ?? "").trim();
+  return s.replace(/\s+/g, "_");
+}
+
 function toHeadingIdFromText(text: string) {
   const cleaned = text
     .replace(/[\u{1F300}-\u{1FAFF}]/gu, "")
@@ -119,10 +131,15 @@ const HeadingAnchorButton: React.FC<HeadingAnchorButtonProps> = ({
     const url =
       typeof window !== "undefined"
         ? (() => {
-            const { origin, pathname, search } = window.location;
-            // 🔽 쿼리스트링을 한글로 디코딩해서 사용
-            const decodedSearch = search ? decodeURIComponent(search) : "";
-            return `${origin}${pathname}${decodedSearch}${hash}`;
+            const u = new URL(window.location.href);
+
+            // ✅ title 공백 → '_' 로 바꿔서 공유
+            const t = u.searchParams.get("title");
+            if (t) u.searchParams.set("title", encodeTitleForShare(decodeTitleForDisplay(t)));
+
+            const hash = anchorId ? `#${anchorId}` : "";
+            // decodeURIComponent 같은 건 하지 말고 URL 객체 기반으로 안전하게 조립
+            return `${u.origin}${u.pathname}?${u.searchParams.toString()}${hash}`;
           })()
         : hash;
 
@@ -418,11 +435,14 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
     const urlObj = parsedUrl;
 
     const urlPathParam = urlObj.searchParams.get("path");
-    const urlTitleParam = urlObj.searchParams.get("title");
 
     const pathParam =
       urlPathParam ?? (el.wikiPath != null ? String(el.wikiPath) : null);
-    const titleParam = urlTitleParam ?? el.wikiTitle ?? null;
+
+    const urlTitleParam = urlObj.searchParams.get("title");
+    const titleParamRaw = urlTitleParam ?? el.wikiTitle ?? null;
+    // ✅ '_' → 공백으로 해석
+    const titleParam = titleParamRaw ? decodeTitleForDisplay(titleParamRaw) : null;
 
     const rawHash = urlObj.hash ? urlObj.hash.slice(1) : "";
     const decodedHash = rawHash
@@ -562,7 +582,7 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
   const labelText =
     nodeToPlainText(node.children) ||
     (isWikiLink
-      ? el.wikiTitle || el.sitename || "문서"
+      ? decodeTitleForDisplay(el.wikiTitle) || el.sitename || "문서"
       : displaySitename || el.url || "링크");
 
   const subText = isWikiLink
@@ -1336,11 +1356,14 @@ export default function WikiReadRenderer({ content, readOnly = true, onWikiRefCl
       return;
     }
     try {
-      const { origin, pathname, search } = window.location;
-      const decodedSearch = search ? decodeURIComponent(search) : "";
-      const url = `${origin}${pathname}${decodedSearch}#${encodeURIComponent(
-        headingId
-      )}`;
+      const u = new URL(window.location.href);
+
+      // ✅ title 공백 → '_' 로 바꿔서 공유
+      const t = u.searchParams.get("title");
+      if (t) u.searchParams.set("title", encodeTitleForShare(decodeTitleForDisplay(t)));
+
+      const url = `${u.origin}${u.pathname}?${u.searchParams.toString()}#${encodeURIComponent(headingId)}`;
+
       await navigator.clipboard.writeText(url);
       setCopiedHeadingId(headingId);
       // 필요시 외부에서 감지할 수 있도록 이벤트만 발행(선택 사항, 기존 기능에는 영향 없음)
