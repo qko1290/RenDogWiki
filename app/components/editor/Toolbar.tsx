@@ -753,12 +753,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef, openInlineImageM
         onSubmit={(id) => {
           // 드롭다운 열릴 때 저장해둔 selectionRef로 커서 복원
           if (selectionRef.current) {
-            try {
-              Transforms.select(editor, selectionRef.current);
-            } catch {}
+            try { Transforms.select(editor, selectionRef.current); } catch {}
           }
 
-          wrapSelectionWithWikiRef(editor, wikiEmbedKind as WikiRefType, id); // ✅ 핵심
+          wrapSelectionWithWikiRef(editor, wikiEmbedKind as WikiRefType, id);
           setWikiEmbedModalOpen(false);
         }}
       />
