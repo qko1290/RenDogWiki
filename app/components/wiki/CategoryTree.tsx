@@ -412,27 +412,25 @@ const CategoryTree: React.FC<Props> = ({
               const currentPath = [...parentPath, node.id];
               const isOpenNow = isPathOpen(currentPath);
 
-              try {
-                if (parentPath.length === 0 && !isOpenNow) {
-                  await closeOtherRootCategories(node.id);
-                }
+              // 루트 하나 열 때 나머지 루트 닫기 (열릴 때만)
+              if (parentPath.length === 0 && !isOpenNow) {
+                await closeOtherRootCategories(node.id);
+              }
 
-                if (node.document_id != null) {
-                  if (isOpenNow) await closeTreeWithChildren(node, currentPath);
-                  else await togglePath(currentPath);
-                } else {
-                  if (isOpenNow) await closeTreeWithChildren(node, currentPath);
-                  else handleArrowClick(node, currentPath);
-                }
-              } catch {}
-
+              // ✅ 대표 문서가 있는 카테고리
               if (node.document_id != null) {
                 const repId = Number(node.document_id);
                 const repFromList = allDocuments.find((d) => d.id === repId);
-                const repIsOpen = selectedDocId === repId && equalsPath(selectedDocPath, currentPath);
 
+                // "대표 문서가 현재 열려있는지" 판단
+                const repIsOpen =
+                  selectedDocId === repId && equalsPath(selectedDocPath, currentPath);
+
+                // 1) 대표 문서가 아직 안 열려있으면: 문서만 열고(카테고리 강조 유지), 트리는 펼치지 않음
                 if (!repIsOpen) {
                   let title = repFromList?.title;
+
+                  // 목록에 없으면 서버에서 제목 보정
                   if (!title) {
                     try {
                       const r = await fetch(`/api/documents?id=${repId}&_ts=${Date.now()}`, {
@@ -446,20 +444,25 @@ const CategoryTree: React.FC<Props> = ({
                   }
 
                   if (title) {
-                    fetchDoc(currentPath, title, repId, { clearCategoryPath: true });
-                    return;
+                    // ✅ 카테고리 강조를 위해: clearCategoryPath 쓰면 안 됨
+                    setSelectedCategoryPath(currentPath);
+                    fetchDoc(currentPath, title, repId, { clearCategoryPath: false });
                   }
+                  return;
                 }
-              }
 
-              try {
-                if (node.document_id != null) {
+                // 2) 대표 문서가 이미 열려있으면: 이제부터는 트리 펼침/접힘 토글
+                try {
                   if (isOpenNow) await closeTreeWithChildren(node, currentPath);
                   else await togglePath(currentPath);
-                } else {
-                  if (isOpenNow) await closeTreeWithChildren(node, currentPath);
-                  else handleArrowClick(node, currentPath);
-                }
+                } catch {}
+                return;
+              }
+
+              // ✅ 대표 문서가 없는 카테고리: 펼침/접힘만
+              try {
+                if (isOpenNow) await closeTreeWithChildren(node, currentPath);
+                else handleArrowClick(node, currentPath);
               } catch {}
             }}
             onKeyDown={(e) => {
