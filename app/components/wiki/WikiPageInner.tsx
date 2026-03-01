@@ -78,6 +78,15 @@ const ROOT_FEATURED_DOC_ID = 73;
 function pathToStr(path: number[]) {
   return path.join('/');
 }
+
+function decodeTitleFromUrlParam(v: string | null | undefined) {
+  return String(v ?? '').replace(/_/g, ' ');
+}
+
+function encodeTitleForUrlParam(v: string | null | undefined) {
+  return String(v ?? '').trim().replace(/\s+/g, '_');
+}
+
 function getInitialMode(): string | null {
   if (typeof window === 'undefined') return null;
   const fromUrl = new URLSearchParams(window.location.search).get(MODE_PARAM);
@@ -308,7 +317,8 @@ export default function WikiPageInner({ user }: Props) {
 
     const search = new URLSearchParams(window.location.search);
     const currentPath = search.get('path');
-    const currentTitle = search.get('title');
+    const currentTitle = decodeTitleFromUrlParam(search.get('title'));
+    const encodedTitle = encodeTitleForUrlParam(docTitle);
 
     // 루트([])면 path=0, 그 외에는 fullPath의 마지막 카테고리 id
     const lastId =
@@ -320,7 +330,7 @@ export default function WikiPageInner({ user }: Props) {
     if (currentPath === lastId && currentTitle === docTitle) return;
 
     search.set('path', lastId);
-    search.set('title', docTitle);
+    search.set('title', encodedTitle);
     // 내부 fetch용 타임스탬프는 URL에 남길 필요 없음
     search.delete('_t');
 
@@ -336,53 +346,39 @@ export default function WikiPageInner({ user }: Props) {
   //   클립보드에 복사할 때는 한글이 그대로 보이도록 쿼리를 재구성한다.
   const handleCopyDocLink = async () => {
     if (typeof window === 'undefined') return;
+
     try {
-      const { origin, pathname, search, hash } = window.location;
-      const params = new URLSearchParams(search);
+      const u = new URL(window.location.href);
 
-      // path는 대부분 숫자라 그대로 사용해도 되고,
-      // 없으면 현재 선택된 경로나 루트(0)로 보정
-      let path = params.get('path') ?? undefined;
-      if (!path) {
+      // path 보정
+      if (!u.searchParams.get('path')) {
         if (Array.isArray(selectedDocPath) && selectedDocPath.length > 0) {
-          path = String(selectedDocPath[selectedDocPath.length - 1]);
+          u.searchParams.set('path', String(selectedDocPath[selectedDocPath.length - 1]));
         } else {
-          path = '0';
+          u.searchParams.set('path', '0');
         }
       }
 
-      // title은 DB에서 가져온 selectedDocTitle이 우선 (이미 디코딩 상태)
-      // 없으면 URL 쿼리에서 가져오되, 디코딩을 시도
-      let titleForShare = selectedDocTitle || '';
-      if (!titleForShare) {
-        const fromUrl = params.get('title');
-        if (fromUrl) {
-          try {
-            titleForShare = decodeURIComponent(fromUrl);
-          } catch {
-            // 잘못된 % 시퀀스가 있으면 그냥 원본 사용
-            titleForShare = fromUrl;
-          }
-        }
+      // title 보정: 표시용 제목 -> 공유용(_ 치환)
+      let safeTitle = selectedDocTitle || u.searchParams.get('title') || '';
+      try {
+        safeTitle = decodeURIComponent(safeTitle);
+      } catch {}
+      safeTitle = decodeTitleFromUrlParam(safeTitle);
+      safeTitle = encodeTitleForUrlParam(safeTitle);
+
+      if (safeTitle) {
+        u.searchParams.set('title', safeTitle);
       }
 
-      // mode(예: 뉴비 모드)도 있으면 같이 넣되, 디코딩 시도
-      let modeForShare = params.get(MODE_PARAM) || '';
-      if (modeForShare) {
-        try {
-          modeForShare = decodeURIComponent(modeForShare);
-        } catch {
-          // 그대로 둠
-        }
+      // mode 보정
+      const safeMode = u.searchParams.get(MODE_PARAM) || mode || '';
+      if (safeMode) {
+        u.searchParams.set(MODE_PARAM, safeMode);
       }
 
-      const queryParts: string[] = [];
-      if (path) queryParts.push(`path=${path}`);
-      if (titleForShare) queryParts.push(`title=${titleForShare}`);
-      if (modeForShare) queryParts.push(`${MODE_PARAM}=${modeForShare}`);
-
-      const query = queryParts.length ? `?${queryParts.join('&')}` : '';
-      const url = `${origin}${pathname}${query}${hash || ''}`;
+      const qs = u.searchParams.toString();
+      const url = `${u.origin}${u.pathname}${qs ? `?${qs}` : ''}${u.hash || ''}`;
 
       await navigator.clipboard?.writeText(url);
       setCopiedDocLink(true);
@@ -531,7 +527,8 @@ export default function WikiPageInner({ user }: Props) {
       return;
     }
     const pathParam = searchParams.get('path');
-    const titleParam = searchParams.get('title');
+    const titleParamRaw = searchParams.get('title');
+    const titleParam = titleParamRaw ? titleParamRaw.replace(/_/g, ' ') : null;
     if (!pathParam || !titleParam) return;
 
     const openByIdIfFound = (isRoot: boolean, id?: number) => {
@@ -1000,7 +997,8 @@ export default function WikiPageInner({ user }: Props) {
         if (url.pathname !== '/wiki') return;
 
         const path = url.searchParams.get('path');
-        const title = url.searchParams.get('title');
+        const titleRaw = url.searchParams.get('title');
+        const title = decodeTitleFromUrlParam(titleRaw);
         if (!path || !title) return;
 
         e.preventDefault();
@@ -1009,7 +1007,12 @@ export default function WikiPageInner({ user }: Props) {
         // 링크에 hash가 있으면 그걸 우선 반영하도록 미리 세팅
         if (url.hash) {
           // 스크롤은 렌더 후에 자연스럽게 되도록 (일단 URL만 맞춰둠)
-          window.history.replaceState(null, '', `/wiki?path=${path}&title=${encodeURIComponent(title)}${url.hash}`);
+          const safeTitle = encodeTitleForUrlParam(title);
+          window.history.replaceState(
+            null,
+            '',
+            `/wiki?path=${path}&title=${safeTitle}${url.hash}`
+          );
         }
 
         // ✅ 이동(router.push) 대신 "문서 로드"로 처리

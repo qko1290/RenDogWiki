@@ -65,6 +65,15 @@ function encodeTitleForShare(raw: string | null | undefined) {
   return s.replace(/\s+/g, "_");
 }
 
+function decodeTitleFromUrlParam(v: string | null | undefined) {
+  return String(v ?? "").replace(/_/g, " ");
+}
+
+function encodeTitleForUrlParam(v: string | null | undefined) {
+  // " " → "_" (연속 공백도 "_"로)
+  return String(v ?? "").trim().replace(/\s+/g, "_");
+}
+
 function toHeadingIdFromText(text: string) {
   const cleaned = text
     .replace(/[\u{1F300}-\u{1FAFF}]/gu, "")
