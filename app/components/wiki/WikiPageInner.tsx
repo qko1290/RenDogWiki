@@ -265,7 +265,7 @@ export default function WikiPageInner({ user }: Props) {
   }, []);
 
   const canWrite = useCanWrite(user);
-
+  const ignoreNextUrlSyncRef = useRef(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const contentRef = useRef<HTMLDivElement>(null);
@@ -327,7 +327,7 @@ export default function WikiPageInner({ user }: Props) {
     const hash = window.location.hash || '';
     const nextUrl =
       window.location.pathname + '?' + search.toString() + hash;
-
+    ignoreNextUrlSyncRef.current = true;
     router.replace(nextUrl);
   };
 
@@ -525,6 +525,11 @@ export default function WikiPageInner({ user }: Props) {
   // 쿼리 진입: /wiki?path=...&title=...
   // ✅ allDocuments/카테고리 맵이 준비된 뒤 실행되며, 루트(path=0)는 id 우선 로딩
   useEffect(() => {
+
+    if (ignoreNextUrlSyncRef.current) {
+      ignoreNextUrlSyncRef.current = false;
+      return;
+    }
     const pathParam = searchParams.get('path');
     const titleParam = searchParams.get('title');
     if (!pathParam || !titleParam) return;
