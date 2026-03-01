@@ -169,7 +169,7 @@ export default function WikiDbEmbedIdModal({ open, kind, onClose, onSubmit }: Pr
           width: 680,
           maxWidth: '100%',
           // ✅ 화면 밖으로 커지지 않도록 상한 고정
-          maxHeight: 'calc(100vh - 80px)',
+          maxHeight: 'calc(100vh - 180px)',
           background: '#fff',
           borderRadius: 14,
           border: '1px solid #e5e7eb',
