@@ -412,64 +412,55 @@ const CategoryTree: React.FC<Props> = ({
               const currentPath = [...parentPath, node.id];
               const isOpenNow = isPathOpen(currentPath);
 
-              const hasRep = node.document_id != null;
-              const repId = hasRep ? Number(node.document_id) : null;
-
-              // 대표 문서가 "현재 이 카테고리 경로로" 열려있는지
-              const repIsOpen =
-                hasRep &&
-                repId != null &&
-                selectedDocId === repId &&
-                equalsPath(selectedDocPath, currentPath);
-
-              // ----------------------------
-              // 1) 대표 문서가 있고, 아직 대표 문서가 안 열려있으면:
-              //    => "대표 문서만" 열고, 펼침은 하지 않는다.
-              // ----------------------------
-              if (hasRep && repId != null && !repIsOpen) {
-                // ✅ 카테고리 활성화(파란색)를 "카테고리"에 주기 위해 categoryPath를 먼저 세팅
-                setSelectedCategoryPath(currentPath);
-
-                // 목록에 있으면 즉시 title 얻기
-                let title = allDocuments.find((d) => d.id === repId)?.title;
-
-                // 없으면 서버에서 title 조회
-                if (!title) {
-                  try {
-                    const r = await fetch(`/api/documents?id=${repId}&_ts=${Date.now()}`, {
-                      cache: "no-store",
-                    });
-                    if (r.ok) {
-                      const data = await r.json();
-                      title = data?.title || "";
-                    }
-                  } catch {}
+              try {
+                if (parentPath.length === 0 && !isOpenNow) {
+                  await closeOtherRootCategories(node.id);
                 }
 
-                if (title) {
-                  // ✅ clearCategoryPath를 false로 (null로 지우지 않게)
-                  fetchDoc(currentPath, title, repId, { clearCategoryPath: false });
+                if (node.document_id != null) {
+                  if (isOpenNow) await closeTreeWithChildren(node, currentPath);
+                  else await togglePath(currentPath);
+                } else {
+                  if (isOpenNow) await closeTreeWithChildren(node, currentPath);
+                  else handleArrowClick(node, currentPath);
                 }
-                return;
+              } catch {}
+
+              if (node.document_id != null) {
+                const repId = Number(node.document_id);
+                const repFromList = allDocuments.find((d) => d.id === repId);
+                const repIsOpen = selectedDocId === repId && equalsPath(selectedDocPath, currentPath);
+
+                if (!repIsOpen) {
+                  let title = repFromList?.title;
+                  if (!title) {
+                    try {
+                      const r = await fetch(`/api/documents?id=${repId}&_ts=${Date.now()}`, {
+                        cache: "no-store",
+                      });
+                      if (r.ok) {
+                        const data = await r.json();
+                        title = data?.title || "";
+                      }
+                    } catch {}
+                  }
+
+                  if (title) {
+                    fetchDoc(currentPath, title, repId, { clearCategoryPath: true });
+                    return;
+                  }
+                }
               }
 
-              // ----------------------------
-              // 2) 여기까지 왔다는 건:
-              //   - 대표 문서가 없거나
-              //   - 대표 문서가 이미 열려있는 상태(2번째 클릭)
-              //   => 이제부터는 "펼침 토글" 동작
-              // ----------------------------
-
-              // 루트 카테고리를 "열 때"만 다른 루트 닫기
-              if (parentPath.length === 0 && !isOpenNow) {
-                await closeOtherRootCategories(node.id);
-              }
-
-              if (isOpenNow) {
-                await closeTreeWithChildren(node, currentPath);
-              } else {
-                handleArrowClick(node, currentPath);
-              }
+              try {
+                if (node.document_id != null) {
+                  if (isOpenNow) await closeTreeWithChildren(node, currentPath);
+                  else await togglePath(currentPath);
+                } else {
+                  if (isOpenNow) await closeTreeWithChildren(node, currentPath);
+                  else handleArrowClick(node, currentPath);
+                }
+              } catch {}
             }}
             onKeyDown={(e) => {
               if ((e.key === "Enter" || e.key === " ") && guardClick(e)) return;
