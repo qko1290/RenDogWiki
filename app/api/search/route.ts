@@ -1,5 +1,6 @@
 // =============================================
 // File: app/api/search/route.ts
+// (전체 코드) ✅ contentRows도 categories.name 브레드크럼 사용하도록 수정
 // =============================================
 /**
  * 위키 문서 통합 검색
@@ -33,10 +34,14 @@ export async function GET(req: NextRequest) {
 
     const pattern = `%${raw}%`;
 
-    // path 기반 breadcrumb 생성 식 (Postgres)
-    // - path를 '/'로 split
-    // - 조각이 2개 이상이면 마지막 조각은 제외(문서명/슬러그일 가능성 높음)
-    // - 'A > B > C' 형태 문자열로 반환
+    /**
+     * ✅ path(예: "12/34/56" 또는 "12/34/56/문서슬러그")에서
+     *   숫자 조각만 뽑아 categories.id에 조인 → categories.name을 순서대로 string_agg
+     *   => "루트 > ... > 직접 소속 카테고리"
+     *
+     * - path 마지막이 문서 slug(문자열)면 숫자 필터에서 자동 제외됨
+     * - path 마지막이 문서 id(숫자)여도 categories에 없으면 JOIN에서 자동 제외됨
+     */
     const breadcrumbExpr = sql/*sql*/`
       (
         WITH parts AS (
@@ -52,10 +57,7 @@ export async function GET(req: NextRequest) {
           FROM parts, generate_subscripts(pp, 1) AS g(i)
           WHERE pp[i] ~ '^[0-9]+$'
         )
-        SELECT
-          -- 루트 라벨까지 넣고 싶으면 아래처럼 concat 하면 됨:
-          -- CONCAT('RenDog Wiki', CASE WHEN COUNT(*)>0 THEN ' > ' ELSE '' END, COALESCE(string_agg(c.name, ' > ' ORDER BY ids.ord), ''))
-          COALESCE(string_agg(c.name, ' > ' ORDER BY ids.ord), '')
+        SELECT COALESCE(string_agg(c.name, ' > ' ORDER BY ids.ord), '')
         FROM ids
         JOIN categories c ON c.id = ids.cid
       )
@@ -86,6 +88,8 @@ export async function GET(req: NextRequest) {
     `;
 
     // 4) 본문 검색
+    // ✅ 기존: path split → 그대로 ' > ' 조합(= id 노출 가능)
+    // ✅ 변경: documents d의 path 기준으로 categories.name 브레드크럼 생성
     const contentRows = await sql/*sql*/`
       SELECT
         d.id, d.title, d.path, d.icon, d.tags,
@@ -97,16 +101,17 @@ export async function GET(req: NextRequest) {
               regexp_replace(COALESCE((d.path)::text, ''), '^/+|/+$', '', 'g'),
               '/+'
             ) AS pp
+          ),
+          ids AS (
+            SELECT
+              (pp[i])::bigint AS cid,
+              i AS ord
+            FROM parts, generate_subscripts(pp, 1) AS g(i)
+            WHERE pp[i] ~ '^[0-9]+$'
           )
-          SELECT array_to_string(
-            CASE
-              WHEN array_length(pp, 1) IS NULL THEN ARRAY[]::text[]
-              WHEN array_length(pp, 1) >= 2 THEN pp[1:array_length(pp, 1) - 1]
-              ELSE pp
-            END,
-            ' > '
-          )
-          FROM parts
+          SELECT COALESCE(string_agg(c.name, ' > ' ORDER BY ids.ord), '')
+          FROM ids
+          JOIN categories c ON c.id = ids.cid
         ) AS category_breadcrumb
       FROM documents d
       JOIN document_contents dc ON d.id = dc.document_id
@@ -126,9 +131,7 @@ export async function GET(req: NextRequest) {
 
         merged.push({
           ...row,
-          // tags를 배열로 보정
           tags: row.tags ? String(row.tags).split(",") : [],
-          // breadcrumb는 string 보정
           category_breadcrumb: row.category_breadcrumb ? String(row.category_breadcrumb) : "",
         });
 
