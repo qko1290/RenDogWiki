@@ -2,6 +2,7 @@
 // File: app/components/common/SearchBox.tsx
 // (문서/FAQ 동시 검색, 2열 반반 표시, IME 즉시 반응)
 // + 헤더 내 중앙/왼쪽 정렬 지원 (align prop)
+// + ✅ 문서 태그: 오른쪽에 표시, # 제거
 // =============================================
 'use client';
 
@@ -90,6 +91,11 @@ function extractSlateSnippet(slate: any, keyword: string): string | null {
 const isImageLike = (v?: string) => !!v && (/^https?:\/\//i.test(v) || v.startsWith('data:image'));
 const isRemoteHttp = (v?: string) => !!v && /^https?:\/\//i.test(v);
 
+// ✅ 태그 정규화: # 제거 + trim + 빈 값 제거
+function normalizeTag(raw: string) {
+  return String(raw ?? '').replace(/^#+\s*/, '').trim();
+}
+
 // -------------------- component --------------------
 type Props = {
   /** 헤더 안 정렬: center | left */
@@ -130,7 +136,6 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
       const oa = order[a.match_type] ?? 99;
       const ob = order[b.match_type] ?? 99;
       if (oa !== ob) return oa - ob;
-      // 같은 타입이면 제목 짧은 게 위(가벼운 휴리스틱)
       return (a.title?.length ?? 0) - (b.title?.length ?? 0);
     });
   }, [docs]);
@@ -160,14 +165,10 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
 
       (async () => {
         try {
-          // ✅ limit 파라미터 추가 (서버가 받도록 수정 필요)
-          const res = await fetch(
-            `/api/search?query=${encodeURIComponent(q)}&limit=50`,
-            {
-              signal: acDocs.signal,
-              cache: 'no-store',
-            },
-          );
+          const res = await fetch(`/api/search?query=${encodeURIComponent(q)}&limit=50`, {
+            signal: acDocs.signal,
+            cache: 'no-store',
+          });
           if (!res.ok) throw new Error('search-failed');
           const data = (await res.json()) as DocResult[];
           setDocs(Array.isArray(data) ? data : []);
@@ -314,7 +315,6 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
             borderRadius: 10,
             boxShadow: '0 6px 32px rgba(0,0,0,0.14)',
             padding: '10px 12px',
-            // ✅ 드롭다운 자체가 화면을 넘기면 내부 스크롤
             maxHeight: dropdownMaxH,
             overflow: 'auto',
           }}
@@ -337,14 +337,10 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
           >
             {/* 문서 컬럼 */}
             <div style={{ borderRight: '1px solid #f0f2f5', paddingRight: 8 }}>
-              <div style={{ fontWeight: 800, fontSize: 13, color: '#556070', marginBottom: 6 }}>
-                문서
-              </div>
+              <div style={{ fontWeight: 800, fontSize: 13, color: '#556070', marginBottom: 6 }}>문서</div>
 
               {!loadingDocs && sortedDocs.length === 0 && (
-                <div style={{ color: '#9aa1ac', fontSize: 14, padding: '6px 4px' }}>
-                  결과가 없습니다.
-                </div>
+                <div style={{ color: '#9aa1ac', fontSize: 14, padding: '6px 4px' }}>결과가 없습니다.</div>
               )}
 
               <ul
@@ -354,7 +350,6 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
                   listStyle: 'none',
                   margin: 0,
                   padding: 0,
-                  // ✅ 컬럼 내부도 스크롤
                   maxHeight: 420,
                   overflowY: 'auto',
                 }}
@@ -362,12 +357,7 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
                 {sortedDocs.map((res, idx) => {
                   const selected = idx === activeDocIndex;
 
-                  // ✅ 표시 규칙:
-                  // - title: 제목만
-                  // - tags: 제목 아래 #태그
-                  // - content: 스니펫
-                  const showTagsLine = res.match_type === 'tags' && res.tags?.length > 0;
-
+                  // content 스니펫
                   let contentSnippet: string | null = null;
                   if (res.match_type === 'content') {
                     try {
@@ -377,6 +367,11 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
                       contentSnippet = null;
                     }
                   }
+
+                  // ✅ 오른쪽 태그: # 제거 + 빈 값 제거
+                  const cleanTags = (res.tags ?? [])
+                    .map(normalizeTag)
+                    .filter(Boolean);
 
                   return (
                     <li
@@ -420,55 +415,78 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
                         )}
                       </span>
 
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ fontWeight: 700, fontSize: 16 }}>{highlight(res.title, query)}</div>
+                      {/* ✅ 본문(왼쪽) + 태그(오른쪽) 2영역 */}
+                      <div style={{ minWidth: 0, flex: 1, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                        {/* 왼쪽: 제목/브레드크럼/스니펫 */}
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontWeight: 700, fontSize: 16 }}>{highlight(res.title, query)}</div>
 
-                        {/* ✅ 소속 카테고리(브레드크럼) */}
-                        {!!res.category_breadcrumb && (
+                          {!!res.category_breadcrumb && (
+                            <div
+                              style={{
+                                marginTop: 4,
+                                fontSize: 12,
+                                color: '#8a93a3',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                              title={res.category_breadcrumb}
+                            >
+                              {res.category_breadcrumb}
+                            </div>
+                          )}
+
+                          {res.match_type === 'content' && contentSnippet && (
+                            <div
+                              style={{
+                                color: '#667085',
+                                fontSize: 13,
+                                marginTop: 6,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {highlight(contentSnippet, query)}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 오른쪽: 태그(항상 보여주되, 있으면) */}
+                        {cleanTags.length > 0 && (
                           <div
                             style={{
-                              marginTop: 4,
-                              fontSize: 12,
-                              color: '#8a93a3',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                            title={res.category_breadcrumb}
-                          >
-                            {res.category_breadcrumb}
-                          </div>
-                        )}
-
-                        {showTagsLine && (
-                          <div
-                            style={{
-                              marginTop: 6,
-                              fontSize: 12,
-                              color: '#198544',
+                              flex: '0 0 auto',
                               display: 'flex',
                               flexWrap: 'wrap',
+                              justifyContent: 'flex-end',
                               gap: 6,
+                              maxWidth: 180,
+                              marginTop: 2,
                             }}
                           >
-                            {res.tags.map((t, i) => (
-                              <span key={t + i}>#{highlight(t, query)}</span>
+                            {cleanTags.map((t, i) => (
+                              <span
+                                key={`${t}-${i}`}
+                                style={{
+                                  fontSize: 12,
+                                  color: '#198544',
+                                  background: '#ecfdf3',
+                                  border: '1px solid #d1fadf',
+                                  borderRadius: 999,
+                                  padding: '2px 8px',
+                                  lineHeight: 1.4,
+                                  maxWidth: 180,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                                title={t}
+                              >
+                                {highlight(t, query)}
+                              </span>
                             ))}
-                          </div>
-                        )}
-
-                        {res.match_type === 'content' && contentSnippet && (
-                          <div
-                            style={{
-                              color: '#667085',
-                              fontSize: 13,
-                              marginTop: 6,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {highlight(contentSnippet, query)}
                           </div>
                         )}
                       </div>
@@ -519,9 +537,7 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
                       >
                         Q
                       </span>
-                      <div style={{ fontWeight: 700, fontSize: 15, minWidth: 0 }}>
-                        {highlight(f.title, query)}
-                      </div>
+                      <div style={{ fontWeight: 700, fontSize: 15, minWidth: 0 }}>{highlight(f.title, query)}</div>
                     </div>
                     {f.tags?.length > 0 && (
                       <div
