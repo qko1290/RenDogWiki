@@ -2823,16 +2823,35 @@ function renderNode(
       );
     }
 
-    case "link":
+    case "link": {
+      const href = String(node.url ?? '');
+      let isInternalWiki = false;
+
+      try {
+        const u =
+          typeof window !== 'undefined'
+            ? new URL(href, window.location.origin)
+            : new URL(href, 'https://dummy.local');
+
+        isInternalWiki =
+          u.pathname === '/wiki' &&
+          (typeof window === 'undefined' || u.origin === window.location.origin);
+      } catch {
+        isInternalWiki = false;
+      }
+
       return (
         <a
           key={key}
-          href={node.url}
+          href={href}
+          target={isInternalWiki ? undefined : '_blank'}
+          rel={isInternalWiki ? undefined : 'noopener noreferrer nofollow'}
           style={{ color: "#2676ff", textDecoration: "none" }}
         >
           {children}
         </a>
       );
+    }
 
     case "divider": {
       const borderColor = "#e0e0e0";

@@ -980,7 +980,7 @@ export default function WikiPageInner({ user }: Props) {
 
   // 본문 내부 링크 라우팅
   useEffect(() => {
-  const el = contentRef.current;
+    const el = contentRef.current;
     if (!el) return;
 
     const handler = (e: MouseEvent) => {
@@ -988,53 +988,82 @@ export default function WikiPageInner({ user }: Props) {
       const aTag = target?.closest('a') as HTMLAnchorElement | null;
       if (!aTag) return;
 
-      const href = aTag.getAttribute('href');
-      if (!href) return;
+      const rawHref = aTag.getAttribute('href');
+      if (!rawHref) return;
 
-      // 위키 내부 문서 링크만 가로채기
-      if (href.startsWith('/wiki')) {
-        const url = new URL(href, window.location.origin);
-        if (url.pathname !== '/wiki') return;
-
-        const path = url.searchParams.get('path');
-        const titleRaw = url.searchParams.get('title');
-        const title = decodeTitleFromUrlParam(titleRaw);
-        if (!path || !title) return;
-
-        e.preventDefault();
-
-        // ✅ hash는 fetchDoc가 끝난 뒤 syncUrlWithDoc에서 기존 hash를 유지하는데,
-        // 링크에 hash가 있으면 그걸 우선 반영하도록 미리 세팅
-        if (url.hash) {
-          // 스크롤은 렌더 후에 자연스럽게 되도록 (일단 URL만 맞춰둠)
-          const safeTitle = encodeTitleForUrlParam(title);
-          window.history.replaceState(
-            null,
-            '',
-            `/wiki?path=${path}&title=${safeTitle}${url.hash}`
-          );
-        }
-
-        // ✅ 이동(router.push) 대신 "문서 로드"로 처리
-        if (path === '0') {
-          fetchDoc([], title, undefined, { clearCategoryPath: true, forceRoot: true });
-          return;
-        }
-
-        const pathId = Number(path);
-        if (!Number.isFinite(pathId)) return;
-
-        const fullPath = categoryIdToPathMap[pathId] ?? [pathId];
-        fetchDoc(fullPath, title, undefined, { clearCategoryPath: true });
-
-        // ✅ 즉시 트리도 열어두기(로딩 중에도 위치 보이게)
-        ensureOpenForDocPath(fullPath);
+      let url: URL;
+      try {
+        url = new URL(rawHref, window.location.origin);
+      } catch {
+        return;
       }
+
+      // ✅ 내부 위키 링크만 가로채기
+      const isSameOrigin = url.origin === window.location.origin;
+      const isWikiDocLink = isSameOrigin && url.pathname === '/wiki';
+      if (!isWikiDocLink) return;
+
+      const path = url.searchParams.get('path');
+      const titleRaw = url.searchParams.get('title');
+      const title = titleRaw ? decodeTitleFromUrlParam(titleRaw) : null;
+
+      // path/title 없는 /wiki 메인 이동은 기존 로고 동작 등 다른 흐름에 맡김
+      if (!path || !title) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      // ✅ 링크 클릭 즉시 로딩 느낌 먼저 주기
+      setLoadingDoc(true);
+
+      // ✅ 해시가 있으면 먼저 URL에 반영
+      if (url.hash) {
+        const safeTitle = encodeTitleForUrlParam(title);
+        const safeMode = url.searchParams.get(MODE_PARAM) || mode || '';
+        const nextQs = new URLSearchParams();
+        nextQs.set('path', path);
+        nextQs.set('title', safeTitle);
+        if (safeMode) nextQs.set(MODE_PARAM, safeMode);
+
+        window.history.replaceState(
+          null,
+          '',
+          `/wiki?${nextQs.toString()}${url.hash}`
+        );
+      }
+
+      // ✅ 루트 문서
+      if (path === '0') {
+        fetchDoc([], title, undefined, {
+          clearCategoryPath: true,
+          forceRoot: true,
+        });
+        return;
+      }
+
+      const pathId = Number(path);
+      if (!Number.isFinite(pathId)) {
+        setLoadingDoc(false);
+        return;
+      }
+
+      const fullPath = categoryIdToPathMap[pathId] ?? [pathId];
+
+      // ✅ 사이드바 상호작용 먼저 반영 (깜빡임 완화)
+      ensureOpenForDocPath(fullPath);
+
+      // ✅ 클릭한 문서가 속한 카테고리 경로를 미리 선택 상태로 잡아줌
+      setSelectedCategoryPath(fullPath);
+
+      // ✅ 실제 문서 로드
+      fetchDoc(fullPath, title, undefined, {
+        clearCategoryPath: true,
+      });
     };
 
     el.addEventListener('click', handler);
     return () => el.removeEventListener('click', handler);
-  }, [docContent, categoryIdToPathMap, fetchDoc]);
+  }, [docContent, categoryIdToPathMap, mode]);
 
   // ---------- ✨ 전환 딜레이: 잘못된 목록 잔상 대신 로더만 잠깐 노출 ----------
   useEffect(() => {
