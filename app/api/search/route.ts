@@ -44,16 +44,20 @@ export async function GET(req: NextRequest) {
             regexp_replace(COALESCE((path)::text, ''), '^/+|/+$', '', 'g'),
             '/+'
           ) AS pp
+        ),
+        ids AS (
+          SELECT
+            (pp[i])::bigint AS cid,
+            i AS ord
+          FROM parts, generate_subscripts(pp, 1) AS g(i)
+          WHERE pp[i] ~ '^[0-9]+$'
         )
-        SELECT array_to_string(
-          CASE
-            WHEN array_length(pp, 1) IS NULL THEN ARRAY[]::text[]
-            WHEN array_length(pp, 1) >= 2 THEN pp[1:array_length(pp, 1) - 1]
-            ELSE pp
-          END,
-          ' > '
-        )
-        FROM parts
+        SELECT
+          -- 루트 라벨까지 넣고 싶으면 아래처럼 concat 하면 됨:
+          -- CONCAT('RenDog Wiki', CASE WHEN COUNT(*)>0 THEN ' > ' ELSE '' END, COALESCE(string_agg(c.name, ' > ' ORDER BY ids.ord), ''))
+          COALESCE(string_agg(c.name, ' > ' ORDER BY ids.ord), '')
+        FROM ids
+        JOIN categories c ON c.id = ids.cid
       )
     `;
 

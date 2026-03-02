@@ -434,7 +434,7 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
                               textOverflow: 'ellipsis',
                               whiteSpace: 'nowrap',
                             }}
-                            title={res.category_breadcrumb} // hover 시 전체 보이게
+                            title={res.category_breadcrumb}
                           >
                             {res.category_breadcrumb}
                           </div>
