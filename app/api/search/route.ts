@@ -12,30 +12,57 @@
  * - 응답은 캐시 금지
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/wiki/lib/db';
+import { NextRequest, NextResponse } from "next/server";
+import { sql } from "@/wiki/lib/db";
 
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function GET(req: NextRequest) {
   try {
     // 1) 파라미터 파싱
     const sp = req.nextUrl.searchParams;
-    const raw = (sp.get('query') ?? '').trim();
-    const lim = Number(sp.get('limit'));
+    const raw = (sp.get("query") ?? "").trim();
+    const lim = Number(sp.get("limit"));
     const limit = Number.isFinite(lim) ? Math.min(500, Math.max(1, Math.trunc(lim))) : 200;
 
     if (!raw) {
-      return NextResponse.json([], { headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json([], { headers: { "Cache-Control": "no-store" } });
     }
 
     const pattern = `%${raw}%`;
 
+    // path 기반 breadcrumb 생성 식 (Postgres)
+    // - path를 '/'로 split
+    // - 조각이 2개 이상이면 마지막 조각은 제외(문서명/슬러그일 가능성 높음)
+    // - 'A > B > C' 형태 문자열로 반환
+    const breadcrumbExpr = sql/*sql*/`
+      (
+        WITH parts AS (
+          SELECT regexp_split_to_array(
+            regexp_replace(COALESCE((path)::text, ''), '^/+|/+$', '', 'g'),
+            '/+'
+          ) AS pp
+        )
+        SELECT array_to_string(
+          CASE
+            WHEN array_length(pp, 1) IS NULL THEN ARRAY[]::text[]
+            WHEN array_length(pp, 1) >= 2 THEN pp[1:array_length(pp, 1) - 1]
+            ELSE pp
+          END,
+          ' > '
+        )
+        FROM parts
+      )
+    `;
+
     // 2) title 검색
     const titleRows = await sql/*sql*/`
-      SELECT id, title, path, icon, tags, 'title' AS match_type
+      SELECT
+        id, title, path, icon, tags,
+        'title' AS match_type,
+        ${breadcrumbExpr} AS category_breadcrumb
       FROM documents
       WHERE title ILIKE ${pattern}
       ORDER BY updated_at DESC NULLS LAST, id DESC
@@ -44,7 +71,10 @@ export async function GET(req: NextRequest) {
 
     // 3) tags 검색
     const tagRows = await sql/*sql*/`
-      SELECT id, title, path, icon, tags, 'tags' AS match_type
+      SELECT
+        id, title, path, icon, tags,
+        'tags' AS match_type,
+        ${breadcrumbExpr} AS category_breadcrumb
       FROM documents
       WHERE tags ILIKE ${pattern}
       ORDER BY updated_at DESC NULLS LAST, id DESC
@@ -54,8 +84,26 @@ export async function GET(req: NextRequest) {
     // 4) 본문 검색
     const contentRows = await sql/*sql*/`
       SELECT
-        d.id, d.title, d.path, d.icon, d.tags, 'content' AS match_type,
-        LEFT(REGEXP_REPLACE(dc.content, '\\s+', ' ', 'g'), 1024) AS content
+        d.id, d.title, d.path, d.icon, d.tags,
+        'content' AS match_type,
+        LEFT(REGEXP_REPLACE(dc.content, '\\s+', ' ', 'g'), 1024) AS content,
+        (
+          WITH parts AS (
+            SELECT regexp_split_to_array(
+              regexp_replace(COALESCE((d.path)::text, ''), '^/+|/+$', '', 'g'),
+              '/+'
+            ) AS pp
+          )
+          SELECT array_to_string(
+            CASE
+              WHEN array_length(pp, 1) IS NULL THEN ARRAY[]::text[]
+              WHEN array_length(pp, 1) >= 2 THEN pp[1:array_length(pp, 1) - 1]
+              ELSE pp
+            END,
+            ' > '
+          )
+          FROM parts
+        ) AS category_breadcrumb
       FROM documents d
       JOIN document_contents dc ON d.id = dc.document_id
       WHERE dc.content ILIKE ${pattern}
@@ -71,11 +119,15 @@ export async function GET(req: NextRequest) {
       for (const row of rows) {
         const id = Number(row.id);
         if (seen.has(id)) continue;
+
         merged.push({
           ...row,
           // tags를 배열로 보정
-          tags: row.tags ? String(row.tags).split(',') : [],
+          tags: row.tags ? String(row.tags).split(",") : [],
+          // breadcrumb는 string 보정
+          category_breadcrumb: row.category_breadcrumb ? String(row.category_breadcrumb) : "",
         });
+
         seen.add(id);
         if (merged.length >= limit) break;
       }
@@ -86,12 +138,12 @@ export async function GET(req: NextRequest) {
     if (merged.length < limit) pushUnique(contentRows as any[]);
 
     // 6) 응답
-    return NextResponse.json(merged, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json(merged, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
-    console.error('[search GET] unexpected error:', err);
+    console.error("[search GET] unexpected error:", err);
     return NextResponse.json(
-      { error: 'server error' },
-      { status: 500, headers: { 'Cache-Control': 'no-store' } }
+      { error: "server error" },
+      { status: 500, headers: { "Cache-Control": "no-store" } }
     );
   }
 }

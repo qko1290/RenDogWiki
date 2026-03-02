@@ -18,6 +18,7 @@ type DocResult = {
   tags: string[];
   match_type: 'title' | 'tags' | 'content';
   content?: string;
+  category_breadcrumb?: string;
 };
 
 type FaqItem = {
@@ -421,6 +422,23 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
 
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ fontWeight: 700, fontSize: 16 }}>{highlight(res.title, query)}</div>
+
+                        {/* ✅ 소속 카테고리(브레드크럼) */}
+                        {!!res.category_breadcrumb && (
+                          <div
+                            style={{
+                              marginTop: 4,
+                              fontSize: 12,
+                              color: '#8a93a3',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                            title={res.category_breadcrumb} // hover 시 전체 보이게
+                          >
+                            {res.category_breadcrumb}
+                          </div>
+                        )}
 
                         {showTagsLine && (
                           <div
