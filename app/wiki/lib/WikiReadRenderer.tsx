@@ -2828,9 +2828,7 @@ function renderNode(
         <a
           key={key}
           href={node.url}
-          target="_blank"
-          rel="noopener noreferrer nofollow"
-          style={{ color: "#2676ff", textDecoration: "underline" }}
+          style={{ color: "#2676ff", textDecoration: "none" }}
         >
           {children}
         </a>
