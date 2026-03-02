@@ -275,6 +275,7 @@ export default function WikiPageInner({ user }: Props) {
 
   const canWrite = useCanWrite(user);
   const ignoreNextUrlSyncRef = useRef(false);
+  const isPopStateSyncRef = useRef(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const contentRef = useRef<HTMLDivElement>(null);
@@ -311,34 +312,38 @@ export default function WikiPageInner({ user }: Props) {
   const syncUrlWithDoc = (
     docTitle: string | null,
     fullPath: number[] | null | undefined,
+    options?: { history?: 'push' | 'replace' }
   ) => {
     if (typeof window === 'undefined') return;
     if (!docTitle) return;
 
     const search = new URLSearchParams(window.location.search);
     const currentPath = search.get('path');
-    const currentTitle = decodeTitleFromUrlParam(search.get('title'));
-    const encodedTitle = encodeTitleForUrlParam(docTitle);
+    const currentTitle = search.get('title');
 
-    // 루트([])면 path=0, 그 외에는 fullPath의 마지막 카테고리 id
     const lastId =
       !fullPath || fullPath.length === 0
         ? '0'
         : String(fullPath[fullPath.length - 1]);
 
-    // 이미 같은 값이면 불필요한 replace 방지
-    if (currentPath === lastId && currentTitle === docTitle) return;
+    const encodedTitle = encodeTitleForUrlParam(docTitle);
+
+    if (currentPath === lastId && currentTitle === encodedTitle) return;
 
     search.set('path', lastId);
     search.set('title', encodedTitle);
-    // 내부 fetch용 타임스탬프는 URL에 남길 필요 없음
     search.delete('_t');
 
     const hash = window.location.hash || '';
-    const nextUrl =
-      window.location.pathname + '?' + search.toString() + hash;
+    const nextUrl = window.location.pathname + '?' + search.toString() + hash;
+
     ignoreNextUrlSyncRef.current = true;
-    router.replace(nextUrl);
+
+    if (options?.history === 'replace') {
+      router.replace(nextUrl, { scroll: false });
+    } else {
+      router.push(nextUrl, { scroll: false });
+    }
   };
 
   // 🔗 현재 문서 링크 복사 (✔ 애니메이션)
@@ -526,6 +531,7 @@ export default function WikiPageInner({ user }: Props) {
       ignoreNextUrlSyncRef.current = false;
       return;
     }
+    isPopStateSyncRef.current = true;
     const pathParam = searchParams.get('path');
     const titleParamRaw = searchParams.get('title');
     const titleParam = titleParamRaw ? titleParamRaw.replace(/_/g, ' ') : null;
@@ -899,7 +905,12 @@ export default function WikiPageInner({ user }: Props) {
         ensureOpenForDocPath(nextPath);
 
         // ✅ 문서 로드 후 URL ?path=&title= 동기화
-        syncUrlWithDoc(data.title ?? docTitle, nextPath);
+        syncUrlWithDoc(
+          data.title ?? docTitle,
+          nextPath,
+          { history: isPopStateSyncRef.current ? 'replace' : 'push' }
+        );
+        isPopStateSyncRef.current = false;
 
         setLoadingDoc(false); // 성공 종료
       })
@@ -964,7 +975,8 @@ export default function WikiPageInner({ user }: Props) {
       setSelectedDocPath(nextPath);
       setHideDocChrome(Number(data?.id) === ROOT_FEATURED_DOC_ID);
 
-      syncUrlWithDoc(data.title ?? null, nextPath);
+      syncUrlWithDoc(data.title ?? null, nextPath, { history: 'replace' });
+      isPopStateSyncRef.current = false;
 
       setHideDocChrome(!!opts?.hideChrome || Number(data?.id) === ROOT_FEATURED_DOC_ID);
       setLoadingDoc(false);
