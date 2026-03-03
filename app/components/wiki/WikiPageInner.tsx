@@ -1059,199 +1059,144 @@ export default function WikiPageInner({ user }: Props) {
   // render
   // ----------------------------------------
   return (
-    <div className="wiki-page">
+    <div className="wiki-container">
       <WikiHeader user={user} />
 
-      <div className="wiki-body">
-        {/* Sidebar */}
-        <aside className="wiki-sidebar">
-          <CategoryTree
-            categories={categories}
-            categoryIdMap={categoryIdMap}
-            categoryIdToPathMap={categoryIdToPathMap}
-            selectedDocId={selectedDocId}
-            selectedDocPath={selectedDocPath}
-            selectedCategoryPath={selectedCategoryPath}
-            setSelectedDocPath={setSelectedDocPath}
-            setSelectedDocId={setSelectedDocId}
-            setSelectedDocTitle={setSelectedDocTitle}
-            setSelectedCategoryPath={setSelectedCategoryPath}
-            setDocContent={setDocContent}
-            fetchDoc={fetchDoc}
-            allDocuments={allDocuments}
-            openPaths={openPaths}
-            closingMap={closingMap}
-            closeTreeWithChildren={closeTreeWithChildren}
-            togglePath={togglePath}
-            handleArrowClick={handleArrowClick}
-            isPathOpen={isPathOpen}
-            isClosing={isClosing}
-            finalizeClose={finalizeClose}
-            interactionReady={interactionReady}
-            mode={mode}
-          />
-        </aside>
+      {/* 기존 wiki.css는 header fixed(64px) 기준으로 wiki-layout margin-top을 사용 */}
+      <div className="wiki-layout">
+        {/* ✅ wiki.css가 기대하는 main 래퍼 */}
+        <div className="wiki-main">
+          {/* Sidebar */}
+          <aside className="wiki-sidebar">
+            <div className="wiki-sidebar-inner">
+              <CategoryTree
+                categories={categories}
+                categoryIdMap={categoryIdMap}
+                categoryIdToPathMap={categoryIdToPathMap}
+                selectedDocId={selectedDocId}
+                selectedDocPath={selectedDocPath}
+                selectedCategoryPath={selectedCategoryPath}
+                setSelectedDocPath={setSelectedDocPath}
+                setSelectedDocId={setSelectedDocId}
+                setSelectedDocTitle={setSelectedDocTitle}
+                setSelectedCategoryPath={setSelectedCategoryPath}
+                setDocContent={setDocContent}
+                fetchDoc={fetchDoc}
+                allDocuments={allDocuments}
+                openPaths={openPaths}
+                closingMap={closingMap}
+                closeTreeWithChildren={closeTreeWithChildren}
+                togglePath={togglePath}
+                handleArrowClick={handleArrowClick}
+                isPathOpen={isPathOpen}
+                isClosing={isClosing}
+                finalizeClose={finalizeClose}
+                interactionReady={interactionReady}
+                mode={mode}
+              />
+            </div>
+          </aside>
 
-        {/* Content */}
-        <main className="wiki-content">
-          {/* 제목/FAQ 버튼은 hold와 무관하게 보여야 함 (홈 문서만 hideDocChrome=true) */}
-          {!hideDocChrome && (
-            <>
-              {/* Breadcrumb은 잔상 방지를 위해 hold일 땐 숨김 */}
-              {!hold && (
-                <Breadcrumb
-                  selectedDocPath={selectedDocPath}
-                  categories={categories}
-                  setSelectedDocPath={setSelectedDocPath}
-                  setSelectedDocTitle={setSelectedDocTitle}
-                  setDocContent={setDocContent}
-                />
+          {/* Content + TOC는 스크롤 컨테이너로 묶는게 wiki.css 의도 */}
+          <div className="wiki-main-scrollable">
+            <main className="wiki-content">
+              {!hideDocChrome && (
+                <>
+                  {!hold && (
+                    <Breadcrumb
+                      selectedDocPath={selectedDocPath}
+                      categories={categories}
+                      setSelectedDocPath={setSelectedDocPath}
+                      setSelectedDocTitle={setSelectedDocTitle}
+                      setDocContent={setDocContent}
+                    />
+                  )}
+
+                  {/* ⚠️ wiki.css에는 wiki-title-row가 없고 wiki-content-title-row가 있음 */}
+                  <div className="wiki-content-title-row">
+                    <h2 className="wiki-content-title wiki-title-color">
+                      {currentDoc?.icon ? (
+                        currentDoc.icon.startsWith('http') ? (
+                          <img
+                            src={toProxyUrl(currentDoc.icon)}
+                            alt=""
+                            width={22}
+                            height={22}
+                            loading="lazy"
+                            decoding="async"
+                            draggable={false}
+                            style={{ borderRadius: 6, objectFit: 'cover', marginRight: 8 }}
+                          />
+                        ) : (
+                          <span style={{ marginRight: 8 }}>{currentDoc.icon}</span>
+                        )
+                      ) : null}
+                      {selectedDocTitle || '렌독 위키'}
+                    </h2>
+
+                    <div className="wiki-title-actions">
+                      <button className="wiki-copylink-btn" onClick={handleCopyDocLink} type="button">
+                        {copiedDocLink ? '✔' : '링크'}
+                      </button>
+
+                      {isFaq && canWrite && <FaqAddButton onClick={() => setShowNewFaq(true)} />}
+                    </div>
+                  </div>
+                </>
               )}
 
-              <div className="wiki-title-row">
-                <h2 className="wiki-title">
-                  {currentDoc?.icon ? (
-                    currentDoc.icon.startsWith('http') ? (
-                      <img
-                        src={toProxyUrl(currentDoc.icon)}
-                        alt=""
-                        width={22}
-                        height={22}
-                        loading="lazy"
-                        decoding="async"
-                        draggable={false}
-                        style={{ borderRadius: 6, objectFit: 'cover', marginRight: 8 }}
+              {/* ✅ contentRef는 그대로 */}
+              <div className={`wiki-content-inner ${contentClass}`} ref={contentRef}>
+                {hold ? (
+                  <BookLoader />
+                ) : isFaq ? (
+                  <FaqList query={faqQuery} tags={faqTags} user={user} refreshSignal={faqRefreshSignal} />
+                ) : specialMeta?.kind === 'head' ? (
+                  <>
+                    {headLoading ? (
+                      <BookLoader />
+                    ) : headList.length > 0 ? (
+                      <HeadGrid heads={headList} headIcon={headVillageIcon} />
+                    ) : (
+                      <div className="wiki-empty">등록된 머리가 없습니다.</div>
+                    )}
+                  </>
+                ) : specialMeta?.kind === 'npc' || specialMeta?.kind === 'quest' ? (
+                  <>
+                    {npcLoading ? (
+                      <BookLoader />
+                    ) : npcList.length > 0 ? (
+                      <NpcGrid
+                        npcs={npcList}
+                        page={npcPage}
+                        onPageChange={setNpcPage}
+                        selectedNpcId={selectedNpc?.id ?? null}
+                        onClick={(npc) => setSelectedNpc(npc)}
                       />
                     ) : (
-                      <span style={{ marginRight: 8 }}>{currentDoc.icon}</span>
-                    )
-                  ) : null}
-                  {selectedDocTitle || '렌독 위키'}
-                </h2>
-
-                <div className="wiki-title-actions">
-                  <button className="wiki-copylink-btn" onClick={handleCopyDocLink} type="button">
-                    {copiedDocLink ? '✔' : '링크'}
-                  </button>
-
-                  {isFaq && canWrite && <FaqAddButton onClick={() => setShowNewFaq(true)} />}
-                </div>
+                      <div className="wiki-empty">등록된 NPC가 없습니다.</div>
+                    )}
+                  </>
+                ) : Array.isArray(docContent) && docContent.length > 0 ? (
+                  <WikiReadRenderer content={docContent} onWikiRefClick={handleWikiRefClick as any} />
+                ) : (
+                  <div className="wiki-empty">문서 내용이 없습니다.</div>
+                )}
               </div>
-            </>
-          )}
+            </main>
 
-          <div className={`wiki-content-inner ${contentClass}`} ref={contentRef}>
-            {hold ? (
-              <BookLoader />
-            ) : isFaq ? (
-              <FaqList
-                query={faqQuery}
-                tags={faqTags}
-                user={user}
-                refreshSignal={faqRefreshSignal}
-              />
-            ) : specialMeta?.kind === 'head' ? (
-              <>
-                {headLoading ? (
-                  <BookLoader />
-                ) : headList.length > 0 ? (
-                  <HeadGrid
-                    heads={headList}
-                    headIcon={headVillageIcon}
-                  />
-                ) : (
-                  <div className="wiki-empty">등록된 머리가 없습니다.</div>
-                )}
-
-                {headList.length > HEAD_PAGE_SIZE && (
-                  <div className="wiki-paging">
-                    <button
-                      onClick={() => setHeadPage((p) => Math.max(0, p - 1))}
-                      disabled={headPage === 0}
-                      className="wiki-paging-btn"
-                      aria-label="이전 페이지"
-                    >
-                      이전
-                    </button>
-
-                    <span className="wiki-paging-mid">
-                      {headPage + 1} / {headPageCount}
-                    </span>
-
-                    <button
-                      onClick={() => setHeadPage((p) => Math.min(headPageCount - 1, p + 1))}
-                      disabled={headPage === headPageCount - 1}
-                      className="wiki-paging-btn next"
-                      aria-label="다음 페이지"
-                    >
-                      다음
-                    </button>
-                  </div>
-                )}
-              </>
-            ) : specialMeta?.kind === 'npc' || specialMeta?.kind === 'quest' ? (
-              <>
-                {npcLoading ? (
-                  <BookLoader />
-                ) : npcList.length > 0 ? (
-                  <NpcGrid
-                    npcs={npcList}
-                    page={npcPage}
-                    onPageChange={setNpcPage}
-                    selectedNpcId={selectedNpc?.id ?? null}
-                    onClick={(npc) => setSelectedNpc(npc)}
-                  />
-                ) : (
-                  <div className="wiki-empty">등록된 NPC가 없습니다.</div>
-                )}
-
-                {npcList.length > NPC_PAGE_SIZE && (
-                  <div className="wiki-paging">
-                    <button
-                      onClick={() => setNpcPage((p) => Math.max(0, p - 1))}
-                      disabled={npcPage === 0}
-                      className="wiki-paging-btn"
-                      aria-label="이전 페이지"
-                    >
-                      이전
-                    </button>
-
-                    <span className="wiki-paging-mid">
-                      {npcPage + 1} / {npcPageCount}
-                    </span>
-
-                    <button
-                      onClick={() => setNpcPage((p) => Math.min(npcPageCount - 1, p + 1))}
-                      disabled={npcPage === npcPageCount - 1}
-                      className="wiki-paging-btn next"
-                      aria-label="다음 페이지"
-                    >
-                      다음
-                    </button>
-                  </div>
-                )}
-              </>
-            ) : Array.isArray(docContent) && docContent.length > 0 ? (
-              <WikiReadRenderer
-                content={docContent}
-                onWikiRefClick={handleWikiRefClick as any}
-              />
-            ) : (
-              <div className="wiki-empty">문서 내용이 없습니다.</div>
-            )}
+            {/* TOC */}
+            <aside className="wiki-toc">
+              {!hold && (
+                <TableOfContents
+                  headings={tableOfContents}
+                  docTitle={selectedDocTitle ?? undefined}
+                  docIcon={currentDoc?.icon ?? undefined}
+                />
+              )}
+            </aside>
           </div>
-        </main>
-
-        {/* TOC */}
-        <aside className="wiki-toc">
-          {!hold && (
-            <TableOfContents
-              headings={tableOfContents}
-              docTitle={selectedDocTitle ?? undefined}
-              docIcon={currentDoc?.icon ?? undefined}
-            />
-          )}
-        </aside>
+        </div>
       </div>
 
       {/* Modals */}
