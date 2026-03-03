@@ -353,6 +353,7 @@ export default function WikiPageInner({ user }: Props) {
     } else {
       router.push(nextUrl, { scroll: false });
     }
+  };
 
   // 🔗 현재 문서 링크 복사 (✔ 애니메이션)
   // - window.location.search는 %EC... 형태로 인코딩되어 있으므로
