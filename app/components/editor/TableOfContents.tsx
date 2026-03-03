@@ -1,231 +1,193 @@
-'use client';
+// =============================================
+// File: app/components/editor/TableOfContents.tsx
+// (에디터 TOC: heading domId(heading-xxx--N) 기준으로 스크롤/active/해시 동작)
+// =============================================
+"use client";
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faAlignLeft } from '@fortawesome/free-solid-svg-icons';
-import { toProxyUrl } from '@lib/cdn';
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
-type Heading = {
+type HeadingItem = {
+  id: string;      // baseId: "heading-xxx"
   text: string;
-  id: string;
-  level: 1 | 2 | 3;
-  icon?: string;
+  level: number;
 };
 
 type Props = {
-  headings: Heading[];
-  headerOffset?: number;
-  right?: number;
-  top?: number;
-  width?: number;
-  title?: string;
-  scrollRootSelector?: string;
+  headings: HeadingItem[];
+  /** heading들이 들어있는 스크롤 컨테이너 (없으면 document 사용) */
+  containerRef?: React.RefObject<HTMLElement | null>;
+  /** hash 갱신 on/off (원하면 끌 수 있게) */
+  syncHash?: boolean;
+  /** 스크롤 보정(px) */
+  offsetTop?: number;
 };
+
+type IndexedHeading = HeadingItem & {
+  occ: number;
+  domId: string; // "heading-xxx--0"
+};
+
+function normalizeHashId(raw: string) {
+  const s = String(raw || "").replace(/^#/, "");
+  if (!s) return "";
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s;
+  }
+}
 
 export default function TableOfContents({
   headings,
-  headerOffset = 72,
-  right = 20,
-  top = 100,
-  width = 240,
-  title = '목차',
-  scrollRootSelector,
+  containerRef,
+  syncHash = true,
+  offsetTop = 0,
 }: Props) {
-  const [activeId, setActiveId] = useState<string>('');
-  const rootRef = useRef<HTMLElement | null>(null);
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const [rootKey, setRootKey] = useState(0); // 루트 변경 트리거 키
+  const [activeId, setActiveId] = useState<string>("");
 
-  // 동일 id에 발생 순번 부여
-  const indexed = useMemo(() => {
-    const seen: Record<string, number> = {};
-    return headings.map(h => {
-      const occ = seen[h.id] ?? 0;
-      seen[h.id] = occ + 1;
-      return { ...h, __occ: occ } as Heading & { __occ: number };
+  // ✅ baseId 중복을 고려해서 domId(heading-xxx--N) 목록 생성
+  const indexed = useMemo<IndexedHeading[]>(() => {
+    const map = new Map<string, number>();
+    return headings.map((h) => {
+      const base = h.id;
+      const occ = map.get(base) ?? 0;
+      map.set(base, occ + 1);
+      return {
+        ...h,
+        occ,
+        domId: `${base}--${occ}`,
+      };
     });
   }, [headings]);
 
-  // 스크롤 가능한 조상 자동 탐색
-  const findScrollableAncestor = (el: HTMLElement | null): HTMLElement | null => {
-    let cur: HTMLElement | null = el?.parentElement ?? null;
-    while (cur) {
-      const { overflowY } = getComputedStyle(cur);
-      const canScroll = /(auto|scroll)/.test(overflowY) && cur.scrollHeight > cur.clientHeight + 1;
-      if (canScroll) return cur;
-      cur = cur.parentElement;
-    }
-    return null;
+  const getScrollRoot = () => containerRef?.current ?? null;
+
+  const getTargetEl = (domId: string) => {
+    // containerRef가 있으면 그 안에서 찾고, 없으면 document에서 찾기
+    const root = getScrollRoot();
+    if (root) return root.querySelector<HTMLElement>(`#${CSS.escape(domId)}`);
+    return document.getElementById(domId) as HTMLElement | null;
   };
 
-  // root 결정(명시 selector > 자동 > window), 변경 시 rootKey 갱신
+  const scrollToDomId = (domId: string) => {
+    const el = getTargetEl(domId);
+    if (!el) return;
+
+    const root = getScrollRoot();
+
+    // container 스크롤을 쓰는 경우 / window 스크롤을 쓰는 경우 둘 다 지원
+    if (root) {
+      const rootRect = root.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      const top = (elRect.top - rootRect.top) + root.scrollTop - offsetTop;
+      root.scrollTo({ top, behavior: "smooth" });
+    } else {
+      const top = el.getBoundingClientRect().top + window.scrollY - offsetTop;
+      window.scrollTo({ top, behavior: "smooth" });
+    }
+  };
+
+  // ✅ 최초 진입 시 hash가 있으면 그 domId로 스크롤/active 맞추기
   useEffect(() => {
-    if (scrollRootSelector) {
-      rootRef.current = document.querySelector<HTMLElement>(scrollRootSelector);
-      setRootKey(k => k + 1);
-      return;
-    }
-    if (headings.length) {
-      const first = document.querySelector<HTMLElement>(
-        `[id="${(headings[0].id ?? '').replace(/"/g, '\\"')}"]`
-      );
-      rootRef.current = findScrollableAncestor(first) || null;
-      setRootKey(k => k + 1);
-    } else {
-      rootRef.current = null;
-      setRootKey(k => k + 1);
-    }
-  }, [scrollRootSelector, headings]);
+    const hid = normalizeHashId(window.location.hash);
+    if (!hid) return;
 
-  const getRootForObserver = () => rootRef.current ?? null;
+    // hash가 baseId만 들어오는 경우도 안전하게 처리:
+    // - heading-xxx → heading-xxx--0 로 폴백
+    const domId =
+      hid.includes("--") ? hid : `${hid}--0`;
 
-  // 타겟 찾기(동일 id의 n번째)
-  const getTarget = (id: string, occ: number) => {
-    const esc = id.replace(/"/g, '\\"');
-    const list = document.querySelectorAll<HTMLElement>(`[id="${esc}"]`);
-    return list[occ] ?? list[0] ?? null;
-  };
+    // 다음 tick에서 스크롤(레이아웃 안정)
+    const t = window.setTimeout(() => {
+      scrollToDomId(domId);
+      setActiveId(domId);
+    }, 0);
 
-  // 컨테이너 기준 스무스 스크롤(별도 상태 저장 없음)
-  const scrollToId = (id: string, occ: number) => {
-    const target = getTarget(id, occ);
-    if (!target) return;
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    const root = rootRef.current;
-    if (!root) {
-      const y = target.getBoundingClientRect().top + window.scrollY - headerOffset;
-      window.scrollTo({ top: y, behavior: 'smooth' });
-    } else {
-      const y =
-        target.getBoundingClientRect().top -
-        root.getBoundingClientRect().top +
-        root.scrollTop -
-        headerOffset;
-      root.scrollTo({ top: y, behavior: 'smooth' });
-    }
-    try { history.replaceState(null, '', `#${id}`); } catch {}
-    try { window.dispatchEvent(new CustomEvent('editor:toc-jump', { detail: { id, occ } })); } catch {}
-  };
-
-  // 스크롤 스파이(컨테이너 기준)
+  // ✅ IntersectionObserver로 activeId를 “domId”로 갱신
   useEffect(() => {
     if (!indexed.length) return;
 
-    observerRef.current?.disconnect();
-    const obs = new IntersectionObserver(
+    const root = getScrollRoot();
+
+    const targets = indexed
+      .map((h) => getTargetEl(h.domId))
+      .filter(Boolean) as HTMLElement[];
+
+    if (!targets.length) return;
+
+    const io = new IntersectionObserver(
       (entries) => {
+        // 화면에 들어온 heading 중 가장 위쪽을 active로
         const visible = entries
-          .filter(e => e.isIntersecting)
-          .sort((a, b) => (a.boundingClientRect.top > b.boundingClientRect.top ? 1 : -1));
-        if (visible[0]) setActiveId((visible[0].target as HTMLElement).id);
+          .filter((e) => e.isIntersecting && e.target instanceof HTMLElement)
+          .map((e) => e.target as HTMLElement);
+
+        if (!visible.length) return;
+
+        visible.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+        const id = visible[0]?.id || "";
+        if (id) setActiveId(id);
       },
       {
-        root: getRootForObserver(),
-        rootMargin: `-${headerOffset + 8}px 0px -70% 0px`,
-        threshold: [0, 1],
+        root: root ?? null,
+        // 상단 고정 헤더/오프셋 고려
+        rootMargin: `-${Math.max(0, offsetTop)}px 0px -70% 0px`,
+        threshold: [0, 0.1, 0.2, 0.3],
       }
     );
-    observerRef.current = obs;
 
-    // 동일 id 전부 observe
-    const observed: HTMLElement[] = [];
-    const seenIds = new Set<string>();
-    indexed.forEach(({ id }) => {
-      if (seenIds.has(id)) return;
-      seenIds.add(id);
-      const esc = id.replace(/"/g, '\\"');
-      document.querySelectorAll<HTMLElement>(`[id="${esc}"]`).forEach(el => {
-        obs.observe(el);
-        observed.push(el);
-      });
-    });
+    targets.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [indexed, containerRef, offsetTop]);
 
-    return () => {
-      observed.forEach(el => obs.unobserve(el));
-      obs.disconnect();
-    };
-  }, [indexed, headerOffset, rootKey]);
+  const handleClick = (h: IndexedHeading) => {
+    scrollToDomId(h.domId);
+    setActiveId(h.domId);
 
-  // 초기 진입 시 URL 해시가 있으면 해당 위치로 스크롤
-  const didInitialHashScroll = useRef(false);
-    useEffect(() => {
-      if (didInitialHashScroll.current) return;
-      const hash = decodeURIComponent(window.location.hash || '').replace(/^#/, '');
-      if (!hash) return;
-      // 타겟이 렌더된 뒤 한 프레임 후 이동
-      const raf = requestAnimationFrame(() => {
-        scrollToId(hash, 0);
-        didInitialHashScroll.current = true;
-      });
-      return () => cancelAnimationFrame(raf);
-    }, []);
-
-  // ----- UI -----
-  const boxStyle: React.CSSProperties = {
-    position: 'fixed', right, top, width,
-    background: '#fff',
-    border: '1px solid #eef1f5',
-    borderRadius: 12,
-    boxShadow: '0 2px 14px rgba(0,0,0,.05)',
-    padding: '12px 10px',
-    zIndex: 50,
-    maxHeight: `calc(100vh - ${top + 20}px)`,
-    overflowY: 'auto',
+    if (syncHash) {
+      // ✅ 해시도 domId로 통일
+      try {
+        history.replaceState(null, "", `#${encodeURIComponent(h.domId)}`);
+      } catch {
+        // noop
+      }
+    }
   };
-  const listStyle: React.CSSProperties = { listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 2 };
-  const iconBox: React.CSSProperties = { width: 18, height: 18, display: 'grid', placeItems: 'center', flex: '0 0 auto', marginRight: 8 };
-  const titleStyle: React.CSSProperties = { fontSize: 14, fontWeight: 800, color: '#0f172a', margin: '0 0 10px 8px' };
-  const textStyle: React.CSSProperties = { fontSize: 13.5, fontWeight: 600, letterSpacing: '-0.15px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
 
-  if (!indexed.length) {
-    return <aside role="navigation" aria-label="Table of contents" style={{ ...boxStyle, display: 'grid', placeItems: 'center', color: '#9aa1ad' }}>목차 없음</aside>;
-  }
+  if (!indexed.length) return null;
 
   return (
-    <aside role="navigation" aria-label="Table of contents" style={boxStyle}>
-      <p style={titleStyle}><FontAwesomeIcon icon={faAlignLeft} />&nbsp;&nbsp;{title}</p>
-      <ul style={listStyle}>
-        {indexed.map((h, i) => {
-          const active = h.id === activeId;
-          const padLeft = h.level === 1 ? 8 : h.level === 2 ? 26 : 44;
-          return (
-            <li key={`${h.id}-${h.__occ}-${i}`}>
-              <button
-                type="button"
-                onClick={() => scrollToId(h.id, h.__occ)}
-                title={h.text}
-                aria-current={active ? 'true' : undefined}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-                  cursor: 'pointer', border: 0, background: active ? '#eff6ff' : 'transparent',
-                  borderLeft: `3px solid ${active ? '#2563eb' : 'transparent'}`,
-                  color: active ? '#2563eb' : '#4b5563',
-                  padding: '6px 8px', paddingLeft: padLeft, borderRadius: 8,
-                  textAlign: 'left', transition: 'background .12s, color .12s, border-color .12s',
-                }}
-              >
-                <span style={iconBox} aria-hidden>
-                  {h.icon?.startsWith('http') ? (
-                    <img
-                      src={toProxyUrl(h.icon)}
-                      alt=""
-                      width={16}
-                      height={16}
-                      loading="lazy"
-                      decoding="async"
-                      draggable={false}
-                      style={{ width: 16, height: 16, objectFit: 'contain', display: 'block' }}
-                    />
-                  ) : h.icon ? (
-                    <span style={{ fontSize: 14, lineHeight: 1, display: 'block' }}>{h.icon}</span>
-                  ) : null}
-                </span>
-                <span style={textStyle}>{h.text}</span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </aside>
+    <div className="wiki-toc">
+      {indexed.map((h) => {
+        const isActive = h.domId === activeId;
+
+        return (
+          <button
+            key={h.domId}
+            type="button"
+            onClick={() => handleClick(h)}
+            className={"wiki-toc-item" + (isActive ? " is-active" : "")}
+            style={{
+              textAlign: "left",
+              width: "100%",
+              background: "transparent",
+              border: "none",
+              padding: "6px 8px",
+              cursor: "pointer",
+              fontWeight: isActive ? 800 : 600,
+              opacity: isActive ? 1 : 0.85,
+              marginLeft: (h.level - 1) * 10,
+            }}
+            title={h.text}
+          >
+            {h.text}
+          </button>
+        );
+      })}
+    </div>
   );
 }

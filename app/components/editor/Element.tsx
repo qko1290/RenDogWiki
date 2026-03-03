@@ -8,7 +8,7 @@ import {
   useFocused,
   useSlate,
 } from 'slate-react';
-import { Node, Transforms, Path, Element as SlateElement } from 'slate';
+import { Editor, Node, Transforms, Path, Element as SlateElement } from 'slate';
 
 import { getHeadingId } from './helpers/getHeadingId';
 import ImageSizeModal from './ImageSizeModal';
@@ -88,6 +88,42 @@ type BlockComponentProps<E extends CustomElement = CustomElement> = {
   element: E;
   editor: any;
 };
+
+function isHeadingElement(n: any) {
+  const t = (n as any)?.type;
+  return t === 'heading-one' || t === 'heading-two' || t === 'heading-three';
+}
+
+/**
+ * 같은 baseId(heading-xxx)가 여러 번 나오면
+ * 문서 순서 기준 occ를 계산해서 domId = `${baseId}--${occ}` 반환
+ */
+function getHeadingDomId(editor: Editor, element: SlateElement) {
+  const baseId = getHeadingId(element);
+
+  let targetPath: Path | null = null;
+  try {
+    targetPath = ReactEditor.findPath(editor as any, element as any);
+  } catch {
+    return `${baseId}--0`;
+  }
+
+  let occ = 0;
+
+  for (const [n, p] of Editor.nodes(editor, {
+    at: [],
+    match: (x: any) => SlateElement.isElement(x) && isHeadingElement(x),
+  })) {
+    const nid = getHeadingId(n as any);
+
+    if (nid === baseId) {
+      if (Path.equals(p, targetPath)) return `${baseId}--${occ}`;
+      occ += 1;
+    }
+  }
+
+  return `${baseId}--0`;
+}
 
 // -------------------- 하위 컴포넌트: 링크 카드 --------------------
 const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
@@ -910,6 +946,7 @@ const Element: React.FC<ElementRenderProps> = ({
           | HeadingOneElement
           | HeadingTwoElement
           | HeadingThreeElement;
+      const domId = getHeadingDomId(slateEditor as any, el as any);
       const level =
         el.type === 'heading-one'
           ? 1
@@ -930,7 +967,7 @@ const Element: React.FC<ElementRenderProps> = ({
       return (
         <Tag
           {...attributes}
-          id={getHeadingId(el)}
+          id={domId}
           style={{
             fontSize,
             textAlign: el.textAlign || 'left',
