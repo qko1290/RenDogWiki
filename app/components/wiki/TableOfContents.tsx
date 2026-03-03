@@ -80,6 +80,45 @@ export default function TableOfContents({
     return document.getElementById(domId);
   };
 
+  // ✅ intersect가 없어도(로드 직후/최상단) "가장 가까운 heading"을 강제로 계산해서 active 세팅
+  const setActiveByClosest = () => {
+    if (!indexed.length) return;
+
+    const headerLine = headerOffset + 8;
+
+    let bestDomId = "";
+    let bestScore = Number.POSITIVE_INFINITY;
+    let bestIndex = -1;
+
+    for (let i = 0; i < indexed.length; i++) {
+      const domId = indexed[i].domId!;
+      const el = document.getElementById(domId);
+      if (!el) continue;
+
+      const top = el.getBoundingClientRect().top;
+
+      // ✅ 기준:
+      // 1) headerLine "아래"에 있는 heading 중 가장 가까운 것 우선
+      // 2) 없으면(headerLine 위로 이미 지나간 경우) 가장 마지막(가장 덜 위) heading
+      const dist = top - headerLine;
+
+      // 아래(>=0)는 우선순위 0, 위(<0)는 우선순위 1로 밀어냄
+      const priority = dist >= 0 ? 0 : 1;
+      const score = priority * 1_000_000 + Math.abs(dist);
+
+      if (score < bestScore) {
+        bestScore = score;
+        bestDomId = domId;
+        bestIndex = i;
+      }
+    }
+
+    if (bestDomId) {
+      setActiveDomId(bestDomId);
+      if (bestIndex !== -1) setActiveIndex(bestIndex);
+    }
+  };
+
   const hasDocTitle = !!(docTitle && docTitle.trim());
   const docTitleAnchor = indexed[0] ?? null;
   const resolvedDocIcon = docIcon ?? docTitleAnchor?.icon ?? undefined;
@@ -258,6 +297,22 @@ export default function TableOfContents({
     return () => {
       observed.forEach((el) => obs.unobserve(el));
       obs.disconnect();
+    };
+  }, [indexed, headerOffset, rootKey]);
+
+  // ✅ 문서 로드 직후에는 IO 콜백이 안 올 수 있어서(교차 변화 없음) 강제로 1번 잡아준다
+  useEffect(() => {
+    if (!indexed.length) return;
+
+    // 레이아웃 안정화 + 이미지/폰트 등으로 1~2번 더 흔들릴 수 있어서 재시도
+    const t1 = window.setTimeout(() => setActiveByClosest(), 0);
+    const t2 = window.setTimeout(() => setActiveByClosest(), 120);
+    const t3 = window.setTimeout(() => setActiveByClosest(), 320);
+
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.clearTimeout(t3);
     };
   }, [indexed, headerOffset, rootKey]);
 
