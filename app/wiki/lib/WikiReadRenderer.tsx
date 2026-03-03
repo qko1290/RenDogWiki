@@ -9,7 +9,7 @@
  * - 서버/클라이언트 헤딩 ID 불일치 경고 억제를 위해 heading에 suppressHydrationWarning 사용
  */
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { Descendant, Text } from "slate";
 
 // ⬇️ 추가: CDN 치환/버전 유틸 + 최적화 이미지 컴포넌트
@@ -98,6 +98,7 @@ function flexJustifyFromAlign(
 type HeadingCopyCtx = {
   copiedHeadingId: string | null;
   onCopyHeading: (id?: string) => void;
+  headingOccRef: React.MutableRefObject<Map<string, number>>;
 };
 
 /** 읽기 전용 렌더러에서 위키 참조 클릭을 상위로 전달하기 위한 핸들러 */
@@ -1353,6 +1354,13 @@ function compactReadContent(nodes: Descendant[]): Descendant[] {
 export default function WikiReadRenderer({ content, readOnly = true, onWikiRefClick }: Props) {
   const [copiedHeadingId, setCopiedHeadingId] = useState<string | null>(null);
 
+  const headingOccRef = useRef<Map<string, number>>(new Map());
+
+  useEffect(() => {
+    // 문서(콘텐츠) 바뀌면 카운터 초기화
+    headingOccRef.current = new Map();
+  }, [content]);
+
   const handlers: WikiRefHandlers = { readOnly, onWikiRefClick };
 
   const handleCopyHeadingLink = async (headingId?: string) => {
@@ -1396,6 +1404,7 @@ export default function WikiReadRenderer({ content, readOnly = true, onWikiRefCl
   const ctx: HeadingCopyCtx = {
     copiedHeadingId,
     onCopyHeading: handleCopyHeadingLink,
+    headingOccRef,
   };
 
   const normalized = compactReadContent(content);
@@ -2780,7 +2789,14 @@ function renderNode(
       );
 
       const textContent = stripReact(safeChildren).trim();
-      const id = toHeadingIdFromText(textContent);
+      const baseId = toHeadingIdFromText(textContent);
+
+      // ✅ occ 계산
+      const occ = ctx?.headingOccRef.current.get(baseId) ?? 0;
+      ctx?.headingOccRef.current.set(baseId, occ + 1);
+
+      // ✅ DOM에 붙을 고유 id
+      const domId = `${baseId}--${occ}`;
 
       const level =
         node.type === "heading-one"
@@ -2795,7 +2811,7 @@ function renderNode(
       return (
         <Tag
           key={key}
-          id={id}
+          id={domId}
           suppressHydrationWarning
           className="wiki-heading-with-anchor"
           style={{
@@ -2817,7 +2833,7 @@ function renderNode(
           >
             <span>{safeChildren}</span>
             {/* 🔗 제목과 동일 디자인의 링크 버튼 */}
-            <HeadingAnchorButton anchorId={id} />
+            <HeadingAnchorButton anchorId={domId} />
           </span>
         </Tag>
       );

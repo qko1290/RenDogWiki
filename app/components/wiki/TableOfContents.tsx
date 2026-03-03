@@ -15,6 +15,8 @@ import { toProxyUrl } from '@lib/cdn';
 type Heading = {
   text: string;
   id: string;
+  domId?: string;
+  occ?: number;
   level: 1 | 2 | 3;
   icon?: string;
 };
@@ -63,12 +65,20 @@ export default function TableOfContents({
   // 동일 id에 발생 순번 부여
   const indexed = useMemo(() => {
     const seen: Record<string, number> = {};
-    return headings.map(h => {
-      const occ = seen[h.id] ?? 0;
+    return headings.map((h) => {
+      const occ = h.occ ?? (seen[h.id] ?? 0);
       seen[h.id] = occ + 1;
-      return { ...h, __occ: occ } as Heading & { __occ: number };
+      const domId = h.domId ?? `${h.id}--${occ}`;
+      return { ...h, occ, domId };
     });
   }, [headings]);
+
+  const [activeDomId, setActiveDomId] = useState("");
+
+  // ✅ DOM target 찾기: domId로 단일 조회
+  const getTargetByDomId = (domId: string) => {
+    return document.getElementById(domId);
+  };
 
   const hasDocTitle = !!(docTitle && docTitle.trim());
   const docTitleAnchor = indexed[0] ?? null;
@@ -110,26 +120,6 @@ export default function TableOfContents({
     return parent ?? tocRef.current;
   };
 
-  // 문서 스크롤 root 결정
-  useEffect(() => {
-    if (scrollRootSelector) {
-      rootRef.current = document.querySelector<HTMLElement>(scrollRootSelector);
-      setRootKey(k => k + 1);
-      return;
-    }
-
-    if (headings.length) {
-      const firstId = headings[0].id ?? '';
-      const esc = (firstId || '').replace(/"/g, '\\"');
-      const first = document.querySelector<HTMLElement>(`[id="${esc}"]`);
-      rootRef.current = findScrollableAncestor(first) || null;
-      setRootKey(k => k + 1);
-    } else {
-      rootRef.current = null;
-      setRootKey(k => k + 1);
-    }
-  }, [scrollRootSelector, headings]);
-
   const getRootForObserver = () => {
     const root = rootRef.current;
     if (!root) return null;
@@ -138,12 +128,6 @@ export default function TableOfContents({
       /(auto|scroll)/.test(overflowY) &&
       root.scrollHeight > root.clientHeight + 1;
     return canScroll ? root : null;
-  };
-
-  const getTarget = (id: string, occ: number) => {
-    const esc = id.replace(/"/g, '\\"');
-    const list = document.querySelectorAll<HTMLElement>(`[id="${esc}"]`);
-    return list[occ] ?? list[0] ?? null;
   };
 
   const getScrollRoot = (target: HTMLElement | null): HTMLElement | null => {
@@ -161,118 +145,155 @@ export default function TableOfContents({
     return findScrollableAncestor(target);
   };
 
-  const scrollToId = (
-    id: string,
-    occ: number,
-    behavior: ScrollBehavior = 'smooth',
-  ): boolean => {
-    const target = getTarget(id, occ);
+  const scrollToDomId = (domId: string, behavior: ScrollBehavior = "smooth"): boolean => {
+    const target = getTargetByDomId(domId);
     if (!target) return false;
 
     const root = getScrollRoot(target);
-
     if (!root) {
-      const y =
-        target.getBoundingClientRect().top +
-        window.scrollY -
-        headerOffset;
+      const y = target.getBoundingClientRect().top + window.scrollY - headerOffset;
       window.scrollTo({ top: y, behavior });
     } else {
       const rootRect = root.getBoundingClientRect();
-      const y =
-        target.getBoundingClientRect().top -
-        rootRect.top +
-        root.scrollTop -
-        headerOffset;
+      const y = target.getBoundingClientRect().top - rootRect.top + root.scrollTop - headerOffset;
       root.scrollTo({ top: y, behavior });
     }
 
     try {
-      const hashId = target.id || id;
-      history.replaceState(null, '', `#${hashId}`);
-    } catch {
-      // ignore
-    }
-
-    try {
-      window.dispatchEvent(
-        new CustomEvent('editor:toc-jump', { detail: { id, occ } }),
-      );
-    } catch {
-      // ignore
-    }
+      history.replaceState(null, "", `#${domId}`);
+    } catch {}
 
     return true;
   };
 
-  // ===== 스크롤 스파이 =====
+  // ✅ root 결정: 첫 domId 기준으로 찾기
+  useEffect(() => {
+    if (scrollRootSelector) {
+      rootRef.current = document.querySelector(scrollRootSelector);
+      setRootKey((k) => k + 1);
+      return;
+    }
+
+    if (indexed.length) {
+      const first = document.getElementById(indexed[0].domId!);
+      rootRef.current = findScrollableAncestor(first) || null;
+      setRootKey((k) => k + 1);
+    } else {
+      rootRef.current = null;
+      setRootKey((k) => k + 1);
+    }
+  }, [scrollRootSelector, indexed]);
+
+  // ✅ 스크롤 스파이: domId로 observe + active는 1개만 선택
   useEffect(() => {
     if (!indexed.length) return;
-
     observerRef.current?.disconnect();
+
     const obs = new IntersectionObserver(
-      entries => {
-        const visible = entries
-          .filter(e => e.isIntersecting)
-          .sort((a, b) =>
-            a.boundingClientRect.top > b.boundingClientRect.top ? 1 : -1,
-          );
-        if (visible[0]) {
-          const id = (visible[0].target as HTMLElement).id;
-          setActiveId(id);
-          const idx = indexed.findIndex(h => h.id === id);
-          if (idx !== -1) setActiveIndex(idx);
+      (entries) => {
+        const visible = entries.filter((e) => e.isIntersecting);
+        if (!visible.length) return;
+
+        // 여러 개 보이면 "헤더라인에 가장 가까운 것" 하나만 선택
+        const headerLine = headerOffset + 8;
+        let best = visible[0];
+        let bestDist = Math.abs(best.boundingClientRect.top - headerLine);
+
+        for (const e of visible) {
+          const dist = Math.abs(e.boundingClientRect.top - headerLine);
+          if (dist < bestDist) {
+            best = e;
+            bestDist = dist;
+          }
         }
+
+        const domId = (best.target as HTMLElement).id;
+        setActiveDomId(domId);
+
+        const idx = indexed.findIndex((h) => h.domId === domId);
+        if (idx !== -1) setActiveIndex(idx);
       },
       {
         root: getRootForObserver(),
         rootMargin: `-${headerOffset + 8}px 0px -70% 0px`,
-        threshold: [0, 1],
-      },
+        threshold: [0, 0.1, 0.25, 0.5, 0.75, 1],
+      }
     );
+
     observerRef.current = obs;
 
     const observed: HTMLElement[] = [];
-    const seenIds = new Set<string>();
-    indexed.forEach(({ id }) => {
-      if (seenIds.has(id)) return;
-      seenIds.add(id);
-      const esc = id.replace(/"/g, '\\"');
-      document
-        .querySelectorAll<HTMLElement>(`[id="${esc}"]`)
-        .forEach(el => {
-          obs.observe(el);
-          observed.push(el);
-        });
+    indexed.forEach((h) => {
+      const el = document.getElementById(h.domId!);
+      if (!el) return;
+      obs.observe(el);
+      observed.push(el);
     });
 
     return () => {
-      observed.forEach(el => obs.unobserve(el));
+      observed.forEach((el) => obs.unobserve(el));
       obs.disconnect();
     };
   }, [indexed, headerOffset, rootKey]);
 
-  // ===== 해시 초기 스크롤 =====
+  // ✅ 해시 초기 스크롤: 구형(#heading-xxx)도 호환
   useEffect(() => {
-    if (!headings.length) return;
+    if (!indexed.length) return;
 
-    const rawHash = window.location.hash || '';
+    const rawHash = window.location.hash || "";
     if (!rawHash) return;
 
-    const hash = decodeURIComponent(rawHash).replace(/^#/, '');
+    const hash = decodeURIComponent(rawHash).replace(/^#/, "");
     if (!hash) return;
 
+    const tryScroll = (h: string) => scrollToDomId(h, "auto");
+
     const raf = requestAnimationFrame(() => {
-      if (scrollToId(hash, 0, 'auto')) return;
+      // 1) 정확 매칭 (#heading-xxx--n)
+      if (tryScroll(hash)) return;
+
+      // 2) 구형 링크 (#heading-xxx) → --0로 보정
+      if (!hash.includes("--") && tryScroll(`${hash}--0`)) return;
+
+      // 기존 재시도 패턴 유지
       setTimeout(() => {
-        if (scrollToId(hash, 0, 'auto')) return;
+        if (tryScroll(hash)) return;
+        if (!hash.includes("--") && tryScroll(`${hash}--0`)) return;
         setTimeout(() => {
-          scrollToId(hash, 0, 'auto');
+          tryScroll(hash);
+          if (!hash.includes("--")) tryScroll(`${hash}--0`);
         }, 180);
       }, 120);
     });
+
     return () => cancelAnimationFrame(raf);
-  }, [headings, rootKey]);
+  }, [indexed, rootKey]);
+
+  // ✅ 렌더 부분: active 비교 + 클릭은 domId로
+  // (map 부분의 active / onClick만 수정)
+  {indexed.map((h, i) => {
+    const active = h.domId === activeDomId;
+    const padLeft = h.level === 1 ? 8 : h.level === 2 ? 26 : 44;
+
+    return (
+      <li key={h.domId}>
+        <button
+          data-toc-index={i}
+          onClick={() => scrollToDomId(h.domId!)}
+          aria-current={active ? "true" : undefined}
+          style={{
+            // ... 기존 스타일 유지
+            paddingLeft: padLeft,
+            color: active ? "#2563eb" : "#4b5563",
+          }}
+          title={h.text}
+        >
+          {/* 기존 아이콘/텍스트 유지 */}
+          {h.text}
+        </button>
+      </li>
+    );  
+  })}
 
   // ===== 하이라이트 + TOC 자동 스크롤 =====
   useEffect(() => {
@@ -594,18 +615,18 @@ export default function TableOfContents({
         )}
 
         {indexed.map((h, i) => {
-          const active = h.id === activeId;
+          const active = h.domId === activeDomId;
           const padLeft = h.level === 1 ? 8 : h.level === 2 ? 26 : 44;
 
           return (
             <li
-              key={`${h.id}-${h.__occ}-${i}`}
+              key={h.domId}
               style={{ position: 'relative', zIndex: 1 }}
             >
               <button
                 type="button"
                 data-toc-index={i}
-                onClick={() => scrollToId(h.id, h.__occ)}
+                onClick={() => scrollToDomId(h.domId!)}
                 title={h.text}
                 aria-current={active ? 'true' : undefined}
                 style={{

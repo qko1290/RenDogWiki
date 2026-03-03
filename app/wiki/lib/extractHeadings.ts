@@ -12,6 +12,8 @@ import { Descendant, Element as SlateElement, Node } from "slate";
 
 export type Heading = {
   id: string;
+  domId: string;
+  occ: number;
   level: 1 | 2 | 3;
   text: string;
   icon: string; // ✅ 필수 string
@@ -38,6 +40,8 @@ function toHeadingIdFromText(text: string): string {
 export function extractHeadings(value: Descendant[]): Heading[] {
   const result: Heading[] = [];
 
+  const counts = new Map<string, number>();
+
   const visit = (nodes: Descendant[]) => {
     for (const node of nodes) {
       if (!SlateElement.isElement(node)) continue;
@@ -56,9 +60,16 @@ export function extractHeadings(value: Descendant[]): Heading[] {
 
         const text = Node.string(node).trim();
         const id = toHeadingIdFromText(text);
+
+        const occ = counts.get(id) ?? 0;
+        counts.set(id, occ + 1);
+
+        // ✅ DOM에 붙일 고유 id
+        const domId = `${id}--${occ}`;
+
         const icon = String((node as any).icon ?? ""); // ✅ 항상 string
 
-        result.push({ id, level, text, icon });
+        result.push({ id, domId, occ, level, text, icon });
       }
 
       if ((node as any).children) {
