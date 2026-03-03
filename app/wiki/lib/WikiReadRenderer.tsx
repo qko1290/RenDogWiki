@@ -19,6 +19,7 @@ import { extractHeadings } from "@/wiki/lib/extractHeadings";
 
 import type { WikiRefKind } from '@/components/editor/render/types';
 
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 type Props = {
@@ -425,6 +426,7 @@ type LinkBlockViewProps = {
 
 const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
   const el = node;
+  const router = useRouter();
 
   // URL 파싱
   const parsedUrl = React.useMemo(() => {
@@ -471,7 +473,7 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
     setFaviconFailed(false);
   }, [el.url, isWikiLink]);
 
-  // ✅ Element.tsx와 동일한 아이콘 결정 로직
+  // ✅ Element.tsx와 동일한 아이콘 결정 로직(기존 유지)
   useEffect(() => {
     if (!isWikiLink || !parsedUrl) return;
     if (typeof window === "undefined") return;
@@ -479,13 +481,11 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
     const urlObj = parsedUrl;
 
     const urlPathParam = urlObj.searchParams.get("path");
-
     const pathParam =
       urlPathParam ?? (el.wikiPath != null ? String(el.wikiPath) : null);
 
     const urlTitleParam = urlObj.searchParams.get("title");
     const titleParamRaw = urlTitleParam ?? el.wikiTitle ?? null;
-    // ✅ '_' → 공백으로 해석
     const titleParam = titleParamRaw ? decodeTitleForDisplay(titleParamRaw) : null;
 
     const rawHash = urlObj.hash ? urlObj.hash.slice(1) : "";
@@ -499,13 +499,11 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
         })()
       : "";
 
-    // 문서 키 (path + title 조합, 없으면 pathname)
     const docKeyParts: string[] = [];
     if (pathParam) docKeyParts.push(`p:${pathParam}`);
     if (titleParam) docKeyParts.push(`t:${titleParam}`);
     const baseDocKey = docKeyParts.join("|") || urlObj.pathname;
 
-    // 링크별 최종 아이콘 캐시 키
     const cacheKey = `${baseDocKey}#${decodedHash || "root"}`;
 
     if (wikiDocIconCache.has(cacheKey)) {
@@ -520,7 +518,6 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
       try {
         let detail = wikiDocDetailCache.get(baseDocKey);
 
-        // 아직 문서 디테일이 없으면 /api/documents 에서 가져오기
         if (!detail) {
           let res: Response | null = null;
 
@@ -529,9 +526,7 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
             if (pathParam) qs.push(`path=${encodeURIComponent(pathParam)}`);
             if (titleParam) qs.push(`title=${encodeURIComponent(titleParam)}`);
             const query = qs.join("&");
-            res = await fetch(`/api/documents?${query}`, {
-              cache: "force-cache",
-            });
+            res = await fetch(`/api/documents?${query}`, { cache: "force-cache" });
           }
 
           if (!res || !res.ok) {
@@ -562,29 +557,20 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
           wikiDocDetailCache.set(baseDocKey, detail);
         }
 
-        // 1) 해시가 있으면 해당 heading 아이콘 우선
         let iconCandidate: string | null = null;
         if (decodedHash && detail.headings.length > 0) {
           const target = decodedHash;
-          const normalizedTarget = target.startsWith("heading-")
-            ? target
-            : `heading-${target}`;
+          const normalizedTarget = target.startsWith("heading-") ? target : `heading-${target}`;
 
           const matched = detail.headings.find((h) => {
             const hid = h.id || "";
             const hidNorm = hid.startsWith("heading-") ? hid : `heading-${hid}`;
-            return (
-              hid === target ||
-              hid === normalizedTarget ||
-              hidNorm === target ||
-              hidNorm === normalizedTarget
-            );
+            return hid === target || hid === normalizedTarget || hidNorm === target || hidNorm === normalizedTarget;
           });
 
           if (matched?.icon) iconCandidate = matched.icon || null;
         }
 
-        // 2) 못 찾으면 문서 아이콘
         if (!iconCandidate) iconCandidate = detail.icon || null;
 
         if (!cancelled) {
@@ -596,9 +582,7 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
           }
         }
       } catch {
-        if (!cancelled) {
-          wikiDocIconCache.set(cacheKey, "");
-        }
+        if (!cancelled) wikiDocIconCache.set(cacheKey, "");
       }
     })();
 
@@ -607,12 +591,11 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
     };
   }, [isWikiLink, parsedUrl, el.wikiPath, el.wikiTitle]);
 
-  // ✅ 외부 링크 파비콘 (유지)
+  // ✅ 외부 링크 파비콘
   const externalFavicon: string | null =
     !isWikiLink && parsedUrl ? `${parsedUrl.origin}/favicon.ico` : null;
 
   const isSmall = el.size === "small" || el.size === "half";
-
   const wrapperStyle: React.CSSProperties = isSmall
     ? {
         flex: "1 1 calc(50% - 6px)",
@@ -633,11 +616,12 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
     ? "RenDog Wiki"
     : displaySitename || (parsedUrl ? parsedUrl.origin.replace(/^https?:\/\//, "") : "");
 
-  const href = el.url || "#";
+  const rawHref = el.url || "#";
 
-  const normalizedHref = React.useMemo(() => normalizeToAppHref(href), [href]);
+  // ✅ same-origin 절대URL도 /wiki?... 형태로 정규화
+  const normalizedHref = React.useMemo(() => normalizeToAppHref(rawHref), [rawHref]);
 
-  // --- UI 강화(두께/타이포/그림자) ---
+  // --- UI ---
   const [hovered, setHovered] = useState(false);
 
   const BORDER = hovered ? "1.5px solid #93c5fd" : "1.5px solid #d1d5db";
@@ -653,16 +637,35 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
     [60, 12],
   ]);
 
+  // ✅ 내부 링크는 router.push로 통일(뒤로가기 안정화)
+  const handleClick = (e: React.MouseEvent) => {
+    if (!isWikiLink) return;
+
+    // 새 탭/새 창/다운로드 등 기본 동작은 유지
+    const any = e as any;
+    if (any.metaKey || any.ctrlKey || any.shiftKey || any.altKey) return;
+    if (e.button !== 0) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    router.push(normalizedHref);
+  };
+
   return (
     <div style={{ position: "relative", ...wrapperStyle }}>
       {isWikiLink ? (
-        <Link
+        // ✅ 내부: <a> 유지 + preventDefault + router.push (히스토리 일관성)
+        <a
           href={normalizedHref}
-          prefetch={false}
-          style={{ textDecoration: "none", color: "inherit", display: "block" }}
+          onClick={handleClick}
+          style={{
+            textDecoration: "none",
+            color: "inherit",
+            display: "block",
+          }}
           aria-label={labelText}
         >
-          {/* ✅ 기존 카드 UI 그대로 */}
           <div
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
@@ -683,18 +686,109 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
               transform: hovered ? "translateY(-1px)" : "translateY(0)",
             }}
           >
-            {/* ... (여기 아래 카드 내부 내용은 네가 원래 쓰던 그대로 유지) ... */}
+            {/* 아이콘 영역 */}
+            <div
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 12,
+                background: "rgba(37,99,235,0.10)",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flex: "0 0 auto",
+                boxShadow: "0 1px 0 rgba(0,0,0,0.02) inset",
+              }}
+            >
+              {wikiIcon ? (
+                wikiIcon.startsWith("http") ? (
+                  <SmartImage
+                    src={withVersion(cdn(wikiIcon))}
+                    alt="doc icon"
+                    width={22}
+                    height={22}
+                    style={{ width: 22, height: 22, objectFit: "contain", display: "block" }}
+                  />
+                ) : (
+                  <span style={{ fontSize: 20, lineHeight: 1 }}>{wikiIcon}</span>
+                )
+              ) : (
+                <span style={{ fontSize: 18, lineHeight: 1 }} aria-hidden>
+                  📄
+                </span>
+              )}
+            </div>
+
+            {/* 텍스트 */}
+            <div
+              style={{
+                flex: "1 1 auto",
+                minWidth: 0,
+                display: "flex",
+                flexDirection: "column",
+                gap: 3,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: titleFontPx,
+                  fontWeight: 750,
+                  color: "#0f172a",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  letterSpacing: "-0.1px",
+                }}
+              >
+                {labelText}
+              </div>
+
+              <div
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "#64748b",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+                title={subText}
+              >
+                {subText}
+              </div>
+            </div>
+
+            {/* 오른쪽 이동 표시 */}
+            <div
+              style={{
+                flex: "0 0 auto",
+                color: hovered ? "#2563eb" : "#94a3b8",
+                fontSize: 18,
+                fontWeight: 900,
+                lineHeight: 1,
+                transform: hovered ? "translateX(1px)" : "translateX(0)",
+                transition: "transform .14s ease, color .14s ease",
+                userSelect: "none",
+              }}
+              aria-hidden
+            >
+              →
+            </div>
           </div>
-        </Link>
+        </a>
       ) : (
+        // ✅ 외부: 새 탭
         <a
           href={normalizedHref}
           target="_blank"
           rel="noopener noreferrer nofollow"
-          style={{ textDecoration: "none", color: "inherit", display: "block" }}
+          style={{
+            textDecoration: "none",
+            color: "inherit",
+            display: "block",
+          }}
           aria-label={labelText}
         >
-          {/* ✅ 기존 카드 UI 그대로 */}
           <div
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
@@ -715,7 +809,100 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
               transform: hovered ? "translateY(-1px)" : "translateY(0)",
             }}
           >
-            {/* ... (여기 아래 카드 내부 내용은 네가 원래 쓰던 그대로 유지) ... */}
+            {/* 아이콘 영역 */}
+            <div
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 12,
+                background: "rgba(15,23,42,0.06)",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flex: "0 0 auto",
+                boxShadow: "0 1px 0 rgba(0,0,0,0.02) inset",
+              }}
+            >
+              {externalFavicon && !faviconFailed ? (
+                <img
+                  src={externalFavicon}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  width={20}
+                  height={20}
+                  referrerPolicy="no-referrer"
+                  onError={() => setFaviconFailed(true)}
+                  style={{
+                    width: 20,
+                    height: 20,
+                    objectFit: "contain",
+                    display: "block",
+                    borderRadius: 4,
+                  }}
+                />
+              ) : (
+                <span style={{ fontSize: 18, lineHeight: 1, color: "#64748b" }} aria-hidden>
+                  🌐
+                </span>
+              )}
+            </div>
+
+            {/* 텍스트 */}
+            <div
+              style={{
+                flex: "1 1 auto",
+                minWidth: 0,
+                display: "flex",
+                flexDirection: "column",
+                gap: 3,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: titleFontPx,
+                  fontWeight: 750,
+                  color: "#0f172a",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  letterSpacing: "-0.1px",
+                }}
+              >
+                {labelText}
+              </div>
+
+              <div
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "#64748b",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+                title={subText}
+              >
+                {subText}
+              </div>
+            </div>
+
+            {/* 오른쪽 이동 표시 */}
+            <div
+              style={{
+                flex: "0 0 auto",
+                color: hovered ? "#2563eb" : "#94a3b8",
+                fontSize: 18,
+                fontWeight: 900,
+                lineHeight: 1,
+                transform: hovered ? "translateX(1px)" : "translateX(0)",
+                transition: "transform .14s ease, color .14s ease",
+                userSelect: "none",
+              }}
+              aria-hidden
+            >
+              →
+            </div>
           </div>
         </a>
       )}
