@@ -80,6 +80,42 @@ export default function TableOfContents({
     return document.getElementById(domId);
   };
 
+  const pickClosestDomId = (): { domId: string; index: number } | null => {
+    if (!indexed.length) return null;
+
+    const root = getRootForObserver(); // scroll 가능한 root면 HTMLElement, 아니면 null(=window)
+
+    const rootRectTop = root ? root.getBoundingClientRect().top : 0;
+    const headerLine = rootRectTop + headerOffset + 8; // IO에서 쓰는 기준과 맞춤
+
+    const els = indexed
+      .map((h, i) => {
+        const el = document.getElementById(h.domId!);
+        if (!el) return null;
+        const top = el.getBoundingClientRect().top;
+        return { domId: h.domId!, index: i, delta: top - headerLine };
+      })
+      .filter(Boolean) as { domId: string; index: number; delta: number }[];
+
+    if (!els.length) return null;
+
+    // 1) headerLine "위(또는 거의 같은)"에 있는 heading 중 가장 가까운 것(=delta가 0에 가장 가까운 음수)
+    let bestAbove: typeof els[number] | null = null;
+    for (const it of els) {
+      if (it.delta <= 0) {
+        if (!bestAbove || it.delta > bestAbove.delta) bestAbove = it;
+      }
+    }
+    if (bestAbove) return { domId: bestAbove.domId, index: bestAbove.index };
+
+    // 2) 위에 아무것도 없으면(맨 위 구간) 아래쪽 중 가장 가까운 것
+    let bestBelow = els[0];
+    for (const it of els) {
+      if (it.delta < bestBelow.delta) bestBelow = it;
+    }
+    return { domId: bestBelow.domId, index: bestBelow.index };
+  };
+
   // ✅ intersect가 없어도(로드 직후/최상단) "가장 가까운 heading"을 강제로 계산해서 active 세팅
   const setActiveByClosest = () => {
     if (!indexed.length) return;
@@ -325,6 +361,45 @@ export default function TableOfContents({
     return () => {
       observed.forEach((el) => obs.unobserve(el));
       obs.disconnect();
+    };
+  }, [indexed, headerOffset, rootKey]);
+
+  useEffect(() => {
+    if (!indexed.length) return;
+
+    const root = getRootForObserver(); // HTMLElement | null
+    let raf = 0;
+
+    const apply = () => {
+      const picked = pickClosestDomId();
+      if (!picked) return;
+
+      setActiveDomId(picked.domId);
+      setActiveIndex(picked.index);
+    };
+
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(apply);
+    };
+
+    // ✅ 1) 로드 직후 2프레임 뒤에 한 번 맞춤 (DOM/레이아웃 안정화)
+    const r1 = requestAnimationFrame(() => {
+      const r2 = requestAnimationFrame(() => {
+        apply();
+      });
+      // cleanup 대비
+      raf = r2;
+    });
+
+    // ✅ 2) 스크롤 중에도 갱신 (root 있으면 root, 없으면 window)
+    const target: any = root ?? window;
+    target.addEventListener('scroll', onScroll, { passive: true });
+
+    return () => {
+      cancelAnimationFrame(r1);
+      cancelAnimationFrame(raf);
+      target.removeEventListener('scroll', onScroll);
     };
   }, [indexed, headerOffset, rootKey]);
 
