@@ -5,11 +5,13 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { cdn } from "@lib/cdn";
 
 type HeadingItem = {
   id: string;      // baseId: "heading-xxx"
   text: string;
   level: number;
+  icon?: string;
 };
 
 type Props = {
@@ -184,6 +186,22 @@ export default function TableOfContents({
             }}
             title={h.text}
           >
+            {h.icon ? (
+              h.icon.startsWith("http") ? (
+                <img
+                  src={cdn(h.icon)}
+                  alt=""
+                  width={18}
+                  height={18}
+                  loading="lazy"
+                  decoding="async"
+                  draggable={false}
+                  style={{ width: 18, height: 18, objectFit: "contain", marginRight: 6 }}
+                />
+              ) : (
+                <span style={{ marginRight: 6 }}>{h.icon}</span>
+              )
+            ) : null}
             {h.text}
           </button>
         );
