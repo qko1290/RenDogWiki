@@ -11,7 +11,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
 import { logActivity, resolveVillageName } from '@wiki/lib/activity';
-import { getAuthUser } from '@/wiki/lib/auth';
 import { requireRole } from '@/app/wiki/lib/requireRole';
 
 export const runtime = 'nodejs';
@@ -91,12 +90,11 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json().catch(() => ({} as any));
-    const authed = getAuthUser();
-    const username =
-      authed?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
+    // ✅ uploader/username은 서버에서 확인한 계정 기반으로만
+    const username = gate.dbUser.minecraft_name || gate.dbUser.username || 'unknown';
 
-    // 🔹 NOT NULL 컬럼: uploader는 항상 값이 있도록 보정
-    const uploader = username ?? 'admin';
+    // 🔹 DB NOT NULL 대응: uploader는 항상 문자열
+    const uploader = username;
 
     // 필수값 존재 여부만 확인(기존 규칙 유지)
     const required = [

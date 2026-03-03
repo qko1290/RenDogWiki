@@ -130,9 +130,7 @@ export async function POST(req: Request) {
     const pictures = toArray(body?.pictures);
     const rewards  = toArray(body?.rewards);
     const tag = body?.tag ?? null;
-
-    const me = getAuthUser();
-
+    
     const inserted = (await sql/*sql*/`
       INSERT INTO npc
         (name, icon, village_id, "order", requirement, line,

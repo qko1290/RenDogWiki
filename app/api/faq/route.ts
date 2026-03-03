@@ -168,9 +168,7 @@ export async function POST(req: Request) {
     if (!title || !content) {
       return NextResponse.json({ error: 'Missing title/content' }, { status: 400, headers: NO_STORE_HEADERS });
     }
-
-    const user = getAuthUser();
-
+    
     const rows = await sql`
       INSERT INTO faq_questions (title, content, tags, uploader)
       VALUES (${title}, ${content}, string_to_array(${tagsCsv}, ','), ${uploader})
