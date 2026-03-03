@@ -1,19 +1,9 @@
 // =============================================
-// File: C:\next\rdwiki\app\wiki\lib\auth.ts
+// File: app/wiki/lib/auth.ts (전체 코드)
 // =============================================
-/**
- * JWT 인증 유틸리티 함수
- * - 쿠키에 저장된 JWT 토큰을 읽어 유저 정보(AuthUser)를 반환
- * - 인증 실패 시(null) 처리
- */
+import { cookies } from 'next/headers';
+import jwt, { type JwtPayload } from 'jsonwebtoken';
 
-import { cookies } from 'next/headers'; // Next.js 서버에서 쿠키 읽기
-import jwt from 'jsonwebtoken';         // JWT 토큰 디코딩
-
-// JWT 비밀키 (.env에 설정)
-const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
-
-// 인증 유저 타입
 export type AuthUser = {
   id: number;
   username: string;
@@ -21,24 +11,45 @@ export type AuthUser = {
   minecraft_name: string;
 };
 
+function mustGetEnv(name: string): string {
+  const v = process.env[name];
+  if (!v) throw new Error(`${name} is not set`);
+  return v;
+}
+
+const JWT_SECRET = mustGetEnv('JWT_SECRET');
+
+function isAuthUserPayload(v: unknown): v is AuthUser {
+  if (!v || typeof v !== 'object') return false;
+  const o = v as any;
+  return (
+    typeof o.id === 'number' &&
+    typeof o.username === 'string' &&
+    typeof o.email === 'string' &&
+    typeof o.minecraft_name === 'string'
+  );
+}
+
 /**
  * [서버 사이드] 로그인 유저 정보 반환
- * - 쿠키의 'token'에서 JWT 추출
- * - 토큰 검증 후 AuthUser 반환 (검증 실패시 null)
+ * - 쿠키의 token JWT 검증 후 AuthUser 반환
+ * - 검증 실패/형식 불일치면 null
  */
 export function getAuthUser(): AuthUser | null {
-  // 1. 토큰 읽기
   const token = cookies().get('token')?.value;
-
-  // 2. 토큰 없으면 인증 실패(null)
   if (!token) return null;
 
   try {
-    // 3. 토큰 검증 및 디코딩
-    const decoded = jwt.verify(token, JWT_SECRET) as AuthUser;
+    const decoded = jwt.verify(token, JWT_SECRET) as string | JwtPayload;
+
+    // payload가 string일 수도 있어서 방어
+    if (!decoded || typeof decoded === 'string') return null;
+
+    // JwtPayload 안에 커스텀 필드가 들어있다는 가정이므로 타입가드로 검증
+    if (!isAuthUserPayload(decoded)) return null;
+
     return decoded;
-  } catch (err) {
-    // 4. 토큰 만료/변조/오류 시 인증 실패(null)
+  } catch {
     return null;
   }
 }

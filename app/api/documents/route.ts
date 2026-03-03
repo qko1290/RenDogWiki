@@ -5,6 +5,7 @@ import { sql } from '@/wiki/lib/db';
 import { logActivity, resolveCategoryName } from '@wiki/lib/activity';
 import { getAuthUser } from '@/wiki/lib/auth';
 import { cached, cacheKey, invalidate } from '@wiki/lib/cache';
+import { requireRole } from '@/app/wiki/lib/requireRole';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -204,6 +205,15 @@ export async function GET(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+
+  const gate = await requireRole(['writer', 'admin']);
+  if (!gate.ok) {
+    return new Response(JSON.stringify({ error: gate.error }), {
+      status: gate.status,
+      headers: { 'content-type': 'application/json' },
+    });
+  }
+  
   const sp = req.nextUrl.searchParams;
   const idRaw = sp.get('id');
   if (!idRaw) return NextResponse.json({ error: 'Missing id' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });

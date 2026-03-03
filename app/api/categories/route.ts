@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logActivity, resolveCategoryName } from '@wiki/lib/activity';
 import { getAuthUser } from '@/wiki/lib/auth';
 import { cached, cacheKey, invalidate } from '@wiki/lib/cache';
+import { requireRole } from '@/app/wiki/lib/requireRole';
 
 export const runtime = 'nodejs';
 
@@ -95,6 +96,14 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const gate = await requireRole(['writer', 'admin']);
+  if (!gate.ok) {
+    return new Response(JSON.stringify({ error: gate.error }), {
+      status: gate.status,
+      headers: { 'content-type': 'application/json' },
+    });
+  }
+
   try {
     // 1) 입력 파싱
     const body = await req.json().catch(() => null);
@@ -141,7 +150,7 @@ export async function POST(req: NextRequest) {
 
     // 3) uploader
     const me = getAuthUser();
-    const uploader = me?.minecraft_name ?? req.headers.get('x-wiki-username') ?? 'admin';
+    const uploader = gate.dbUser.minecraft_name ?? gate.dbUser.username;
 
     // 4) INSERT -> 새 id 반환
     const insertRows = (await sql`
