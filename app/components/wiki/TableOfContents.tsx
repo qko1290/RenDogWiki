@@ -97,12 +97,7 @@ export default function TableOfContents({
 
       const top = el.getBoundingClientRect().top;
 
-      // ✅ 기준:
-      // 1) headerLine "아래"에 있는 heading 중 가장 가까운 것 우선
-      // 2) 없으면(headerLine 위로 이미 지나간 경우) 가장 마지막(가장 덜 위) heading
       const dist = top - headerLine;
-
-      // 아래(>=0)는 우선순위 0, 위(<0)는 우선순위 1로 밀어냄
       const priority = dist >= 0 ? 0 : 1;
       const score = priority * 1_000_000 + Math.abs(dist);
 
@@ -116,7 +111,10 @@ export default function TableOfContents({
     if (bestDomId) {
       setActiveDomId(bestDomId);
       if (bestIndex !== -1) setActiveIndex(bestIndex);
+      return true; // ✅ 성공
     }
+
+    return false; // ✅ 아직 DOM에 heading이 없음
   };
 
   const hasDocTitle = !!(docTitle && docTitle.trim());
@@ -304,15 +302,31 @@ export default function TableOfContents({
   useEffect(() => {
     if (!indexed.length) return;
 
-    // 레이아웃 안정화 + 이미지/폰트 등으로 1~2번 더 흔들릴 수 있어서 재시도
-    const t1 = window.setTimeout(() => setActiveByClosest(), 0);
-    const t2 = window.setTimeout(() => setActiveByClosest(), 120);
-    const t3 = window.setTimeout(() => setActiveByClosest(), 320);
+    let raf = 0;
+    let tries = 0;
+    const maxTries = 40; // 대략 ~0.6초(환경에 따라 충분히)
+
+    const tick = () => {
+      tries += 1;
+
+      // DOM이 아직 안 붙었으면 false가 나옴 → 다음 프레임에 재시도
+      const ok = setActiveByClosest();
+      if (ok) return;
+
+      if (tries < maxTries) {
+        raf = requestAnimationFrame(tick);
+      }
+    };
+
+    // 첫 프레임부터 시작
+    raf = requestAnimationFrame(tick);
+
+    // 혹시 레이아웃/이미지 로딩으로 늦는 케이스 보강
+    const t = window.setTimeout(() => setActiveByClosest(), 300);
 
     return () => {
-      window.clearTimeout(t1);
-      window.clearTimeout(t2);
-      window.clearTimeout(t3);
+      cancelAnimationFrame(raf);
+      window.clearTimeout(t);
     };
   }, [indexed, headerOffset, rootKey]);
 
@@ -326,7 +340,16 @@ export default function TableOfContents({
     const hash = decodeURIComponent(rawHash).replace(/^#/, "");
     if (!hash) return;
 
-    const tryScroll = (h: string) => scrollToDomId(h, "auto");
+    const tryScroll = (h: string) => {
+    const ok = scrollToDomId(h, "auto");
+      if (ok) {
+        // ✅ 스크롤 성공한 domId를 바로 active로 맞춰준다 (IO 기다리지 않음)
+        setActiveDomId(h);
+        const idx = indexed.findIndex((x) => x.domId === h);
+        if (idx !== -1) setActiveIndex(idx);
+      }
+      return ok;
+    };
 
     const raf = requestAnimationFrame(() => {
       // 1) 정확 매칭 (#heading-xxx--n)
