@@ -230,6 +230,31 @@ export default function TableOfContents({
       observed.push(el);
     });
 
+    // ✅ 문서 로드 직후(사용자 스크롤/클릭 전)에도 active를 1번 강제로 잡아준다
+    // IntersectionObserver는 "교차 변화"가 없으면 콜백이 안 올 수 있음
+    requestAnimationFrame(() => {
+      if (!observed.length) return;
+
+      const headerLine = headerOffset + 8;
+
+      let bestEl = observed[0];
+      let bestDist = Math.abs(bestEl.getBoundingClientRect().top - headerLine);
+
+      for (const el of observed) {
+        const dist = Math.abs(el.getBoundingClientRect().top - headerLine);
+        if (dist < bestDist) {
+          bestEl = el;
+          bestDist = dist;
+        }
+      }
+
+      const domId = bestEl.id;
+      setActiveDomId(domId);
+
+      const idx = indexed.findIndex((h) => h.domId === domId);
+      if (idx !== -1) setActiveIndex(idx);
+    });
+
     return () => {
       observed.forEach((el) => obs.unobserve(el));
       obs.disconnect();
