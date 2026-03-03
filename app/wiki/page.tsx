@@ -1,36 +1,34 @@
 // =============================================
 // File: app/wiki/page.tsx
 // =============================================
-import { cookies, headers } from 'next/headers';
-import WikiPageClient from './WikiPageClient';
+/**
+ * 위키 메인 페이지(문서 트리/본문 뷰)
+ * - 인증 정보(user) 조회
+ * - WikiPageInner(클라이언트 컴포넌트) 동적 import
+ * - @wiki/css/wiki.css 글로벌 스타일 적용
+ */
+'use client';
 
-async function fetchMe() {
-  try {
-    // 서버 컴포넌트에서 내부 API 호출 시 쿠키 전달 필요
-    const h = headers();
-    const cookie = cookies().toString();
+import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';          // 클라이언트 컴포넌트 동적 import용
+import '@wiki/css/wiki.css';                 // 글로벌 위키 스타일
 
-    const base =
-      h.get('x-forwarded-proto') && h.get('host')
-        ? `${h.get('x-forwarded-proto')}://${h.get('host')}`
-        : `http://localhost:3000`;
+// WikiPageInner를 동적으로 클라이언트에서만 렌더
+const WikiPageInner = dynamic(() => import('@/components/wiki/WikiPageInner'), { ssr: false });
 
-    const res = await fetch(`${base}/api/auth/me`, {
-      headers: {
-        cookie,
-      },
-      cache: 'no-store',
-    });
+// 위키 메인 엔트리(서버 컴포넌트)
+export default function WikiPage() {
+  const [user, setUser] = useState(null);
 
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data?.user ?? null;
-  } catch {
-    return null;
-  }
-}
+  useEffect(() => {
+    fetch(`/api/auth/me?_ts=${Date.now()}`, { cache: 'no-store' })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => setUser(data?.user ?? null));
+  }, []);
 
-export default async function WikiPage() {
-  const user = await fetchMe();
-  return <WikiPageClient user={user} />;
+  return (
+    <div className="wiki-app">
+      <WikiPageInner user={user} />
+    </div>
+  );
 }
