@@ -205,20 +205,50 @@ export default function TableOfContents({
 
   // ✅ root 결정: 첫 domId 기준으로 찾기
   useEffect(() => {
-    if (scrollRootSelector) {
-      rootRef.current = document.querySelector(scrollRootSelector);
-      setRootKey((k) => k + 1);
-      return;
-    }
+    let raf = 0;
+    let tries = 0;
+    const maxTries = 60; // ~1초 내외
 
-    if (indexed.length) {
-      const first = document.getElementById(indexed[0].domId!);
-      rootRef.current = findScrollableAncestor(first) || null;
-      setRootKey((k) => k + 1);
-    } else {
+    const resolve = () => {
+      tries += 1;
+
+      // 1) selector 우선
+      if (scrollRootSelector) {
+        const sel = document.querySelector(scrollRootSelector) as HTMLElement | null;
+        if (sel) {
+          rootRef.current = sel;
+          setRootKey((k) => k + 1);
+          return;
+        }
+        // selector가 아직 DOM에 없으면 재시도
+        if (tries < maxTries) raf = requestAnimationFrame(resolve);
+        return;
+      }
+
+      // 2) 첫 heading DOM 기준
+      if (indexed.length) {
+        const firstDomId = indexed[0].domId!;
+        const first = document.getElementById(firstDomId);
+
+        if (first) {
+          rootRef.current = findScrollableAncestor(first) || null;
+          setRootKey((k) => k + 1);
+          return;
+        }
+
+        // heading DOM이 아직 없으면 재시도
+        if (tries < maxTries) raf = requestAnimationFrame(resolve);
+        return;
+      }
+
+      // 3) headings가 아예 없으면 초기화
       rootRef.current = null;
       setRootKey((k) => k + 1);
-    }
+    };
+
+    raf = requestAnimationFrame(resolve);
+
+    return () => cancelAnimationFrame(raf);
   }, [scrollRootSelector, indexed]);
 
   // ✅ 스크롤 스파이: domId로 observe + active는 1개만 선택
