@@ -250,6 +250,26 @@ const CategoryTree: React.FC<Props> = ({
   //   혹시 서버에 rpg로 저장된 데이터가 섞여도 매칭되게 lower 비교만 사용
   const modeLower = String(mode || "").trim().toLowerCase();
 
+  // ✅ 대표 문서로 "선택된 상태"인데 selectedCategoryPath가 비어있을 때,
+  //    selectedDocId가 어떤 카테고리의 대표(document_id)인지 역추적해서 active 카테고리로 삼는다.
+  const derivedActiveCategoryPath = useMemo(() => {
+    // 1) 이미 명시적으로 선택된 카테고리 경로가 있으면 그게 최우선
+    if (selectedCategoryPath && selectedCategoryPath.length > 0) return selectedCategoryPath;
+
+    // 2) 문서 선택이 없으면 파생 불가
+    if (!selectedDocId) return null;
+
+    // 3) selectedDocId === 어떤 카테고리의 대표 문서(document_id) 인지 찾기
+    //    (categoryIdMap은 전체 노드를 가지고 있다고 가정)
+    const nodes = Object.values(categoryIdMap || {});
+    const repCat = nodes.find((n) => Number(n.document_id) === Number(selectedDocId));
+    if (!repCat) return null;
+
+    // 4) 그 카테고리의 "정확한 경로"를 맵에서 가져오기
+    const p = categoryIdToPathMap?.[repCat.id];
+    return Array.isArray(p) && p.length > 0 ? p : null;
+  }, [selectedCategoryPath, selectedDocId, categoryIdMap, categoryIdToPathMap]);
+
   // ✅ 모드 필터: "상속 포함"
   // - parentIncluded=true면 하위는 태그 없어도 포함
   // - parentIncluded=false면 본인 mode_tags에 mode가 있으면 포함
@@ -396,7 +416,7 @@ const CategoryTree: React.FC<Props> = ({
       const closing = isClosing(currentPath);
       const shouldRender = open || closing;
 
-      const isCategoryActive = equalsPath(selectedCategoryPath, currentPath);
+      const isCategoryActive = equalsPath(derivedActiveCategoryPath, currentPath);
       const panelId = `wiki-doc-list-${key}`;
       const subtreeOpenVersion = countOpenInSubtree(currentPath);
 
