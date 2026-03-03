@@ -641,7 +641,7 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
   const handleClick = (e: React.MouseEvent) => {
     if (!isWikiLink) return;
 
-    // 새 탭/새 창/다운로드 등 기본 동작은 유지
+    // 새 탭/특수 클릭은 브라우저 기본 동작 유지
     const any = e as any;
     if (any.metaKey || any.ctrlKey || any.shiftKey || any.altKey) return;
     if (e.button !== 0) return;
@@ -649,6 +649,15 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
     e.preventDefault();
     e.stopPropagation();
 
+    // ✅ (1) 히스토리 push를 먼저 강제로 남김
+    // - 링크 네비게이션이 replace로 처리되는 상황을 방어
+    try {
+      if (typeof window !== "undefined") {
+        window.history.pushState(null, "", normalizedHref);
+      }
+    } catch {}
+
+    // ✅ (2) 실제 라우팅은 Next router로
     router.push(normalizedHref);
   };
 
