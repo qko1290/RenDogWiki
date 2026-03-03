@@ -601,26 +601,3 @@ html, body { background:#fff; color:#0f172a; }
 .slate-table-wrap { margin: 2px 0 10px; }
 .slate-table-colbar, .slate-table-rowbar { user-select: none; }
 
-/* ===== TOC (Editor Right) ===== */
-.wiki-toc{
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px 8px;
-}
-
-.wiki-toc-item{
-  border-radius: 10px;
-  color: #334155;
-}
-
-.wiki-toc-item:hover{
-  background: #f1f5f9;
-  opacity: 1;
-}
-
-.wiki-toc-item.is-active{
-  background: #e0f2fe;
-  color: #0284c7;
-  opacity: 1;
-}
