@@ -1,7 +1,6 @@
 // =============================================
 // File: app/wiki/page.tsx
 // =============================================
-import '@wiki/css/wiki.css';
 import { cookies, headers } from 'next/headers';
 import WikiPageClient from './WikiPageClient';
 

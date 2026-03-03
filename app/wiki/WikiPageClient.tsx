@@ -4,7 +4,6 @@
 'use client';
 
 import WikiPageInner from '@/components/wiki/WikiPageInner';
-import '@wiki/css/wiki.css';
 
 type User = {
   id: number;
