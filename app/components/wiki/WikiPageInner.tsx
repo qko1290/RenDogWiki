@@ -339,12 +339,20 @@ export default function WikiPageInner({ user }: Props) {
 
     ignoreNextUrlSyncRef.current = true;
 
+    const docChanged = !(currentPath === lastId && currentTitle === encodedTitle);
+
+    // docChanged가 true인 순간은 "문서 이동"이므로 replace 금지
+    if (docChanged) {
+      router.push(nextUrl, { scroll: false });
+      return;
+    } 
+
+    // 문서가 같은데 URL만 정리하는 케이스만 replace 허용
     if (options?.history === 'replace') {
       router.replace(nextUrl, { scroll: false });
     } else {
       router.push(nextUrl, { scroll: false });
     }
-  };
 
   // 🔗 현재 문서 링크 복사 (✔ 애니메이션)
   // - window.location.search는 %EC... 형태로 인코딩되어 있으므로
@@ -1030,18 +1038,10 @@ export default function WikiPageInner({ user }: Props) {
 
       // ✅ 해시가 있으면 먼저 URL에 반영
       if (url.hash) {
-        const safeTitle = encodeTitleForUrlParam(title);
-        const safeMode = url.searchParams.get(MODE_PARAM) || mode || '';
-        const nextQs = new URLSearchParams();
-        nextQs.set('path', path);
-        nextQs.set('title', safeTitle);
-        if (safeMode) nextQs.set(MODE_PARAM, safeMode);
-
-        window.history.replaceState(
-          null,
-          '',
-          `/wiki?${nextQs.toString()}${url.hash}`
-        );
+        try {
+          // 쿼리/path/title까지 재조립해서 덮어쓰지 말고, 해시만 replace
+          window.history.replaceState(null, '', url.hash);
+        } catch {}
       }
 
       // ✅ 루트 문서
