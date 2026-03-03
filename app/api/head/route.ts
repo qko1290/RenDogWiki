@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
 import { logActivity, resolveVillageName } from '@wiki/lib/activity';
 import { getAuthUser } from '@/wiki/lib/auth';
+import { requireRole } from '@/app/wiki/lib/requireRole';
 
 export const runtime = 'nodejs';
 
@@ -79,7 +80,15 @@ export async function GET(req: NextRequest) {
 }
 
 // [POST] 새 머리 추가
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
+  const gate = await requireRole(['writer', 'admin']);
+  if (!gate.ok) {
+    return new Response(JSON.stringify({ error: gate.error }), {
+      status: gate.status,
+      headers: { 'content-type': 'application/json' },
+    });
+  }
+
   try {
     const body = await req.json().catch(() => ({} as any));
     const authed = getAuthUser();

@@ -19,7 +19,13 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
 // JWT 비밀키
-const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
+function mustGetEnv(name: string): string {
+  const v = process.env[name];
+  if (!v) throw new Error(`${name} is not set`);
+  return v;
+}
+
+const JWT_SECRET = mustGetEnv('JWT_SECRET');
 
 // DB 조회 결과 타입
 type UserRow = {

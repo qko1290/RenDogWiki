@@ -240,7 +240,7 @@ export async function DELETE(req: NextRequest) {
     invalidate(docTag(id), 'doc:list', listTag(doc?.path));
 
     const user = getAuthUser();
-    const username = user?.minecraft_name ?? req.headers.get('x-wiki-username') ?? null;
+    const username = gate.dbUser.minecraft_name || gate.dbUser.username || 'unknown';
 
     let targetPathLabel: string | null = null;
     const p = doc?.path;

@@ -14,6 +14,7 @@ import { sql } from '@/wiki/lib/db';
 import { getAuthUser } from '@/wiki/lib/auth';
 import { logActivity, resolveVillageName } from '@wiki/lib/activity';
 import { cached } from '@/wiki/lib/cache'; // ✅ 추가: 앱 메모리 캐시
+import { requireRole } from '@/app/wiki/lib/requireRole';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -98,7 +99,17 @@ export async function GET(req: NextRequest) {
 }
 
 /** POST */
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
+  const gate = await requireRole(['writer', 'admin']);
+  if (!gate.ok) {
+    return new Response(JSON.stringify({ error: gate.error }), {
+      status: gate.status,
+      headers: { 'content-type': 'application/json' },
+    });
+  }
+
+  const uploader = gate.dbUser.minecraft_name || gate.dbUser.username || 'unknown';
+
   try {
     const body = await req.json().catch(() => ({} as any));
     const name = strOr(body?.name, '');
@@ -121,7 +132,6 @@ export async function POST(req: NextRequest) {
     const tag = body?.tag ?? null;
 
     const me = getAuthUser();
-    const uploader = me?.minecraft_name ?? req.headers.get('x-wiki-username') ?? 'admin';
 
     const inserted = (await sql/*sql*/`
       INSERT INTO npc

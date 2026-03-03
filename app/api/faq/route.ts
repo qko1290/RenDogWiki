@@ -7,7 +7,7 @@ import { sql } from '@/wiki/lib/db';
 import { getAuthUser } from '@/wiki/lib/auth';
 
 export const runtime = 'nodejs';
-
+import { requireRole } from '@/app/wiki/lib/requireRole';
 // ✅ Next/Edge/서버 렌더 캐시까지 확실히 방지
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -148,7 +148,17 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/faq  {title, content, tags?: string[]|csv}
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
+  const gate = await requireRole(['writer', 'admin']);
+  if (!gate.ok) {
+    return new Response(JSON.stringify({ error: gate.error }), {
+      status: gate.status,
+      headers: { 'content-type': 'application/json' },
+    });
+  }
+
+  const uploader = gate.dbUser.minecraft_name || gate.dbUser.username || 'unknown';
+
   try {
     const body = await req.json();
     const title = String(body?.title ?? '').trim();
@@ -160,7 +170,6 @@ export async function POST(req: NextRequest) {
     }
 
     const user = getAuthUser();
-    const uploader = user?.minecraft_name ?? req.headers.get('x-wiki-username') ?? 'anonymous';
 
     const rows = await sql`
       INSERT INTO faq_questions (title, content, tags, uploader)
