@@ -245,6 +245,12 @@ const CategoryTree: React.FC<Props> = ({
 }) => {
   const HIDE_ROOT_DOC_ID = 73;
 
+  // ✅ 사이드바(카테고리) 스크롤 컨테이너 ref
+  const navScrollRef = useRef<HTMLDivElement>(null);
+
+  // ✅ 자동 스크롤이 너무 자주/연속으로 튀는 것 방지용
+  const lastAutoScrollKeyRef = useRef<string>("");
+
   // ✅ 현재 모드 정규화 (서버가 소문자 저장하면 여기서 맞춰도 됨)
   // - 네가 “RPG”로 쓰기로 했으니 기본은 그대로 두고,
   //   혹시 서버에 rpg로 저장된 데이터가 섞여도 매칭되게 lower 비교만 사용
@@ -269,6 +275,51 @@ const CategoryTree: React.FC<Props> = ({
     const p = categoryIdToPathMap?.[repCat.id];
     return Array.isArray(p) && p.length > 0 ? p : null;
   }, [selectedCategoryPath, selectedDocId, categoryIdMap, categoryIdToPathMap]);
+
+  useEffect(() => {
+    if (!interactionReady) return;
+    const host = navScrollRef.current;
+    if (!host) return;
+
+    // ✅ 우선순위: 선택 문서 -> 선택(파생) 카테고리
+    const docId = selectedDocId ? String(selectedDocId) : "";
+    const catKey = derivedActiveCategoryPath ? pathToStr(derivedActiveCategoryPath) : "";
+
+    const autoKey = docId ? `doc:${docId}` : catKey ? `cat:${catKey}` : "";
+    if (!autoKey) return;
+
+    // 같은 대상이면 중복 스크롤 방지
+    if (lastAutoScrollKeyRef.current === autoKey) return;
+    lastAutoScrollKeyRef.current = autoKey;
+
+    const run = () => {
+      // 1) 문서가 있으면 문서로
+      let target: HTMLElement | null = null;
+
+      if (docId) {
+        target = host.querySelector(`[data-kind="doc"][data-docid="${docId}"]`) as HTMLElement | null;
+      }
+
+      // 2) 문서가 없거나 못 찾으면 카테고리로
+      if (!target && catKey) {
+        target = host.querySelector(`[data-kind="cat"][data-path="${CSS.escape(catKey)}"]`) as HTMLElement | null;
+      }
+
+      if (!target) return;
+
+      // ✅ "가까우면 안 움직임" + "부드럽게"
+      try {
+        target.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+      } catch {
+        // 구형 브라우저 fallback
+        const top = target.offsetTop;
+        host.scrollTop = Math.max(0, top - 80);
+      }
+    };
+
+    // DOM이 열리고(트리 열림/닫힘 애니메이션 포함) 난 다음 위치 잡도록 2프레임 딜레이
+    requestAnimationFrame(() => requestAnimationFrame(run));
+  }, [interactionReady, selectedDocId, derivedActiveCategoryPath]);
 
   // ✅ 모드 필터: "상속 포함"
   // - parentIncluded=true면 하위는 태그 없어도 포함
@@ -423,6 +474,8 @@ const CategoryTree: React.FC<Props> = ({
       return (
         <li key={`cat-${node.id}`}>
           <button
+            data-kind="cat"
+            data-path={key}
             className={`wiki-nav-item ${isCategoryActive ? "active" : ""} ${
               interactionReady ? "" : "is-disabled"
             }`}
@@ -568,6 +621,8 @@ const CategoryTree: React.FC<Props> = ({
                       className={`wiki-doc-item ${isDocActive ? "active" : ""} ${
                         interactionReady ? "" : "is-disabled"
                       }`}
+                      data-kind="doc"
+                      data-docid={doc.id}
                       onClick={(e) => {
                         if (guardClick(e as any)) return;
                         fetchDoc(currentPath, doc.title, doc.id, { clearCategoryPath: true });
@@ -610,52 +665,56 @@ const CategoryTree: React.FC<Props> = ({
     });
 
   return (
-    <ul className="wiki-nav-list">
-      {/* ✅ 여기서 filteredCategories 사용 */}
-      {renderTree(filteredCategories)}
+    <div ref={navScrollRef} className="wiki-nav-scroll">
+      <ul className="wiki-nav-list">
+        {/* ✅ 여기서 filteredCategories 사용 */}
+        {renderTree(filteredCategories)}
 
-      {/* 루트 문서(대표 73 제외) */}
-      {rootDocs.map((doc) => {
-        const isDocActive = selectedDocId === doc.id;
-        return (
-          <li key={`rootdoc-${doc.id}`}>
-            <button
-              className={`wiki-nav-item ${isDocActive ? "active" : ""} ${
-                interactionReady ? "" : "is-disabled"
-              }`}
-              onClick={(e) => {
-                if (guardClick(e)) return;
-                fetchDoc([0], doc.title, doc.id, { clearCategoryPath: true });
-              }}
-              aria-disabled={!interactionReady}
-              disabled={!interactionReady}
-              title={!interactionReady ? "로딩 중입니다…" : undefined}
-            >
-              <span className="wiki-category-main">
-                <span className="wiki-cat-icon-token">
-                  {doc.icon?.startsWith("http") ? (
-                    <img
-                      src={toProxyUrl(doc.icon)}
-                      alt=""
-                      aria-hidden="true"
-                      className="wiki-category-icon-img"
-                      loading="lazy"
-                      decoding="async"
-                      fetchPriority="low"
-                    />
-                  ) : (
-                    <span className="wiki-category-icon-emoji" aria-hidden="true">
-                      {doc.icon || "📄"}
-                    </span>
-                  )}
+        {/* 루트 문서(대표 73 제외) */}
+        {rootDocs.map((doc) => {
+          const isDocActive = selectedDocId === doc.id;
+          return (
+            <li key={`rootdoc-${doc.id}`}>
+              <button
+                data-kind="doc"
+                data-docid={doc.id}
+                className={`wiki-nav-item ${isDocActive ? "active" : ""} ${
+                  interactionReady ? "" : "is-disabled"
+                }`}
+                onClick={(e) => {
+                  if (guardClick(e)) return;
+                  fetchDoc([0], doc.title, doc.id, { clearCategoryPath: true });
+                }}
+                aria-disabled={!interactionReady}
+                disabled={!interactionReady}
+                title={!interactionReady ? "로딩 중입니다…" : undefined}
+              >
+                <span className="wiki-category-main">
+                  <span className="wiki-cat-icon-token">
+                    {doc.icon?.startsWith("http") ? (
+                      <img
+                        src={toProxyUrl(doc.icon)}
+                        alt=""
+                        aria-hidden="true"
+                        className="wiki-category-icon-img"
+                        loading="lazy"
+                        decoding="async"
+                        fetchPriority="low"
+                      />
+                    ) : (
+                      <span className="wiki-category-icon-emoji" aria-hidden="true">
+                        {doc.icon || "📄"}
+                      </span>
+                    )}
+                  </span>
+                  <span className="wiki-category-label-text">{doc.title}</span>
                 </span>
-                <span className="wiki-category-label-text">{doc.title}</span>
-              </span>
-            </button>
-          </li>
-        );
-      })}
-    </ul>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 };
 
