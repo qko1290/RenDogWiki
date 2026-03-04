@@ -4,9 +4,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 export type DocQuickBadgeItem = {
-  icon: string;   // 이모지 1개 or 짧은 텍스트
-  title: string;  // 표시 텍스트
-  href: string;   // 이동 URL
+  icon: string;
+  title: string;
+  href: string;
 };
 
 type Props = {
@@ -15,8 +15,8 @@ type Props = {
   mainTitle?: string;
   hidden?: boolean;
 
-  /** pill 최대 폭(텍스트 영역) */
-  pillWidth?: number; // default 170
+  /** 알약 확장 길이(텍스트 영역 포함) */
+  expandWidth?: number; // default 170
 };
 
 export default function DocQuickBadges({
@@ -24,11 +24,10 @@ export default function DocQuickBadges({
   mainIcon = '📌',
   mainTitle = '바로가기',
   hidden,
-  pillWidth = 170,
+  expandWidth = 170,
 }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-
   const closeTimerRef = useRef<number | null>(null);
 
   const safeOpen = () => {
@@ -71,21 +70,15 @@ export default function DocQuickBadges({
         if (e.currentTarget.contains(e.relatedTarget as Node)) return;
         safeClose();
       }}
-      aria-label="문서 바로가기"
-      style={
-        {
-          // css 변수로 pillWidth 전달
-          ['--qbd-pill-w' as any]: `${pillWidth}px`,
-        } as React.CSSProperties
-      }
+      style={{ ['--qbd-expand' as any]: `${expandWidth}px` } as React.CSSProperties}
     >
       {/* “가까이 대면 펼쳐짐” 히트박스 */}
       <div className="qbd-hitbox" />
 
-      {/* 메인 원 */}
+      {/* 메인 */}
       <button
         type="button"
-        className={`qbd-dot qbd-main ${open ? 'is-open' : ''}`}
+        className={`qbd-btn qbd-main ${open ? 'is-open' : ''}`}
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-label={mainTitle}
@@ -94,20 +87,16 @@ export default function DocQuickBadges({
         <span className="qbd-ic" aria-hidden>
           {mainIcon}
         </span>
-
-        {/* ✅ 아이콘은 고정, pill만 오른쪽 확장 */}
-        <span className="qbd-pill" aria-hidden>
-          <span className="qbd-pill-text">{mainTitle}</span>
-        </span>
+        <span className="qbd-text">{mainTitle}</span>
       </button>
 
-      {/* 3개 스택 */}
+      {/* 3개 */}
       <div className="qbd-stack" aria-hidden={!open}>
         {stack.map((it, idx) => (
           <button
             key={`${it.href}-${idx}`}
             type="button"
-            className={`qbd-dot qbd-item ${open ? 'is-open' : ''}`}
+            className={`qbd-btn qbd-item ${open ? 'is-open' : ''}`}
             style={{
               transform: open ? `translateY(${-56 * (idx + 1)}px)` : 'translateY(0px)',
             }}
@@ -118,11 +107,7 @@ export default function DocQuickBadges({
             <span className="qbd-ic" aria-hidden>
               {it.icon}
             </span>
-
-            {/* ✅ 아이콘 고정 + pill 확장 */}
-            <span className="qbd-pill" aria-hidden>
-              <span className="qbd-pill-text">{it.title}</span>
-            </span>
+            <span className="qbd-text">{it.title}</span>
           </button>
         ))}
       </div>
@@ -133,7 +118,7 @@ export default function DocQuickBadges({
           left: 18px;
           bottom: 18px;
           z-index: 80;
-          width: calc(56px + var(--qbd-pill-w)); /* 확장 공간 */
+          width: calc(46px + var(--qbd-expand) + 20px); /* 확장 공간 */
           height: 220px;
           pointer-events: auto;
         }
@@ -156,106 +141,125 @@ export default function DocQuickBadges({
           height: 1px;
         }
 
-        /* ===== 원(아이콘 고정) ===== */
-        .qbd-dot {
+        /* =========================
+           버튼: 아이콘 위치 고정
+           배경(알약)은 ::before가 확장
+           ========================= */
+        .qbd-btn {
           position: absolute;
           left: 0;
           bottom: 0;
 
+          /* ✅ 버튼 자체는 '원 크기' 그대로 유지 */
           width: 46px;
           height: 46px;
           border-radius: 999px;
 
           border: 1px solid rgba(0, 0, 0, 0.08);
-          background: rgba(255, 255, 255, 0.92);
-          box-shadow: 0 10px 22px rgba(0, 0, 0, 0.12);
-          backdrop-filter: blur(6px);
+          background: transparent;
+          cursor: pointer;
+          user-select: none;
 
           display: flex;
           align-items: center;
           justify-content: center;
 
-          cursor: pointer;
-          user-select: none;
+          /* 확장 배경을 버튼 뒤로 */
+          overflow: visible;
 
           transition:
             transform 220ms cubic-bezier(0.2, 0.9, 0.2, 1),
-            opacity 160ms ease,
-            box-shadow 160ms ease,
-            background 160ms ease;
+            opacity 160ms ease;
         }
 
-        .qbd-dot:hover {
-          box-shadow: 0 12px 26px rgba(0, 0, 0, 0.16);
-          background: rgba(255, 255, 255, 0.98);
-        }
-
-        .qbd-dot:focus-visible {
-          outline: none;
-          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.22), 0 12px 26px rgba(0, 0, 0, 0.16);
-        }
-
-        .qbd-ic {
-          width: 22px;
-          height: 22px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 18px;
-          line-height: 1;
-
-          /* ✅ 아이콘 위치 고정(hover에도 안 움직임) */
-          transform: translateY(0);
-          transition: none;
-        }
-
-        /* ===== pill: “버튼이 커지는게 아니라”, 텍스트 영역만 오른쪽 확장 ===== */
-        .qbd-pill {
+        /* 확장되는 배경(알약) */
+        .qbd-btn::before {
+          content: '';
           position: absolute;
-          left: 100%;
-          top: 50%;
-          transform: translateY(-50%);
-          margin-left: 10px;
-
-          height: 38px;
+          inset: 0;
+          width: 46px;
+          height: 46px;
           border-radius: 999px;
+
+          background: rgba(255, 255, 255, 0.92);
+          box-shadow: 0 10px 22px rgba(0, 0, 0, 0.12);
+          backdrop-filter: blur(6px);
+
           border: 1px solid rgba(0, 0, 0, 0.08);
-          background: rgba(255, 255, 255, 0.96);
-          box-shadow: 0 8px 18px rgba(0, 0, 0, 0.1);
-
-          display: inline-flex;
-          align-items: center;
-
-          /* ✅ 기본은 “접힘” */
-          width: 0;
-          padding: 0;
-          opacity: 0;
-          overflow: hidden;
-          pointer-events: none;
 
           transition:
             width 180ms cubic-bezier(0.2, 0.9, 0.2, 1),
-            padding 180ms cubic-bezier(0.2, 0.9, 0.2, 1),
-            opacity 140ms ease;
-          white-space: nowrap;
+            border-radius 180ms cubic-bezier(0.2, 0.9, 0.2, 1),
+            background 160ms ease,
+            box-shadow 160ms ease;
         }
 
-        .qbd-pill-text {
+        .qbd-btn:hover::before,
+        .qbd-btn:focus-visible::before {
+          width: calc(46px + var(--qbd-expand));
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.98);
+          box-shadow: 0 12px 26px rgba(0, 0, 0, 0.16);
+        }
+
+        .qbd-btn:focus-visible {
+          outline: none;
+        }
+        .qbd-btn:focus-visible::before {
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.22), 0 12px 26px rgba(0, 0, 0, 0.16);
+        }
+
+        /* 아이콘: 절대 고정 위치(원 중심) */
+        .qbd-ic {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 46px;
+          height: 46px;
+
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+
+          font-size: 18px;
+          line-height: 1;
+
+          z-index: 2;
+          transform: none; /* ✅ hover에도 이동 금지 */
+        }
+
+        /* 텍스트: 오른쪽에 숨겨두고, hover 시 나타남 */
+        .qbd-text {
+          position: absolute;
+          left: 46px; /* 원 바로 옆부터 */
+          top: 50%;
+          transform: translateY(-50%);
+
+          height: 38px;
+          display: inline-flex;
+          align-items: center;
+
           font-size: 13px;
-          font-weight: 700;
+          font-weight: 800;
           color: #111827;
-          padding: 0 14px;
+
+          padding-left: 12px;
+          padding-right: 14px;
+
+          opacity: 0;
+          pointer-events: none;
+          white-space: nowrap;
+          z-index: 2;
+
+          transition: opacity 140ms ease;
         }
 
-        /* ✅ hover/focus 시 pill만 확장 */
-        .qbd-dot:hover .qbd-pill,
-        .qbd-dot:focus-visible .qbd-pill {
-          width: var(--qbd-pill-w);
-          padding: 0;
+        .qbd-btn:hover .qbd-text,
+        .qbd-btn:focus-visible .qbd-text {
           opacity: 1;
         }
 
-        /* ===== 스택 펼침 ===== */
+        /* 펼침 버튼은 닫혀 있으면 클릭 불가 */
         .qbd-item {
           opacity: 0;
           pointer-events: none;
@@ -265,9 +269,9 @@ export default function DocQuickBadges({
           pointer-events: auto;
         }
 
-        /* 모바일: hover 없음 → pill 숨김 */
+        /* 모바일: hover 없음 → 텍스트 숨김 유지 */
         @media (hover: none) {
-          .qbd-pill {
+          .qbd-text {
             display: none;
           }
         }
