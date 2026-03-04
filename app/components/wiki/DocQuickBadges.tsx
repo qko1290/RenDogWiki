@@ -17,6 +17,12 @@ type Props = {
 
   /** 알약 확장 길이(텍스트 영역 포함) */
   expandWidth?: number; // default 170
+
+  /** “가까이 대면 펼쳐짐” 반경(px) */
+  openRadius?: number; // default 90
+
+  /** 닫힘 히스테리시스(깜빡임 방지) */
+  closePadding?: number; // default 18
 };
 
 export default function DocQuickBadges({
@@ -25,8 +31,12 @@ export default function DocQuickBadges({
   mainTitle = '바로가기',
   hidden,
   expandWidth = 170,
+  openRadius = 90,
+  closePadding = 18,
 }: Props) {
   const router = useRouter();
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
   const [open, setOpen] = useState(false);
   const closeTimerRef = useRef<number | null>(null);
 
@@ -43,7 +53,7 @@ export default function DocQuickBadges({
     closeTimerRef.current = window.setTimeout(() => {
       setOpen(false);
       closeTimerRef.current = null;
-    }, 140);
+    }, 160);
   };
 
   useEffect(() => {
@@ -51,6 +61,41 @@ export default function DocQuickBadges({
       if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
     };
   }, []);
+
+  // ✅ “가까이 대면 펼쳐짐”을 히트박스(div)로 하지 않고
+  //    커서 좌표 기반 거리 계산으로 처리 → 카테고리 클릭 방해 0%
+  useEffect(() => {
+    let raf = 0;
+
+    const onMove = (e: MouseEvent) => {
+      const el = rootRef.current;
+      if (!el) return;
+
+      const rect = el.getBoundingClientRect();
+
+      // 메인 원(46px)의 중심이 root의 좌하단에 위치한다고 가정
+      const cx = rect.left + 23; // 46/2
+      const cy = rect.bottom - 23;
+
+      const dx = e.clientX - cx;
+      const dy = e.clientY - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        setOpen((prev) => {
+          if (!prev) return dist <= openRadius;
+          return dist <= openRadius + closePadding;
+        });
+      });
+    };
+
+    window.addEventListener('mousemove', onMove, { passive: true });
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      window.removeEventListener('mousemove', onMove);
+    };
+  }, [openRadius, closePadding]);
 
   const stack = useMemo(() => items.slice(0, 3), [items]);
 
@@ -62,19 +107,17 @@ export default function DocQuickBadges({
 
   return (
     <div
+      ref={rootRef}
       className="qbd-root"
-      onMouseEnter={safeOpen}
-      onMouseLeave={safeClose}
+      // ✅ 키보드 접근성: 포커스 들어오면 열고, 빠지면 닫기
       onFocusCapture={safeOpen}
       onBlurCapture={(e) => {
         if (e.currentTarget.contains(e.relatedTarget as Node)) return;
         safeClose();
       }}
       style={{ ['--qbd-expand' as any]: `${expandWidth}px` } as React.CSSProperties}
+      aria-label="문서 바로가기"
     >
-      {/* “가까이 대면 펼쳐짐” 히트박스 */}
-      <div className="qbd-hitbox" />
-
       {/* 메인 */}
       <button
         type="button"
@@ -99,7 +142,7 @@ export default function DocQuickBadges({
             className={`qbd-btn qbd-item ${open ? 'is-open' : ''}`}
             style={{
               transform: open ? `translateY(${-56 * (idx + 1)}px)` : 'translateY(0px)',
-              transitionDelay: open ? `${idx * 40}ms` : '0ms',
+              transitionDelay: open ? `${idx * 55}ms` : '0ms', // ✅ 더 느린 stagger
             }}
             onClick={() => go(it.href)}
             aria-label={it.title}
@@ -119,26 +162,19 @@ export default function DocQuickBadges({
           left: 18px;
           bottom: 18px;
           z-index: 80;
+
+          /* ✅ root가 화면 클릭을 절대 먹지 않게 */
           pointer-events: none;
+
+          /* ✅ 최소 영역만 차지 (카테고리 클릭 방해 방지) */
           width: 64px;
           height: 220px;
-          pointer-events: auto;
         }
 
-        .qbd-hitbox,
+        /* ✅ 실제 클릭 가능한 건 버튼들만 */
         .qbd-btn,
         .qbd-stack {
-        pointer-events: auto;
-        }
-
-        .qbd-hitbox {
-          position: absolute;
-          width: 130px;
-          height: 130px;
-          left: -8px;
-          bottom: -8px;
-          border-radius: 999px;
-          background: transparent;
+          pointer-events: auto;
         }
 
         .qbd-stack {
@@ -158,7 +194,6 @@ export default function DocQuickBadges({
           left: 0;
           bottom: 0;
 
-          /* ✅ 버튼 자체는 '원 크기' 그대로 유지 */
           width: 46px;
           height: 46px;
           border-radius: 999px;
@@ -172,12 +207,12 @@ export default function DocQuickBadges({
           align-items: center;
           justify-content: center;
 
-          /* 확장 배경을 버튼 뒤로 */
           overflow: visible;
 
+          /* ✅ 위로 펼쳐짐: 더 느리고 부드럽게 */
           transition:
-            transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
-            opacity 220ms ease;
+            transform 520ms cubic-bezier(0.22, 1, 0.36, 1),
+            opacity 260ms ease;
         }
 
         /* 확장되는 배경(알약) */
@@ -195,11 +230,12 @@ export default function DocQuickBadges({
 
           border: 1px solid rgba(0, 0, 0, 0.08);
 
+          /* ✅ 오른쪽 확장: 더 부드럽게 */
           transition:
-            width 260ms cubic-bezier(0.22, 1, 0.36, 1),
-            border-radius 260ms cubic-bezier(0.22, 1, 0.36, 1),
-            background 200ms ease,
-            box-shadow 200ms ease;
+            width 340ms cubic-bezier(0.22, 1, 0.36, 1),
+            border-radius 340ms cubic-bezier(0.22, 1, 0.36, 1),
+            background 220ms ease,
+            box-shadow 220ms ease;
         }
 
         .qbd-btn:hover::before,
@@ -233,13 +269,13 @@ export default function DocQuickBadges({
           line-height: 1;
 
           z-index: 2;
-          transform: none; /* ✅ hover에도 이동 금지 */
+          transform: none;
         }
 
         /* 텍스트: 오른쪽에 숨겨두고, hover 시 나타남 */
         .qbd-text {
           position: absolute;
-          left: 46px; /* 원 바로 옆부터 */
+          left: 46px;
           top: 50%;
           transform: translateY(-50%);
 
@@ -259,13 +295,15 @@ export default function DocQuickBadges({
           white-space: nowrap;
           z-index: 2;
 
-          transition: opacity 200ms ease;
-          transition-delay: 40ms;
+          /* ✅ 텍스트도 부드럽게 */
+          transition: opacity 240ms ease;
+          transition-delay: 0ms;
         }
 
         .qbd-btn:hover .qbd-text,
         .qbd-btn:focus-visible .qbd-text {
           opacity: 1;
+          transition-delay: 90ms;
         }
 
         /* 펼침 버튼은 닫혀 있으면 클릭 불가 */
