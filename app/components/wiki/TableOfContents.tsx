@@ -587,8 +587,8 @@ export default function TableOfContents({
     gap: 2,
   };
   const iconBox: React.CSSProperties = {
-    width: 18,
-    height: 18,
+    width: 24,
+    height: 24,
     display: 'grid',
     placeItems: 'center',
     flex: '0 0 auto',
