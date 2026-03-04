@@ -99,6 +99,7 @@ export default function DocQuickBadges({
             className={`qbd-btn qbd-item ${open ? 'is-open' : ''}`}
             style={{
               transform: open ? `translateY(${-56 * (idx + 1)}px)` : 'translateY(0px)',
+              transitionDelay: open ? `${idx * 40}ms` : '0ms',
             }}
             onClick={() => go(it.href)}
             aria-label={it.title}
@@ -118,17 +119,24 @@ export default function DocQuickBadges({
           left: 18px;
           bottom: 18px;
           z-index: 80;
-          width: calc(46px + var(--qbd-expand) + 20px); /* 확장 공간 */
+          pointer-events: none;
+          width: 64px;
           height: 220px;
           pointer-events: auto;
         }
 
+        .qbd-hitbox,
+        .qbd-btn,
+        .qbd-stack {
+        pointer-events: auto;
+        }
+
         .qbd-hitbox {
           position: absolute;
-          left: -10px;
-          bottom: -10px;
-          width: 220px;
-          height: 220px;
+          width: 170px;
+          height: 170px;
+          left: -8px;
+          bottom: -8px;
           border-radius: 999px;
           background: transparent;
         }
@@ -168,8 +176,8 @@ export default function DocQuickBadges({
           overflow: visible;
 
           transition:
-            transform 220ms cubic-bezier(0.2, 0.9, 0.2, 1),
-            opacity 160ms ease;
+            transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
+            opacity 220ms ease;
         }
 
         /* 확장되는 배경(알약) */
@@ -188,10 +196,10 @@ export default function DocQuickBadges({
           border: 1px solid rgba(0, 0, 0, 0.08);
 
           transition:
-            width 180ms cubic-bezier(0.2, 0.9, 0.2, 1),
-            border-radius 180ms cubic-bezier(0.2, 0.9, 0.2, 1),
-            background 160ms ease,
-            box-shadow 160ms ease;
+            width 260ms cubic-bezier(0.22, 1, 0.36, 1),
+            border-radius 260ms cubic-bezier(0.22, 1, 0.36, 1),
+            background 200ms ease,
+            box-shadow 200ms ease;
         }
 
         .qbd-btn:hover::before,
@@ -251,7 +259,8 @@ export default function DocQuickBadges({
           white-space: nowrap;
           z-index: 2;
 
-          transition: opacity 140ms ease;
+          transition: opacity 200ms ease;
+          transition-delay: 40ms;
         }
 
         .qbd-btn:hover .qbd-text,
