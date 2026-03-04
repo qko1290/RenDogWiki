@@ -4,12 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import {
-  faDollarSign,
-  faScroll,
-  faCube,
-  faBoltLightning,
-} from '@fortawesome/free-solid-svg-icons';
+import { faDollarSign, faScroll, faCube, faBoltLightning } from '@fortawesome/free-solid-svg-icons';
 
 export type DocQuickBadgeItem = {
   icon: 'price' | 'quest' | 'head';
@@ -24,6 +19,9 @@ type Props = {
   expandWidth?: number;
   hoverBg?: string;
   hoverCooldownMs?: number;
+
+  /** ✅ 좌상단에서 로고 아래로 내릴 px */
+  topOffset?: number; // default 92
 };
 
 function iconByKey(key: DocQuickBadgeItem['icon']) {
@@ -44,6 +42,7 @@ export default function DocQuickBadges({
   expandWidth = 150,
   hoverBg = 'rgb(255, 69, 69)',
   hoverCooldownMs = 220,
+  topOffset = 92,
 }: Props) {
   const router = useRouter();
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -84,7 +83,9 @@ export default function DocQuickBadges({
     }
   }, [open, hoverCooldownMs]);
 
-  // 감지 영역: 위 180 / 왼 100 / 오른 50
+  // ✅ 감지 영역(좌상단/아래로 펼침 기준)
+  // - 아래 180 / 위 50
+  // - 왼 100 / 오른 50
   useEffect(() => {
     let raf = 0;
 
@@ -93,13 +94,15 @@ export default function DocQuickBadges({
       if (!el) return;
 
       const rect = el.getBoundingClientRect();
+
+      // ✅ top 기준: 메인 원 중심
       const cx = rect.left + 23;
-      const cy = rect.bottom - 23;
+      const cy = rect.top + 23;
 
       const x = e.clientX;
       const y = e.clientY;
 
-      const inside = x >= cx - 100 && x <= cx + 50 && y <= cy + 50 && y >= cy - 180;
+      const inside = x >= cx - 100 && x <= cx + 50 && y >= cy - 50 && y <= cy + 180;
 
       if (raf) cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => setOpen(inside));
@@ -122,6 +125,7 @@ export default function DocQuickBadges({
         {
           ['--qbd-expand' as any]: `${expandWidth}px`,
           ['--qbd-hover-bg' as any]: hoverBg,
+          ['--qbd-top' as any]: `${topOffset}px`,
         } as React.CSSProperties
       }
     >
@@ -139,7 +143,7 @@ export default function DocQuickBadges({
         </span>
       </button>
 
-      {/* 3개 */}
+      {/* 3개: 아래로 펼침 (메인 위치부터) */}
       <div className="qbd-stack" aria-hidden={!open}>
         {stack.map((it, idx) => (
           <button
@@ -147,7 +151,7 @@ export default function DocQuickBadges({
             type="button"
             className={`qbd-btn qbd-item ${open ? 'is-open' : ''}`}
             style={{
-              transform: open ? `translateY(${-56 * idx}px)` : 'translateY(0px)',
+              transform: open ? `translateY(${56 * idx}px)` : 'translateY(0px)',
               transitionDelay: open ? `${idx * 55}ms` : '0ms',
             }}
             onClick={() => go(it.href)}
@@ -166,11 +170,11 @@ export default function DocQuickBadges({
         .qbd-root {
           position: fixed;
           left: 18px;
-          bottom: 18px;
+          top: var(--qbd-top);
           z-index: 80;
           pointer-events: none;
           width: 64px;
-          height: 220px;
+          height: 260px; /* 아래로 펼치니까 약간 여유 */
         }
 
         .qbd-btn,
@@ -181,7 +185,7 @@ export default function DocQuickBadges({
         .qbd-stack {
           position: absolute;
           left: 0;
-          bottom: 0;
+          top: 0; /* ✅ top 기준으로 맞춤 */
           width: 1px;
           height: 1px;
         }
@@ -189,7 +193,7 @@ export default function DocQuickBadges({
         .qbd-btn {
           position: absolute;
           left: 0;
-          bottom: 0;
+          top: 0; /* ✅ top 기준 */
           width: 46px;
           height: 46px;
           border-radius: 999px;
