@@ -173,7 +173,7 @@ export default function TableOfContents({
     overflowY: 'auto',
   };
   const listStyle: React.CSSProperties = { listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 2 };
-  const iconBox: React.CSSProperties = { width: 18, height: 18, display: 'grid', placeItems: 'center', flex: '0 0 auto', marginRight: 8 };
+  const iconBox: React.CSSProperties = { width: 24, height: 24, display: 'grid', placeItems: 'center', flex: '0 0 auto', marginRight: 8 };
   const titleStyle: React.CSSProperties = { fontSize: 14, fontWeight: 800, color: '#0f172a', margin: '0 0 10px 8px' };
   const textStyle: React.CSSProperties = { fontSize: 13.5, fontWeight: 600, letterSpacing: '-0.15px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
 
@@ -209,12 +209,12 @@ export default function TableOfContents({
                     <img
                       src={toProxyUrl(h.icon)}
                       alt=""
-                      width={16}
-                      height={16}
+                      width={24}
+                      height={24}
                       loading="lazy"
                       decoding="async"
                       draggable={false}
-                      style={{ width: 16, height: 16, objectFit: 'contain', display: 'block' }}
+                      style={{ width: 24, height: 24, objectFit: 'contain', display: 'block' }}
                     />
                   ) : h.icon ? (
                     <span style={{ fontSize: 14, lineHeight: 1, display: 'block' }}>{h.icon}</span>
