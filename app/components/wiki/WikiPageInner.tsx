@@ -916,12 +916,15 @@ export default function WikiPageInner({ user }: Props) {
         ensureOpenForDocPath(nextPath);
 
         // ✅ 문서 로드 후 URL ?path=&title= 동기화
-        syncUrlWithDoc(
-          data.title ?? docTitle,
-          nextPath,
-          { history: isPopStateSyncRef.current ? 'replace' : 'push' }
-        );
-        isPopStateSyncRef.current = false;
+        if (isPopStateSyncRef.current) {
+          isPopStateSyncRef.current = false;
+        } else {
+          syncUrlWithDoc(
+            data.title ?? docTitle,
+            nextPath,
+            { history: 'push' }
+          );
+        }
 
         setLoadingDoc(false); // 성공 종료
       })
@@ -986,8 +989,12 @@ export default function WikiPageInner({ user }: Props) {
       setSelectedDocPath(nextPath);
       setHideDocChrome(Number(data?.id) === ROOT_FEATURED_DOC_ID);
 
-      syncUrlWithDoc(data.title ?? null, nextPath, { history: 'replace' });
-      isPopStateSyncRef.current = false;
+      // ✅ URL(searchParams)로 들어온 이동이면 URL 재동기화 금지
+      if (isPopStateSyncRef.current) {
+        isPopStateSyncRef.current = false;
+      } else {
+        syncUrlWithDoc(data.title ?? null, nextPath, { history: 'replace' });
+      }
 
       setHideDocChrome(!!opts?.hideChrome || Number(data?.id) === ROOT_FEATURED_DOC_ID);
       setLoadingDoc(false);
