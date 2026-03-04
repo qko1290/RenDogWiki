@@ -113,7 +113,7 @@ export default function WikiHeader({ user }: WikiHeaderProps) {
       <div className="wiki-header-inner">
         {/* 로고 */}
         <Link href="/wiki" className="wiki-logo flex items-center gap-2 no-underline">
-          <Image src={logo} alt="RDWIKI" width={45} height={40} />
+          <Image src={logo} alt="RDWIKI" width={45} height={40} style={{ imageRendering: 'auto' }}/>
           <span>RDWIKI</span>
         </Link>
 
