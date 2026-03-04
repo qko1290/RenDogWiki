@@ -316,16 +316,13 @@ export default function WikiPageInner({ user }: Props) {
     options?: { history?: 'push' | 'replace' }
   ) => {
     if (typeof window === 'undefined') return;
-    if (!docTitle) return;
 
     const search = new URLSearchParams(window.location.search);
     const currentPath = search.get('path');
     const currentTitle = search.get('title');
 
     const lastId =
-      !fullPath || fullPath.length === 0
-        ? '0'
-        : String(fullPath[fullPath.length - 1]);
+      !fullPath || fullPath.length === 0 ? '0' : String(fullPath[fullPath.length - 1]);
 
     const encodedTitle = encodeTitleForUrlParam(docTitle);
 
@@ -337,10 +334,10 @@ export default function WikiPageInner({ user }: Props) {
 
     const docChanged = !(currentPath === lastId && currentTitle === encodedTitle);
 
-    // ✅ 핵심: 문서 이동(docChanged)에는 기존 #heading 해시를 절대 따라가지 않게 한다
+    // ✅ 핵심: 문서 이동이면 해시는 싹 제거
     const hash = docChanged ? '' : (window.location.hash || '');
-    const nextUrl = window.location.pathname + '?' + search.toString() + hash;
 
+    const nextUrl = window.location.pathname + '?' + search.toString() + hash;
     ignoreNextUrlSyncRef.current = true;
 
     // docChanged가 true인 순간은 "문서 이동"이므로 replace 금지
@@ -349,7 +346,6 @@ export default function WikiPageInner({ user }: Props) {
       return;
     }
 
-    // 문서가 같은데 URL만 정리하는 케이스만 replace 허용
     if (options?.history === 'replace') {
       router.replace(nextUrl, { scroll: false });
     } else {
