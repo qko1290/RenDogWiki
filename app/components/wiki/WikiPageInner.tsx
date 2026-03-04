@@ -1695,12 +1695,12 @@ export default function WikiPageInner({ user }: Props) {
           {
             icon: '📘',
             title: '머리찾기',
-            href: '/wiki?path=0&title=뉴비_가이드',
+            href: 'wiki?path=53&title=%EB%A8%B8%EB%A6%AC%EC%B0%BE%EA%B8%B0&mode=RPG',
           },
           {
             icon: '🧭',
             title: '시세표',
-            href: '/wiki?path=0&title=길라잡이',
+            href: 'wiki?path=38&title=%EC%8B%9C%EC%84%B8%ED%91%9C&mode=RPG',
           },
         ]}
       />

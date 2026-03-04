@@ -4,22 +4,19 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 export type DocQuickBadgeItem = {
-  /** 버튼에 표시될 아이콘(이모지 1개 권장) */
-  icon: string;
-  /** 알약 확장 시 보일 제목 */
-  title: string;
-  /** 이동할 URL (예: /wiki?path=123&title=문서명) */
-  href: string;
+  icon: string;   // 이모지 1개 or 짧은 텍스트
+  title: string;  // 표시 텍스트
+  href: string;   // 이동 URL
 };
 
 type Props = {
   items: [DocQuickBadgeItem, DocQuickBadgeItem, DocQuickBadgeItem];
-  /** 메인(기본) 원 아이콘 */
   mainIcon?: string;
-  /** 메인(기본) 원 라벨 (hover 시) */
   mainTitle?: string;
-  /** 숨김 처리 */
   hidden?: boolean;
+
+  /** pill 최대 폭(텍스트 영역) */
+  pillWidth?: number; // default 170
 };
 
 export default function DocQuickBadges({
@@ -27,12 +24,11 @@ export default function DocQuickBadges({
   mainIcon = '📌',
   mainTitle = '바로가기',
   hidden,
+  pillWidth = 170,
 }: Props) {
   const router = useRouter();
-
-  // “마우스를 가까이 대면” 느낌: 실제로는 좌하단에 넉넉한 히트박스를 두고,
-  // 그 영역에 들어오면 펼치도록 처리 (가장 안정적)
   const [open, setOpen] = useState(false);
+
   const closeTimerRef = useRef<number | null>(null);
 
   const safeOpen = () => {
@@ -45,7 +41,6 @@ export default function DocQuickBadges({
 
   const safeClose = () => {
     if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
-    // 살짝 딜레이로 “스치면 닫히는” 느낌 완화
     closeTimerRef.current = window.setTimeout(() => {
       setOpen(false);
       closeTimerRef.current = null;
@@ -58,11 +53,11 @@ export default function DocQuickBadges({
     };
   }, []);
 
-  const onGo = (href: string) => {
+  const stack = useMemo(() => items.slice(0, 3), [items]);
+
+  const go = (href: string) => {
     router.push(href, { scroll: false });
   };
-
-  const stack = useMemo(() => items.slice(0, 3), [items]);
 
   if (hidden) return null;
 
@@ -71,22 +66,26 @@ export default function DocQuickBadges({
       className="qbd-root"
       onMouseEnter={safeOpen}
       onMouseLeave={safeClose}
-      // 키보드 접근성: 탭으로 들어오면 펼치기
       onFocusCapture={safeOpen}
       onBlurCapture={(e) => {
-        // 내부 포커스 이동이면 닫지 않음
         if (e.currentTarget.contains(e.relatedTarget as Node)) return;
         safeClose();
       }}
       aria-label="문서 바로가기"
+      style={
+        {
+          // css 변수로 pillWidth 전달
+          ['--qbd-pill-w' as any]: `${pillWidth}px`,
+        } as React.CSSProperties
+      }
     >
-      {/* 히트박스(가까이 대면 펼쳐지는 느낌) */}
+      {/* “가까이 대면 펼쳐짐” 히트박스 */}
       <div className="qbd-hitbox" />
 
-      {/* 메인 버튼(항상 보임) */}
+      {/* 메인 원 */}
       <button
         type="button"
-        className={`qbd-btn qbd-main ${open ? 'is-open' : ''}`}
+        className={`qbd-dot qbd-main ${open ? 'is-open' : ''}`}
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-label={mainTitle}
@@ -95,30 +94,33 @@ export default function DocQuickBadges({
         <span className="qbd-ic" aria-hidden>
           {mainIcon}
         </span>
-        <span className="qbd-pill">
+
+        {/* ✅ 아이콘은 고정, pill만 오른쪽 확장 */}
+        <span className="qbd-pill" aria-hidden>
           <span className="qbd-pill-text">{mainTitle}</span>
         </span>
       </button>
 
-      {/* 펼쳐지는 3개 버튼 */}
+      {/* 3개 스택 */}
       <div className="qbd-stack" aria-hidden={!open}>
         {stack.map((it, idx) => (
           <button
             key={`${it.href}-${idx}`}
             type="button"
-            className={`qbd-btn qbd-item ${open ? 'is-open' : ''}`}
+            className={`qbd-dot qbd-item ${open ? 'is-open' : ''}`}
             style={{
-              // 위로 3개 쌓기 (간격 56px)
               transform: open ? `translateY(${-56 * (idx + 1)}px)` : 'translateY(0px)',
             }}
-            onClick={() => onGo(it.href)}
+            onClick={() => go(it.href)}
             aria-label={it.title}
             title={it.title}
           >
             <span className="qbd-ic" aria-hidden>
               {it.icon}
             </span>
-            <span className="qbd-pill">
+
+            {/* ✅ 아이콘 고정 + pill 확장 */}
+            <span className="qbd-pill" aria-hidden>
               <span className="qbd-pill-text">{it.title}</span>
             </span>
           </button>
@@ -130,9 +132,9 @@ export default function DocQuickBadges({
           position: fixed;
           left: 18px;
           bottom: 18px;
-          z-index: 80; /* 위키 내부 모달/헤더보다 낮고, 일반 UI보다 높게 */
-          width: 280px; /* 알약 확장 공간 */
-          height: 220px; /* 히트박스 포함 */
+          z-index: 80;
+          width: calc(56px + var(--qbd-pill-w)); /* 확장 공간 */
+          height: 220px;
           pointer-events: auto;
         }
 
@@ -154,14 +156,11 @@ export default function DocQuickBadges({
           height: 1px;
         }
 
-        .qbd-btn {
+        /* ===== 원(아이콘 고정) ===== */
+        .qbd-dot {
           position: absolute;
           left: 0;
           bottom: 0;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 10px;
 
           width: 46px;
           height: 46px;
@@ -171,6 +170,10 @@ export default function DocQuickBadges({
           background: rgba(255, 255, 255, 0.92);
           box-shadow: 0 10px 22px rgba(0, 0, 0, 0.12);
           backdrop-filter: blur(6px);
+
+          display: flex;
+          align-items: center;
+          justify-content: center;
 
           cursor: pointer;
           user-select: none;
@@ -182,16 +185,12 @@ export default function DocQuickBadges({
             background 160ms ease;
         }
 
-        .qbd-btn:hover {
+        .qbd-dot:hover {
           box-shadow: 0 12px 26px rgba(0, 0, 0, 0.16);
           background: rgba(255, 255, 255, 0.98);
         }
 
-        .qbd-btn:active {
-          transform: translateY(1px);
-        }
-
-        .qbd-btn:focus-visible {
+        .qbd-dot:focus-visible {
           outline: none;
           box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.22), 0 12px 26px rgba(0, 0, 0, 0.16);
         }
@@ -204,33 +203,40 @@ export default function DocQuickBadges({
           justify-content: center;
           font-size: 18px;
           line-height: 1;
+
+          /* ✅ 아이콘 위치 고정(hover에도 안 움직임) */
+          transform: translateY(0);
+          transition: none;
         }
 
-        /* 알약(hover 시 오른쪽 확장) */
+        /* ===== pill: “버튼이 커지는게 아니라”, 텍스트 영역만 오른쪽 확장 ===== */
         .qbd-pill {
           position: absolute;
           left: 100%;
+          top: 50%;
+          transform: translateY(-50%);
           margin-left: 10px;
+
           height: 38px;
-
-          display: inline-flex;
-          align-items: center;
-
           border-radius: 999px;
           border: 1px solid rgba(0, 0, 0, 0.08);
           background: rgba(255, 255, 255, 0.96);
           box-shadow: 0 8px 18px rgba(0, 0, 0, 0.1);
 
-          padding: 0 0; /* 기본 0 */
-          width: 0; /* 기본 숨김 */
+          display: inline-flex;
+          align-items: center;
+
+          /* ✅ 기본은 “접힘” */
+          width: 0;
+          padding: 0;
           opacity: 0;
           overflow: hidden;
+          pointer-events: none;
 
           transition:
             width 180ms cubic-bezier(0.2, 0.9, 0.2, 1),
             padding 180ms cubic-bezier(0.2, 0.9, 0.2, 1),
             opacity 140ms ease;
-          pointer-events: none;
           white-space: nowrap;
         }
 
@@ -241,14 +247,15 @@ export default function DocQuickBadges({
           padding: 0 14px;
         }
 
-        .qbd-btn:hover .qbd-pill,
-        .qbd-btn:focus-visible .qbd-pill {
-          width: 180px; /* 제목 길면 여기 조절 */
-          padding: 0 0;
+        /* ✅ hover/focus 시 pill만 확장 */
+        .qbd-dot:hover .qbd-pill,
+        .qbd-dot:focus-visible .qbd-pill {
+          width: var(--qbd-pill-w);
+          padding: 0;
           opacity: 1;
         }
 
-        /* 펼쳐지는 버튼은 닫혀 있을 때 클릭 방지 */
+        /* ===== 스택 펼침 ===== */
         .qbd-item {
           opacity: 0;
           pointer-events: none;
@@ -258,13 +265,7 @@ export default function DocQuickBadges({
           pointer-events: auto;
         }
 
-        /* 메인 버튼은 항상 */
-        .qbd-main {
-          opacity: 1;
-          pointer-events: auto;
-        }
-
-        /* 모바일/터치: hover 없으니 최소한 open 토글로 동작 */
+        /* 모바일: hover 없음 → pill 숨김 */
         @media (hover: none) {
           .qbd-pill {
             display: none;
