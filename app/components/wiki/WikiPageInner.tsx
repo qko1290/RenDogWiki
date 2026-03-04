@@ -326,17 +326,22 @@ export default function WikiPageInner({ user }: Props) {
 
     const encodedTitle = encodeTitleForUrlParam(docTitle);
 
-    if (currentPath === lastId && currentTitle === encodedTitle) return;
+    const docChanged = !(currentPath === lastId && currentTitle === encodedTitle);
 
+    // 쿼리는 먼저 정규화
     search.set('path', lastId);
     search.set('title', encodedTitle);
     search.delete('_t');
 
-    const docChanged = !(currentPath === lastId && currentTitle === encodedTitle);
-
-    // ✅ 문서 이동이면 hash(#heading-...)는 싹 제거
+    // 문서 이동이면 현재 hash를 승계하지 않음
     const hash = docChanged ? '' : (window.location.hash || '');
     const nextUrl = window.location.pathname + '?' + search.toString() + hash;
+
+    // 이미 완전히 같은 URL이면 불필요한 push 방지
+    const currentUrl =
+      window.location.pathname + window.location.search + (window.location.hash || '');
+    if (currentUrl === nextUrl) return;
+
     ignoreNextUrlSyncRef.current = true;
 
     // docChanged가 true인 순간은 "문서 이동"이므로 replace 금지

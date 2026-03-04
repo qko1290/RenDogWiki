@@ -204,6 +204,31 @@ function normalizeToAppHref(rawHref: string) {
   }
 }
 
+function stripWikiFragment(rawHref: string) {
+  try {
+    const base =
+      typeof window !== "undefined" ? window.location.origin : "https://dummy.local";
+    const u = new URL(rawHref, base);
+
+    const sameOrigin =
+      typeof window === "undefined" || u.origin === window.location.origin;
+
+    // 내부 위키 링크만 fragment 제거
+    if (sameOrigin && u.pathname.startsWith("/wiki")) {
+      u.hash = "";
+    }
+
+    if (typeof window !== "undefined" && u.origin === window.location.origin) {
+      return `${u.pathname}${u.search}${u.hash}`;
+    }
+
+    return u.toString();
+  } catch {
+    // fallback: #fragment 제거
+    return rawHref.replace(/#.*$/, "");
+  }
+}
+
 function isInternalWikiHref(rawHref: string) {
   try {
     const base =
@@ -619,7 +644,10 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
   const rawHref = el.url || "#";
 
   // ✅ same-origin 절대URL도 /wiki?... 형태로 정규화
-  const normalizedHref = React.useMemo(() => normalizeToAppHref(rawHref), [rawHref]);
+  const normalizedHref = React.useMemo(() => {
+    const base = normalizeToAppHref(rawHref);
+    return isWikiLink ? stripWikiFragment(base) : base;
+  }, [rawHref, isWikiLink]);
 
   // --- UI ---
   const [hovered, setHovered] = useState(false);
@@ -648,10 +676,8 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
     e.preventDefault();
     e.stopPropagation();
 
-    // ❌ 제거: window.history.pushState(null, "", normalizedHref);
-
-    // ✅ 내부 링크는 router.push로만 이동
-    router.push(normalizedHref);
+    // history.pushState 제거
+    router.push(normalizedHref, { scroll: false });
   };
 
   return (
@@ -2974,8 +3000,9 @@ function renderNode(
     case "link": {
       const rawHref = String(node.url ?? "");
       const internal = isInternalWikiHref(rawHref);
-      const href = normalizeToAppHref(rawHref);
-
+      const hrefBase = normalizeToAppHref(rawHref);
+      const href = internal ? stripWikiFragment(hrefBase) : hrefBase;
+      
       if (internal) {
         return (
           <Link
