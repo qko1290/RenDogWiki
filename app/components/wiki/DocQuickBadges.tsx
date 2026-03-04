@@ -48,32 +48,41 @@ export default function DocQuickBadges({
     let raf = 0;
 
     const onMove = (e: MouseEvent) => {
-      const el = rootRef.current;
-      if (!el) return;
+        const el = rootRef.current;
+        if (!el) return;
 
-      const rect = el.getBoundingClientRect();
-      const cx = rect.left + 23; // 46/2
-      const cy = rect.bottom - 23;
+        const rect = el.getBoundingClientRect();
 
-      const dx = e.clientX - cx;
-      const dy = e.clientY - cy;
-      const dist = Math.sqrt(dx * dx + dy * dy);
+        // 메인 원 중심
+        const cx = rect.left + 23;
+        const cy = rect.bottom - 23;
 
-      if (raf) cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
+        const x = e.clientX;
+        const y = e.clientY;
+
+        // ✅ 감지 범위
+        const withinX = x >= cx && x <= cx + 50;     // 오른쪽 50px
+        const withinY = y <= cy && y >= cy - 180;    // 위로 180px
+
+        const inside = withinX && withinY;
+
+        if (raf) cancelAnimationFrame(raf);
+
+        raf = requestAnimationFrame(() => {
         setOpen((prev) => {
-          if (!prev) return dist <= openRadius;
-          return dist <= openRadius + closePadding;
+            if (!prev) return inside;
+            return inside;
         });
-      });
+        });
     };
 
     window.addEventListener('mousemove', onMove, { passive: true });
+
     return () => {
-      if (raf) cancelAnimationFrame(raf);
-      window.removeEventListener('mousemove', onMove);
+        if (raf) cancelAnimationFrame(raf);
+        window.removeEventListener('mousemove', onMove);
     };
-  }, [openRadius, closePadding]);
+    }, []);
 
   const stack = useMemo(() => items.slice(0, 3), [items]);
 
