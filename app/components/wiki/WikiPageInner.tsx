@@ -1689,17 +1689,17 @@ export default function WikiPageInner({ user }: Props) {
         items={[
           {
             icon: '🏠',
-            title: '홈(루트)',
-            href: '/wiki?path=0&title=렌독_위키',
+            title: '퀘스트',
+            href: 'wiki?path=27&title=%ED%80%98%EC%8A%A4%ED%8A%B8&mode=RPG',
           },
           {
             icon: '📘',
-            title: '뉴비 가이드',
+            title: '머리찾기',
             href: '/wiki?path=0&title=뉴비_가이드',
           },
           {
             icon: '🧭',
-            title: '길라잡이',
+            title: '시세표',
             href: '/wiki?path=0&title=길라잡이',
           },
         ]}
