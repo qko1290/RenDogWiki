@@ -676,12 +676,12 @@ export default function TableOfContents({
                 <img
                   src={toProxyUrl(resolvedDocIcon)}
                   alt=""
-                  width={20}
-                  height={20}
+                  width={24}
+                  height={24}
                   loading="lazy"
                   decoding="async"
                   draggable={false}
-                  style={{ width: 20, height: 20, objectFit: 'contain', display: 'block' }}
+                  style={{ width: 24, height: 24, objectFit: 'contain', display: 'block' }}
                 />
               ) : resolvedDocIcon ? (
                 <span style={{ fontSize: 18, lineHeight: 1, display: 'block' }}>
@@ -763,14 +763,14 @@ export default function TableOfContents({
                   <img
                     src={toProxyUrl(resolvedDocIcon)}
                     alt=""
-                    width={20}
-                    height={20}
+                    width={24}
+                    height={24}
                     loading="lazy"
                     decoding="async"
                     draggable={false}
                     style={{
-                      width: 20,
-                      height: 20,
+                      width: 24,
+                      height: 24,
                       objectFit: 'contain',
                       display: 'block',
                     }}
@@ -859,14 +859,14 @@ export default function TableOfContents({
                     <img
                       src={toProxyUrl(h.icon)}
                       alt=""
-                      width={16}
-                      height={16}
+                      width={24}
+                      height={24}
                       loading="lazy"
                       decoding="async"
                       draggable={false}
                       style={{
-                        width: 16,
-                        height: 16,
+                        width: 24,
+                        height: 24,
                         objectFit: 'contain',
                         display: 'block',
                       }}
