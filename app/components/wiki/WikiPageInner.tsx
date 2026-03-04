@@ -20,6 +20,7 @@ import HeadDetailModal from './HeadDetailModal';
 import FaqList, { FaqDetailModal, fetchFaqDetail, type FaqItem } from './FaqList';
 import FaqUpsertModal from '@/components/wiki/FaqUpsertModal';
 import { toProxyUrl } from '@lib/cdn';
+import DocQuickBadges from './DocQuickBadges';
 
 import { Descendant } from 'slate';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -1682,6 +1683,27 @@ export default function WikiPageInner({ user }: Props) {
           }}
         />
       )}
+
+      <DocQuickBadges
+        hidden={hold || loadingDoc} // hold/로딩 중엔 숨김(원하면 제거)
+        items={[
+          {
+            icon: '🏠',
+            title: '홈(루트)',
+            href: '/wiki?path=0&title=렌독_위키',
+          },
+          {
+            icon: '📘',
+            title: '뉴비 가이드',
+            href: '/wiki?path=0&title=뉴비_가이드',
+          },
+          {
+            icon: '🧭',
+            title: '길라잡이',
+            href: '/wiki?path=0&title=길라잡이',
+          },
+        ]}
+      />
 
       {/* 콘텐츠 페이드 전환 + 제목/링크 버튼 스타일 */}
       <style jsx global>{`
