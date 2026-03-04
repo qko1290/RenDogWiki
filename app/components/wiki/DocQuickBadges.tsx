@@ -21,8 +21,11 @@ type Props = {
   /** hover 시 알약 배경색 */
   hoverBg?: string;
 
-  /** 펼침 중 hover 잠금 시간(ms) */
-  hoverCooldownMs?: number; // default 650
+  /**
+   * ✅ 펼침 직후 hover 확장 잠금(깜빡임 방지)
+   * - 너무 길면 “렉”처럼 느껴져서 기본을 짧게 잡음
+   */
+  hoverCooldownMs?: number; // default 220
 };
 
 export default function DocQuickBadges({
@@ -32,16 +35,17 @@ export default function DocQuickBadges({
   hidden,
   expandWidth = 150,
   hoverBg = 'rgb(255, 69, 69)',
-  hoverCooldownMs = 650,
+  hoverCooldownMs = 220,
 }: Props) {
   const router = useRouter();
   const rootRef = useRef<HTMLDivElement | null>(null);
 
   const [open, setOpen] = useState(false);
 
-  // ✅ 펼침 직후 hover 확장 잠금(깜빡임 방지)
+  // ✅ 펼침 직후 hover 확장 잠금(깜빡임 방지) — "짧고 1회성"
   const [hoverLock, setHoverLock] = useState(false);
   const hoverLockTimerRef = useRef<number | null>(null);
+  const prevOpenRef = useRef(false);
 
   const stack = useMemo(() => items.slice(0, 3), [items]);
 
@@ -49,8 +53,12 @@ export default function DocQuickBadges({
     router.push(href, { scroll: false });
   };
 
-  // ✅ open이 true로 들어가면 일정 시간 hover 확장 막기
+  // ✅ open이 false→true 되는 순간에만 잠깐 잠그고 자동 해제
   useEffect(() => {
+    const wasOpen = prevOpenRef.current;
+    prevOpenRef.current = open;
+
+    // 닫히면 즉시 해제
     if (!open) {
       setHoverLock(false);
       if (hoverLockTimerRef.current) {
@@ -60,15 +68,19 @@ export default function DocQuickBadges({
       return;
     }
 
-    setHoverLock(true);
+    // ✅ 처음 열릴 때만 1회성 잠금
+    if (!wasOpen && open) {
+      setHoverLock(true);
 
-    if (hoverLockTimerRef.current) window.clearTimeout(hoverLockTimerRef.current);
-    hoverLockTimerRef.current = window.setTimeout(() => {
-      setHoverLock(false);
-      hoverLockTimerRef.current = null;
-    }, hoverCooldownMs);
+      if (hoverLockTimerRef.current) window.clearTimeout(hoverLockTimerRef.current);
+      hoverLockTimerRef.current = window.setTimeout(() => {
+        setHoverLock(false);
+        hoverLockTimerRef.current = null;
+      }, Math.max(0, hoverCooldownMs));
+    }
 
     return () => {
+      // unmount 시 정리
       if (hoverLockTimerRef.current) {
         window.clearTimeout(hoverLockTimerRef.current);
         hoverLockTimerRef.current = null;
@@ -261,7 +273,7 @@ export default function DocQuickBadges({
           font-size: 0 !important;
         }
 
-        /* ✅ hover 확장: 메인 제외 + (핵심) hover-lock 동안은 비활성 */
+        /* ✅ hover 확장: 메인 제외 + hover-lock 동안은 비활성 */
         .qbd-root:not(.hover-lock) .qbd-btn:not(.qbd-main):hover::before,
         .qbd-root:not(.hover-lock) .qbd-btn:not(.qbd-main):focus-visible::before {
           width: calc(46px + var(--qbd-expand));
