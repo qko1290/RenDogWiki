@@ -641,6 +641,7 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
   const handleClick = (e: React.MouseEvent) => {
     if (!isWikiLink) return;
 
+    // 새 탭/특수 클릭은 브라우저 기본 동작 유지
     const any = e as any;
     if (any.metaKey || any.ctrlKey || any.shiftKey || any.altKey) return;
     if (e.button !== 0) return;
@@ -648,8 +649,7 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
     e.preventDefault();
     e.stopPropagation();
 
-    // ❌ 제거: window.history.pushState(null, "", normalizedHref);
-    // ✅ 유지: Next router로만 이동
+    // ✅ 핵심: pushState 제거 (이게 있으면 첫 클릭이 씹히는 케이스가 생김)
     router.push(normalizedHref);
   };
 

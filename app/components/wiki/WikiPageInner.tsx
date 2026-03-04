@@ -329,33 +329,27 @@ export default function WikiPageInner({ user }: Props) {
 
     const encodedTitle = encodeTitleForUrlParam(docTitle);
 
-    // ✅ sameDoc 먼저 판정
-    const sameDoc = currentPath === lastId && currentTitle === encodedTitle;
+    if (currentPath === lastId && currentTitle === encodedTitle) return;
 
-    // ✅ 파라미터는 항상 정규화(특히 _t 제거)
     search.set('path', lastId);
     search.set('title', encodedTitle);
     search.delete('_t');
 
-    // ✅ 핵심: "문서 이동"이면 hash(heading) 제거
-    const hash = sameDoc ? (window.location.hash || '') : '';
+    const docChanged = !(currentPath === lastId && currentTitle === encodedTitle);
 
+    // ✅ 핵심: 문서 이동(docChanged)에는 기존 #heading 해시를 절대 따라가지 않게 한다
+    const hash = docChanged ? '' : (window.location.hash || '');
     const nextUrl = window.location.pathname + '?' + search.toString() + hash;
-
-    // ✅ 이미 동일 URL이면 아무 것도 하지 않음 (불필요 push로 인한 “새로고침 느낌” 방지)
-    const currentUrl =
-      window.location.pathname + window.location.search + (window.location.hash || '');
-    if (currentUrl === nextUrl) return;
 
     ignoreNextUrlSyncRef.current = true;
 
-    // ✅ 문서 이동이면 무조건 push (뒤로가기 히스토리 남김)
-    if (!sameDoc) {
+    // docChanged가 true인 순간은 "문서 이동"이므로 replace 금지
+    if (docChanged) {
       router.push(nextUrl, { scroll: false });
       return;
     }
 
-    // ✅ 같은 문서에서 URL만 정리하는 케이스는 replace 허용
+    // 문서가 같은데 URL만 정리하는 케이스만 replace 허용
     if (options?.history === 'replace') {
       router.replace(nextUrl, { scroll: false });
     } else {
