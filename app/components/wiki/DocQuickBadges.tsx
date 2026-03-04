@@ -18,12 +18,6 @@ type Props = {
   /** hover 시 알약 확장 폭(텍스트 영역 포함) */
   expandWidth?: number; // default 140~190 권장
 
-  /** “가까이 대면 펼쳐짐” 반경(px) */
-  openRadius?: number; // default 90
-
-  /** 닫힘 히스테리시스(깜빡임 방지) */
-  closePadding?: number; // default 18
-
   /** hover 시 알약 배경색 */
   hoverBg?: string; // default rgb(255, 69, 69)
 };
@@ -34,8 +28,6 @@ export default function DocQuickBadges({
   mainTitle = '바로가기',
   hidden,
   expandWidth = 150,
-  openRadius = 90,
-  closePadding = 18,
   hoverBg = 'rgb(255, 69, 69)',
 }: Props) {
   const router = useRouter();
@@ -43,46 +35,45 @@ export default function DocQuickBadges({
 
   const [open, setOpen] = useState(false);
 
-  // ✅ 커서 거리 기반 open (DOM 오버레이 없음 → 클릭 방해 0%)
+  // ✅ 감지 영역(직사각형)
+  // - 위로 180px
+  // - 왼쪽 100px 허용
+  // - 오른쪽 50px
+  // - 아래는 0(메인 원 기준 위쪽만)
   useEffect(() => {
     let raf = 0;
 
     const onMove = (e: MouseEvent) => {
-        const el = rootRef.current;
-        if (!el) return;
+      const el = rootRef.current;
+      if (!el) return;
 
-        const rect = el.getBoundingClientRect();
+      const rect = el.getBoundingClientRect();
 
-        // 메인 원 중심
-        const cx = rect.left + 23;
-        const cy = rect.bottom - 23;
+      // 메인 원(46px) 중심
+      const cx = rect.left + 23;
+      const cy = rect.bottom - 23;
 
-        const x = e.clientX;
-        const y = e.clientY;
+      const x = e.clientX;
+      const y = e.clientY;
 
-        // ✅ 감지 범위
-        const withinX = x >= cx && x <= cx + 50;     // 오른쪽 50px
-        const withinY = y <= cy && y >= cy - 180;    // 위로 180px
+      const inside =
+        x >= cx - 100 &&
+        x <= cx + 50 &&
+        y <= cy &&
+        y >= cy - 180;
 
-        const inside = withinX && withinY;
-
-        if (raf) cancelAnimationFrame(raf);
-
-        raf = requestAnimationFrame(() => {
-        setOpen((prev) => {
-            if (!prev) return inside;
-            return inside;
-        });
-        });
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        setOpen(inside);
+      });
     };
 
     window.addEventListener('mousemove', onMove, { passive: true });
-
     return () => {
-        if (raf) cancelAnimationFrame(raf);
-        window.removeEventListener('mousemove', onMove);
+      if (raf) cancelAnimationFrame(raf);
+      window.removeEventListener('mousemove', onMove);
     };
-    }, []);
+  }, []);
 
   const stack = useMemo(() => items.slice(0, 3), [items]);
 
@@ -134,7 +125,7 @@ export default function DocQuickBadges({
             onClick={() => go(it.href)}
             aria-label={it.title}
             title={it.title}
-            data-label={it.title} // ✅ ::after로 텍스트 표시
+            data-label={it.title}
           >
             <span className="qbd-ic" aria-hidden>
               {it.icon}
@@ -172,9 +163,6 @@ export default function DocQuickBadges({
 
         /* =========================
            버튼(원) + 레퍼런스 알약 확장 스타일
-           - 기본: 원(46px)
-           - hover: ::before가 width 확장 + radius 50px + 배경색 변경
-           - 텍스트: ::after에서 등장(레퍼런스의 content 방식)
            ========================= */
         .qbd-btn {
           position: absolute;
@@ -196,13 +184,12 @@ export default function DocQuickBadges({
 
           overflow: visible;
 
-          /* ✅ 위로 펼침 부드럽게 */
           transition:
             transform 520ms cubic-bezier(0.22, 1, 0.36, 1),
             opacity 220ms ease;
         }
 
-        /* 레퍼런스 느낌의 기본 원 배경 */
+        /* 기본 원 배경 */
         .qbd-btn::before {
           content: '';
           position: absolute;
@@ -222,7 +209,7 @@ export default function DocQuickBadges({
             box-shadow 240ms ease;
         }
 
-        /* 텍스트: 레퍼런스의 ::before 텍스트 등장 느낌을 ::after로 구현 */
+        /* 텍스트 */
         .qbd-btn::after {
           content: attr(data-label);
           position: absolute;
@@ -232,7 +219,7 @@ export default function DocQuickBadges({
 
           color: white;
           font-weight: 700;
-          font-size: 2px; /* 레퍼런스처럼 처음엔 작게/거의 안 보이게 */
+          font-size: 2px;
           opacity: 0;
 
           padding-right: 12px;
@@ -245,16 +232,24 @@ export default function DocQuickBadges({
             transform 240ms ease;
         }
 
-        .qbd-btn:hover::before,
-        .qbd-btn:focus-visible::before {
+        /* ✅ 메인 원은 hover 확장/텍스트 표시 절대 금지 */
+        .qbd-main::after {
+          content: '';
+          opacity: 0 !important;
+          font-size: 0 !important;
+        }
+
+        /* ✅ hover 확장: 메인 제외 */
+        .qbd-btn:not(.qbd-main):hover::before,
+        .qbd-btn:not(.qbd-main):focus-visible::before {
           width: calc(46px + var(--qbd-expand));
           border-radius: 50px;
           background-color: var(--qbd-hover-bg);
           box-shadow: 0px 0px 22px rgba(0, 0, 0, 0.22);
         }
 
-        .qbd-btn:hover::after,
-        .qbd-btn:focus-visible::after {
+        .qbd-btn:not(.qbd-main):hover::after,
+        .qbd-btn:not(.qbd-main):focus-visible::after {
           opacity: 1;
           font-size: 13px;
           transform: translateY(-50%);
@@ -284,17 +279,13 @@ export default function DocQuickBadges({
           transform: none;
         }
 
-        /* =========================
-           open 시 메인 원 숨김
-           ========================= */
+        /* open 시 메인 원 숨김 */
         .qbd-main.is-hidden {
           opacity: 0;
           pointer-events: none;
         }
 
-        /* =========================
-           펼침 버튼 visibility
-           ========================= */
+        /* 펼침 버튼 visibility */
         .qbd-item {
           opacity: 0;
           pointer-events: none;
@@ -304,7 +295,7 @@ export default function DocQuickBadges({
           pointer-events: auto;
         }
 
-        /* 모바일: hover 없음 → 텍스트 숨김 유지 */
+        /* 모바일: hover 없음 → 텍스트 숨김 */
         @media (hover: none) {
           .qbd-btn::after {
             display: none;
