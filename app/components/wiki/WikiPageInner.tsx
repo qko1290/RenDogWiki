@@ -323,30 +323,30 @@ export default function WikiPageInner({ user }: Props) {
     const currentTitle = search.get('title');
 
     const lastId =
-      !fullPath || fullPath.length === 0
-        ? '0'
-        : String(fullPath[fullPath.length - 1]);
+      !fullPath || fullPath.length === 0 ? '0' : String(fullPath[fullPath.length - 1]);
 
     const encodedTitle = encodeTitleForUrlParam(docTitle);
 
+    // ✅ 현재 URL이 이미 동일하면 굳이 동기화 안 함
     if (currentPath === lastId && currentTitle === encodedTitle) return;
 
     search.set('path', lastId);
     search.set('title', encodedTitle);
     search.delete('_t');
 
-    const hash = window.location.hash || '';
+    // ✅ 문서가 바뀌는 순간(doc 이동)에는 hash를 붙이지 않는다!
+    const docChanged = !(currentPath === lastId && currentTitle === encodedTitle);
+    const hash = docChanged ? '' : (window.location.hash || '');
+
     const nextUrl = window.location.pathname + '?' + search.toString() + hash;
 
     ignoreNextUrlSyncRef.current = true;
-
-    const docChanged = !(currentPath === lastId && currentTitle === encodedTitle);
 
     // docChanged가 true인 순간은 "문서 이동"이므로 replace 금지
     if (docChanged) {
       router.push(nextUrl, { scroll: false });
       return;
-    } 
+    }
 
     // 문서가 같은데 URL만 정리하는 케이스만 replace 허용
     if (options?.history === 'replace') {
