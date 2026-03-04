@@ -644,10 +644,7 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
   const rawHref = el.url || "#";
 
   // ✅ same-origin 절대URL도 /wiki?... 형태로 정규화
-  const normalizedHref = React.useMemo(() => {
-    const base = normalizeToAppHref(rawHref);
-    return isWikiLink ? stripWikiFragment(base) : base;
-  }, [rawHref, isWikiLink]);
+  const normalizedHref = React.useMemo(() => normalizeToAppHref(rawHref), [rawHref]);
 
   // --- UI ---
   const [hovered, setHovered] = useState(false);
@@ -3000,9 +2997,8 @@ function renderNode(
     case "link": {
       const rawHref = String(node.url ?? "");
       const internal = isInternalWikiHref(rawHref);
-      const hrefBase = normalizeToAppHref(rawHref);
-      const href = internal ? stripWikiFragment(hrefBase) : hrefBase;
-      
+      const href = normalizeToAppHref(rawHref);
+
       if (internal) {
         return (
           <Link

@@ -334,7 +334,7 @@ export default function WikiPageInner({ user }: Props) {
     search.delete('_t');
 
     // 문서 이동이면 현재 hash를 승계하지 않음
-    const hash = docChanged ? '' : (window.location.hash || '');
+    const hash = window.location.hash || '';
     const nextUrl = window.location.pathname + '?' + search.toString() + hash;
 
     // 이미 완전히 같은 URL이면 불필요한 push 방지
