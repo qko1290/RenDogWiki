@@ -99,7 +99,7 @@ export default function DocQuickBadges({
       const x = e.clientX;
       const y = e.clientY;
 
-      const inside = x >= cx - 100 && x <= cx + 50 && y <= cy && y >= cy - 180;
+      const inside = x >= cx - 100 && x <= cx + 50 && y <= cy + 50 && y >= cy - 180;
 
       if (raf) cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => setOpen(inside));
