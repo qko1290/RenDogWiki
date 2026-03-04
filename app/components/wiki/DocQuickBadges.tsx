@@ -133,8 +133,8 @@ export default function DocQuickBadges({
 
         .qbd-hitbox {
           position: absolute;
-          width: 170px;
-          height: 170px;
+          width: 130px;
+          height: 130px;
           left: -8px;
           bottom: -8px;
           border-radius: 999px;
