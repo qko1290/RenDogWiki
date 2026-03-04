@@ -334,9 +334,8 @@ export default function WikiPageInner({ user }: Props) {
 
     const docChanged = !(currentPath === lastId && currentTitle === encodedTitle);
 
-    // ✅ 핵심: 문서 이동이면 해시는 싹 제거
+    // ✅ 문서 이동이면 hash(#heading-...)는 싹 제거
     const hash = docChanged ? '' : (window.location.hash || '');
-
     const nextUrl = window.location.pathname + '?' + search.toString() + hash;
     ignoreNextUrlSyncRef.current = true;
 
