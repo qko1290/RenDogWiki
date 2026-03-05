@@ -282,26 +282,53 @@ export default function WikiPageInner({ user }: Props) {
   const searchParams = useSearchParams();
   const contentRef = useRef<HTMLDivElement>(null);
 
+  
   const scrollToHashTarget = (rawHash: string) => {
     if (typeof window === 'undefined') return;
     if (!rawHash) return;
 
-    const hash = rawHash.startsWith('#') ? rawHash : `#${rawHash}`;
-    const id = decodeURIComponent(hash.slice(1));
-    if (!id) return;
+    const raw = rawHash.startsWith('#') ? rawHash.slice(1) : rawHash;
+    if (!raw) return;
+
+    let decoded = raw;
+    try {
+      decoded = decodeURIComponent(raw);
+    } catch {}
+
+    // ✅ 새/구형 id 모두 대응
+    const candidates = (() => {
+      const list: string[] = [];
+
+      // 그대로
+      list.push(decoded);
+
+      // base id면 legacy(--0)도 시도
+      if (!/--\d+$/.test(decoded)) {
+        list.push(`${decoded}--0`);
+      }
+
+      // legacy(--0)면 base id도 시도
+      if (/--0$/.test(decoded)) {
+        list.push(decoded.replace(/--0$/, ''));
+      }
+
+      return Array.from(new Set(list));
+    })();
 
     let tries = 0;
-    const maxTries = 12;
+    const maxTries = 16;
 
     const tick = () => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.scrollIntoView({
-          block: 'start',
-          inline: 'nearest',
-          behavior: 'auto',
-        });
-        return;
+      for (const id of candidates) {
+        const el = document.getElementById(id);
+        if (el) {
+          el.scrollIntoView({
+            block: 'start',
+            inline: 'nearest',
+            behavior: 'auto',
+          });
+          return;
+        }
       }
 
       tries += 1;
@@ -1040,19 +1067,27 @@ export default function WikiPageInner({ user }: Props) {
       setSelectedDocPath(nextPath);
       setHideDocChrome(Number(data?.id) === ROOT_FEATURED_DOC_ID);
 
-      // ✅ URL(searchParams)로 들어온 이동이면 URL 재동기화 금지
+      const requestedHash = pendingLinkHashRef.current || '';
+
       if (isPopStateSyncRef.current) {
         isPopStateSyncRef.current = false;
       } else {
         syncUrlWithDoc(data.title ?? null, nextPath, {
           history: 'replace',
-          hash: '',
+          hash: requestedHash,
         });
       }
       pendingLinkHashRef.current = '';
 
-      setHideDocChrome(!!opts?.hideChrome || Number(data?.id) === ROOT_FEATURED_DOC_ID);
-      setLoadingDoc(false);
+      if (requestedHash) {
+        scrollToHashTarget(requestedHash);
+      }
+      setLoadingDoc(false); // 성공 종료
+
+      // ✅ 브라우저 기본 앵커 이동을 막았으므로, 렌더 후 수동 스크롤
+      if (requestedHash) {
+        scrollToHashTarget(requestedHash);
+      }
     } catch {
       if (!mountedRef.current || reqId !== docReqIdRef.current) return;
       setDocContent(null);

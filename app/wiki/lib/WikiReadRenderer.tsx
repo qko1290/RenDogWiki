@@ -2947,12 +2947,11 @@ function renderNode(
       const textContent = stripReact(safeChildren).trim();
       const baseId = toHeadingIdFromText(textContent);
 
-      // ✅ occ 계산
       const occ = ctx?.headingOccRef.current.get(baseId) ?? 0;
       ctx?.headingOccRef.current.set(baseId, occ + 1);
 
-      // ✅ DOM에 붙을 고유 id
-      const domId = `${baseId}--${occ}`;
+      // ✅ 첫 번째는 suffix 없음, 중복부터만 --1, --2 ...
+      const domId = occ === 0 ? baseId : `${baseId}--${occ}`;
 
       const level =
         node.type === "heading-one"
