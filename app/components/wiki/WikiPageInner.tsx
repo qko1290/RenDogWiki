@@ -282,6 +282,37 @@ export default function WikiPageInner({ user }: Props) {
   const searchParams = useSearchParams();
   const contentRef = useRef<HTMLDivElement>(null);
 
+  const scrollToHashTarget = (rawHash: string) => {
+    if (typeof window === 'undefined') return;
+    if (!rawHash) return;
+
+    const hash = rawHash.startsWith('#') ? rawHash : `#${rawHash}`;
+    const id = decodeURIComponent(hash.slice(1));
+    if (!id) return;
+
+    let tries = 0;
+    const maxTries = 12;
+
+    const tick = () => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({
+          block: 'start',
+          inline: 'nearest',
+          behavior: 'auto',
+        });
+        return;
+      }
+
+      tries += 1;
+      if (tries < maxTries) {
+        requestAnimationFrame(tick);
+      }
+    };
+
+    requestAnimationFrame(tick);
+  };
+
   // ✅ 문서가 열리면 해당 문서의 카테고리 경로를 전부 펼치기
   const ensureOpenForDocPath = (docPath: number[] | null | undefined) => {
     if (!Array.isArray(docPath)) return;
@@ -916,8 +947,18 @@ export default function WikiPageInner({ user }: Props) {
         setHideDocChrome(Number(data?.id) === ROOT_FEATURED_DOC_ID);
         ensureOpenForDocPath(nextPath);
 
+        // ✅ 이번 로드가 "URL 기반 진입"인지 먼저 캡처
+        const cameFromUrl = isPopStateSyncRef.current;
+
+        // ✅ 이번 로드에서 써야 할 hash
+        // - 하이퍼링크/인라인 링크 클릭이면 pendingLinkHashRef
+        // - 주소창/뒤로가기 진입이면 현재 URL hash
+        const requestedHash =
+          pendingLinkHashRef.current ||
+          (cameFromUrl && typeof window !== 'undefined' ? window.location.hash || '' : '');
+
         // ✅ 문서 로드 후 URL ?path=&title= 동기화
-        if (isPopStateSyncRef.current) {
+        if (cameFromUrl) {
           isPopStateSyncRef.current = false;
         } else {
           syncUrlWithDoc(
@@ -925,13 +966,18 @@ export default function WikiPageInner({ user }: Props) {
             nextPath,
             {
               history: 'push',
-              hash: pendingLinkHashRef.current || '',
+              hash: requestedHash,
             }
           );
         }
-        pendingLinkHashRef.current = '';
 
+        pendingLinkHashRef.current = '';
         setLoadingDoc(false); // 성공 종료
+
+        // ✅ 하이퍼링크/인라인 링크의 heading 앵커 수동 스크롤
+        if (requestedHash) {
+          scrollToHashTarget(requestedHash);
+        }
       })
       .catch(() => {
         if (!mountedRef.current || reqId !== docReqIdRef.current) return;
