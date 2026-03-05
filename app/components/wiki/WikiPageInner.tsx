@@ -1692,7 +1692,7 @@ export default function WikiPageInner({ user }: Props) {
             href: 'wiki?path=27&title=%ED%80%98%EC%8A%A4%ED%8A%B8&mode=RPG',
           },
           {
-            icon: 'quest',
+            icon: 'head',
             title: '머리찾기',
             href: 'wiki?path=53&title=%EB%A8%B8%EB%A6%AC%EC%B0%BE%EA%B8%B0&mode=RPG',
           },
