@@ -96,6 +96,30 @@ function getInitialMode(): string | null {
   return v && MODE_WHITELIST.has(v) ? v : null;
 }
 
+function ymdKey(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}${m}${dd}`;
+}
+
+function sendDocView(documentId: number) {
+  const payload = JSON.stringify({ documentId });
+
+  if (typeof navigator !== 'undefined' && 'sendBeacon' in navigator) {
+    const blob = new Blob([payload], { type: 'application/json' });
+    (navigator as any).sendBeacon('/api/wiki/view', blob);
+    return;
+  }
+
+  fetch('/api/wiki/view', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: payload,
+    cache: 'no-store',
+  }).catch(() => {});
+}
+
 // no-cache 유틸
 const withTs = (url: string) =>
   url + (url.includes('?') ? '&' : '?') + '_ts=' + Date.now();
@@ -1450,6 +1474,28 @@ export default function WikiPageInner({ user }: Props) {
   // 로딩/보이기 제어: 딜레이 중에도 로더만 보이도록 hold 사용
   const isLoadingView = loadingDoc || docContent === null;
   const hold = isLoadingView || delaying;
+
+  // ✅ 문서 조회수 기록
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const docId = selectedDocId;
+    if (!docId) return;
+
+    // 문서가 완전히 열린 상태에서만 카운트
+    if (loadingDoc) return;
+    if (hold) return;
+    if (docContent === null) return;
+
+    const key = `docview:${ymdKey()}:${docId}`;
+
+    try {
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, '1');
+    } catch {}
+
+    sendDocView(docId);
+  }, [selectedDocId, loadingDoc, hold, docContent]);
 
   useEffect(() => {
     if (hold) return;
