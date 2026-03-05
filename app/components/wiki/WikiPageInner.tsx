@@ -1036,14 +1036,6 @@ export default function WikiPageInner({ user }: Props) {
       // ✅ 링크 클릭 즉시 로딩 느낌 먼저 주기
       setLoadingDoc(true);
 
-      // ✅ 해시가 있으면 먼저 URL에 반영
-      if (url.hash) {
-        try {
-          // 쿼리/path/title까지 재조립해서 덮어쓰지 말고, 해시만 replace
-          window.history.replaceState(null, '', url.hash);
-        } catch {}
-      }
-
       // ✅ 루트 문서
       if (path === '0') {
         fetchDoc([], title, undefined, {
