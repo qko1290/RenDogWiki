@@ -83,7 +83,7 @@ export default function TableOfContents({
   const pickClosestDomId = (): { domId: string; index: number } | null => {
     if (!indexed.length) return null;
 
-    const root = getRootForObserver(); // HTMLElement | null (scroll-root면 HTMLElement)
+    const root = getScrollRootEl(); // HTMLElement | null (scroll-root면 HTMLElement)
     const baseScrollTop = root ? root.scrollTop : window.scrollY;
 
     // ✅ "컨테이너 기준" 헤더 라인 (scrollTop 좌표계)
@@ -198,14 +198,8 @@ export default function TableOfContents({
     return parent ?? tocRef.current;
   };
 
-  const getRootForObserver = () => {
-    const root = rootRef.current;
-    if (!root) return null;
-    const { overflowY } = getComputedStyle(root);
-    const canScroll =
-      /(auto|scroll)/.test(overflowY) &&
-      root.scrollHeight > root.clientHeight + 1;
-    return canScroll ? root : null;
+  const getScrollRootEl = () => {
+    return rootRef.current; // selector로 잡힌 #wiki-scroll-root를 그대로 사용
   };
 
   const getScrollRoot = (target: HTMLElement | null): HTMLElement | null => {
@@ -302,13 +296,12 @@ export default function TableOfContents({
   useEffect(() => {
     if (!indexed.length) return;
 
-    const root = getRootForObserver(); // HTMLElement | null
+    const root = getScrollRootEl(); // ✅ canScroll 검사 없이 "그냥" root 사용
     let raf = 0;
 
     const apply = () => {
       const picked = pickClosestDomId();
       if (!picked) return;
-
       setActiveDomId(picked.domId);
       setActiveIndex(picked.index);
     };
@@ -318,23 +311,28 @@ export default function TableOfContents({
       raf = requestAnimationFrame(apply);
     };
 
-    // ✅ 1) 로드 직후 2프레임 뒤에 한 번 맞춤 (DOM/레이아웃 안정화)
+    // ✅ 로드 직후 2프레임 뒤 한 번 계산
     const r1 = requestAnimationFrame(() => {
-      const r2 = requestAnimationFrame(() => {
-        apply();
-      });
-      // cleanup 대비
-      raf = r2;
+      requestAnimationFrame(apply);
     });
 
-    // ✅ 2) 스크롤 중에도 갱신 (root 있으면 root, 없으면 window)
-    const target: any = root ?? window;
-    target.addEventListener('scroll', onScroll, { passive: true });
+    // ✅ 핵심: 스크롤 이벤트는 "무조건 root"에 붙인다
+    // (root가 아직 안 잡혔으면 window에도 붙여서 안전망)
+    root?.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    // ✅ 내용 높이/레이아웃 변화(이미지 로딩 등)에도 갱신되게 ResizeObserver 추가
+    const ro = root
+      ? new ResizeObserver(() => onScroll())
+      : null;
+    if (root && ro) ro.observe(root);
 
     return () => {
       cancelAnimationFrame(r1);
       cancelAnimationFrame(raf);
-      target.removeEventListener('scroll', onScroll);
+      root?.removeEventListener('scroll', onScroll);
+      window.removeEventListener('scroll', onScroll);
+      if (root && ro) ro.disconnect();
     };
   }, [indexed, headerOffset, rootKey]);
 
