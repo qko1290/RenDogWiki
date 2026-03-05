@@ -83,34 +83,37 @@ export default function TableOfContents({
   const pickClosestDomId = (): { domId: string; index: number } | null => {
     if (!indexed.length) return null;
 
-    const root = getRootForObserver(); // scroll 가능한 root면 HTMLElement, 아니면 null(=window)
+    const root = getRootForObserver(); // HTMLElement | null (scroll-root면 HTMLElement)
+    const baseScrollTop = root ? root.scrollTop : window.scrollY;
 
-    const rootRectTop = root ? root.getBoundingClientRect().top : 0;
-    const headerLine = rootRectTop + headerOffset + 8; // IO에서 쓰는 기준과 맞춤
+    // ✅ "컨테이너 기준" 헤더 라인 (scrollTop 좌표계)
+    const baseLine = baseScrollTop + headerOffset + 8;
 
-    const els = indexed
+    // 각 heading의 "컨테이너 기준 Y" 계산
+    const items = indexed
       .map((h, i) => {
         const el = document.getElementById(h.domId!);
         if (!el) return null;
-        const top = el.getBoundingClientRect().top;
-        return { domId: h.domId!, index: i, delta: top - headerLine };
+
+        const y = getYInScrollRoot(el, root); // ✅ 컨테이너 기준
+        return { domId: h.domId!, index: i, delta: y - baseLine };
       })
       .filter(Boolean) as { domId: string; index: number; delta: number }[];
 
-    if (!els.length) return null;
+    if (!items.length) return null;
 
-    // 1) headerLine "위(또는 거의 같은)"에 있는 heading 중 가장 가까운 것(=delta가 0에 가장 가까운 음수)
-    let bestAbove: typeof els[number] | null = null;
-    for (const it of els) {
+    // 1) baseLine "위(지나온)" 중 가장 가까운 것(0에 가장 가까운 음수)
+    let bestAbove: typeof items[number] | null = null;
+    for (const it of items) {
       if (it.delta <= 0) {
         if (!bestAbove || it.delta > bestAbove.delta) bestAbove = it;
       }
     }
     if (bestAbove) return { domId: bestAbove.domId, index: bestAbove.index };
 
-    // 2) 위에 아무것도 없으면(맨 위 구간) 아래쪽 중 가장 가까운 것
-    let bestBelow = els[0];
-    for (const it of els) {
+    // 2) 위에 없으면(맨 위) 아래 중 가장 가까운 것(가장 작은 양수)
+    let bestBelow = items[0];
+    for (const it of items) {
       if (it.delta < bestBelow.delta) bestBelow = it;
     }
     return { domId: bestBelow.domId, index: bestBelow.index };
@@ -296,83 +299,6 @@ export default function TableOfContents({
     return () => cancelAnimationFrame(raf);
   }, [scrollRootSelector, indexed]);
 
-  // ✅ 스크롤 스파이: domId로 observe + active는 1개만 선택
-  useEffect(() => {
-    if (!indexed.length) return;
-    observerRef.current?.disconnect();
-
-    const obs = new IntersectionObserver(
-      (entries) => {
-        const visible = entries.filter((e) => e.isIntersecting);
-        if (!visible.length) return;
-
-        // 여러 개 보이면 "헤더라인에 가장 가까운 것" 하나만 선택
-        const headerLine = headerOffset + 8;
-        let best = visible[0];
-        let bestDist = Math.abs(best.boundingClientRect.top - headerLine);
-
-        for (const e of visible) {
-          const dist = Math.abs(e.boundingClientRect.top - headerLine);
-          if (dist < bestDist) {
-            best = e;
-            bestDist = dist;
-          }
-        }
-
-        const domId = (best.target as HTMLElement).id;
-        setActiveDomId(domId);
-
-        const idx = indexed.findIndex((h) => h.domId === domId);
-        if (idx !== -1) setActiveIndex(idx);
-      },
-      {
-        root: getRootForObserver(),
-        rootMargin: `-${headerOffset + 8}px 0px -70% 0px`,
-        threshold: [0, 0.1, 0.25, 0.5, 0.75, 1],
-      }
-    );
-
-    observerRef.current = obs;
-
-    const observed: HTMLElement[] = [];
-    indexed.forEach((h) => {
-      const el = document.getElementById(h.domId!);
-      if (!el) return;
-      obs.observe(el);
-      observed.push(el);
-    });
-
-    // ✅ 문서 로드 직후(사용자 스크롤/클릭 전)에도 active를 1번 강제로 잡아준다
-    // IntersectionObserver는 "교차 변화"가 없으면 콜백이 안 올 수 있음
-    requestAnimationFrame(() => {
-      if (!observed.length) return;
-
-      const headerLine = headerOffset + 8;
-
-      let bestEl = observed[0];
-      let bestDist = Math.abs(bestEl.getBoundingClientRect().top - headerLine);
-
-      for (const el of observed) {
-        const dist = Math.abs(el.getBoundingClientRect().top - headerLine);
-        if (dist < bestDist) {
-          bestEl = el;
-          bestDist = dist;
-        }
-      }
-
-      const domId = bestEl.id;
-      setActiveDomId(domId);
-
-      const idx = indexed.findIndex((h) => h.domId === domId);
-      if (idx !== -1) setActiveIndex(idx);
-    });
-
-    return () => {
-      observed.forEach((el) => obs.unobserve(el));
-      obs.disconnect();
-    };
-  }, [indexed, headerOffset, rootKey]);
-
   useEffect(() => {
     if (!indexed.length) return;
 
@@ -409,38 +335,6 @@ export default function TableOfContents({
       cancelAnimationFrame(r1);
       cancelAnimationFrame(raf);
       target.removeEventListener('scroll', onScroll);
-    };
-  }, [indexed, headerOffset, rootKey]);
-
-  // ✅ 문서 로드 직후에는 IO 콜백이 안 올 수 있어서(교차 변화 없음) 강제로 1번 잡아준다
-  useEffect(() => {
-    if (!indexed.length) return;
-
-    let raf = 0;
-    let tries = 0;
-    const maxTries = 40; // 대략 ~0.6초(환경에 따라 충분히)
-
-    const tick = () => {
-      tries += 1;
-
-      // DOM이 아직 안 붙었으면 false가 나옴 → 다음 프레임에 재시도
-      const ok = setActiveByClosest();
-      if (ok) return;
-
-      if (tries < maxTries) {
-        raf = requestAnimationFrame(tick);
-      }
-    };
-
-    // 첫 프레임부터 시작
-    raf = requestAnimationFrame(tick);
-
-    // 혹시 레이아웃/이미지 로딩으로 늦는 케이스 보강
-    const t = window.setTimeout(() => setActiveByClosest(), 300);
-
-    return () => {
-      cancelAnimationFrame(raf);
-      window.clearTimeout(t);
     };
   }, [indexed, headerOffset, rootKey]);
 
@@ -571,6 +465,14 @@ export default function TableOfContents({
       });
     }
   }, [activeIndex]);
+
+  function getYInScrollRoot(el: HTMLElement, root: HTMLElement | null) {
+    if (!root) {
+      return el.getBoundingClientRect().top + window.scrollY;
+    }
+    const rootRect = root.getBoundingClientRect();
+    return el.getBoundingClientRect().top - rootRect.top + root.scrollTop;
+  }
 
   // ===== 스타일 =====
   const boxStyle: React.CSSProperties = {
