@@ -245,12 +245,6 @@ export default function ViewsReportClient() {
           </table>
         </div>
       </div>
-
-      <div style={{ marginTop: 10, color: '#6b7280', fontSize: 12, lineHeight: 1.5 }}>
-        - 기본 정렬: 인기순(조회수 내림차순)<br />
-        - 집계 기준: total=누적, day=오늘(CURRENT_DATE), week=최근 7일 합산<br />
-        - 조회수는 화면에 렌더하지 않고, 문서가 열렸을 때만 증가
-      </div>
     </div>
   );
 }
