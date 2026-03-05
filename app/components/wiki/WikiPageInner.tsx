@@ -278,6 +278,7 @@ export default function WikiPageInner({ user }: Props) {
   const ignoreNextUrlSyncRef = useRef(false);
   const isPopStateSyncRef = useRef(false);
   const router = useRouter();
+  const pendingLinkHashRef = useRef<string>('');
   const searchParams = useSearchParams();
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -313,7 +314,7 @@ export default function WikiPageInner({ user }: Props) {
   const syncUrlWithDoc = (
     docTitle: string | null,
     fullPath: number[] | null | undefined,
-    options?: { history?: 'push' | 'replace' }
+    options?: { history?: 'push' | 'replace'; hash?: string }
   ) => {
     if (typeof window === 'undefined') return;
 
@@ -334,7 +335,7 @@ export default function WikiPageInner({ user }: Props) {
     search.delete('_t');
 
     // 문서 이동이면 현재 hash를 승계하지 않음
-    const hash = window.location.hash || '';
+    const hash = options?.hash ?? '';
     const nextUrl = window.location.pathname + '?' + search.toString() + hash;
 
     // 이미 완전히 같은 URL이면 불필요한 push 방지
@@ -922,9 +923,13 @@ export default function WikiPageInner({ user }: Props) {
           syncUrlWithDoc(
             data.title ?? docTitle,
             nextPath,
-            { history: 'push' }
+            {
+              history: 'push',
+              hash: pendingLinkHashRef.current || '',
+            }
           );
         }
+        pendingLinkHashRef.current = '';
 
         setLoadingDoc(false); // 성공 종료
       })
@@ -993,8 +998,12 @@ export default function WikiPageInner({ user }: Props) {
       if (isPopStateSyncRef.current) {
         isPopStateSyncRef.current = false;
       } else {
-        syncUrlWithDoc(data.title ?? null, nextPath, { history: 'replace' });
+        syncUrlWithDoc(data.title ?? null, nextPath, {
+          history: 'replace',
+          hash: '',
+        });
       }
+      pendingLinkHashRef.current = '';
 
       setHideDocChrome(!!opts?.hideChrome || Number(data?.id) === ROOT_FEATURED_DOC_ID);
       setLoadingDoc(false);
@@ -1042,17 +1051,10 @@ export default function WikiPageInner({ user }: Props) {
 
       e.preventDefault();
       e.stopPropagation();
-
+      pendingLinkHashRef.current = url.hash || '';
+      
       // ✅ 링크 클릭 즉시 로딩 느낌 먼저 주기
       setLoadingDoc(true);
-
-      // ✅ 해시가 있으면 먼저 URL에 반영
-      if (url.hash) {
-        try {
-          // 쿼리/path/title까지 재조립해서 덮어쓰지 말고, 해시만 replace
-          window.history.replaceState(null, '', url.hash);
-        } catch {}
-      }
 
       // ✅ 루트 문서
       if (path === '0') {
