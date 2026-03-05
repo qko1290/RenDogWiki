@@ -319,7 +319,10 @@ export default function TableOfContents({
 
       // ✅ root가 "내부 스크롤 컨테이너"면 headerOffset을 빼면 오히려 틀어질 확률이 큼
       // - 내부 스크롤일 땐 보통 header가 root 바깥(고정)이어서 root 좌표계에서 offset=0이 더 정확함
-      const effectiveOffset = root ? 0 : headerOffset;
+      const ACTIVE_BIAS_PX = 80;
+
+      // root가 있든 없든, 기준선을 조금 더 아래로 내린다
+      const effectiveOffset = (root ? 0 : headerOffset) + ACTIVE_BIAS_PX;
 
       const baseLine = baseScrollTop + effectiveOffset + 8;
 
