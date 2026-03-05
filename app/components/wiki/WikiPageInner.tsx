@@ -334,8 +334,7 @@ export default function WikiPageInner({ user }: Props) {
     search.set('title', encodedTitle);
     search.delete('_t');
 
-    const hash = window.location.hash || '';
-    const nextUrl = window.location.pathname + '?' + search.toString() + hash;
+    const nextUrl = window.location.pathname + '?' + search.toString();
 
     ignoreNextUrlSyncRef.current = true;
 

@@ -118,9 +118,11 @@ export default function TableOfContents({
 
   // ✅ intersect가 없어도(로드 직후/최상단) "가장 가까운 heading"을 강제로 계산해서 active 세팅
   const setActiveByClosest = () => {
-    if (!indexed.length) return;
+    if (!indexed.length) return false;
 
-    const headerLine = headerOffset + 8;
+    const root = getRootForObserver();
+    const rootRectTop = root ? root.getBoundingClientRect().top : 0;
+    const headerLine = rootRectTop + headerOffset + 8;
 
     let bestDomId = "";
     let bestScore = Number.POSITIVE_INFINITY;
@@ -128,7 +130,7 @@ export default function TableOfContents({
 
     for (let i = 0; i < indexed.length; i++) {
       const domId = indexed[i].domId!;
-      const el = document.getElementById(domId);
+      const el = getTargetByDomId(domId);
       if (!el) continue;
 
       const top = el.getBoundingClientRect().top;
@@ -147,10 +149,10 @@ export default function TableOfContents({
     if (bestDomId) {
       setActiveDomId(bestDomId);
       if (bestIndex !== -1) setActiveIndex(bestIndex);
-      return true; // ✅ 성공
+      return true;
     }
 
-    return false; // ✅ 아직 DOM에 heading이 없음
+    return false;
   };
 
   const hasDocTitle = !!(docTitle && docTitle.trim());
@@ -238,6 +240,10 @@ export default function TableOfContents({
       url.hash = `#${domId}`;
       window.history.replaceState(st, "", url.toString());
     } catch {}
+
+    const idx = indexed.findIndex((h) => h.domId === domId);
+    setActiveDomId(domId);
+    if (idx !== -1) setActiveIndex(idx);
 
     return true;
   };
