@@ -293,48 +293,95 @@ export default function TableOfContents({
     return () => cancelAnimationFrame(raf);
   }, [scrollRootSelector, indexed]);
 
+  // ✅ 항상 최신 DOM에서 root를 다시 찾는다 (캐싱 X)
+  function resolveRootEl(): HTMLElement | null {
+    if (scrollRootSelector) {
+      const el = document.querySelector(scrollRootSelector) as HTMLElement | null;
+      if (el) return el;
+    }
+
+    // fallback: 첫 heading 기준으로 scroll ancestor 찾기
+    if (indexed.length) {
+      const first = document.getElementById(indexed[0].domId!);
+      if (first) return findScrollableAncestor(first);
+    }
+    return null;
+  }
+
   useEffect(() => {
     if (!indexed.length) return;
 
-    const root = getScrollRootEl(); // ✅ canScroll 검사 없이 "그냥" root 사용
     let raf = 0;
 
     const apply = () => {
-      const picked = pickClosestDomId();
-      if (!picked) return;
-      setActiveDomId(picked.domId);
-      setActiveIndex(picked.index);
+      const root = resolveRootEl();
+      const baseScrollTop = root ? root.scrollTop : window.scrollY;
+
+      // ✅ root가 "내부 스크롤 컨테이너"면 headerOffset을 빼면 오히려 틀어질 확률이 큼
+      // - 내부 스크롤일 땐 보통 header가 root 바깥(고정)이어서 root 좌표계에서 offset=0이 더 정확함
+      const effectiveOffset = root ? 0 : headerOffset;
+
+      const baseLine = baseScrollTop + effectiveOffset + 8;
+
+      let bestDomId = '';
+      let bestIndex = -1;
+      let bestAboveDelta = -Infinity;
+      let bestBelowDelta = Infinity;
+
+      for (let i = 0; i < indexed.length; i++) {
+        const domId = indexed[i].domId!;
+        const el = document.getElementById(domId);
+        if (!el) continue;
+
+        const y = getYInScrollRoot(el, root);
+        const delta = y - baseLine;
+
+        if (delta <= 0) {
+          // 지나온 헤딩 중 가장 가까운 것(0에 가장 가까운 음수)
+          if (delta > bestAboveDelta) {
+            bestAboveDelta = delta;
+            bestDomId = domId;
+            bestIndex = i;
+          }
+        } else {
+          // 아직 안 지난 헤딩 중 가장 가까운 것(가장 작은 양수) - above가 없을 때만 사용
+          if (bestDomId === '' && delta < bestBelowDelta) {
+            bestBelowDelta = delta;
+            bestDomId = domId;
+            bestIndex = i;
+          }
+        }
+      }
+
+      if (bestDomId) {
+        setActiveDomId(bestDomId);
+        setActiveIndex(bestIndex);
+      }
     };
 
-    const onScroll = () => {
+    const onAnyScroll = () => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(apply);
     };
 
-    // ✅ 로드 직후 2프레임 뒤 한 번 계산
-    const r1 = requestAnimationFrame(() => {
-      requestAnimationFrame(apply);
-    });
+    // ✅ 1) 문서 전체에서 scroll 이벤트를 "캡처"로 잡는다 (어느 컨테이너든 잡힘)
+    document.addEventListener('scroll', onAnyScroll, { passive: true, capture: true });
 
-    // ✅ 핵심: 스크롤 이벤트는 "무조건 root"에 붙인다
-    // (root가 아직 안 잡혔으면 window에도 붙여서 안전망)
-    root?.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('scroll', onScroll, { passive: true });
+    // ✅ 2) 혹시 wheel/touch로만 움직이고 scroll 이벤트 타이밍이 꼬이는 환경 대비
+    window.addEventListener('wheel', onAnyScroll, { passive: true });
+    window.addEventListener('touchmove', onAnyScroll, { passive: true });
 
-    // ✅ 내용 높이/레이아웃 변화(이미지 로딩 등)에도 갱신되게 ResizeObserver 추가
-    const ro = root
-      ? new ResizeObserver(() => onScroll())
-      : null;
-    if (root && ro) ro.observe(root);
+    // ✅ 3) 최초 2프레임 뒤 1회 계산
+    const r1 = requestAnimationFrame(() => requestAnimationFrame(apply));
 
     return () => {
       cancelAnimationFrame(r1);
       cancelAnimationFrame(raf);
-      root?.removeEventListener('scroll', onScroll);
-      window.removeEventListener('scroll', onScroll);
-      if (root && ro) ro.disconnect();
+      document.removeEventListener('scroll', onAnyScroll, true);
+      window.removeEventListener('wheel', onAnyScroll);
+      window.removeEventListener('touchmove', onAnyScroll);
     };
-  }, [indexed, headerOffset, rootKey]);
+  }, [indexed, headerOffset, scrollRootSelector]);
 
   // ✅ 해시 초기 스크롤: 구형(#heading-xxx)도 호환
   useEffect(() => {
