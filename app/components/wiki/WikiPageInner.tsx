@@ -280,6 +280,7 @@ export default function WikiPageInner({ user }: Props) {
   const searchParams = useSearchParams();
   const contentRef = useRef<HTMLDivElement>(null);
   const pendingHashRef = useRef('');
+  const pendingScrollDomIdRef = useRef<string>('');
 
   // ✅ 문서가 열리면 해당 문서의 카테고리 경로를 전부 펼치기
   const ensureOpenForDocPath = (docPath: number[] | null | undefined) => {
@@ -887,6 +888,42 @@ export default function WikiPageInner({ user }: Props) {
         setDocContent(content);
         setTableOfContents(extractHeadings(content));
 
+        // ✅ [추가] 링크로 넘어온 heading 타겟이 있으면, DOM 붙은 뒤 스크롤
+        {
+          const pending = pendingScrollDomIdRef.current;
+          if (pending) {
+            pendingScrollDomIdRef.current = '';
+
+            let tries = 0;
+            const maxTries = 60;
+
+            const tick = () => {
+              tries += 1;
+
+              const el = document.getElementById(pending);
+              if (el) {
+                const root = document.querySelector('#wiki-scroll-root') as HTMLElement | null;
+                const headerOffset = 72;
+
+                if (!root) {
+                  const y = el.getBoundingClientRect().top + window.scrollY - headerOffset;
+                  window.scrollTo({ top: y, behavior: 'auto' });
+                } else {
+                  const rootRect = root.getBoundingClientRect();
+                  const y =
+                    el.getBoundingClientRect().top - rootRect.top + root.scrollTop - headerOffset;
+                  root.scrollTo({ top: y, behavior: 'auto' });
+                }
+                return;
+              }
+
+              if (tries < maxTries) requestAnimationFrame(tick);
+            };
+
+            requestAnimationFrame(() => requestAnimationFrame(tick));
+          }
+        }
+
         const docInList = allDocuments.find(d => d.id === data.id);
         const special = data.special ?? docInList?.special ?? null;
         const meta = parseSpecial(special);
@@ -952,6 +989,42 @@ export default function WikiPageInner({ user }: Props) {
           : data.content;
       setDocContent(content);
       setTableOfContents(extractHeadings(content));
+
+      // ✅ [추가] 링크로 넘어온 heading 타겟이 있으면, DOM 붙은 뒤 스크롤
+      {
+        const pending = pendingScrollDomIdRef.current;
+        if (pending) {
+          pendingScrollDomIdRef.current = '';
+
+          let tries = 0;
+          const maxTries = 60;
+
+          const tick = () => {
+            tries += 1;
+
+            const el = document.getElementById(pending);
+            if (el) {
+              const root = document.querySelector('#wiki-scroll-root') as HTMLElement | null;
+              const headerOffset = 72;
+
+              if (!root) {
+                const y = el.getBoundingClientRect().top + window.scrollY - headerOffset;
+                window.scrollTo({ top: y, behavior: 'auto' });
+              } else {
+                const rootRect = root.getBoundingClientRect();
+                const y =
+                  el.getBoundingClientRect().top - rootRect.top + root.scrollTop - headerOffset;
+                root.scrollTo({ top: y, behavior: 'auto' });
+              }
+              return;
+            }
+
+            if (tries < maxTries) requestAnimationFrame(tick);
+          };
+
+          requestAnimationFrame(() => requestAnimationFrame(tick));
+        }
+      }
 
       const docInList = allDocuments.find(d => d.id === data.id);
       const special = data.special ?? docInList?.special ?? null;
@@ -1037,7 +1110,9 @@ export default function WikiPageInner({ user }: Props) {
       // ✅ 링크 클릭 즉시 로딩 느낌 먼저 주기
       setLoadingDoc(true);
 
-      pendingHashRef.current = url.hash || '';
+      let h = decodeURIComponent(url.hash || '').replace(/^#/, '');
+      if (h && !h.includes('--')) h = `${h}--0`;
+      pendingScrollDomIdRef.current = h;
 
       // ✅ 루트 문서
       if (path === '0') {
