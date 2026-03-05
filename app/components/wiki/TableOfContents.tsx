@@ -68,7 +68,10 @@ export default function TableOfContents({
     return headings.map((h) => {
       const occ = h.occ ?? (seen[h.id] ?? 0);
       seen[h.id] = occ + 1;
-      const domId = h.domId ?? `${h.id}--${occ}`;
+
+      // ✅ 첫 heading은 suffix 없음, 중복부터만 --1, --2 ...
+      const domId = h.domId ?? (occ === 0 ? h.id : `${h.id}--${occ}`);
+
       return { ...h, occ, domId };
     });
   }, [headings]);
@@ -77,7 +80,23 @@ export default function TableOfContents({
 
   // ✅ DOM target 찾기: domId로 단일 조회
   const getTargetByDomId = (domId: string) => {
-    return document.getElementById(domId);
+    // 1) 그대로 찾기
+    let el = document.getElementById(domId);
+    if (el) return el;
+
+    // 2) 구형(--0) 링크가 들어왔는데 실제 DOM은 신형(base id)인 경우
+    if (/--0$/.test(domId)) {
+      el = document.getElementById(domId.replace(/--0$/, ''));
+      if (el) return el;
+    }
+
+    // 3) 신형(base id) 링크가 들어왔는데 실제 DOM은 구형(--0)인 경우
+    if (!/--\d+$/.test(domId)) {
+      el = document.getElementById(`${domId}--0`);
+      if (el) return el;
+    }
+
+    return null;
   };
 
   const pickClosestDomId = (): { domId: string; index: number } | null => {
@@ -457,11 +476,14 @@ export default function TableOfContents({
     };
 
     const raf = requestAnimationFrame(() => {
-      // 1) 정확 매칭 (#heading-xxx--n)
+      // 1) 정확 매칭
       if (tryScroll(hash)) return;
 
-      // 2) 구형 링크 (#heading-xxx) → --0로 보정
-      if (!hash.includes("--") && tryScroll(`${hash}--0`)) return;
+      // 2) 신형(base id) -> 구형(--0)
+      if (!/--\d+$/.test(hash) && tryScroll(`${hash}--0`)) return;
+
+      // 3) 구형(--0) -> 신형(base id)
+      if (/--0$/.test(hash) && tryScroll(hash.replace(/--0$/, ''))) return;
 
       // 기존 재시도 패턴 유지
       setTimeout(() => {
