@@ -279,7 +279,6 @@ export default function WikiPageInner({ user }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const contentRef = useRef<HTMLDivElement>(null);
-  const pendingHashRef = useRef('');
   const pendingScrollDomIdRef = useRef<string>('');
 
   // ✅ 문서가 열리면 해당 문서의 카테고리 경로를 전부 펼치기
@@ -324,36 +323,29 @@ export default function WikiPageInner({ user }: Props) {
     const currentTitle = search.get('title');
 
     const lastId =
-      !fullPath || fullPath.length === 0 ? '0' : String(fullPath[fullPath.length - 1]);
-    const encodedTitle = encodeTitleForUrlParam(docTitle);
+      !fullPath || fullPath.length === 0
+        ? '0'
+        : String(fullPath[fullPath.length - 1]);
 
-    // ✅ "문서가 바뀌는가"를 먼저 판단 (search를 바꾸기 전에!)
-    const docChanged = !(currentPath === lastId && currentTitle === encodedTitle);
+    const encodedTitle = encodeTitleForUrlParam(docTitle);
 
     search.set('path', lastId);
     search.set('title', encodedTitle);
     search.delete('_t');
 
-    // ✅ hash 결정 규칙:
-    // - 문서 이동(docChanged=true): pendingHash만 1회 사용 (없으면 '')
-    // - 같은 문서(docChanged=false): 현재 hash 유지 (heading이 "삭제"되지 않도록)
-    const nextHash = docChanged
-      ? (pendingHashRef.current || '')
-      : (window.location.hash || '');
+    // ✅ hash는 건드리지 않음
+    const nextUrl = window.location.pathname + '?' + search.toString();
+    const currentUrl = window.location.pathname + window.location.search;
 
-    // ✅ 문서 이동에서만 pendingHash를 소비하고 비운다
-    if (docChanged) pendingHashRef.current = '';
-
-    const nextUrl = window.location.pathname + '?' + search.toString() + nextHash;
-
-    const currentUrl =
-      window.location.pathname + window.location.search + window.location.hash;
     if (currentUrl === nextUrl) return;
 
     ignoreNextUrlSyncRef.current = true;
 
-    if (options?.history === 'replace') router.replace(nextUrl, { scroll: false });
-    else router.push(nextUrl, { scroll: false });
+    if (options?.history === 'replace') {
+      router.replace(nextUrl, { scroll: false });
+    } else {
+      router.push(nextUrl, { scroll: false });
+    }
   };
 
   // 🔗 현재 문서 링크 복사 (✔ 애니메이션)

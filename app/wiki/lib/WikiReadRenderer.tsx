@@ -20,7 +20,6 @@ import { extractHeadings } from "@/wiki/lib/extractHeadings";
 import type { WikiRefKind } from '@/components/editor/render/types';
 
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 
 type Props = {
   content: Descendant[];
@@ -2976,15 +2975,16 @@ function renderNode(
       const href = normalizeToAppHref(rawHref);
 
       if (internal) {
+        // ✅ 내부 위키 링크는 일반 a로 렌더
+        // 실제 이동은 WikiPageInner의 contentRef click handler가 처리
         return (
-          <Link
+          <a
             key={key}
             href={href}
-            prefetch={false}
             style={{ color: "#2676ff", textDecoration: "none" }}
           >
             {children}
-          </Link>
+          </a>
         );
       }
 
