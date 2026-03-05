@@ -166,3 +166,28 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     return NextResponse.json({ error: 'Server error' }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
   }
 }
+
+/** ✅ GET: 단건 조회 (public) */
+export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const id = Number(params.id);
+    if (!Number.isFinite(id) || id <= 0) {
+      return NextResponse.json({ error: 'Invalid id' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+    }
+
+    const rows = (await sql/*sql*/`SELECT * FROM npc WHERE id = ${id} LIMIT 1`) as unknown as any[];
+    if (!rows.length) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404, headers: { 'Cache-Control': 'no-store' } });
+    }
+
+    const row = rows[0];
+    row.pictures = parseArray(row.pictures);
+    row.rewards = parseArray(row.rewards);
+    row.tag = row.tag ?? null;
+
+    return NextResponse.json(row, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (err) {
+    console.error('[npc GET:id] unexpected error:', err);
+    return NextResponse.json({ error: 'Server error' }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
+  }
+}

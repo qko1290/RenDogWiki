@@ -49,6 +49,7 @@ type NpcRow = {
   location_y: number;
   location_z: number;
   pictures?: string[];
+  line?: string;
 };
 type HeadRow = {
   id: number;
@@ -227,6 +228,38 @@ export default function WikiPageInner({ user }: Props) {
       if (n && Number.isFinite(Number(n.id))) m.set(Number(n.id), n);
     }
   }, [npcList]);
+
+  async function openNpcById(kind: 'quest' | 'npc', id: number) {
+    const cache = npcByIdCacheRef.current;
+    const cachedNpc = cache.get(id);
+
+    // quest/npc 모두 대사가 필요하니 line 기준으로 보강 (원하면 quest는 quest 필드까지 체크해도 됨)
+    const needFetch = !cachedNpc || !String(cachedNpc.line ?? '').trim();
+
+    if (!needFetch) {
+      setSelectedNpcMode(kind);
+      setSelectedNpc(cachedNpc ? { ...cachedNpc, line: cachedNpc.line ?? undefined } : cachedNpc);
+      return;
+    }
+
+    const r = await fetch(`/api/npcs/${id}`, { cache: 'no-store' });
+    if (!r.ok) {
+      // fallback: 캐시가 있으면 그거라도 띄우기
+      if (cachedNpc) {
+        setSelectedNpcMode(kind);
+        setSelectedNpc(cachedNpc);
+      }
+      return;
+    }
+
+    const fresh = await r.json();
+    const normalizedFresh = { ...fresh, line: fresh.line ?? undefined };
+
+    cache.set(id, normalizedFresh);
+
+    setSelectedNpcMode(kind);
+    setSelectedNpc(normalizedFresh);
+  }
 
   // ✅ 문서 본문(wiki-ref) 클릭으로 열리는 QnA 상세
   const [wikiFaqSel, setWikiFaqSel] = useState<FaqItem | null>(null);
@@ -1707,7 +1740,11 @@ export default function WikiPageInner({ user }: Props) {
                   <div>등록된 NPC가 없습니다.</div>
                 )
               ) : Array.isArray(docContent) && docContent.length > 0 ? (
-                <WikiReadRenderer content={docContent} onWikiRefClick={handleWikiRefClick} />
+                <WikiReadRenderer
+                  content={docContent as Descendant[]}
+                  readOnly
+                  onWikiRefClick={handleWikiRefClick}
+                />
               ) : (
                 <BookLoader />
               )}
