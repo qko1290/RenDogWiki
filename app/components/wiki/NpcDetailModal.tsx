@@ -123,13 +123,26 @@ export default function NpcDetailModal({ npc, onClose, mode = 'quest' }: Props) 
           {/* 대사: 공통 */}
           <div className="mgr-pill-row mgr-pill-row--multi">
             <span className="mgr-pill-label">대사</span>
-            <span className="mgr-pill-value">
+
+            {/* ✅ span -> div로 바꿔서 스크롤 컨테이너로 만듦 */}
+            <div className="mgr-pill-value">
               {npc.line?.trim() ? (
-                <span style={{ whiteSpace: 'pre-wrap' }}>{npc.line}</span>
+                <div
+                  className="npc-line-scroll"
+                  style={{
+                    maxHeight: 240,          // ✅ 원하는 최대 높이 (px)
+                    overflowY: 'auto',       // ✅ 세로 스크롤
+                    whiteSpace: 'pre-wrap',  // ✅ 줄바꿈 유지
+                    wordBreak: 'break-word', // ✅ 긴 문자열 줄바꿈
+                    paddingRight: 6,         // ✅ 스크롤바 때문에 글자 붙는 것 방지
+                  }}
+                >
+                  {npc.line}
+                </div>
               ) : (
                 <span className="mgr-placeholder">- 대사 없음 -</span>
               )}
-            </span>
+            </div>
           </div>
         </div>
 
