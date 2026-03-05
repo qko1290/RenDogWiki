@@ -20,7 +20,7 @@ import HeadDetailModal from './HeadDetailModal';
 import FaqList, { FaqDetailModal, fetchFaqDetail, type FaqItem } from './FaqList';
 import FaqUpsertModal from '@/components/wiki/FaqUpsertModal';
 import { toProxyUrl } from '@lib/cdn';
-
+import DocQuickBadges from './DocQuickBadges';
 import { Descendant } from 'slate';
 import { useRouter, useSearchParams } from 'next/navigation';
 
@@ -1682,6 +1682,27 @@ export default function WikiPageInner({ user }: Props) {
           }}
         />
       )}
+
+      <DocQuickBadges
+        hidden={hold || loadingDoc} // hold/로딩 중엔 숨김(원하면 제거)
+        items={[
+          {
+            icon: 'quest',
+            title: '퀘스트',
+            href: 'wiki?path=27&title=%ED%80%98%EC%8A%A4%ED%8A%B8&mode=RPG',
+          },
+          {
+            icon: 'quest',
+            title: '머리찾기',
+            href: 'wiki?path=53&title=%EB%A8%B8%EB%A6%AC%EC%B0%BE%EA%B8%B0&mode=RPG',
+          },
+          {
+            icon: 'price',
+            title: '시세표',
+            href: 'wiki?path=38&title=%EC%8B%9C%EC%84%B8%ED%91%9C&mode=RPG',
+          },
+        ]}
+      />
 
       {/* 콘텐츠 페이드 전환 + 제목/링크 버튼 스타일 */}
       <style jsx global>{`
