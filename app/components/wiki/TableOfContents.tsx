@@ -286,7 +286,7 @@ export default function TableOfContents({
       // 2) 첫 heading DOM 기준
       if (indexed.length) {
         const firstDomId = indexed[0].domId!;
-        const first = document.getElementById(firstDomId);
+        const first = getTargetByDomId(firstDomId);
 
         if (first) {
           rootRef.current = findScrollableAncestor(first) || null;
@@ -320,7 +320,9 @@ export default function TableOfContents({
         if (!visible.length) return;
 
         // 여러 개 보이면 "헤더라인에 가장 가까운 것" 하나만 선택
-        const headerLine = headerOffset + 8;
+        const root = getRootForObserver();
+        const rootRectTop = root ? root.getBoundingClientRect().top : 0;
+        const headerLine = rootRectTop + headerOffset + 8;
         let best = visible[0];
         let bestDist = Math.abs(best.boundingClientRect.top - headerLine);
 
@@ -360,7 +362,9 @@ export default function TableOfContents({
     requestAnimationFrame(() => {
       if (!observed.length) return;
 
-      const headerLine = headerOffset + 8;
+      const root = getRootForObserver();
+      const rootRectTop = root ? root.getBoundingClientRect().top : 0;
+      const headerLine = rootRectTop + headerOffset + 8;
 
       let bestEl = observed[0];
       let bestDist = Math.abs(bestEl.getBoundingClientRect().top - headerLine);
