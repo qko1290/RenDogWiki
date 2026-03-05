@@ -108,11 +108,11 @@ function sendDocView(documentId: number) {
 
   if (typeof navigator !== 'undefined' && 'sendBeacon' in navigator) {
     const blob = new Blob([payload], { type: 'application/json' });
-    (navigator as any).sendBeacon('/api/wiki/view', blob);
+    (navigator as any).sendBeacon('/api/view', blob);
     return;
   }
 
-  fetch('/api/wiki/view', {
+  fetch('/api/view', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: payload,
