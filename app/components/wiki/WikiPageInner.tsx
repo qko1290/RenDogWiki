@@ -323,38 +323,36 @@ export default function WikiPageInner({ user }: Props) {
     const currentTitle = search.get('title');
 
     const lastId =
-      !fullPath || fullPath.length === 0
-        ? '0'
-        : String(fullPath[fullPath.length - 1]);
-
+      !fullPath || fullPath.length === 0 ? '0' : String(fullPath[fullPath.length - 1]);
     const encodedTitle = encodeTitleForUrlParam(docTitle);
+
+    // ✅ "문서가 바뀌는가"를 먼저 판단 (search를 바꾸기 전에!)
+    const docChanged = !(currentPath === lastId && currentTitle === encodedTitle);
 
     search.set('path', lastId);
     search.set('title', encodedTitle);
     search.delete('_t');
 
-    // ✅ 이번 이동에서만 쓸 해시
-    const nextHash = pendingHashRef.current || '';
+    // ✅ hash 결정 규칙:
+    // - 문서 이동(docChanged=true): pendingHash만 1회 사용 (없으면 '')
+    // - 같은 문서(docChanged=false): 현재 hash 유지 (heading이 "삭제"되지 않도록)
+    const nextHash = docChanged
+      ? (pendingHashRef.current || '')
+      : (window.location.hash || '');
+
+    // ✅ 문서 이동에서만 pendingHash를 소비하고 비운다
+    if (docChanged) pendingHashRef.current = '';
+
     const nextUrl = window.location.pathname + '?' + search.toString() + nextHash;
 
-    // ✅ 사용 후 바로 비움 (다음 이동에 남지 않게)
-    pendingHashRef.current = '';
-
-    // hash까지 포함해서 완전히 같으면 스킵
     const currentUrl =
-      window.location.pathname +
-      window.location.search +
-      window.location.hash;
-
+      window.location.pathname + window.location.search + window.location.hash;
     if (currentUrl === nextUrl) return;
 
     ignoreNextUrlSyncRef.current = true;
 
-    if (options?.history === 'replace') {
-      router.replace(nextUrl, { scroll: false });
-    } else {
-      router.push(nextUrl, { scroll: false });
-    }
+    if (options?.history === 'replace') router.replace(nextUrl, { scroll: false });
+    else router.push(nextUrl, { scroll: false });
   };
 
   // 🔗 현재 문서 링크 복사 (✔ 애니메이션)
