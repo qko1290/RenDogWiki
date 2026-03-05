@@ -279,6 +279,7 @@ export default function WikiPageInner({ user }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const contentRef = useRef<HTMLDivElement>(null);
+  const pendingHashRef = useRef('');
 
   // ✅ 문서가 열리면 해당 문서의 카테고리 경로를 전부 펼치기
   const ensureOpenForDocPath = (docPath: number[] | null | undefined) => {
@@ -328,25 +329,27 @@ export default function WikiPageInner({ user }: Props) {
 
     const encodedTitle = encodeTitleForUrlParam(docTitle);
 
-    if (currentPath === lastId && currentTitle === encodedTitle) return;
-
     search.set('path', lastId);
     search.set('title', encodedTitle);
     search.delete('_t');
 
-    const nextUrl = window.location.pathname + '?' + search.toString();
+    // ✅ 이번 이동에서만 쓸 해시
+    const nextHash = pendingHashRef.current || '';
+    const nextUrl = window.location.pathname + '?' + search.toString() + nextHash;
+
+    // ✅ 사용 후 바로 비움 (다음 이동에 남지 않게)
+    pendingHashRef.current = '';
+
+    // hash까지 포함해서 완전히 같으면 스킵
+    const currentUrl =
+      window.location.pathname +
+      window.location.search +
+      window.location.hash;
+
+    if (currentUrl === nextUrl) return;
 
     ignoreNextUrlSyncRef.current = true;
 
-    const docChanged = !(currentPath === lastId && currentTitle === encodedTitle);
-
-    // docChanged가 true인 순간은 "문서 이동"이므로 replace 금지
-    if (docChanged) {
-      router.push(nextUrl, { scroll: false });
-      return;
-    } 
-
-    // 문서가 같은데 URL만 정리하는 케이스만 replace 허용
     if (options?.history === 'replace') {
       router.replace(nextUrl, { scroll: false });
     } else {
@@ -1035,6 +1038,8 @@ export default function WikiPageInner({ user }: Props) {
 
       // ✅ 링크 클릭 즉시 로딩 느낌 먼저 주기
       setLoadingDoc(true);
+
+      pendingHashRef.current = url.hash || '';
 
       // ✅ 루트 문서
       if (path === '0') {
