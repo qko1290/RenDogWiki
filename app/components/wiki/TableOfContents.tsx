@@ -233,7 +233,10 @@ export default function TableOfContents({
     }
 
     try {
-      history.replaceState(null, "", `#${domId}`);
+      const st = window.history.state; // ✅ Next가 넣은 state 유지
+      const url = new URL(window.location.href);
+      url.hash = `#${domId}`;
+      window.history.replaceState(st, "", url.toString());
     } catch {}
 
     return true;

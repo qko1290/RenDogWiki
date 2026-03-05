@@ -649,14 +649,6 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
     e.preventDefault();
     e.stopPropagation();
 
-    // ✅ (1) 히스토리 push를 먼저 강제로 남김
-    // - 링크 네비게이션이 replace로 처리되는 상황을 방어
-    try {
-      if (typeof window !== "undefined") {
-        window.history.pushState(null, "", normalizedHref);
-      }
-    } catch {}
-
     // ✅ (2) 실제 라우팅은 Next router로
     router.push(normalizedHref);
   };
