@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import '@/wiki/css/fonts-kor.css';
+import { Analytics } from "@vercel/analytics/react";
 
 export const dynamic = 'force-dynamic';
 
@@ -79,6 +80,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
       <body className={inter.className}>{children}</body>
+      <Analytics />
     </html>
   );
 }
