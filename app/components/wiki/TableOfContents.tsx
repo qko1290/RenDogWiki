@@ -109,7 +109,7 @@ export default function TableOfContents({
 
     const els = indexed
       .map((h, i) => {
-        const el = document.getElementById(h.domId!);
+        const el = getTargetByDomId(h.domId!);
         if (!el) return null;
         const top = el.getBoundingClientRect().top;
         return { domId: h.domId!, index: i, delta: top - headerLine };
@@ -137,9 +137,11 @@ export default function TableOfContents({
 
   // ✅ intersect가 없어도(로드 직후/최상단) "가장 가까운 heading"을 강제로 계산해서 active 세팅
   const setActiveByClosest = () => {
-    if (!indexed.length) return;
+    if (!indexed.length) return false;
 
-    const headerLine = headerOffset + 8;
+    const root = getRootForObserver();
+    const rootRectTop = root ? root.getBoundingClientRect().top : 0;
+    const headerLine = rootRectTop + headerOffset + 8;
 
     let bestDomId = "";
     let bestScore = Number.POSITIVE_INFINITY;
@@ -147,13 +149,14 @@ export default function TableOfContents({
 
     for (let i = 0; i < indexed.length; i++) {
       const domId = indexed[i].domId!;
-      const el = document.getElementById(domId);
+      const el = getTargetByDomId(domId);
       if (!el) continue;
 
       const top = el.getBoundingClientRect().top;
-
       const dist = top - headerLine;
-      const priority = dist >= 0 ? 0 : 1;
+
+      // ✅ 위에 있는 heading 우선, 없으면 아래 heading
+      const priority = dist <= 0 ? 0 : 1;
       const score = priority * 1_000_000 + Math.abs(dist);
 
       if (score < bestScore) {
@@ -166,10 +169,10 @@ export default function TableOfContents({
     if (bestDomId) {
       setActiveDomId(bestDomId);
       if (bestIndex !== -1) setActiveIndex(bestIndex);
-      return true; // ✅ 성공
+      return true;
     }
 
-    return false; // ✅ 아직 DOM에 heading이 없음
+    return false;
   };
 
   const hasDocTitle = !!(docTitle && docTitle.trim());
@@ -346,7 +349,7 @@ export default function TableOfContents({
 
     const observed: HTMLElement[] = [];
     indexed.forEach((h) => {
-      const el = document.getElementById(h.domId!);
+      const el = getTargetByDomId(h.domId!);
       if (!el) return;
       obs.observe(el);
       observed.push(el);
