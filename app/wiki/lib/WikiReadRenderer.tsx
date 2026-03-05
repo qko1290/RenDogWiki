@@ -204,31 +204,6 @@ function normalizeToAppHref(rawHref: string) {
   }
 }
 
-function stripWikiFragment(rawHref: string) {
-  try {
-    const base =
-      typeof window !== "undefined" ? window.location.origin : "https://dummy.local";
-    const u = new URL(rawHref, base);
-
-    const sameOrigin =
-      typeof window === "undefined" || u.origin === window.location.origin;
-
-    // 내부 위키 링크만 fragment 제거
-    if (sameOrigin && u.pathname.startsWith("/wiki")) {
-      u.hash = "";
-    }
-
-    if (typeof window !== "undefined" && u.origin === window.location.origin) {
-      return `${u.pathname}${u.search}${u.hash}`;
-    }
-
-    return u.toString();
-  } catch {
-    // fallback: #fragment 제거
-    return rawHref.replace(/#.*$/, "");
-  }
-}
-
 function isInternalWikiHref(rawHref: string) {
   try {
     const base =
@@ -666,6 +641,7 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
   const handleClick = (e: React.MouseEvent) => {
     if (!isWikiLink) return;
 
+    // 새 탭/특수 클릭은 브라우저 기본 동작 유지
     const any = e as any;
     if (any.metaKey || any.ctrlKey || any.shiftKey || any.altKey) return;
     if (e.button !== 0) return;
@@ -673,8 +649,16 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
     e.preventDefault();
     e.stopPropagation();
 
-    // history.pushState 제거
-    router.push(normalizedHref, { scroll: false });
+    // ✅ (1) 히스토리 push를 먼저 강제로 남김
+    // - 링크 네비게이션이 replace로 처리되는 상황을 방어
+    try {
+      if (typeof window !== "undefined") {
+        window.history.pushState(null, "", normalizedHref);
+      }
+    } catch {}
+
+    // ✅ (2) 실제 라우팅은 Next router로
+    router.push(normalizedHref);
   };
 
   return (
@@ -684,7 +668,6 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
         <a
           href={normalizedHref}
           onClick={handleClick}
-          data-wiki-link-block="1"
           style={{
             textDecoration: "none",
             color: "inherit",
@@ -2947,11 +2930,12 @@ function renderNode(
       const textContent = stripReact(safeChildren).trim();
       const baseId = toHeadingIdFromText(textContent);
 
+      // ✅ occ 계산
       const occ = ctx?.headingOccRef.current.get(baseId) ?? 0;
       ctx?.headingOccRef.current.set(baseId, occ + 1);
 
-      // ✅ 첫 번째는 suffix 없음, 중복부터만 --1, --2 ...
-      const domId = occ === 0 ? baseId : `${baseId}--${occ}`;
+      // ✅ DOM에 붙을 고유 id
+      const domId = `${baseId}--${occ}`;
 
       const level =
         node.type === "heading-one"

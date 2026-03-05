@@ -68,10 +68,7 @@ export default function TableOfContents({
     return headings.map((h) => {
       const occ = h.occ ?? (seen[h.id] ?? 0);
       seen[h.id] = occ + 1;
-
-      // ✅ 첫 heading은 suffix 없음, 중복부터만 --1, --2 ...
-      const domId = h.domId ?? (occ === 0 ? h.id : `${h.id}--${occ}`);
-
+      const domId = h.domId ?? `${h.id}--${occ}`;
       return { ...h, occ, domId };
     });
   }, [headings]);
@@ -80,23 +77,7 @@ export default function TableOfContents({
 
   // ✅ DOM target 찾기: domId로 단일 조회
   const getTargetByDomId = (domId: string) => {
-    // 1) 그대로 찾기
-    let el = document.getElementById(domId);
-    if (el) return el;
-
-    // 2) 구형(--0) 링크가 들어왔는데 실제 DOM은 신형(base id)인 경우
-    if (/--0$/.test(domId)) {
-      el = document.getElementById(domId.replace(/--0$/, ''));
-      if (el) return el;
-    }
-
-    // 3) 신형(base id) 링크가 들어왔는데 실제 DOM은 구형(--0)인 경우
-    if (!/--\d+$/.test(domId)) {
-      el = document.getElementById(`${domId}--0`);
-      if (el) return el;
-    }
-
-    return null;
+    return document.getElementById(domId);
   };
 
   const pickClosestDomId = (): { domId: string; index: number } | null => {
@@ -109,7 +90,7 @@ export default function TableOfContents({
 
     const els = indexed
       .map((h, i) => {
-        const el = getTargetByDomId(h.domId!);
+        const el = document.getElementById(h.domId!);
         if (!el) return null;
         const top = el.getBoundingClientRect().top;
         return { domId: h.domId!, index: i, delta: top - headerLine };
@@ -137,11 +118,9 @@ export default function TableOfContents({
 
   // ✅ intersect가 없어도(로드 직후/최상단) "가장 가까운 heading"을 강제로 계산해서 active 세팅
   const setActiveByClosest = () => {
-    if (!indexed.length) return false;
+    if (!indexed.length) return;
 
-    const root = getRootForObserver();
-    const rootRectTop = root ? root.getBoundingClientRect().top : 0;
-    const headerLine = rootRectTop + headerOffset + 8;
+    const headerLine = headerOffset + 8;
 
     let bestDomId = "";
     let bestScore = Number.POSITIVE_INFINITY;
@@ -149,14 +128,13 @@ export default function TableOfContents({
 
     for (let i = 0; i < indexed.length; i++) {
       const domId = indexed[i].domId!;
-      const el = getTargetByDomId(domId);
+      const el = document.getElementById(domId);
       if (!el) continue;
 
       const top = el.getBoundingClientRect().top;
-      const dist = top - headerLine;
 
-      // ✅ 위에 있는 heading 우선, 없으면 아래 heading
-      const priority = dist <= 0 ? 0 : 1;
+      const dist = top - headerLine;
+      const priority = dist >= 0 ? 0 : 1;
       const score = priority * 1_000_000 + Math.abs(dist);
 
       if (score < bestScore) {
@@ -169,10 +147,10 @@ export default function TableOfContents({
     if (bestDomId) {
       setActiveDomId(bestDomId);
       if (bestIndex !== -1) setActiveIndex(bestIndex);
-      return true;
+      return true; // ✅ 성공
     }
 
-    return false;
+    return false; // ✅ 아직 DOM에 heading이 없음
   };
 
   const hasDocTitle = !!(docTitle && docTitle.trim());
@@ -286,7 +264,7 @@ export default function TableOfContents({
       // 2) 첫 heading DOM 기준
       if (indexed.length) {
         const firstDomId = indexed[0].domId!;
-        const first = getTargetByDomId(firstDomId);
+        const first = document.getElementById(firstDomId);
 
         if (first) {
           rootRef.current = findScrollableAncestor(first) || null;
@@ -320,9 +298,7 @@ export default function TableOfContents({
         if (!visible.length) return;
 
         // 여러 개 보이면 "헤더라인에 가장 가까운 것" 하나만 선택
-        const root = getRootForObserver();
-        const rootRectTop = root ? root.getBoundingClientRect().top : 0;
-        const headerLine = rootRectTop + headerOffset + 8;
+        const headerLine = headerOffset + 8;
         let best = visible[0];
         let bestDist = Math.abs(best.boundingClientRect.top - headerLine);
 
@@ -351,7 +327,7 @@ export default function TableOfContents({
 
     const observed: HTMLElement[] = [];
     indexed.forEach((h) => {
-      const el = getTargetByDomId(h.domId!);
+      const el = document.getElementById(h.domId!);
       if (!el) return;
       obs.observe(el);
       observed.push(el);
@@ -362,9 +338,7 @@ export default function TableOfContents({
     requestAnimationFrame(() => {
       if (!observed.length) return;
 
-      const root = getRootForObserver();
-      const rootRectTop = root ? root.getBoundingClientRect().top : 0;
-      const headerLine = rootRectTop + headerOffset + 8;
+      const headerLine = headerOffset + 8;
 
       let bestEl = observed[0];
       let bestDist = Math.abs(bestEl.getBoundingClientRect().top - headerLine);
@@ -483,14 +457,11 @@ export default function TableOfContents({
     };
 
     const raf = requestAnimationFrame(() => {
-      // 1) 정확 매칭
+      // 1) 정확 매칭 (#heading-xxx--n)
       if (tryScroll(hash)) return;
 
-      // 2) 신형(base id) -> 구형(--0)
-      if (!/--\d+$/.test(hash) && tryScroll(`${hash}--0`)) return;
-
-      // 3) 구형(--0) -> 신형(base id)
-      if (/--0$/.test(hash) && tryScroll(hash.replace(/--0$/, ''))) return;
+      // 2) 구형 링크 (#heading-xxx) → --0로 보정
+      if (!hash.includes("--") && tryScroll(`${hash}--0`)) return;
 
       // 기존 재시도 패턴 유지
       setTimeout(() => {

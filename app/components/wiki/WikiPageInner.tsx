@@ -20,7 +20,6 @@ import HeadDetailModal from './HeadDetailModal';
 import FaqList, { FaqDetailModal, fetchFaqDetail, type FaqItem } from './FaqList';
 import FaqUpsertModal from '@/components/wiki/FaqUpsertModal';
 import { toProxyUrl } from '@lib/cdn';
-import DocQuickBadges from './DocQuickBadges';
 
 import { Descendant } from 'slate';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -278,67 +277,8 @@ export default function WikiPageInner({ user }: Props) {
   const ignoreNextUrlSyncRef = useRef(false);
   const isPopStateSyncRef = useRef(false);
   const router = useRouter();
-  const pendingLinkHashRef = useRef<string>('');
   const searchParams = useSearchParams();
   const contentRef = useRef<HTMLDivElement>(null);
-
-  
-  const scrollToHashTarget = (rawHash: string) => {
-    if (typeof window === 'undefined') return;
-    if (!rawHash) return;
-
-    const raw = rawHash.startsWith('#') ? rawHash.slice(1) : rawHash;
-    if (!raw) return;
-
-    let decoded = raw;
-    try {
-      decoded = decodeURIComponent(raw);
-    } catch {}
-
-    // ✅ 새/구형 id 모두 대응
-    const candidates = (() => {
-      const list: string[] = [];
-
-      // 그대로
-      list.push(decoded);
-
-      // base id면 legacy(--0)도 시도
-      if (!/--\d+$/.test(decoded)) {
-        list.push(`${decoded}--0`);
-      }
-
-      // legacy(--0)면 base id도 시도
-      if (/--0$/.test(decoded)) {
-        list.push(decoded.replace(/--0$/, ''));
-      }
-
-      return Array.from(new Set(list));
-    })();
-
-    let tries = 0;
-    const maxTries = 16;
-
-    const tick = () => {
-      for (const id of candidates) {
-        const el = document.getElementById(id);
-        if (el) {
-          el.scrollIntoView({
-            block: 'start',
-            inline: 'nearest',
-            behavior: 'auto',
-          });
-          return;
-        }
-      }
-
-      tries += 1;
-      if (tries < maxTries) {
-        requestAnimationFrame(tick);
-      }
-    };
-
-    requestAnimationFrame(tick);
-  };
 
   // ✅ 문서가 열리면 해당 문서의 카테고리 경로를 전부 펼치기
   const ensureOpenForDocPath = (docPath: number[] | null | undefined) => {
@@ -372,43 +312,42 @@ export default function WikiPageInner({ user }: Props) {
   const syncUrlWithDoc = (
     docTitle: string | null,
     fullPath: number[] | null | undefined,
-    options?: { history?: 'push' | 'replace'; hash?: string }
+    options?: { history?: 'push' | 'replace' }
   ) => {
     if (typeof window === 'undefined') return;
+    if (!docTitle) return;
 
     const search = new URLSearchParams(window.location.search);
     const currentPath = search.get('path');
     const currentTitle = search.get('title');
 
     const lastId =
-      !fullPath || fullPath.length === 0 ? '0' : String(fullPath[fullPath.length - 1]);
+      !fullPath || fullPath.length === 0
+        ? '0'
+        : String(fullPath[fullPath.length - 1]);
 
     const encodedTitle = encodeTitleForUrlParam(docTitle);
 
-    const docChanged = !(currentPath === lastId && currentTitle === encodedTitle);
+    if (currentPath === lastId && currentTitle === encodedTitle) return;
 
-    // 쿼리는 먼저 정규화
     search.set('path', lastId);
     search.set('title', encodedTitle);
     search.delete('_t');
 
-    // 문서 이동이면 현재 hash를 승계하지 않음
-    const hash = options?.hash ?? '';
+    const hash = window.location.hash || '';
     const nextUrl = window.location.pathname + '?' + search.toString() + hash;
 
-    // 이미 완전히 같은 URL이면 불필요한 push 방지
-    const currentUrl =
-      window.location.pathname + window.location.search + (window.location.hash || '');
-    if (currentUrl === nextUrl) return;
-
     ignoreNextUrlSyncRef.current = true;
+
+    const docChanged = !(currentPath === lastId && currentTitle === encodedTitle);
 
     // docChanged가 true인 순간은 "문서 이동"이므로 replace 금지
     if (docChanged) {
       router.push(nextUrl, { scroll: false });
       return;
-    }
+    } 
 
+    // 문서가 같은데 URL만 정리하는 케이스만 replace 허용
     if (options?.history === 'replace') {
       router.replace(nextUrl, { scroll: false });
     } else {
@@ -974,37 +913,15 @@ export default function WikiPageInner({ user }: Props) {
         setHideDocChrome(Number(data?.id) === ROOT_FEATURED_DOC_ID);
         ensureOpenForDocPath(nextPath);
 
-        // ✅ 이번 로드가 "URL 기반 진입"인지 먼저 캡처
-        const cameFromUrl = isPopStateSyncRef.current;
-
-        // ✅ 이번 로드에서 써야 할 hash
-        // - 하이퍼링크/인라인 링크 클릭이면 pendingLinkHashRef
-        // - 주소창/뒤로가기 진입이면 현재 URL hash
-        const requestedHash =
-          pendingLinkHashRef.current ||
-          (cameFromUrl && typeof window !== 'undefined' ? window.location.hash || '' : '');
-
         // ✅ 문서 로드 후 URL ?path=&title= 동기화
-        if (cameFromUrl) {
-          isPopStateSyncRef.current = false;
-        } else {
-          syncUrlWithDoc(
-            data.title ?? docTitle,
-            nextPath,
-            {
-              history: 'push',
-              hash: requestedHash,
-            }
-          );
-        }
+        syncUrlWithDoc(
+          data.title ?? docTitle,
+          nextPath,
+          { history: isPopStateSyncRef.current ? 'replace' : 'push' }
+        );
+        isPopStateSyncRef.current = false;
 
-        pendingLinkHashRef.current = '';
         setLoadingDoc(false); // 성공 종료
-
-        // ✅ 하이퍼링크/인라인 링크의 heading 앵커 수동 스크롤
-        if (requestedHash) {
-          scrollToHashTarget(requestedHash);
-        }
       })
       .catch(() => {
         if (!mountedRef.current || reqId !== docReqIdRef.current) return;
@@ -1067,27 +984,11 @@ export default function WikiPageInner({ user }: Props) {
       setSelectedDocPath(nextPath);
       setHideDocChrome(Number(data?.id) === ROOT_FEATURED_DOC_ID);
 
-      const requestedHash = pendingLinkHashRef.current || '';
+      syncUrlWithDoc(data.title ?? null, nextPath, { history: 'replace' });
+      isPopStateSyncRef.current = false;
 
-      if (isPopStateSyncRef.current) {
-        isPopStateSyncRef.current = false;
-      } else {
-        syncUrlWithDoc(data.title ?? null, nextPath, {
-          history: 'replace',
-          hash: requestedHash,
-        });
-      }
-      pendingLinkHashRef.current = '';
-
-      if (requestedHash) {
-        scrollToHashTarget(requestedHash);
-      }
-      setLoadingDoc(false); // 성공 종료
-
-      // ✅ 브라우저 기본 앵커 이동을 막았으므로, 렌더 후 수동 스크롤
-      if (requestedHash) {
-        scrollToHashTarget(requestedHash);
-      }
+      setHideDocChrome(!!opts?.hideChrome || Number(data?.id) === ROOT_FEATURED_DOC_ID);
+      setLoadingDoc(false);
     } catch {
       if (!mountedRef.current || reqId !== docReqIdRef.current) return;
       setDocContent(null);
@@ -1107,8 +1008,6 @@ export default function WikiPageInner({ user }: Props) {
       const target = e.target as HTMLElement | null;
       const aTag = target?.closest('a') as HTMLAnchorElement | null;
       if (!aTag) return;
-
-      if (aTag.dataset.wikiLinkBlock === '1') return;
 
       const rawHref = aTag.getAttribute('href');
       if (!rawHref) return;
@@ -1134,10 +1033,17 @@ export default function WikiPageInner({ user }: Props) {
 
       e.preventDefault();
       e.stopPropagation();
-      pendingLinkHashRef.current = url.hash || '';
 
       // ✅ 링크 클릭 즉시 로딩 느낌 먼저 주기
       setLoadingDoc(true);
+
+      // ✅ 해시가 있으면 먼저 URL에 반영
+      if (url.hash) {
+        try {
+          // 쿼리/path/title까지 재조립해서 덮어쓰지 말고, 해시만 replace
+          window.history.replaceState(null, '', url.hash);
+        } catch {}
+      }
 
       // ✅ 루트 문서
       if (path === '0') {
@@ -1776,27 +1682,6 @@ export default function WikiPageInner({ user }: Props) {
           }}
         />
       )}
-
-      <DocQuickBadges
-        hidden={hold || loadingDoc} // hold/로딩 중엔 숨김(원하면 제거)
-        items={[
-          {
-            icon: 'quest',
-            title: '퀘스트',
-            href: 'wiki?path=27&title=%ED%80%98%EC%8A%A4%ED%8A%B8&mode=RPG',
-          },
-          {
-            icon: 'head',
-            title: '머리찾기',
-            href: 'wiki?path=53&title=%EB%A8%B8%EB%A6%AC%EC%B0%BE%EA%B8%B0&mode=RPG',
-          },
-          {
-            icon: 'price',
-            title: '시세표',
-            href: 'wiki?path=38&title=%EC%8B%9C%EC%84%B8%ED%91%9C&mode=RPG',
-          },
-        ]}
-      />
 
       {/* 콘텐츠 페이드 전환 + 제목/링크 버튼 스타일 */}
       <style jsx global>{`
