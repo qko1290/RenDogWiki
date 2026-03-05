@@ -281,6 +281,29 @@ export default function WikiPageInner({ user }: Props) {
   const contentRef = useRef<HTMLDivElement>(null);
   const pendingScrollDomIdRef = useRef<string>('');
 
+  function normalizeHashToDomId(hashLike: string | null | undefined) {
+    let h = String(hashLike ?? '').trim();
+
+    if (!h) return '';
+
+    if (h.startsWith('#')) h = h.slice(1);
+
+    try {
+      h = decodeURIComponent(h);
+    } catch {
+      // noop
+    }
+
+    if (!h) return '';
+
+    // heading-xxx 형태인데 occ가 없으면 기본 --0 부여
+    if (h.startsWith('heading-') && !h.includes('--')) {
+      return `${h}--0`;
+    }
+
+    return h;
+  }
+
   // ✅ 문서가 열리면 해당 문서의 카테고리 경로를 전부 펼치기
   const ensureOpenForDocPath = (docPath: number[] | null | undefined) => {
     if (!Array.isArray(docPath)) return;
@@ -528,16 +551,22 @@ export default function WikiPageInner({ user }: Props) {
   // 쿼리 진입: /wiki?path=...&title=...
   // ✅ allDocuments/카테고리 맵이 준비된 뒤 실행되며, 루트(path=0)는 id 우선 로딩
   useEffect(() => {
-
     if (ignoreNextUrlSyncRef.current) {
       ignoreNextUrlSyncRef.current = false;
       return;
     }
+
     isPopStateSyncRef.current = true;
+
     const pathParam = searchParams.get('path');
     const titleParamRaw = searchParams.get('title');
     const titleParam = titleParamRaw ? titleParamRaw.replace(/_/g, ' ') : null;
     if (!pathParam || !titleParam) return;
+
+    // ✅ 현재 URL hash를 항상 먼저 읽어서 저장
+    if (typeof window !== 'undefined') {
+      pendingScrollDomIdRef.current = normalizeHashToDomId(window.location.hash);
+    }
 
     const openByIdIfFound = (isRoot: boolean, id?: number) => {
       if (id != null) {
@@ -880,42 +909,6 @@ export default function WikiPageInner({ user }: Props) {
         setDocContent(content);
         setTableOfContents(extractHeadings(content));
 
-        // ✅ [추가] 링크로 넘어온 heading 타겟이 있으면, DOM 붙은 뒤 스크롤
-        {
-          const pending = pendingScrollDomIdRef.current;
-          if (pending) {
-            pendingScrollDomIdRef.current = '';
-
-            let tries = 0;
-            const maxTries = 60;
-
-            const tick = () => {
-              tries += 1;
-
-              const el = document.getElementById(pending);
-              if (el) {
-                const root = document.querySelector('#wiki-scroll-root') as HTMLElement | null;
-                const headerOffset = 72;
-
-                if (!root) {
-                  const y = el.getBoundingClientRect().top + window.scrollY - headerOffset;
-                  window.scrollTo({ top: y, behavior: 'auto' });
-                } else {
-                  const rootRect = root.getBoundingClientRect();
-                  const y =
-                    el.getBoundingClientRect().top - rootRect.top + root.scrollTop - headerOffset;
-                  root.scrollTo({ top: y, behavior: 'auto' });
-                }
-                return;
-              }
-
-              if (tries < maxTries) requestAnimationFrame(tick);
-            };
-
-            requestAnimationFrame(() => requestAnimationFrame(tick));
-          }
-        }
-
         const docInList = allDocuments.find(d => d.id === data.id);
         const special = data.special ?? docInList?.special ?? null;
         const meta = parseSpecial(special);
@@ -1102,9 +1095,7 @@ export default function WikiPageInner({ user }: Props) {
       // ✅ 링크 클릭 즉시 로딩 느낌 먼저 주기
       setLoadingDoc(true);
 
-      let h = decodeURIComponent(url.hash || '').replace(/^#/, '');
-      if (h && !h.includes('--')) h = `${h}--0`;
-      pendingScrollDomIdRef.current = h;
+      pendingScrollDomIdRef.current = normalizeHashToDomId(url.hash);
 
       // ✅ 루트 문서
       if (path === '0') {
@@ -1423,6 +1414,43 @@ export default function WikiPageInner({ user }: Props) {
   // 로딩/보이기 제어: 딜레이 중에도 로더만 보이도록 hold 사용
   const isLoadingView = loadingDoc || docContent === null;
   const hold = isLoadingView || delaying;
+
+  useEffect(() => {
+    if (hold) return;
+
+    const pending = pendingScrollDomIdRef.current;
+    if (!pending) return;
+
+    let tries = 0;
+    const maxTries = 60;
+
+    const tick = () => {
+      tries += 1;
+
+      const el = document.getElementById(pending);
+      if (el) {
+        pendingScrollDomIdRef.current = '';
+
+        const root = document.querySelector('#wiki-scroll-root') as HTMLElement | null;
+        const headerOffset = 72;
+
+        if (!root) {
+          const y = el.getBoundingClientRect().top + window.scrollY - headerOffset;
+          window.scrollTo({ top: y, behavior: 'auto' });
+        } else {
+          const rootRect = root.getBoundingClientRect();
+          const y =
+            el.getBoundingClientRect().top - rootRect.top + root.scrollTop - headerOffset;
+          root.scrollTo({ top: y, behavior: 'auto' });
+        }
+        return;
+      }
+
+      if (tries < maxTries) requestAnimationFrame(tick);
+    };
+
+    requestAnimationFrame(() => requestAnimationFrame(tick));
+  }, [hold, docContent, tableOfContents]);
 
   // ---------- (선택) 콘텐츠 페이드: 딜레이 중엔 숨기고, 준비되면 페이드-인 ----------
   const contentClass = hold ? 'is-hold' : 'is-ready';
