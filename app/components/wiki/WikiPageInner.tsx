@@ -304,6 +304,45 @@ export default function WikiPageInner({ user }: Props) {
     return h;
   }
 
+  function findScrollableContainer(startEl: HTMLElement | null): HTMLElement | null {
+    let el: HTMLElement | null = startEl;
+
+    while (el) {
+      const style = window.getComputedStyle(el);
+      const overflowY = style.overflowY;
+
+      const scrollable =
+        (overflowY === 'auto' || overflowY === 'scroll') &&
+        el.scrollHeight > el.clientHeight + 1;
+
+      if (scrollable) return el;
+
+      el = el.parentElement;
+    }
+
+    return null;
+  }
+
+  function scrollToHeadingDomId(domId: string, headerOffset = 72) {
+    const target = document.getElementById(domId);
+    if (!target) return false;
+
+    // ✅ 가장 확실한 방법: "타겟이 속한 실제 스크롤 컨테이너"를 찾아서 거기를 스크롤
+    const scrollParent = findScrollableContainer(target) || null;
+
+    if (!scrollParent) {
+      // fallback: window
+      const y = target.getBoundingClientRect().top + window.scrollY - headerOffset;
+      window.scrollTo({ top: y, behavior: 'auto' });
+      return true;
+    }
+
+    const parentRect = scrollParent.getBoundingClientRect();
+    const y = target.getBoundingClientRect().top - parentRect.top + scrollParent.scrollTop - headerOffset;
+    scrollParent.scrollTo({ top: y, behavior: 'auto' });
+    return true;
+  }
+
   // ✅ 문서가 열리면 해당 문서의 카테고리 경로를 전부 펼치기
   const ensureOpenForDocPath = (docPath: number[] | null | undefined) => {
     if (!Array.isArray(docPath)) return;
@@ -975,42 +1014,6 @@ export default function WikiPageInner({ user }: Props) {
       setDocContent(content);
       setTableOfContents(extractHeadings(content));
 
-      // ✅ [추가] 링크로 넘어온 heading 타겟이 있으면, DOM 붙은 뒤 스크롤
-      {
-        const pending = pendingScrollDomIdRef.current;
-        if (pending) {
-          pendingScrollDomIdRef.current = '';
-
-          let tries = 0;
-          const maxTries = 60;
-
-          const tick = () => {
-            tries += 1;
-
-            const el = document.getElementById(pending);
-            if (el) {
-              const root = document.querySelector('#wiki-scroll-root') as HTMLElement | null;
-              const headerOffset = 72;
-
-              if (!root) {
-                const y = el.getBoundingClientRect().top + window.scrollY - headerOffset;
-                window.scrollTo({ top: y, behavior: 'auto' });
-              } else {
-                const rootRect = root.getBoundingClientRect();
-                const y =
-                  el.getBoundingClientRect().top - rootRect.top + root.scrollTop - headerOffset;
-                root.scrollTo({ top: y, behavior: 'auto' });
-              }
-              return;
-            }
-
-            if (tries < maxTries) requestAnimationFrame(tick);
-          };
-
-          requestAnimationFrame(() => requestAnimationFrame(tick));
-        }
-      }
-
       const docInList = allDocuments.find(d => d.id === data.id);
       const special = data.special ?? docInList?.special ?? null;
       const meta = parseSpecial(special);
@@ -1422,27 +1425,15 @@ export default function WikiPageInner({ user }: Props) {
     if (!pending) return;
 
     let tries = 0;
-    const maxTries = 60;
+    const maxTries = 90; // ✅ 좀 더 여유 (렌더/이미지/폰트 영향)
 
     const tick = () => {
       tries += 1;
 
-      const el = document.getElementById(pending);
-      if (el) {
+      // ✅ 여기서 "진짜 스크롤 컨테이너"를 찾아 스크롤
+      const ok = scrollToHeadingDomId(pending, 72);
+      if (ok) {
         pendingScrollDomIdRef.current = '';
-
-        const root = document.querySelector('#wiki-scroll-root') as HTMLElement | null;
-        const headerOffset = 72;
-
-        if (!root) {
-          const y = el.getBoundingClientRect().top + window.scrollY - headerOffset;
-          window.scrollTo({ top: y, behavior: 'auto' });
-        } else {
-          const rootRect = root.getBoundingClientRect();
-          const y =
-            el.getBoundingClientRect().top - rootRect.top + root.scrollTop - headerOffset;
-          root.scrollTo({ top: y, behavior: 'auto' });
-        }
         return;
       }
 
