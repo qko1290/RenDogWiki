@@ -151,10 +151,13 @@ export default function ViewsReportClient() {
       };
     });
 
+    // ✅ (1) 조회수 0은 표시하지 않기
+    const nonZero = merged.filter(r => r.views > 0);
+
     // 검색 필터(제목/카테고리)
     const filtered = !q
-      ? merged
-      : merged.filter((r) => {
+      ? nonZero
+      : nonZero.filter((r) => {
           return (
             r.title.toLowerCase().includes(q) ||
             r.category.toLowerCase().includes(q) ||
@@ -224,9 +227,14 @@ export default function ViewsReportClient() {
               ) : (
                 rows.map((r) => (
                   <tr key={`${r.documentId}-${r.views}-${pathToStr([])}`}>
-                    <Td style={{ color: '#6b7280' }}>{r.documentId}</Td>
+                    {/* ✅ (2) 문서ID 하얀색 */}
+                    <Td style={{ color: '#fff' }}>{r.documentId}</Td>
+
                     <Td style={{ fontWeight: 600 }}>{r.title}</Td>
-                    <Td style={{ color: '#374151' }}>{r.category}</Td>
+
+                    {/* ✅ (2) 소속카테고리 하얀색 */}
+                    <Td style={{ color: '#fff' }}>{r.category}</Td>
+
                     <Td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                       {r.views.toLocaleString()}
                     </Td>
