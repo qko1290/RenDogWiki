@@ -684,6 +684,7 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
         <a
           href={normalizedHref}
           onClick={handleClick}
+          data-wiki-link-block="1"
           style={{
             textDecoration: "none",
             color: "inherit",

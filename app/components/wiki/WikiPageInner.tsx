@@ -1027,6 +1027,8 @@ export default function WikiPageInner({ user }: Props) {
       const aTag = target?.closest('a') as HTMLAnchorElement | null;
       if (!aTag) return;
 
+      if (aTag.dataset.wikiLinkBlock === '1') return;
+
       const rawHref = aTag.getAttribute('href');
       if (!rawHref) return;
 
@@ -1052,7 +1054,7 @@ export default function WikiPageInner({ user }: Props) {
       e.preventDefault();
       e.stopPropagation();
       pendingLinkHashRef.current = url.hash || '';
-      
+
       // ✅ 링크 클릭 즉시 로딩 느낌 먼저 주기
       setLoadingDoc(true);
 
