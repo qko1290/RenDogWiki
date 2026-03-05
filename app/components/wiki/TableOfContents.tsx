@@ -123,7 +123,7 @@ export default function TableOfContents({
   const setActiveByClosest = () => {
     if (!indexed.length) return false;
 
-    const root = getRootForObserver();
+    const root = getScrollRootEl();
     const rootRectTop = root ? root.getBoundingClientRect().top : 0;
     const headerLine = rootRectTop + headerOffset + 8;
 
