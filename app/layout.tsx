@@ -4,6 +4,8 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import '@/wiki/css/fonts-kor.css';
 import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
+import logoImg from "./image/logo.png";
 
 export const dynamic = 'force-dynamic';
 
@@ -44,14 +46,19 @@ export const metadata: Metadata = {
     description: "렌독 RPG 비공식 위키",
     locale: "ko_KR",
     images: [
-      { url: "/og.png", width: 1200, height: 630, alt: "RenDog Wiki" },
+      {
+        url: logoImg.src,
+        width: logoImg.width,
+        height: logoImg.height,
+        alt: "RenDog Wiki",
+      },
     ],
   },
   twitter: {
     card: "summary_large_image",
     title: "RenDog Wiki",
     description: "렌독 RPG 비공식 위키",
-    images: ["/og.png"],
+    images: [logoImg.src],
   },
   robots: {
     index: true,
@@ -79,8 +86,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
-      <body className={inter.className}>{children}</body>
-      <Analytics />
+      <body className={inter.className}>
+        {children}
+        <Analytics />
+        <SpeedInsights />
+      </body>
     </html>
   );
 }
