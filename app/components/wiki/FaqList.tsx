@@ -234,16 +234,47 @@ export default function FaqList({
     y: 0,
   });
 
+  // 하단 로컬 검색
+  const [bottomSearch, setBottomSearch] = useState('');
+
   // --- 페이징 ---
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 12;
-  const pageCount = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
-  const viewItems = useMemo(() => items.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [items, page]);
+
+  const normalizedBottomSearch = bottomSearch.trim().toLowerCase();
+
+  const filteredItems = useMemo(() => {
+    if (!normalizedBottomSearch) return items;
+
+    return items.filter((it) => {
+      const title = (it.title ?? '').toLowerCase();
+      const content = (it.content ?? '').toLowerCase();
+      const tagsText = Array.isArray(it.tags) ? it.tags.join(' ').toLowerCase() : '';
+      const uploader = (it.uploader ?? '').toLowerCase();
+
+      return (
+        title.includes(normalizedBottomSearch) ||
+        content.includes(normalizedBottomSearch) ||
+        tagsText.includes(normalizedBottomSearch) ||
+        uploader.includes(normalizedBottomSearch)
+      );
+    });
+  }, [items, normalizedBottomSearch]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
+  const viewItems = useMemo(
+    () => filteredItems.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE),
+    [filteredItems, page]
+  );
 
   useEffect(() => {
-    const maxIdx = Math.max(0, Math.ceil(items.length / PAGE_SIZE) - 1);
+    const maxIdx = Math.max(0, Math.ceil(filteredItems.length / PAGE_SIZE) - 1);
     if (page > maxIdx) setPage(0);
-  }, [items, page]);
+  }, [filteredItems, page]);
+
+  useEffect(() => {
+    setPage(0);
+  }, [bottomSearch]);
 
   // 서버 쿼리(필터만 반영)
   const qs = useMemo(() => {
@@ -333,13 +364,14 @@ export default function FaqList({
 
   return (
     <div className="faq-wrap">
-
       {/* 리스트 카드 (✅ 내용만큼만, 높이 안 늘림) */}
       <div className="faq-list-card">
         {loading ? (
           <div className="faq-row muted">불러오는 중…</div>
-        ) : items.length === 0 ? (
-          <div className="faq-row muted">등록된 질문이 없습니다.</div>
+        ) : filteredItems.length === 0 ? (
+          <div className="faq-row muted">
+            {bottomSearch.trim() ? '검색 결과가 없습니다.' : '등록된 질문이 없습니다.'}
+          </div>
         ) : (
           viewItems.map((it) => (
             <div key={it.id} className="faq-row">
@@ -427,7 +459,7 @@ export default function FaqList({
         </div>
       )}
 
-      {/* 페이징: 구조는 유지하고 디자인만 세그먼트 스타일로 */}
+      {/* 페이징 */}
       {pageCount > 1 && (
         <div className="faq-paging">
           <div className="faq-paging-seg">
@@ -471,6 +503,35 @@ export default function FaqList({
           </div>
         </div>
       )}
+
+      {/* 하단 검색칸 */}
+      <div className="faq-bottom-search">
+        <div className="faq-search-box">
+          <svg className="faq-search-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+            <circle cx="11" cy="11" r="7" />
+            <path d="M20 20l-3.5-3.5" strokeLinecap="round" />
+          </svg>
+
+          <input
+            type="text"
+            value={bottomSearch}
+            onChange={(e) => setBottomSearch(e.target.value)}
+            placeholder="목록 내 검색"
+            aria-label="FAQ 목록 내 검색"
+          />
+
+          {bottomSearch && (
+            <button
+              type="button"
+              className="faq-search-clear"
+              onClick={() => setBottomSearch('')}
+              aria-label="검색어 지우기"
+            >
+              ×
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* 상세 모달(Q/A 뷰) */}
       {sel && <FaqDetailModal sel={sel} onClose={() => setSel(null)} />}
@@ -625,7 +686,6 @@ export default function FaqList({
           color: #d11;
         }
 
-        /* 참고 버튼 디자인 */
         .toolbar-seg,
         .faq-paging-seg {
           display: inline-flex;
@@ -728,6 +788,65 @@ export default function FaqList({
         .faq-page.active {
           color: #1d4ed8;
           background: #eef5ff;
+        }
+
+        /* 하단 검색 */
+        .faq-bottom-search {
+          display: flex;
+          justify-content: center;
+          margin-top: 10px;
+        }
+
+        .faq-search-box {
+          width: min(520px, 100%);
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          background: #fff;
+          border: 1px solid #e5e7eb;
+          border-radius: 12px;
+          padding: 10px 12px;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+        }
+
+        .faq-search-ico {
+          width: 18px;
+          height: 18px;
+          color: #94a3b8;
+          flex: 0 0 18px;
+        }
+
+        .faq-search-box input {
+          flex: 1 1 auto;
+          border: 0;
+          outline: none;
+          background: transparent;
+          font-size: 14px;
+          color: #0f172a;
+          min-width: 0;
+        }
+
+        .faq-search-box input::placeholder {
+          color: #94a3b8;
+        }
+
+        .faq-search-clear {
+          width: 24px;
+          height: 24px;
+          border: 0;
+          border-radius: 999px;
+          background: #f3f4f6;
+          color: #64748b;
+          cursor: pointer;
+          display: grid;
+          place-items: center;
+          font-size: 16px;
+          line-height: 1;
+          flex: 0 0 24px;
+        }
+
+        .faq-search-clear:hover {
+          background: #e5e7eb;
         }
       `}</style>
     </div>
