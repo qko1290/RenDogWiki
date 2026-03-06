@@ -19,9 +19,7 @@ type Props = {
   expandWidth?: number;
   hoverBg?: string;
   hoverCooldownMs?: number;
-
-  /** ✅ 좌상단에서 로고 아래로 내릴 px */
-  topOffset?: number; // default 92
+  topOffset?: number;
 };
 
 function iconByKey(key: DocQuickBadgeItem['icon']) {
@@ -49,7 +47,6 @@ export default function DocQuickBadges({
 
   const [open, setOpen] = useState(false);
 
-  // 펼침 직후 hover 잠금(짧게)
   const [hoverLock, setHoverLock] = useState(false);
   const hoverLockTimerRef = useRef<number | null>(null);
   const prevOpenRef = useRef(false);
@@ -83,9 +80,8 @@ export default function DocQuickBadges({
     }
   }, [open, hoverCooldownMs]);
 
-  // ✅ 감지 영역(좌상단/아래로 펼침 기준)
-  // - 아래 180 / 위 50
-  // - 왼 100 / 오른 50
+  // 감지 영역
+  // 왼쪽 100 / 오른쪽 50 / 위 50 / 아래 180
   useEffect(() => {
     let raf = 0;
 
@@ -95,7 +91,6 @@ export default function DocQuickBadges({
 
       const rect = el.getBoundingClientRect();
 
-      // ✅ top 기준: 메인 원 중심
       const cx = rect.left + 23;
       const cy = rect.top + 23;
 
@@ -143,7 +138,12 @@ export default function DocQuickBadges({
         </span>
       </button>
 
-      {/* 3개: 아래로 펼침 (메인 위치부터) */}
+      {/* 메인 아래 말풍선 */}
+      <div className={`qbd-bubble ${open ? 'is-hidden' : ''}`} aria-hidden={open}>
+        바로가기
+      </div>
+
+      {/* 3개: 아래로 펼침 */}
       <div className="qbd-stack" aria-hidden={!open}>
         {stack.map((it, idx) => (
           <button
@@ -173,19 +173,20 @@ export default function DocQuickBadges({
           top: var(--qbd-top);
           z-index: 80;
           pointer-events: none;
-          width: 64px;
-          height: 260px; /* 아래로 펼치니까 약간 여유 */
+          width: 88px;
+          height: 300px;
         }
 
         .qbd-btn,
-        .qbd-stack {
+        .qbd-stack,
+        .qbd-bubble {
           pointer-events: auto;
         }
 
         .qbd-stack {
           position: absolute;
           left: 0;
-          top: 0; /* ✅ top 기준으로 맞춤 */
+          top: 0;
           width: 1px;
           height: 1px;
         }
@@ -193,7 +194,7 @@ export default function DocQuickBadges({
         .qbd-btn {
           position: absolute;
           left: 0;
-          top: 0; /* ✅ top 기준 */
+          top: 0;
           width: 46px;
           height: 46px;
           border-radius: 999px;
@@ -283,9 +284,46 @@ export default function DocQuickBadges({
           opacity: 0;
           pointer-events: none;
         }
+
         .qbd-item.is-open {
           opacity: 1;
           pointer-events: auto;
+        }
+
+        /* 말풍선 */
+        .qbd-bubble {
+          position: absolute;
+          left: 50%;
+          top: 58px;
+          transform: translateX(-50%);
+          background: #fff;
+          color: #111827;
+          font-size: 13px;
+          font-weight: 700;
+          padding: 6px 10px;
+          border-radius: 8px;
+          white-space: nowrap;
+          box-shadow: 0 10px 10px rgba(0, 0, 0, 0.1);
+          opacity: 1;
+          pointer-events: none;
+          transition: all 0.28s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .qbd-bubble::before {
+          position: absolute;
+          content: '';
+          height: 8px;
+          width: 8px;
+          background: #fff;
+          top: -4px;
+          left: 50%;
+          transform: translateX(-50%) rotate(45deg);
+          transition: all 0.28s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .qbd-bubble.is-hidden {
+          opacity: 0;
+          transform: translateX(-50%) translateY(-8px);
         }
 
         @media (hover: none) {
