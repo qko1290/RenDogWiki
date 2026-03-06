@@ -40,8 +40,8 @@ export default function MyPage() {
   // Crafatar는 UUID 권장 → 없으면 닉네임으로 폴백
   const [uuid, setUuid] = useState<string | null>(null);
   const avatarUrl = useMemo(() => {
-    const base = 'https://crafatar.com/avatars';
-    return `${base}/${uuid ?? user?.minecraft_name}?overlay`;
+    const base = 'https://crafthead.net/helm';
+    return `${base}/${uuid ?? user?.minecraft_name}/64`;
   }, [uuid, user?.minecraft_name]);
 
   // 유저 로딩
@@ -144,7 +144,7 @@ export default function MyPage() {
       <WikiHeader user={user} />
       <main className="login-bg">
         <section className="mypage-ui">
-          <h2 className="mypage-title">마이페이지</h2>
+          <h2 className="mypage-title">RDWIKI</h2>
 
           {/* 프로필 */}
           <div className="mypage-profile-box">
@@ -204,13 +204,6 @@ export default function MyPage() {
                 </div>
               </div>
             )}
-          </div>
-
-          {/* 내가 쓴 문서 */}
-          <div className="mypage-doc-link-row">
-            <Link href="/wiki" className="mypage-doc-btn">
-              내가 쓴 문서 전체보기
-            </Link>
           </div>
         </section>
       </main>
