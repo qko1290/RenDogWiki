@@ -10,6 +10,7 @@ import '@/wiki/css/header.css';
 import SearchBox from '@/components/common/SearchBox';
 import logo from '../../image/logo.png';
 import Image from 'next/image';
+import { ModalCard } from '@/components/common/Modal';
 
 type WikiHeaderProps = {
   user: {
@@ -37,6 +38,7 @@ const MODE_EVENT = 'wiki-mode-change';
 
 export default function WikiHeader({ user }: WikiHeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [comingSoonOpen, setComingSoonOpen] = useState(false);
 
   // ✅ 초기 모드: URL > localStorage > DEFAULT_MODE
   const initialMode = useMemo(() => {
@@ -82,6 +84,15 @@ export default function WikiHeader({ user }: WikiHeaderProps) {
     }
   };
 
+  // ✅ RPG 외 모드는 준비중 모달 띄우고 차단
+  const handleModeClick = (next: string) => {
+    if (next !== DEFAULT_MODE) {
+      setComingSoonOpen(true);
+      return;
+    }
+    applyMode(next);
+  };
+
   // ✅ 최초 렌더에서 URL/LS가 비어있으면 RPG를 URL에도 박아넣기
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -109,77 +120,99 @@ export default function WikiHeader({ user }: WikiHeaderProps) {
   }
 
   return (
-    <header className="wiki-header">
-      <div className="wiki-header-inner">
-        {/* 로고 */}
-        <Link href="/wiki" className="wiki-logo flex items-center gap-2 no-underline">
-          <Image src={logo} alt="RDWIKI" width={45} height={40} style={{ imageRendering: 'auto' }}/>
-          <span>RDWIKI</span>
-        </Link>
+    <>
+      <header className="wiki-header">
+        <div className="wiki-header-inner">
+          {/* 로고 */}
+          <Link href="/wiki" className="wiki-logo flex items-center gap-2 no-underline">
+            <Image src={logo} alt="RDWIKI" width={45} height={40} style={{ imageRendering: 'auto' }} />
+            <span>RDWIKI</span>
+          </Link>
 
-        {/* ✅ 모드 옵션: 4개만 */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 14,
-            marginLeft: 12,
-            marginRight: 12,
-            flexShrink: 0,
-          }}
-          aria-label="모드 선택"
-        >
-          {MODE_OPTIONS.map((m) => {
-            const active = mode === m.tag;
-            return (
-              <button
-                key={m.tag}
-                type="button"
-                onClick={() => applyMode(m.tag)}
-                aria-pressed={active}
-                title={`${m.label} 보기`}
-                style={{
-                  background: 'transparent',
-                  border: 0,
-                  padding: 0,
-                  fontSize: 15,
-                  fontWeight: active ? 800 : 600,
-                  letterSpacing: 0.2,
-                  color: active ? '#6f4cff' : '#6b7280',
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {m.label}
-              </button>
-            );
-          })}
+          {/* ✅ 모드 옵션: 4개만 */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 14,
+              marginLeft: 12,
+              marginRight: 12,
+              flexShrink: 0,
+            }}
+            aria-label="모드 선택"
+          >
+            {MODE_OPTIONS.map((m) => {
+              const active = mode === m.tag;
+              const isBlocked = m.tag !== DEFAULT_MODE;
+
+              return (
+                <button
+                  key={m.tag}
+                  type="button"
+                  onClick={() => handleModeClick(m.tag)}
+                  aria-pressed={active}
+                  title={isBlocked ? `${m.label} 준비중` : `${m.label} 보기`}
+                  style={{
+                    background: 'transparent',
+                    border: 0,
+                    padding: 0,
+                    fontSize: 15,
+                    fontWeight: active ? 800 : 600,
+                    letterSpacing: 0.2,
+                    color: active ? '#6f4cff' : '#6b7280',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    opacity: isBlocked ? 0.72 : 1,
+                  }}
+                >
+                  {m.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 검색 */}
+          <div className="wiki-search-container">
+            <SearchBox />
+          </div>
+
+          {/* 햄버거 */}
+          <button
+            type="button"
+            onClick={() => setIsMenuOpen(true)}
+            className="text-black text-2xl absolute top-4 right-4"
+            aria-label="사이드 메뉴 열기"
+          >
+            ☰
+          </button>
+
+          <HamburgerMenu
+            isOpen={isMenuOpen}
+            onClose={() => setIsMenuOpen(false)}
+            isLoggedIn={!!user}
+            username={user?.minecraft_name || ''}
+            uuid={undefined}
+            onLogout={handleLogout}
+          />
         </div>
+      </header>
 
-        {/* 검색 */}
-        <div className="wiki-search-container">
-          <SearchBox />
-        </div>
-
-        {/* 햄버거 */}
-        <button
-          type="button"
-          onClick={() => setIsMenuOpen(true)}
-          className="text-black text-2xl absolute top-4 right-4"
-          aria-label="사이드 메뉴 열기"
-        >
-          ☰
-        </button>
-
-        <HamburgerMenu
-          isOpen={isMenuOpen}
-          onClose={() => setIsMenuOpen(false)}
-          isLoggedIn={!!user}
-          username={user?.minecraft_name || ''}
-          uuid={undefined}
-          onLogout={handleLogout}
-        />
-      </div>
-    </header>
+      {/* 준비중 모달 */}
+      <ModalCard
+        open={comingSoonOpen}
+        onClose={() => setComingSoonOpen(false)}
+        title="안내"
+        actions={
+          <button className="rd-btn danger" onClick={() => setComingSoonOpen(false)}>
+            확인
+          </button>
+        }
+        width={360}
+      >
+        <p className="rd-card-description" style={{ textAlign: 'center', whiteSpace: 'pre-line' }}>
+          준비중입니다!
+        </p>
+      </ModalCard>
+    </>
   );
 }
