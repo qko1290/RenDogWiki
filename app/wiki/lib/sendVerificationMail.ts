@@ -35,8 +35,6 @@ export async function sendVerificationMail(email: string, token: string) {
       <a href="${url}" style="padding: 8px 16px; background-color: #0ea5e9; color: white; text-decoration: none; border-radius: 4px;">
         이메일 인증하기
       </a>
-      <p>또는 다음 링크를 복사하여 브라우저에 붙여넣기:</p>
-      <pre>${url}</pre>
     `
   });
 }
