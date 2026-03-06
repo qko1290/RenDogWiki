@@ -33,19 +33,62 @@ type FaqItem = {
 };
 
 // -------------------- utils --------------------
+function normalizeSearchText(v: string) {
+  return String(v ?? '')
+    .toLowerCase()
+    .replace(/\s+/g, '');
+}
+
+function buildCompactIndexMap(text: string) {
+  const compactChars: string[] = [];
+  const indexMap: number[] = [];
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (/\s/.test(ch)) continue;
+    compactChars.push(ch.toLowerCase());
+    indexMap.push(i);
+  }
+
+  return {
+    compact: compactChars.join(''),
+    indexMap,
+  };
+}
+
+function findLooseMatchRange(text: string, keyword: string): { start: number; end: number } | null {
+  if (!text || !keyword) return null;
+
+  const normalizedKeyword = normalizeSearchText(keyword);
+  if (!normalizedKeyword) return null;
+
+  const { compact, indexMap } = buildCompactIndexMap(text);
+  const idx = compact.indexOf(normalizedKeyword);
+  if (idx < 0) return null;
+
+  const start = indexMap[idx];
+  const endCompactIdx = idx + normalizedKeyword.length - 1;
+  const end = (indexMap[endCompactIdx] ?? start) + 1;
+
+  return { start, end };
+}
+
 function highlight(text: string, keyword: string) {
   if (!keyword) return text;
-  const safe = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const re = new RegExp(`(${safe})`, 'gi');
-  const parts = text.split(re);
-  return parts.map((part, i) =>
-    i % 2 === 1 ? (
-      <mark key={i} style={{ background: 'none', color: '#1876f7', fontWeight: 700 }}>
-        {part}
+
+  const range = findLooseMatchRange(text, keyword);
+  if (!range) return text;
+
+  const { start, end } = range;
+
+  return (
+    <>
+      {start > 0 && <span>{text.slice(0, start)}</span>}
+      <mark style={{ background: 'none', color: '#1876f7', fontWeight: 700 }}>
+        {text.slice(start, end)}
       </mark>
-    ) : (
-      <span key={i}>{part}</span>
-    ),
+      {end < text.length && <span>{text.slice(end)}</span>}
+    </>
   );
 }
 
@@ -67,15 +110,15 @@ function extractSlateTextSnippets(slate: any): string[] {
 }
 
 function makeSnippetFromText(text: string, keyword: string, radius = 26) {
-  const low = text.toLowerCase();
-  const k = keyword.toLowerCase();
-  const idx = low.indexOf(k);
-  if (idx < 0) return null;
+  const range = findLooseMatchRange(text, keyword);
+  if (!range) return null;
 
-  const start = Math.max(0, idx - radius);
-  const end = Math.min(text.length, idx + keyword.length + radius);
+  const start = Math.max(0, range.start - radius);
+  const end = Math.min(text.length, range.end + radius);
+
   const prefix = start > 0 ? '…' : '';
   const suffix = end < text.length ? '…' : '';
+
   return `${prefix}${text.slice(start, end)}${suffix}`;
 }
 
@@ -145,6 +188,7 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
   // ===== 디바운스 & 동시 fetch(문서 + FAQ) =====
   useEffect(() => {
     const q = query.trim();
+    const compactQuery = normalizeSearchText(q);
     if (!q) {
       setOpen(false);
       setDocs([]);
@@ -165,10 +209,13 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
 
       (async () => {
         try {
-          const res = await fetch(`/api/search?query=${encodeURIComponent(q)}&limit=50`, {
-            signal: acDocs.signal,
-            cache: 'no-store',
-          });
+          const res = await fetch(
+            `/api/search?query=${encodeURIComponent(q)}&compact=${encodeURIComponent(compactQuery)}&limit=50`,
+            {
+              signal: acDocs.signal,
+              cache: 'no-store',
+            }
+          );
           if (!res.ok) throw new Error('search-failed');
           const data = (await res.json()) as DocResult[];
           setDocs(Array.isArray(data) ? data : []);
@@ -191,7 +238,10 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
 
       (async () => {
         try {
-          const url = `/api/faq?q=${encodeURIComponent(q)}&limit=10&offset=0`;
+          const url =
+            `/api/faq?q=${encodeURIComponent(q)}` +
+            `&compact=${encodeURIComponent(compactQuery)}` +
+            `&limit=10&offset=0`;
           const res = await fetch(url, { signal: acFaq.signal, cache: 'no-store' });
           const data = res.ok ? await res.json() : { items: [] };
           setFaqs(Array.isArray(data.items) ? data.items : []);
