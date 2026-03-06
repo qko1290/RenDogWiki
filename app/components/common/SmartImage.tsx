@@ -9,7 +9,22 @@ type Props = Omit<ImageProps, 'src'> & {
   src: string;
   rounded?: number | string;
   unoptimized?: boolean;
+
+  /**
+   * 강제로 Next Image 최적화를 유지할지 여부
+   * - 기본값 false
+   * - true일 때만 원격 이미지도 최적화 유지
+   */
+  keepOptimization?: boolean;
 };
+
+function isRemoteUrl(src: string) {
+  return /^https?:\/\//i.test(src);
+}
+
+function isLikelyLocalAsset(src: string) {
+  return src.startsWith('/') || src.startsWith('./') || src.startsWith('../');
+}
 
 export default function SmartImage({
   src,
@@ -22,6 +37,8 @@ export default function SmartImage({
   loading,
   fill,
   quality,
+  keepOptimization = false,
+  alt,
   ...rest
 }: Props) {
   const proxied = toProxyUrl(src);
@@ -29,58 +46,72 @@ export default function SmartImage({
   const wNum = typeof width === 'number' ? width : null;
   const hNum = typeof height === 'number' ? height : null;
 
-  // ✅ 규칙: max <= 128이면 아이콘
-  const isIcon = wNum !== null && hNum !== null && Math.max(wNum, hNum) <= 128;
+  const isIcon =
+    wNum !== null &&
+    hNum !== null &&
+    Math.max(wNum, hNum) <= 128;
 
-  // ✅ 아이콘이면 무조건 최적화 OFF
-  const finalUnoptimized = isIcon ? true : !!unoptimized;
+  const originalIsRemote = /^https?:\/\//i.test(src);
+  const proxiedIsRemote = /^https?:\/\//i.test(proxied);
+  const isRemoteImage = originalIsRemote || proxiedIsRemote;
 
-  // ✅ 본문 사이즈 기본값 (너 위키 본문 폭이 더 크면 여기만 올리면 됨)
+  const isLocalAsset =
+    (src.startsWith('/') || src.startsWith('./') || src.startsWith('../')) &&
+    !originalIsRemote;
+
+  const finalUnoptimized =
+    isIcon ||
+    !!unoptimized ||
+    (isRemoteImage && !keepOptimization);
+
   const CONTENT_MAX_PX = 960;
 
-  // ✅ 아이콘 sizes는 px 고정(= w 다양화 방지)
   const computedSizesForIcon =
-    wNum !== null && hNum !== null ? `${Math.max(wNum, hNum)}px` : '128px';
+    wNum !== null && hNum !== null
+      ? `${Math.max(wNum, hNum)}px`
+      : '128px';
 
-  // ✅ 본문 sizes는 “모바일 100vw + 데스크탑 상한”으로 타이트하게
   const computedSizesForContent = (() => {
-    // fill이면 컨테이너 폭에 종속되므로 100vw + 상한
-    if (fill) return `(max-width: 768px) 100vw, ${CONTENT_MAX_PX}px`;
+    if (fill) {
+      return `(max-width: 768px) 100vw, ${CONTENT_MAX_PX}px`;
+    }
 
-    const desktopPx = wNum !== null ? Math.min(wNum, CONTENT_MAX_PX) : CONTENT_MAX_PX;
+    const desktopPx =
+      wNum !== null ? Math.min(wNum, CONTENT_MAX_PX) : CONTENT_MAX_PX;
 
-    // 더 타이트: 태블릿 구간도 한 번 더 끊어서 w 변형을 줄임
     return `(max-width: 640px) 100vw, (max-width: 1200px) ${desktopPx}px, ${desktopPx}px`;
   })();
 
   const finalSizes = isIcon
-    ? (sizes ?? computedSizesForIcon)
-    : (sizes ?? computedSizesForContent);
+    ? sizes ?? computedSizesForIcon
+    : sizes ?? computedSizesForContent;
 
   const mergedStyle: CSSProperties = {
     ...style,
     ...(rounded !== undefined
-      ? { borderRadius: typeof rounded === 'number' ? `${rounded}px` : rounded }
+      ? {
+          borderRadius:
+            typeof rounded === 'number' ? `${rounded}px` : rounded,
+        }
       : {}),
   };
 
-  // ✅ 안전장치: quality 기본값 고정 (요청 파라미터 다양화 감소)
-  // - 아이콘은 unoptimized라 영향 없음
-  const finalQuality = quality ?? 75;
+  const finalQuality = finalUnoptimized ? undefined : quality ?? 75;
+  const finalSrc = isLocalAsset ? src : proxied;
 
   return (
     <Image
-      {...rest}
-      src={proxied}
-      width={width}
-      height={height}
+      src={finalSrc}
+      alt={alt ?? ''}
+      width={fill ? undefined : width}
+      height={fill ? undefined : height}
       fill={fill}
-      sizes={finalSizes}
-      unoptimized={finalUnoptimized}
-      quality={finalQuality}
-      style={mergedStyle}
       loading={loading ?? 'lazy'}
-      {...({ decoding: 'async', draggable: false } as any)}
+      sizes={finalSizes}
+      quality={finalQuality}
+      unoptimized={finalUnoptimized}
+      style={mergedStyle}
+      {...rest}
     />
   );
 }
