@@ -173,7 +173,7 @@ export default function DocQuickBadges({
           top: var(--qbd-top);
           z-index: 80;
           pointer-events: none;
-          width: 88px;
+          width: 110px;
           height: 300px;
         }
 
@@ -290,40 +290,51 @@ export default function DocQuickBadges({
           pointer-events: auto;
         }
 
-        /* 말풍선 */
         .qbd-bubble {
           position: absolute;
-          left: 50%;
+
+          /* ✅ 뱃지(46px) 중앙 기준 정렬 */
+          left: 23px;
           top: 58px;
           transform: translateX(-50%);
-          background: #fff;
-          color: #111827;
+
+          /* ✅ 뱃지 컬러와 맞춤 */
+          background: rgb(20, 20, 20);
+          color: #fff;
+
           font-size: 13px;
           font-weight: 700;
-          padding: 6px 10px;
+          line-height: 1;
+          padding: 8px 12px;
           border-radius: 8px;
           white-space: nowrap;
-          box-shadow: 0 10px 10px rgba(0, 0, 0, 0.1);
+
+          box-shadow: 0 10px 18px rgba(0, 0, 0, 0.16);
           opacity: 1;
           pointer-events: none;
-          transition: all 0.28s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+          transition:
+            opacity 220ms ease,
+            transform 220ms ease;
         }
 
         .qbd-bubble::before {
           position: absolute;
           content: '';
-          height: 8px;
           width: 8px;
-          background: #fff;
+          height: 8px;
+
+          /* ✅ 말풍선 꼬리도 같은 컬러 */
+          background: rgb(20, 20, 20);
+
           top: -4px;
           left: 50%;
           transform: translateX(-50%) rotate(45deg);
-          transition: all 0.28s cubic-bezier(0.68, -0.55, 0.265, 1.55);
         }
 
         .qbd-bubble.is-hidden {
           opacity: 0;
-          transform: translateX(-50%) translateY(-8px);
+          transform: translateX(-50%) translateY(-6px);
         }
 
         @media (hover: none) {
