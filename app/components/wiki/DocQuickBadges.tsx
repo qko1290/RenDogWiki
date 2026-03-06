@@ -257,7 +257,7 @@ export default function DocQuickBadges({
         .qbd-root:not(.hover-lock) .qbd-btn:not(.qbd-main):hover::after,
         .qbd-root:not(.hover-lock) .qbd-btn:not(.qbd-main):focus-visible::after {
           opacity: 1;
-          font-size: 13px;
+          font-size: 20px;
           transform: translateY(-50%);
         }
 
@@ -271,7 +271,7 @@ export default function DocQuickBadges({
           align-items: center;
           justify-content: center;
           color: white;
-          font-size: 16px;
+          font-size: 24px;
           z-index: 2;
         }
 
