@@ -1,13 +1,20 @@
 // =============================================
 // File: app/api/search/route.ts
-// (전체 코드) ✅ contentRows도 categories.name 브레드크럼 사용하도록 수정
+// (전체 코드)
+// - 띄어쓰기 무시 검색 지원
+//   예)
+//   - "초월 퀘스트" 문서를 "초월퀘"로 검색 가능
+//   - "초월퀘스트" 문서를 "초월 퀘"로 검색 가능
+// - 제목(title), 태그(tags), 본문(content) 모두 동일 규칙 적용
+// - 우선순위 병합: title > tags > content
 // =============================================
 /**
  * 위키 문서 통합 검색
  * - GET 쿼리 ->
  *   - query: 검색어(필수, 부분 일치)
- *   - limit: 1~500 (기본 200)  // 최종 병합 결과 상한
+ *   - limit: 1~500 (기본 200)
  * - 검색 대상 -> 제목(title), 태그(tags), 본문(content)
+ * - 띄어쓰기 무시 검색 지원
  * - 중복 문서는 우선순위로 1회만 반환 -> title > tags > content
  * - 정렬 -> 각 범주 내 updated_at DESC, 병합 후 limit 적용
  * - 응답은 캐시 금지
@@ -19,6 +26,10 @@ import { sql } from "@/wiki/lib/db";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+function compactSearchText(v: string) {
+  return String(v ?? "").replace(/\s+/g, "");
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -32,7 +43,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json([], { headers: { "Cache-Control": "no-store" } });
     }
 
+    // ✅ 일반 패턴 + 공백 제거 패턴 둘 다 준비
+    const compactRaw = compactSearchText(raw);
     const pattern = `%${raw}%`;
+    const compactPattern = `%${compactRaw}%`;
 
     /**
      * ✅ path(예: "12/34/56" 또는 "12/34/56/문서슬러그")에서
@@ -64,13 +78,16 @@ export async function GET(req: NextRequest) {
     `;
 
     // 2) title 검색
+    // ✅ 일반 검색 + 공백 제거 검색 동시 지원
     const titleRows = await sql/*sql*/`
       SELECT
         id, title, path, icon, tags,
         'title' AS match_type,
         ${breadcrumbExpr} AS category_breadcrumb
       FROM documents
-      WHERE title ILIKE ${pattern}
+      WHERE
+        title ILIKE ${pattern}
+        OR regexp_replace(COALESCE(title, ''), '\\s+', '', 'g') ILIKE ${compactPattern}
       ORDER BY updated_at DESC NULLS LAST, id DESC
       LIMIT ${limit}
     `;
@@ -82,14 +99,15 @@ export async function GET(req: NextRequest) {
         'tags' AS match_type,
         ${breadcrumbExpr} AS category_breadcrumb
       FROM documents
-      WHERE tags ILIKE ${pattern}
+      WHERE
+        tags ILIKE ${pattern}
+        OR regexp_replace(COALESCE(tags, ''), '\\s+', '', 'g') ILIKE ${compactPattern}
       ORDER BY updated_at DESC NULLS LAST, id DESC
       LIMIT ${limit}
     `;
 
     // 4) 본문 검색
-    // ✅ 기존: path split → 그대로 ' > ' 조합(= id 노출 가능)
-    // ✅ 변경: documents d의 path 기준으로 categories.name 브레드크럼 생성
+    // ✅ 본문도 공백 제거 검색 지원
     const contentRows = await sql/*sql*/`
       SELECT
         d.id, d.title, d.path, d.icon, d.tags,
@@ -115,7 +133,9 @@ export async function GET(req: NextRequest) {
         ) AS category_breadcrumb
       FROM documents d
       JOIN document_contents dc ON d.id = dc.document_id
-      WHERE dc.content ILIKE ${pattern}
+      WHERE
+        dc.content ILIKE ${pattern}
+        OR regexp_replace(COALESCE(dc.content, ''), '\\s+', '', 'g') ILIKE ${compactPattern}
       ORDER BY d.updated_at DESC NULLS LAST, d.id DESC
       LIMIT ${limit}
     `;
