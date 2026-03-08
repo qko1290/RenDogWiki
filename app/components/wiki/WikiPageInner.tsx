@@ -541,6 +541,11 @@ export default function WikiPageInner({ user }: Props) {
     return roots.find(d => d.is_featured) || roots[0];
   };
 
+  const findDocumentMetaById = (id?: number | null) => {
+    if (id == null) return null;
+    return allDocuments.find(d => d.id === id) ?? null;
+  };
+
   const openRootDoc = async () => {
     const rootDoc = findRootDoc();
     if (!rootDoc) return;
@@ -763,39 +768,42 @@ export default function WikiPageInner({ user }: Props) {
       Number.isInteger(docId) &&
       (!isSamePath || !isSameDoc)
     ) {
+      const meta = findDocumentMetaById(docId);
+
+      // ✅ bootstrap/allDocuments에 이미 있는 메타를 우선 사용
+      if (meta?.title) {
+        await fetchDoc(path, meta.title, meta.id, {
+          clearCategoryPath: false,
+          forceRoot: path.length === 0,
+        });
+        return;
+      }
+
+      // ✅ 정말 없을 때만 fallback
       try {
         const res = await fetch(`/api/documents?id=${docId}`, {
           cache: 'no-store',
         });
+
         if (!res.ok) throw new Error('대표 문서를 찾을 수 없습니다');
+
         const doc = await res.json();
+
         if (!doc || !doc.title) {
           setSelectedDocId(null);
-          setSelectedDocPath(null);
           setSelectedDocTitle(null);
-          setDocContent([]);
+          setSelectedDocPath([]);
           setSelectedCategoryPath(path);
           return;
         }
-        setSelectedDocId(doc.id);
-        setSelectedDocPath([...path]);
-        setSelectedDocTitle(doc.title);
-        setSelectedCategoryPath(path);
-        setHideDocChrome(false); // 루트가 아닌 문서 오픈 시 표시
-        fetchDoc(path, doc.title, doc.id);
-        setOpenPaths(prev =>
-          prev.some(
-            p => JSON.stringify(p) === JSON.stringify(path),
-          )
-            ? prev
-            : [...prev, path],
-        );
-      } catch {
-        setSelectedDocId(null);
-        setSelectedDocPath(null);
-        setSelectedDocTitle(null);
-        setDocContent([]);
-        setSelectedCategoryPath(path);
+
+        await fetchDoc(path, doc.title, doc.id, {
+          clearCategoryPath: false,
+          forceRoot: path.length === 0,
+        });
+        return;
+      } catch (e) {
+        console.error('대표 문서 로드 실패', e);
       }
     }
   };
@@ -937,6 +945,20 @@ export default function WikiPageInner({ user }: Props) {
     docId?: number,
     options?: { clearCategoryPath?: boolean; forceRoot?: boolean },
   ) {
+
+    if (docId != null) {
+      const isRoot = options?.forceRoot || categoryPath.length === 0;
+
+      setSelectedDocId(docId);
+      setSelectedDocPath(isRoot ? [] : [...categoryPath]);
+      setSelectedDocTitle(docTitle);
+      if (options?.clearCategoryPath) setSelectedCategoryPath(null);
+
+      setLoadingDoc(true);
+      void fetchDocById(docId, { hideChrome: isRoot });
+      return;
+    }
+    
     const isRoot = options?.forceRoot || categoryPath.length === 0; // ✅ 루트 문서 여부
     if (options?.clearCategoryPath) setSelectedCategoryPath(null);
     setSelectedDocTitle(docTitle);
