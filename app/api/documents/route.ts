@@ -30,7 +30,7 @@ function toContentArray(raw: unknown): any[] {
 async function getDocByIdCached(id: number) {
   return cached(
     cacheKey('doc', id),
-    { ttlSec: 0, tags: [docTag(id)] }, // ★ 단건은 항상 최신
+    { ttlSec: 30, tags: [docTag(id)] },
     async () => {
       const rows = await sql/*sql*/`
         SELECT id, title, path, icon, tags, created_at, updated_at, special, "order"
@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
 
       const data = await cached(
         cacheKey('doclist', pathNorm),
-        { ttlSec: 0, tags: ['doc:list', listTag(pathNorm)] }, // ★ 즉시 반영
+        { ttlSec: 30, tags: ['doc:list', listTag(pathNorm)] },
         async () => {
           let mainDocId: number | null = null;
           try {
@@ -113,7 +113,7 @@ export async function GET(req: NextRequest) {
       );
 
       return NextResponse.json(data, {
-        headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' },
+        headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' },
       });
     } catch (e) {
       console.error('문서 경로별 목록 실패:', e);
@@ -138,7 +138,7 @@ export async function GET(req: NextRequest) {
       if (!data) return new NextResponse(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
 
       return NextResponse.json(data, {
-        headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' },
+        headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' },
       });
     } catch (e) {
       console.error(e);
@@ -151,7 +151,7 @@ export async function GET(req: NextRequest) {
     try {
       const result = await cached(
         'doc:all',
-        { ttlSec: 0, tags: ['doc:list'] }, // ★ 즉시 반영
+       { ttlSec: 60, tags: ['doc:list'] },
         async () => {
           const rows = await sql/*sql*/`
             SELECT id, title, path, icon, tags, created_at, updated_at, is_featured, special, "order"
@@ -168,7 +168,7 @@ export async function GET(req: NextRequest) {
       );
 
       return NextResponse.json(result, {
-        headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' }, // ★ 실시간
+        headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' }, // ★ 실시간
       });
     } catch (e) {
       console.error(e);
@@ -196,7 +196,7 @@ export async function GET(req: NextRequest) {
     const data = await getDocByIdCached(Number(row.id));
 
     return NextResponse.json(data, {
-      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' },
+      headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' },
     });
   } catch (e) {
     console.error(e);
