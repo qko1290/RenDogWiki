@@ -1486,6 +1486,15 @@ export default function WikiReadRenderer({ content, readOnly = true, onWikiRefCl
 
   const headingOccRef = useRef<Map<string, number>>(new Map());
 
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const apply = () => setIsMobile(window.innerWidth <= 768);
+    apply();
+    window.addEventListener("resize", apply);
+    return () => window.removeEventListener("resize", apply);
+  }, []);
+
   useEffect(() => {
     // 문서(콘텐츠) 바뀌면 카운터 초기화
     headingOccRef.current = new Map();
@@ -1564,8 +1573,8 @@ export default function WikiReadRenderer({ content, readOnly = true, onWikiRefCl
             alignItems: "stretch",
           }}
         >
-          {renderNode(a, i, ctx, handlers)}
-          {renderNode(b, i + 1, ctx, handlers)}
+          {renderNode(a, i, ctx, handlers, { isMobile })}
+          {renderNode(b, i + 1, ctx, handlers, { isMobile })}
         </div>
       );
 
@@ -1574,7 +1583,7 @@ export default function WikiReadRenderer({ content, readOnly = true, onWikiRefCl
     }
 
     // (2) 나머지는 기존처럼 단건 렌더
-    rendered.push(renderNode(node, i, ctx, handlers));
+    rendered.push(renderNode(node, i, ctx, handlers, { isMobile }));
   }
 
   return <>{rendered}</>;
@@ -2685,18 +2694,37 @@ function renderLeaf(node: any, key?: React.Key): React.ReactNode {
   );
 }
 
+function normalizeInfoBoxNodeForMobile(node: any): any {
+  if (Text.isText(node)) {
+    return {
+      ...node,
+      text: String(node.text ?? "").replace(/[^\S\r\n]{2,}/g, " "),
+    };
+  }
+
+  if (node && Array.isArray(node.children)) {
+    return {
+      ...node,
+      children: node.children.map(normalizeInfoBoxNodeForMobile),
+    };
+  }
+
+  return node;
+}
+
 function renderNode(
   node: any,
   key?: React.Key,
   ctx?: HeadingCopyCtx,
   handlers?: WikiRefHandlers,
+  env?: { isMobile?: boolean },
 ): React.ReactNode {
   if (Text.isText(node)) {
     return renderLeaf(node, key);
   }
 
   const children = node.children?.map((n: any, i: number) =>
-    renderNode(n, key ? `${key}-${i}` : i, ctx, handlers)
+    renderNode(n, key ? `${key}-${i}` : i, ctx, handlers, env)
   );
 
   switch (node.type) {
@@ -3060,13 +3088,41 @@ function renderNode(
       const type = String(raw).toLowerCase();
       const { container, icon, role, showIcon } = getInfoboxPreset(type);
 
+      const sourceChildren =
+        env?.isMobile
+          ? (node.children ?? []).map(normalizeInfoBoxNodeForMobile)
+          : (node.children ?? []);
+
+      const infoChildren = sourceChildren.map((child: any, i: number) =>
+        renderNode(child, key ? `${key}-info-${i}` : i, ctx, handlers, env)
+      );
+
       return (
-        <div key={key} role={role} style={{ ...container, margin: "8px 0" }}>
+        <div
+          key={key}
+          role={role}
+          data-wiki-block="info-box"
+          style={{ ...container, margin: "8px 0" }}
+        >
           {showIcon && icon && (
-            <span aria-hidden="true" style={icon as React.CSSProperties} />
+            <span
+              aria-hidden="true"
+              data-wiki-part="info-box-icon"
+              style={icon as React.CSSProperties}
+            />
           )}
-          <div style={{ flex: "1 1 auto", minWidth: 0, lineHeight: 1.55, fontWeight: 560, whiteSpace: "pre-wrap" }}>
-            {children}
+
+          <div
+            data-wiki-part="info-box-body"
+            style={{
+              flex: "1 1 auto",
+              minWidth: 0,
+              lineHeight: 1.55,
+              fontWeight: 560,
+              whiteSpace: env?.isMobile ? "normal" : "pre-wrap",
+            }}
+          >
+            {infoChildren}
           </div>
         </div>
       );
