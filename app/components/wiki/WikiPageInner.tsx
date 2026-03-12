@@ -334,8 +334,40 @@ export default function WikiPageInner({ user }: Props) {
   const [selectedHead, setSelectedHead] = useState<HeadRow | null>(null);
   const [headPage, setHeadPage] = useState(0);
 
-  const NPC_PAGE_SIZE = 21;
-  const HEAD_PAGE_SIZE = 24;
+  const DESKTOP_NPC_PAGE_SIZE = 21;
+  const MOBILE_NPC_PAGE_SIZE = 12;
+  const DESKTOP_HEAD_PAGE_SIZE = 24;
+  const MOBILE_HEAD_PAGE_SIZE = 12;
+
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const mq = window.matchMedia('(max-width: 768px)');
+
+    const apply = () => {
+      setIsMobileViewport(mq.matches);
+    };
+
+    apply();
+
+    if (typeof mq.addEventListener === 'function') {
+      mq.addEventListener('change', apply);
+      return () => mq.removeEventListener('change', apply);
+    }
+
+    mq.addListener(apply);
+    return () => mq.removeListener(apply);
+  }, []);
+
+  const NPC_PAGE_SIZE = isMobileViewport
+    ? MOBILE_NPC_PAGE_SIZE
+    : DESKTOP_NPC_PAGE_SIZE;
+
+  const HEAD_PAGE_SIZE = isMobileViewport
+    ? MOBILE_HEAD_PAGE_SIZE
+    : DESKTOP_HEAD_PAGE_SIZE;
 
   const npcPageCount = Math.max(1, Math.ceil(npcList.length / NPC_PAGE_SIZE));
   const headPageCount = Math.max(1, Math.ceil(headList.length / HEAD_PAGE_SIZE));
@@ -2072,6 +2104,108 @@ export default function WikiPageInner({ user }: Props) {
           justify-content: center;
           min-height: 44px;
           margin-top: 0;
+        }
+
+        .wiki-paging-seg {
+          display: inline-flex;
+          align-items: stretch;
+          background: #fff;
+          border: 1px solid #e5e7eb;
+          border-radius: 12px;
+          overflow: hidden;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+        }
+
+        .wiki-paging-btn,
+        .wiki-paging-text {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 8px 14px;
+          min-width: 44px;
+          height: 38px;
+          border: 0;
+          background: transparent;
+          font-weight: 600;
+          font-size: 0.95rem;
+          color: #4b5563;
+          line-height: 1;
+        }
+
+        .wiki-paging-btn {
+          cursor: pointer;
+          transition: background 0.15s, color 0.15s;
+        }
+
+        .wiki-paging-btn:hover {
+          background: #f3f4f6;
+        }
+
+        .wiki-paging-btn:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
+        }
+
+        .wiki-paging-btn .ico {
+          width: 20px;
+          height: 20px;
+          flex: 0 0 20px;
+        }
+
+        .wiki-paging-btn:first-child {
+          border-right: 1px solid #e5e7eb;
+        }
+
+        .wiki-paging-btn.next {
+          border-left: 1px solid #e5e7eb;
+        }
+
+        .wiki-paging-text {
+          white-space: nowrap;
+          user-select: none;
+        }
+
+        @media (max-width: 768px) {
+          .wiki-paged-section--npc .wiki-paged-body {
+            min-height: auto !important;
+          }
+
+          .wiki-paged-section--head .wiki-paged-body {
+            min-height: auto !important;
+          }
+
+          .wiki-paged-section--npc {
+            gap: 4px;
+          }
+
+          .wiki-paged-section--head {
+            gap: 4px;
+          }
+
+          .wiki-paging-bar {
+            min-height: 0;
+            margin-top: 2px;
+            padding-top: 0;
+          }
+
+          .wiki-paging-seg {
+            border-radius: 14px;
+          }
+
+          .wiki-paging-btn,
+          .wiki-paging-text {
+            height: 36px;
+            min-width: 40px;
+            padding: 7px 12px;
+            font-size: 0.92rem;
+          }
+
+          .wiki-paging-btn .ico {
+            width: 18px;
+            height: 18px;
+            flex: 0 0 18px;
+          }
         }
 
         .wiki-paging-seg {
