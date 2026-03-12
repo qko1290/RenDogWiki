@@ -761,10 +761,11 @@
 
 .wiki-mobile-drawer {
   position: fixed;
-  top: 60px;
+  top: 0;
   left: 0;
   width: min(86vw, 340px);
-  height: calc(100dvh - 60px);
+  height: 100dvh;
+  max-height: 100dvh;
   background: #ffffff;
   z-index: 1200;
   transform: translateX(-100%);
