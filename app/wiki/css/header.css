@@ -1,11 +1,12 @@
 /* ============================================= */
 /* File: app/wiki/css/header.css                 */
+/* (전체 코드)                                   */
 /* ============================================= */
 /* 위키 헤더(상단 고정, 로고, 검색, 우측 메뉴 등) */
 
 :root {
-  --wiki-max-width: 1580px; /* 여기 원하는 최대 폭으로 조절 */
-  --wiki-gutter: 24px;      /* 좌우 여백 */
+  --wiki-max-width: 1580px;
+  --wiki-gutter: 24px;
 }
 
 /* 헤더 전체 영역 */
@@ -21,12 +22,11 @@
   height: 64px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
 
-  /* ✅ padding은 inner로 옮김 */
   padding: 0;
   display: block;
 }
 
-/* ✅ 실제 헤더 컨텐츠는 max-width 컨테이너 안에 */
+/* 실제 헤더 컨텐츠 */
 .wiki-header-inner {
   max-width: var(--wiki-max-width);
   margin: 0 auto;
@@ -37,30 +37,54 @@
   align-items: center;
   justify-content: space-between;
 
-  position: relative; /* 햄버거 absolute 기준 */
+  position: relative;
+  box-sizing: border-box;
+  gap: 12px;
 }
 
 /* 좌측 로고 */
 .wiki-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex-shrink: 0;
+
   font-size: 2.5rem;
   font-weight: 900;
   background: linear-gradient(90deg, #60a5fa, #22c55e);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   font-family: 'Segoe UI', sans-serif;
-  padding-right: 50px;
+  padding-right: 0;
+  text-decoration: none;
+}
+
+.wiki-logo span {
+  display: inline-block;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* 데스크톱 전용 영역 */
+.wiki-header-desktop-tools {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
 }
 
 /* 중앙 검색창 */
 .wiki-search-container {
   flex: 1;
+  min-width: 0;
   margin: 0 1.5rem;
   display: flex;
-  padding-left: 80px;
+  padding-left: 0;
   align-items: center;
 }
 
-/* 검색창 공통 스타일 (기존 .search-input + .wiki-search-container input 통합) */
+/* 검색창 공통 스타일 */
 .search-input {
   width: 100%;
   height: 42px;
@@ -94,12 +118,12 @@
   pointer-events: none;
 }
 
-/* 검색 컨테이너 (검색창과 아이콘 묶음) */
+/* 검색 컨테이너 */
 .search-wrapper {
   position: relative;
-  width: 70%;
+  width: 100%;
   max-width: 700px;
-  margin-left : 0;
+  margin-left: 0;
 }
 
 /* 검색 드롭다운 애니메이션 */
@@ -123,7 +147,7 @@
   background: #f2f8ff;
 }
 
-/* 검색어 강조 마크 */
+/* 검색어 강조 */
 mark {
   background: none;
   color: #1876f7;
@@ -131,16 +155,146 @@ mark {
   padding: 0;
 }
 
+/* 모바일 카테고리 햄버거 */
+.wiki-mobile-category-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: transparent;
+  color: #222;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 10px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.wiki-mobile-category-btn:hover {
+  background: #f3f4f6;
+}
+
+/* 기존 관리자 햄버거 */
+.wiki-admin-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: transparent;
+  color: #222;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 10px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.wiki-admin-menu-btn:hover {
+  background: #f3f4f6;
+}
+
 /* 공통 유틸리티 */
 .text-black {
   color: #222;
 }
+
 .absolute {
   position: absolute;
 }
+
 .top-4 {
   top: 1rem;
 }
+
 .right-4 {
   right: 1rem;
+}
+
+/* =========================
+   반응형
+   ========================= */
+
+@media (max-width: 1024px) {
+  .wiki-header-inner {
+    gap: 10px;
+  }
+
+  .wiki-logo {
+    font-size: 2rem;
+  }
+
+  .wiki-search-container {
+    margin: 0 1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .wiki-header {
+    height: 60px;
+  }
+
+  .wiki-header-inner {
+    height: 60px;
+    padding: 0 14px;
+    gap: 10px;
+  }
+
+  .wiki-mobile-category-btn {
+    display: inline-flex;
+  }
+
+  .wiki-header-desktop-tools {
+    display: none;
+  }
+
+  .wiki-admin-menu-btn {
+    display: none;
+  }
+
+  .wiki-logo {
+    font-size: 1.4rem;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .wiki-logo span {
+    font-size: 1.15rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .wiki-logo img {
+    width: 38px;
+    height: auto;
+  }
+
+  .search-wrapper {
+    max-width: none;
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .wiki-header-inner {
+    padding: 0 10px;
+  }
+
+  .wiki-logo span {
+    font-size: 1.05rem;
+  }
+
+  .wiki-mobile-category-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 24px;
+  }
 }

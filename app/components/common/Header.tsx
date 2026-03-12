@@ -1,5 +1,6 @@
 // =============================================
 // File: app/components/common/Header.tsx
+// (전체 코드)
 // =============================================
 'use client';
 
@@ -19,6 +20,10 @@ type WikiHeaderProps = {
     minecraft_name: string;
     email: string;
   } | null;
+
+  mobileCategoryOpen?: boolean;
+  onToggleMobileCategory?: () => void;
+  hideAdminMenu?: boolean;
 };
 
 // ✅ 모드 옵션 (All 제거)
@@ -30,13 +35,18 @@ const MODE_OPTIONS = [
 ] as const;
 
 const DEFAULT_MODE = 'RPG';
-const MODE_TAG_SET = new Set(MODE_OPTIONS.map(m => m.tag));
+const MODE_TAG_SET = new Set(MODE_OPTIONS.map((m) => m.tag));
 
 const MODE_PARAM = 'mode';
 const MODE_STORAGE = 'wiki:mode';
 const MODE_EVENT = 'wiki-mode-change';
 
-export default function WikiHeader({ user }: WikiHeaderProps) {
+export default function WikiHeader({
+  user,
+  mobileCategoryOpen = false,
+  onToggleMobileCategory,
+  hideAdminMenu = false,
+}: WikiHeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [comingSoonOpen, setComingSoonOpen] = useState(false);
 
@@ -55,17 +65,19 @@ export default function WikiHeader({ user }: WikiHeaderProps) {
 
   const [mode, setMode] = useState<string>(initialMode);
 
-  // Esc로 햄버거 닫기
+  // Esc로 관리자 햄버거 닫기
   useEffect(() => {
     if (!isMenuOpen) return;
+
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setIsMenuOpen(false);
     };
+
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [isMenuOpen]);
 
-  // ✅ 모드 적용: 항상 유효 태그만, null 불가
+  // ✅ 모드 적용: 항상 유효 태그만
   const applyMode = (next: string) => {
     const safe = MODE_TAG_SET.has(next as any) ? next : DEFAULT_MODE;
 
@@ -76,7 +88,7 @@ export default function WikiHeader({ user }: WikiHeaderProps) {
       url.searchParams.set(MODE_PARAM, safe);
       window.history.replaceState({}, '', url);
 
-      localStorage.setItem(MODE_STORAGE, safe);
+      window.localStorage.setItem(MODE_STORAGE, safe);
 
       window.dispatchEvent(
         new CustomEvent(MODE_EVENT, { detail: { mode: safe } })
@@ -93,21 +105,23 @@ export default function WikiHeader({ user }: WikiHeaderProps) {
     applyMode(next);
   };
 
-  // ✅ 최초 렌더에서 URL/LS가 비어있으면 RPG를 URL에도 박아넣기
+  // ✅ 최초 렌더에서 URL/LS가 비어있으면 기본값 반영
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
     const url = new URL(window.location.href);
     const cur = url.searchParams.get(MODE_PARAM);
+
     if (!cur || !MODE_TAG_SET.has(cur as any)) {
-      url.searchParams.set(MODE_PARAM, mode || DEFAULT_MODE);
+      const safe = mode || DEFAULT_MODE;
+      url.searchParams.set(MODE_PARAM, safe);
       window.history.replaceState({}, '', url);
-      localStorage.setItem(MODE_STORAGE, mode || DEFAULT_MODE);
+      window.localStorage.setItem(MODE_STORAGE, safe);
       window.dispatchEvent(
-        new CustomEvent(MODE_EVENT, { detail: { mode: mode || DEFAULT_MODE } })
+        new CustomEvent(MODE_EVENT, { detail: { mode: safe } })
       );
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [mode]);
 
   async function handleLogout() {
     try {
@@ -123,77 +137,100 @@ export default function WikiHeader({ user }: WikiHeaderProps) {
     <>
       <header className="wiki-header">
         <div className="wiki-header-inner">
-          {/* 로고 */}
-          <Link href="/wiki" className="wiki-logo flex items-center gap-2 no-underline">
-            <Image src={logo} alt="RDWIKI" width={45} height={40} style={{ imageRendering: 'auto' }} />
-            <span>RDWIKI</span>
-          </Link>
-
-          {/* ✅ 모드 옵션: 4개만 */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 14,
-              marginLeft: 12,
-              marginRight: 12,
-              flexShrink: 0,
-            }}
-            aria-label="모드 선택"
-          >
-            {MODE_OPTIONS.map((m) => {
-              const active = mode === m.tag;
-              const isBlocked = m.tag !== DEFAULT_MODE;
-
-              return (
-                <button
-                  key={m.tag}
-                  type="button"
-                  onClick={() => handleModeClick(m.tag)}
-                  aria-pressed={active}
-                  title={isBlocked ? `${m.label} 준비중` : `${m.label} 보기`}
-                  style={{
-                    background: 'transparent',
-                    border: 0,
-                    padding: 0,
-                    fontSize: 15,
-                    fontWeight: active ? 800 : 600,
-                    letterSpacing: 0.2,
-                    color: active ? '#6f4cff' : '#6b7280',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    opacity: isBlocked ? 0.72 : 1,
-                  }}
-                >
-                  {m.label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* 검색 */}
-          <div className="wiki-search-container">
-            <SearchBox />
-          </div>
-
-          {/* 햄버거 */}
+          {/* ✅ 모바일 카테고리 햄버거 */}
           <button
             type="button"
-            onClick={() => setIsMenuOpen(true)}
-            className="text-black text-2xl absolute top-4 right-4"
-            aria-label="사이드 메뉴 열기"
+            className="wiki-mobile-category-btn"
+            onClick={onToggleMobileCategory}
+            aria-label={mobileCategoryOpen ? '카테고리 닫기' : '카테고리 열기'}
+            aria-expanded={mobileCategoryOpen}
           >
             ☰
           </button>
 
-          <HamburgerMenu
-            isOpen={isMenuOpen}
-            onClose={() => setIsMenuOpen(false)}
-            isLoggedIn={!!user}
-            username={user?.minecraft_name || ''}
-            uuid={undefined}
-            onLogout={handleLogout}
-          />
+          {/* 로고 */}
+          <Link href="/wiki" className="wiki-logo flex items-center gap-2 no-underline">
+            <Image
+              src={logo}
+              alt="RDWIKI"
+              width={45}
+              height={40}
+              style={{ imageRendering: 'auto' }}
+            />
+            <span>RDWIKI</span>
+          </Link>
+
+          {/* ✅ 데스크톱에서만 보일 영역 */}
+          <div className="wiki-header-desktop-tools">
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 14,
+                marginLeft: 12,
+                marginRight: 12,
+                flexShrink: 0,
+              }}
+              aria-label="모드 선택"
+            >
+              {MODE_OPTIONS.map((m) => {
+                const active = mode === m.tag;
+                const isBlocked = m.tag !== DEFAULT_MODE;
+
+                return (
+                  <button
+                    key={m.tag}
+                    type="button"
+                    onClick={() => handleModeClick(m.tag)}
+                    aria-pressed={active}
+                    title={isBlocked ? `${m.label} 준비중` : `${m.label} 보기`}
+                    className={`wiki-mode-chip ${active ? 'active' : ''}`}
+                    style={{
+                      background: 'transparent',
+                      border: 0,
+                      padding: 0,
+                      fontSize: 15,
+                      fontWeight: active ? 800 : 600,
+                      letterSpacing: 0.2,
+                      color: active ? '#6f4cff' : '#6b7280',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      opacity: isBlocked ? 0.72 : 1,
+                    }}
+                  >
+                    {m.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="wiki-search-container">
+              <SearchBox />
+            </div>
+          </div>
+
+          {/* ✅ 기존 관리자 메뉴 햄버거 */}
+          {!hideAdminMenu && (
+            <>
+              <button
+                type="button"
+                onClick={() => setIsMenuOpen(true)}
+                className="wiki-admin-menu-btn"
+                aria-label="사이드 메뉴 열기"
+              >
+                ☰
+              </button>
+
+              <HamburgerMenu
+                isOpen={isMenuOpen}
+                onClose={() => setIsMenuOpen(false)}
+                isLoggedIn={!!user}
+                username={user?.minecraft_name || ''}
+                uuid={undefined}
+                onLogout={handleLogout}
+              />
+            </>
+          )}
         </div>
       </header>
 
@@ -203,13 +240,19 @@ export default function WikiHeader({ user }: WikiHeaderProps) {
         onClose={() => setComingSoonOpen(false)}
         title="안내"
         actions={
-          <button className="rd-btn danger" onClick={() => setComingSoonOpen(false)}>
+          <button
+            className="rd-btn danger"
+            onClick={() => setComingSoonOpen(false)}
+          >
             확인
           </button>
         }
         width={360}
       >
-        <p className="rd-card-description" style={{ textAlign: 'center', whiteSpace: 'pre-line' }}>
+        <p
+          className="rd-card-description"
+          style={{ textAlign: 'center', whiteSpace: 'pre-line' }}
+        >
           준비중입니다!
         </p>
       </ModalCard>

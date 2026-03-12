@@ -597,13 +597,20 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
   const isSmall = el.size === "small" || el.size === "half";
   const wrapperStyle: React.CSSProperties = isSmall
     ? {
-        flex: "1 1 calc(50% - 6px)",
-        width: "calc(50% - 6px)",
-        maxWidth: "calc(50% - 6px)",
+        flex: "1 1 min(100%, calc(50% - 6px))",
+        width: "min(100%, calc(50% - 6px))",
+        maxWidth: "100%",
+        minWidth: 0,
         boxSizing: "border-box",
         display: "block",
       }
-    : { display: "block", width: "100%", maxWidth: "100%" };
+    : {
+        display: "block",
+        width: "100%",
+        maxWidth: "100%",
+        minWidth: 0,
+        boxSizing: "border-box",
+      };
 
   const labelText =
     nodeToPlainText(node.children) ||
@@ -679,11 +686,14 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
               borderRadius: 12,
               marginBottom: 10,
               width: "100%",
+              maxWidth: "100%",
+              minWidth: 0,
               boxSizing: "border-box",
               background: "#ffffff",
               boxShadow: SHADOW,
               transition: "box-shadow .14s ease, border-color .14s ease, transform .14s ease",
               transform: hovered ? "translateY(-1px)" : "translateY(0)",
+              overflow: "hidden",
             }}
           >
             {/* 아이콘 영역 */}
@@ -802,11 +812,14 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
               borderRadius: 12,
               marginBottom: 10,
               width: "100%",
+              maxWidth: "100%",
+              minWidth: 0,
               boxSizing: "border-box",
               background: "#ffffff",
               boxShadow: SHADOW,
               transition: "box-shadow .14s ease, border-color .14s ease, transform .14s ease",
               transform: hovered ? "translateY(-1px)" : "translateY(0)",
+              overflow: "hidden",
             }}
           >
             {/* 아이콘 영역 */}
@@ -1766,6 +1779,7 @@ function PriceTableCardBlock({
       key={keyProp}
       style={{
         width: "100%",
+        maxWidth: "100%",
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
@@ -1773,20 +1787,22 @@ function PriceTableCardBlock({
         boxSizing: "border-box",
         padding: "10px 0",
         margin: "10px 0",
-        marginLeft: 10,
+        marginLeft: 0,
         position: "relative",
+        overflow: "hidden",
       }}
     >
       <div
         style={{
           display: "flex",
           flexDirection: "row",
-          gap: 25,
-          flexWrap: "nowrap",
+          gap: 14,
+          flexWrap: "wrap",
           width: "100%",
+          maxWidth: 1040,
           justifyContent: "center",
           margin: "0 auto",
-          maxWidth: 1040,
+          boxSizing: "border-box",
         }}
       >
         {viewItems.map((item: any, idx: number) => {
@@ -1918,10 +1934,12 @@ function PriceTableCardBlock({
                 flexDirection: "column",
                 alignItems: "center",
                 position: "relative",
-                minWidth: 140,
+                width: "min(140px, calc(50% - 10px))",
+                minWidth: 132,
                 maxWidth: 140,
                 minHeight: 160,
-                margin: "0 8px",
+                margin: 0,
+                boxSizing: "border-box",
               }}
               onMouseEnter={() => setHovered(idx)}
               onMouseLeave={() => setHovered(null)}
@@ -2136,8 +2154,9 @@ function WeaponLevelSelector({
     <div
       style={{
         position: "relative",
-        marginLeft: 10,          // 살짝만 여유
+        marginLeft: 0,
         alignSelf: "flex-start",
+        flex: "0 0 auto",
       }}
     >
       {/* 상단 버튼: 선택된 강수 뱃지 + 화살표 */}
@@ -2379,7 +2398,8 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
     return { value: v, unit };
   };
 
-  const cardWidth = 260; // 🔹 Element 와 동일
+  const cardWidth = 260;
+  const cardStyleWidth = "min(100%, 260px)";
 
   return (
     <div key={keyProp} style={{ margin: "14px 0" }}>
@@ -2390,14 +2410,18 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
           justifyContent: "center",
           alignItems: "flex-start",
           gap: 10,
-          flexWrap: "nowrap", // ✅ 아래로 떨어지는 것 방지
+          flexWrap: "wrap",
+          width: "100%",
+          maxWidth: "100%",
+          boxSizing: "border-box",
         }}
       >
         {/* 카드 본체 – Element 와 거의 동일한 스타일 */}
         <div style={isTranscend ? transcendFrameStyle : undefined}>
           <div
             style={{
-              width: cardWidth,
+              width: cardStyleWidth,
+              maxWidth: "100%",
               borderRadius: 18,
               overflow: "hidden",
               background: "#020617",
@@ -3020,8 +3044,10 @@ function renderNode(
             gap: 12,
             margin: "8px 0",
             width: "100%",
+            maxWidth: "100%",
             flexWrap: "wrap",
             alignItems: "stretch",
+            boxSizing: "border-box",
           }}
         >
           {children}
@@ -3041,11 +3067,33 @@ function renderNode(
       const { container, icon, role, showIcon } = getInfoboxPreset(type);
 
       return (
-        <div key={key} role={role} style={{ ...container, margin: "8px 0" }}>
+        <div
+          key={key}
+          role={role}
+          style={{
+            ...container,
+            margin: "8px 0",
+            width: "100%",
+            maxWidth: "100%",
+            minWidth: 0,
+            boxSizing: "border-box",
+            overflowWrap: "anywhere",
+          }}
+        >
           {showIcon && icon && (
             <span aria-hidden="true" style={icon as React.CSSProperties} />
           )}
-          <div style={{ flex: "1 1 auto", minWidth: 0, lineHeight: 1.55, fontWeight: 560, whiteSpace: "pre-wrap" }}>
+          <div
+            style={{
+              flex: "1 1 auto",
+              minWidth: 0,
+              lineHeight: 1.55,
+              fontWeight: 560,
+              whiteSpace: "pre-wrap",
+              overflowWrap: "anywhere",
+              wordBreak: "break-word",
+            }}
+          >
             {children}
           </div>
         </div>
@@ -3065,7 +3113,7 @@ function renderNode(
       const h = node.height ? Number(node.height) : undefined;
 
       return (
-        <div key={key} style={{ margin: "16px 0" }}>
+        <div key={key} style={{ margin: "16px 0", width: "100%", maxWidth: "100%" }}>
           <div
             style={{
               display: "flex",
@@ -3073,17 +3121,30 @@ function renderNode(
               justifyContent: justify,
               alignItems: "flex-start",
               minHeight: 40,
+              width: "100%",
+              maxWidth: "100%",
             }}
           >
-            <div style={{ position: "relative", display: "inline-block" }}>
+            <div
+              style={{
+                position: "relative",
+                display: "inline-block",
+                maxWidth: "100%",
+              }}
+            >
               <SmartImage
                 src={src}
                 alt=""
                 width={w}
                 height={h}
-                sizes="(max-width: 768px) 90vw, 60vw"
+                sizes="(max-width: 768px) 92vw, 60vw"
                 rounded={10}
-                style={{ boxShadow: "0 2px 12px 0 #0001", background: "#fff" }}
+                style={{
+                  boxShadow: "0 2px 12px 0 #0001",
+                  background: "#fff",
+                  maxWidth: "100%",
+                  height: "auto",
+                }}
               />
             </div>
           </div>
@@ -3104,7 +3165,7 @@ function renderNode(
       const h = node.height ? Number(node.height) : undefined;
 
       return (
-        <div key={key} style={{ margin: "16px 0" }}>
+        <div key={key} style={{ margin: "16px 0", width: "100%", maxWidth: "100%" }}>
           <div
             style={{
               display: "flex",
@@ -3112,16 +3173,25 @@ function renderNode(
               justifyContent: justify,
               alignItems: "flex-start",
               minHeight: 40,
+              width: "100%",
+              maxWidth: "100%",
             }}
           >
-            <div style={{ position: "relative", display: "inline-block" }}>
+            <div
+              style={{
+                position: "relative",
+                display: "inline-block",
+                maxWidth: "100%",
+              }}
+            >
               <video
                 src={src}
                 controls
                 playsInline
                 preload="metadata"
                 style={{
-                  maxWidth: w ? `${w}px` : "90%",
+                  width: w ? `min(100%, ${w}px)` : "min(100%, 92vw)",
+                  maxWidth: "100%",
                   height: h ? `${h}px` : "auto",
                   borderRadius: 10,
                   boxShadow: "0 2px 12px 0 #0001",
@@ -3203,6 +3273,9 @@ function renderNode(
             margin: "12px 0",
             display: "flex",
             justifyContent: justify,
+            width: "100%",
+            maxWidth: "100%",
+            overflowX: "auto",
           }}
         >
           <table
@@ -3212,6 +3285,7 @@ function renderNode(
               tableLayout: "fixed",
               width: tableWidth,
               maxWidth: "100%",
+              minWidth: widthPx ? `${widthPx}px` : undefined,
             }}
           >
             <tbody>{children}</tbody>

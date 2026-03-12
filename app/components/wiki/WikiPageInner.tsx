@@ -238,6 +238,8 @@ export default function WikiPageInner({ user }: Props) {
   const [npcLoading, setNpcLoading] = useState(false);
   const [selectedNpc, setSelectedNpc] = useState<NpcRow | null>(null);
 
+  const [mobileCategoryOpen, setMobileCategoryOpen] = useState(false);
+
   // ✅ 문서 wiki-ref 클릭으로 열릴 때 quest/npc 모드 기억
   const [selectedNpcMode, setSelectedNpcMode] = useState<'quest' | 'npc' | null>(null);
 
@@ -252,6 +254,30 @@ export default function WikiPageInner({ user }: Props) {
       if (n && Number.isFinite(Number(n.id))) m.set(Number(n.id), n);
     }
   }, [npcList]);
+
+  // 문서 열리면 모바일 카테고리는 자동 닫기
+  useEffect(() => {
+    if (selectedDocId != null) {
+      setMobileCategoryOpen(false);
+    }
+  }, [selectedDocId]);
+
+  // ESC로 닫기
+  useEffect(() => {
+    if (!mobileCategoryOpen) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileCategoryOpen(false);
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = '';
+    };
+  }, [mobileCategoryOpen]);
 
   async function openNpcById(kind: 'quest' | 'npc', id: number) {
     const cache = npcByIdCacheRef.current;
@@ -1560,10 +1586,73 @@ export default function WikiPageInner({ user }: Props) {
 
   return (
     <div className="wiki-container">
-      <WikiHeader user={user} />
+      <WikiHeader
+        user={user}
+        mobileCategoryOpen={mobileCategoryOpen}
+        onToggleMobileCategory={() => setMobileCategoryOpen((v) => !v)}
+        hideAdminMenu={true}
+      />
+
+      {/* ✅ 모바일 카테고리 오버레이 */}
+      {mobileCategoryOpen && (
+        <button
+          type="button"
+          className="wiki-mobile-overlay"
+          aria-label="카테고리 닫기"
+          onClick={() => setMobileCategoryOpen(false)}
+        />
+      )}
+
+      {/* ✅ 모바일 카테고리 드로어 */}
+      <aside
+        className={`wiki-mobile-drawer ${mobileCategoryOpen ? 'open' : ''}`}
+        aria-hidden={!mobileCategoryOpen}
+      >
+        <div className="wiki-mobile-drawer-header">
+          <strong>카테고리</strong>
+          <button
+            type="button"
+            className="wiki-mobile-drawer-close"
+            onClick={() => setMobileCategoryOpen(false)}
+            aria-label="카테고리 닫기"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="wiki-mobile-drawer-body">
+          <CategoryTree
+            categories={categories}
+            categoryIdMap={categoryIdMap}
+            categoryIdToPathMap={categoryIdToPathMap}
+            selectedDocPath={selectedDocPath}
+            selectedDocId={selectedDocId}
+            selectedCategoryPath={selectedCategoryPath}
+            setSelectedDocPath={setSelectedDocPath}
+            setSelectedDocId={setSelectedDocId}
+            setSelectedDocTitle={setSelectedDocTitle}
+            setSelectedCategoryPath={setSelectedCategoryPath}
+            setDocContent={setDocContent}
+            fetchDoc={fetchDoc}
+            allDocuments={allDocuments}
+            openPaths={openPaths}
+            closingMap={closingMap}
+            closeTreeWithChildren={closeTreeWithChildren}
+            togglePath={togglePath}
+            handleArrowClick={handleArrowClick}
+            isPathOpen={isPathOpen}
+            isClosing={isClosing}
+            finalizeClose={finalizeClose}
+            interactionReady={interactionReady}
+            mode={mode ?? 'RPG'}
+          />
+        </div>
+      </aside>
+
       <div className="wiki-layout">
         <div className="wiki-main-scrollable" id="wiki-scroll-root">
-          <aside className="wiki-sidebar">
+          {/* ✅ 데스크톱 전용 사이드바 */}
+          <aside className="wiki-sidebar wiki-sidebar-desktop">
             <div className="wiki-sidebar-inner">
               <CategoryTree
                 categories={categories}
@@ -1594,10 +1683,8 @@ export default function WikiPageInner({ user }: Props) {
           </aside>
 
           <main className={`wiki-content ${contentClass}`}>
-            {/* ✅ 제목/FAQ 버튼은 hold와 무관하게 보여야 함 (홈 문서만 hideDocChrome=true) */}
             {!hideDocChrome && (
               <>
-                {/* Breadcrumb은 잔상 방지를 위해 기존처럼 hold일 땐 숨김 */}
                 {!hold && (
                   <Breadcrumb
                     selectedDocPath={selectedDocPath}
@@ -1608,7 +1695,6 @@ export default function WikiPageInner({ user }: Props) {
                   />
                 )}
 
-                {/* 제목 + 링크 버튼 + FAQ 버튼 */}
                 <div
                   style={{
                     display: 'flex',
@@ -1653,7 +1739,6 @@ export default function WikiPageInner({ user }: Props) {
                     </h2>
                   </div>
 
-                  {/* ✅ FAQ일 때만 '질문 추가' 버튼 (권한 필요) */}
                   {isFaq && canWrite && (
                     <FaqAddButton onClick={() => setShowNewFaq(true)} />
                   )}
@@ -1792,21 +1877,6 @@ export default function WikiPageInner({ user }: Props) {
                     </div>
                   )}
                 </div>
-              ) : specialMeta?.kind === 'npc' ||
-                specialMeta?.kind === 'quest' ? (
-                npcLoading ? (
-                  <BookLoader />
-                ) : npcList.length > 0 ? (
-                  <NpcGrid
-                    npcs={npcList.slice(npcPage * 21, (npcPage + 1) * 21)}
-                    onClick={(npc) => {
-                      setSelectedNpcMode(null);
-                      setSelectedNpc(npc);
-                    }}
-                  />
-                ) : (
-                  <div>등록된 NPC가 없습니다.</div>
-                )
               ) : Array.isArray(docContent) && docContent.length > 0 ? (
                 <WikiReadRenderer
                   content={docContent as Descendant[]}
@@ -1846,7 +1916,8 @@ export default function WikiPageInner({ user }: Props) {
           </main>
         </div>
 
-        <aside className="wiki-toc-sidebar">
+        {/* ✅ 데스크톱 전용 TOC */}
+        <aside className="wiki-toc-sidebar wiki-toc-sidebar-desktop">
           <TableOfContents
             headings={tableOfContents}
             scrollRootSelector="#wiki-scroll-root"
@@ -1863,13 +1934,13 @@ export default function WikiPageInner({ user }: Props) {
           onClose={() => setShowNewFaq(false)}
           onSaved={() => {
             setShowNewFaq(false);
-            setFaqRefreshSignal(v => v + 1);
+            setFaqRefreshSignal((v) => v + 1);
           }}
         />
       )}
 
       <DocQuickBadges
-        hidden={hold || loadingDoc} // hold/로딩 중엔 숨김(원하면 제거)
+        hidden={hold || loadingDoc}
         items={[
           {
             icon: 'quest',
@@ -1889,7 +1960,6 @@ export default function WikiPageInner({ user }: Props) {
         ]}
       />
 
-      {/* 콘텐츠 페이드 전환 + 제목/링크 버튼 스타일 */}
       <style jsx global>{`
         .wiki-content.is-ready {
           opacity: 1;
@@ -1899,7 +1969,6 @@ export default function WikiPageInner({ user }: Props) {
           opacity: 0;
         }
 
-        /* 제목 래퍼: 높이 최소화 + 중앙 정렬 */
         .wiki-doc-title-wrap {
           display: flex;
           align-items: center;
@@ -1908,7 +1977,6 @@ export default function WikiPageInner({ user }: Props) {
           padding-bottom: 10px;
         }
 
-        /* 제목 h2 자체를 플렉스로 만들어 아이콘/텍스트/버튼을 한 줄 중앙 정렬 */
         .wiki-content-title-row {
           display: inline-flex;
           align-items: center;
@@ -1941,7 +2009,6 @@ export default function WikiPageInner({ user }: Props) {
           transition: all 0.15s ease;
         }
 
-        /* hover 시만 표시 */
         .wiki-doc-title-wrap:hover .wiki-doc-link-btn {
           opacity: 1;
           pointer-events: auto;
@@ -1970,8 +2037,6 @@ export default function WikiPageInner({ user }: Props) {
           flex-direction: column;
         }
 
-        /* ✅ 본문 높이 고정 슬롯
-          - 요소가 적어도 이 영역이 유지돼서 페이징 위치가 안 흔들림 */
         .wiki-paged-body {
           flex: 0 0 auto;
         }
@@ -1984,7 +2049,6 @@ export default function WikiPageInner({ user }: Props) {
           min-height: 620px;
         }
 
-        /* 페이징 */
         .wiki-paging-bar {
           display: flex;
           align-items: center;
