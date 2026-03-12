@@ -391,16 +391,16 @@ export default function NpcGrid({
 
         @media (max-width: 768px) {
           .npc-grid {
-            --icon: 46px;
+            --icon: 44px;
             --name: 13px;
             --pad: 5px;
 
             grid-template-columns: repeat(3, minmax(0, 1fr));
             column-gap: 10px;
-            row-gap: 14px;
+            row-gap: 12px;
 
             width: calc(100% - 20px);
-            margin: 12px auto 4px;
+            margin: 12px auto 0;
           }
 
           .npc-card {

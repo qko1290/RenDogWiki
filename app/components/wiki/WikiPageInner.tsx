@@ -335,9 +335,9 @@ export default function WikiPageInner({ user }: Props) {
   const [headPage, setHeadPage] = useState(0);
 
   const DESKTOP_NPC_PAGE_SIZE = 21;
-  const MOBILE_NPC_PAGE_SIZE = 12;
+  const MOBILE_NPC_PAGE_SIZE = 9;
   const DESKTOP_HEAD_PAGE_SIZE = 24;
-  const MOBILE_HEAD_PAGE_SIZE = 12;
+  const MOBILE_HEAD_PAGE_SIZE = 9;
 
   const [isMobileViewport, setIsMobileViewport] = useState(false);
 
@@ -2177,20 +2177,36 @@ export default function WikiPageInner({ user }: Props) {
 
           .wiki-paged-section--npc {
             gap: 4px;
+            padding-bottom: 120px;
           }
 
           .wiki-paged-section--head {
             gap: 4px;
+            padding-bottom: 120px;
           }
 
           .wiki-paging-bar {
+            position: fixed;
+            left: 50%;
+            bottom: 50px;
+            transform: translateX(-50%);
+            z-index: 120;
             min-height: 0;
-            margin-top: 2px;
+            margin-top: 0;
             padding-top: 0;
+            width: auto;
+            pointer-events: none;
           }
 
           .wiki-paging-seg {
+            pointer-events: auto;
             border-radius: 14px;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            box-shadow:
+              0 10px 30px rgba(15, 23, 42, 0.14),
+              0 2px 8px rgba(15, 23, 42, 0.08);
           }
 
           .wiki-paging-btn,
