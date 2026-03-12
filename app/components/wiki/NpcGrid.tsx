@@ -51,7 +51,7 @@ export default function NpcGrid({
   page,
   onPageChange,
   pageSize,
-  showPager = true,
+  showPager = false,
 }: Props) {
   const [innerPage, setInnerPage] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
@@ -173,34 +173,6 @@ export default function NpcGrid({
           );
         })}
       </div>
-
-      {showPager && pageCount > 1 && (
-        <div className="npc-pager" role="navigation" aria-label="NPC 페이지">
-          <button
-            type="button"
-            className="npc-pg-btn"
-            onClick={() => goPage(curPage - 1)}
-            disabled={curPage === 0}
-            aria-label="이전 페이지"
-          >
-            ◀
-          </button>
-
-          <span className="npc-pg-text">
-            {curPage + 1} / {pageCount}
-          </span>
-
-          <button
-            type="button"
-            className="npc-pg-btn"
-            onClick={() => goPage(curPage + 1)}
-            disabled={curPage >= pageCount - 1}
-            aria-label="다음 페이지"
-          >
-            ▶
-          </button>
-        </div>
-      )}
 
       <style jsx>{`
         .npc-grid-wrap {
@@ -426,7 +398,9 @@ export default function NpcGrid({
             grid-template-columns: repeat(3, minmax(0, 1fr));
             column-gap: 10px;
             row-gap: 14px;
-            margin: 12px 0;
+
+            width: calc(100% - 20px);
+            margin: 12px auto 0;
           }
 
           .npc-card {
