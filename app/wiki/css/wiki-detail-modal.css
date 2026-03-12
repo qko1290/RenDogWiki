@@ -382,6 +382,7 @@ body.rd-modal-open {
 }
 
 /* ===== 모바일: NPC 상세 모달 최적화 ===== */
+/* ===== 모바일: NPC 상세 모달 최적화 ===== */
 @media (max-width: 768px) {
   .npc-modal-backdrop {
     padding: 4px !important;
@@ -490,41 +491,48 @@ body.rd-modal-open {
 
   .npc-modal-right .mgr-pill-row {
     width: 100% !important;
-    min-height: 32px !important;
+    min-height: 26px !important;
     height: auto !important;
-    grid-template-columns: 68px 1fr !important;
+    grid-template-columns: 62px 1fr !important;
     border-radius: 9999px !important;
   }
 
   .npc-modal-right .mgr-pill-label {
-    padding: 0 6px !important;
-    font-size: 10px !important;
+    padding: 0 5px !important;
+    font-size: 9px !important;
+    line-height: 1 !important;
   }
 
   .npc-modal-right .mgr-pill-value {
-    padding: 0 8px !important;
-    font-size: 11px !important;
+    padding: 0 7px !important;
+    font-size: 10px !important;
     min-width: 0 !important;
+    line-height: 1.2 !important;
   }
 
   .npc-modal-right .mgr-pill-row--quest {
-    min-height: 32px !important;
-    border-radius: 12px !important;
+    min-height: 24px !important;
+    border-radius: 9px !important;
+  }
+
+  .npc-modal-right .mgr-pill-row--quest .mgr-pill-label {
+    font-size: 8.5px !important;
+    padding: 0 4px !important;
   }
 
   .npc-modal-right .mgr-pill-row--quest .mgr-pill-value {
     white-space: pre-wrap !important;
-    line-height: 1.4 !important;
-    padding-top: 6px !important;
-    padding-bottom: 6px !important;
+    line-height: 1.25 !important;
+    padding-top: 3px !important;
+    padding-bottom: 3px !important;
   }
 
   .npc-modal-right .mgr-pill-row--multi {
-    min-height: 96px !important;
+    min-height: 72px !important;
     height: auto !important;
     display: block !important;
-    padding: 8px !important;
-    border-radius: 12px !important;
+    padding: 6px !important;
+    border-radius: 10px !important;
   }
 
   .npc-modal-right .mgr-pill-row--multi .mgr-pill-label {
@@ -534,8 +542,8 @@ body.rd-modal-open {
   .npc-modal-right .mgr-pill-row--multi .mgr-pill-value {
     display: block !important;
     height: auto !important;
-    min-height: 56px !important;
-    max-height: 110px !important;
+    min-height: 40px !important;
+    max-height: 90px !important;
     padding: 0 !important;
   }
 
@@ -546,22 +554,22 @@ body.rd-modal-open {
   }
 
   .npc-modal-right .mgr-chip {
-    min-height: 22px !important;
+    min-height: 18px !important;
     height: auto !important;
-    padding: 2px 7px !important;
-    font-size: 10px !important;
-    line-height: 1.25 !important;
-    gap: 3px !important;
+    padding: 1px 6px !important;
+    font-size: 9px !important;
+    line-height: 1.15 !important;
+    gap: 2px !important;
   }
 
   .npc-modal-right .mgr-chip img {
-    width: 12px !important;
-    height: 12px !important;
+    width: 10px !important;
+    height: 10px !important;
   }
 
   .npc-modal-right .mgr-chip-emoji {
-    width: 12px !important;
-    font-size: 11px !important;
+    width: 10px !important;
+    font-size: 9px !important;
   }
 
   .npc-modal-right .quest-detail-loc {
