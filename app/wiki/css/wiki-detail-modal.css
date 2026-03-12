@@ -342,3 +342,188 @@ body.rd-modal-open{ overflow: hidden; }
   overflow: hidden;
   line-height: 1.55;
 }
+
+/* ===== 모바일: NPC 상세 모달 최적화 ===== */
+@media (max-width: 768px) {
+  .npc-modal-backdrop {
+    padding: 10px;
+    align-items: flex-start;
+    justify-content: center;
+    overflow-y: auto;
+  }
+
+  .npc-modal-main {
+    width: min(100%, 480px);
+    min-height: unset;
+    max-height: calc(100dvh - 20px);
+    border-radius: 18px;
+
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .npc-modal-left {
+    width: 100%;
+    height: auto;
+    min-height: unset;
+    padding: 14px 14px 10px;
+    border-right: 0;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+  }
+
+  .npc-modal-profile {
+    width: 100%;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding: 10px 12px;
+    border-radius: 14px;
+  }
+
+  .npc-modal-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+  }
+
+  .npc-modal-name {
+    font-size: 20px;
+    line-height: 1.2;
+    text-align: center;
+    word-break: keep-all;
+  }
+
+  .npc-picture-slider,
+  .npc-picture-slider-empty {
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    height: auto;
+    min-height: 180px;
+    max-height: 260px;
+    border-radius: 14px;
+  }
+
+  .npc-picture-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .npc-picture-slider-btn {
+    width: 34px;
+    height: 34px;
+  }
+
+  .npc-picture-slider-btn svg {
+    width: 30px;
+    height: 30px;
+  }
+
+  .npc-picture-slider-btn-left {
+    left: 8px;
+  }
+
+  .npc-picture-slider-btn-right {
+    right: 8px;
+  }
+
+  .npc-modal-right {
+    width: 100%;
+    max-width: 100%;
+    padding: 12px;
+    gap: 10px;
+    overflow-y: auto;
+    background: linear-gradient(180deg, #fbfdff, #ffffff);
+  }
+
+  .npc-modal-close-btn {
+    right: 10px;
+    top: 10px;
+    width: 34px;
+    height: 34px;
+    font-size: 18px;
+    z-index: 5;
+  }
+
+  .npc-modal-right .mgr-pill-row {
+    width: 100%;
+    min-height: 42px;
+    height: auto;
+    grid-template-columns: 110px 1fr;
+  }
+
+  .npc-modal-right .mgr-pill-label {
+    padding: 0 10px;
+    font-size: 12px;
+  }
+
+  .npc-modal-right .mgr-pill-value {
+    padding: 0 12px;
+    font-size: 14px;
+    min-width: 0;
+  }
+
+  .npc-modal-right .mgr-pill-row--quest {
+    min-height: 42px;
+  }
+
+  .npc-modal-right .mgr-pill-row--quest .mgr-pill-value {
+    white-space: pre-wrap;
+    line-height: 1.5;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .npc-modal-right .mgr-pill-row--multi {
+    height: auto;
+    min-height: 170px;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 16px;
+  }
+
+  .npc-modal-right .mgr-pill-row--multi .mgr-pill-label {
+    width: fit-content;
+    height: 32px;
+    padding: 0 12px;
+    justify-self: flex-start;
+  }
+
+  .npc-modal-right .mgr-pill-row--multi .mgr-pill-value {
+    height: auto;
+    min-height: 100px;
+    max-height: 220px;
+    padding: 0 2px 0 2px;
+  }
+
+  .npc-line-scroll {
+    max-height: 200px !important;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .npc-modal-right .mgr-chip {
+    min-height: 28px;
+    height: auto;
+    padding: 4px 10px;
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  .npc-modal-right .mgr-chip img {
+    width: 16px;
+    height: 16px;
+  }
+
+  .npc-modal-right .mgr-chip-emoji {
+    width: 16px;
+    font-size: 14px;
+  }
+
+  .npc-modal-right .quest-detail-loc {
+    font-size: 13px;
+    line-height: 1.4;
+  }
+}

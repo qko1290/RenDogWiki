@@ -41,7 +41,11 @@ export default function NpcDetailModal({ npc, onClose, mode = 'quest' }: Props) 
 
   return (
     <div className="npc-modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
-      <div className="npc-modal-main" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="npc-modal-main"
+        onClick={(e) => e.stopPropagation()}
+        role="document"
+      >
         {/* 좌측: 아이콘 + 사진 */}
         <div className="npc-modal-left">
           <div className="npc-modal-profile">
