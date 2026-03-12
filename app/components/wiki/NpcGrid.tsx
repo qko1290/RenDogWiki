@@ -1,5 +1,5 @@
 // app/components/wiki/NpcGrid.tsx
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { toProxyUrl } from "@lib/cdn";
 
 const ALLOWED_TAGS = [
@@ -36,7 +36,9 @@ type Props = {
   showPager?: boolean; // 기본 true
 };
 
-const DEFAULT_PAGE_SIZE = 7 * 3;
+const DESKTOP_PAGE_SIZE = 7 * 3; // 21
+const MOBILE_PAGE_SIZE = 3 * 6;  // 18
+const MOBILE_QUERY = "(max-width: 768px)";
 
 const isImageUrl = (v?: string | null) =>
   typeof v === "string" && v.startsWith("http");
@@ -48,18 +50,55 @@ export default function NpcGrid({
   selectedNpcId,
   page,
   onPageChange,
-  pageSize = DEFAULT_PAGE_SIZE,
+  pageSize,
   showPager = true,
 }: Props) {
   const [innerPage, setInnerPage] = useState(0);
-  const curPage = typeof page === "number" ? page : innerPage;
+  const [isMobile, setIsMobile] = useState(false);
 
-  const pageCount = Math.max(1, Math.ceil(npcs.length / pageSize));
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mq = window.matchMedia("(max-width: 768px)");
+
+    const apply = () => {
+      setIsMobile(mq.matches);
+    };
+
+    apply();
+
+    if (typeof mq.addEventListener === "function") {
+      mq.addEventListener("change", apply);
+      return () => mq.removeEventListener("change", apply);
+    }
+
+    mq.addListener(apply);
+    return () => mq.removeListener(apply);
+  }, []);
+
+  const resolvedPageSize =
+    typeof pageSize === "number" && pageSize > 0
+      ? pageSize
+      : isMobile
+      ? 3 * 6
+      : 7 * 3;
+
+  const curPage = typeof page === "number" ? page : innerPage;
+  const pageCount = Math.max(1, Math.ceil(npcs.length / resolvedPageSize));
+
+  useEffect(() => {
+    if (curPage <= pageCount - 1) return;
+
+    const next = Math.max(0, pageCount - 1);
+
+    if (typeof page === "number" && onPageChange) onPageChange(next);
+    else setInnerPage(next);
+  }, [curPage, pageCount, page, onPageChange]);
 
   const view = useMemo(() => {
-    const start = curPage * pageSize;
-    return npcs.slice(start, start + pageSize);
-  }, [npcs, curPage, pageSize]);
+    const start = curPage * resolvedPageSize;
+    return npcs.slice(start, start + resolvedPageSize);
+  }, [npcs, curPage, resolvedPageSize]);
 
   const goPage = (p: number) => {
     const next = Math.min(Math.max(0, p), pageCount - 1);
@@ -97,7 +136,6 @@ export default function NpcGrid({
               }}
               className={`npc-card${selected ? " is-selected" : ""}`}
             >
-              {/* 뱃지: 카드 기준 우상단 ‘걸침’ */}
               {tag && (
                 <span className={`npc-tag-badge tag-${slug(tag)}`} aria-hidden>
                   {tag}
@@ -112,12 +150,14 @@ export default function NpcGrid({
                       alt={npc.name}
                       loading="lazy"
                       decoding="async"
+                      draggable={false}
                       className="npc-icon-img"
                     />
                   ) : (
                     <span className="npc-emoji">{npc.icon || "🧑"}</span>
                   )}
                 </div>
+
                 {(() => {
                   const compactLen = npc.name.replace(/\s+/g, "").length;
 
@@ -126,11 +166,7 @@ export default function NpcGrid({
                   else if (compactLen >= 7) nameClass = " is-longer";
                   else if (compactLen >= 5) nameClass = " is-long";
 
-                  return (
-                    <div className={`npc-name${nameClass}`}>
-                      {npc.name}
-                    </div>
-                  );
+                  return <div className={`npc-name${nameClass}`}>{npc.name}</div>;
                 })()}
               </div>
             </div>
@@ -149,9 +185,11 @@ export default function NpcGrid({
           >
             ◀
           </button>
+
           <span className="npc-pg-text">
             {curPage + 1} / {pageCount}
           </span>
+
           <button
             type="button"
             className="npc-pg-btn"
@@ -165,18 +203,15 @@ export default function NpcGrid({
       )}
 
       <style jsx>{`
-        /* 컨테이너 쿼리용 래퍼 */
         .npc-grid-wrap {
           width: 100%;
           container-type: inline-size;
         }
+
         .npc-grid {
           container-type: inline-size;
-        }
 
-        /* 폴백(컨테이너 단위 미지원 브라우저): vw 기반 */
-        .npc-grid {
-          --icon: clamp(50px, 4vw, 80px); /* 기본 아이콘 기준값 */
+          --icon: clamp(50px, 4vw, 80px);
           --gap-x: clamp(18px, 3vw, 56px);
           --name: clamp(16px, 1.4vw, 24px);
           --pad: clamp(6px, 0.8vw, 8px);
@@ -190,7 +225,6 @@ export default function NpcGrid({
           margin: 20px 0;
         }
 
-        /* 최신 브라우저: 컨테이너 폭 기준(노트북에서 더 잘 줄어들게) */
         @supports (width: 1cqw) {
           .npc-grid {
             --icon: clamp(50px, 8cqw, 80px);
@@ -199,7 +233,6 @@ export default function NpcGrid({
             --pad: clamp(6px, 0.8cqw, 8px);
           }
 
-          /* 컨테이너가 1100px 이하(노트북)일 때 조금 더 줄이기 */
           @container (max-width: 1100px) {
             .npc-grid {
               --icon: clamp(46px, 7cqw, 72px);
@@ -207,7 +240,6 @@ export default function NpcGrid({
             }
           }
 
-          /* 더 좁아질 때 한 번 더 축소 */
           @container (max-width: 900px) {
             .npc-grid {
               --icon: clamp(42px, 6cqw, 64px);
@@ -229,6 +261,7 @@ export default function NpcGrid({
           padding: 0;
           isolation: isolate;
         }
+
         .npc-card.is-selected {
           background: #e7f6ff;
         }
@@ -240,18 +273,17 @@ export default function NpcGrid({
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 6px; /* 살짝 줄여서 세로 공간 확보 */
+          gap: 6px;
         }
 
         .npc-icon-wrap {
-          /* 카드 한 변의 일정 비율(약 60%)을 넘지 않게 해서
-             컨테이너가 줄어들면 아이콘도 같이 줄어듦 */
           width: min(var(--icon), 60%);
           aspect-ratio: 1 / 1;
           display: grid;
           place-items: center;
           flex-shrink: 0;
         }
+
         .npc-icon-img {
           width: 100%;
           height: 100%;
@@ -259,6 +291,7 @@ export default function NpcGrid({
           object-fit: cover;
           border-radius: 10px;
         }
+
         .npc-emoji {
           font-size: calc(var(--icon) * 0.7);
           line-height: 1;
@@ -295,7 +328,6 @@ export default function NpcGrid({
           letter-spacing: -0.35px;
         }
 
-        /* 뱃지(깔끔한 칩 스타일) */
         .npc-tag-badge {
           --badge-out: clamp(6px, 0.8cqw, 10px);
           --badge-h: clamp(22px, 2cqw, 28px);
@@ -326,10 +358,8 @@ export default function NpcGrid({
           font-size: clamp(12px, 1.2cqw, 14px);
           white-space: nowrap;
 
-          box-shadow:
-            0 2px 6px rgba(0, 0, 0, 0.06),
-            0 6px var(--elev)
-              color-mix(in oklab, var(--c) 22%, transparent);
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06),
+            0 6px var(--elev) color-mix(in oklab, var(--c) 22%, transparent);
 
           z-index: 3;
         }
@@ -361,12 +391,9 @@ export default function NpcGrid({
         .npc-tag-badge.filled {
           --bg: color-mix(in oklab, var(--c) 12%, #ffffff);
           --bd: color-mix(in oklab, var(--c) 60%, #ffffff);
-          box-shadow:
-            0 2px 6px rgba(0, 0, 0, 0.06),
-            0 6px var(--elev)
-              color-mix(in oklab, var(--c) 26%, transparent),
-            inset 0 0 0 1px
-              color-mix(in oklab, var(--c) 18%, transparent);
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06),
+            0 6px var(--elev) color-mix(in oklab, var(--c) 26%, transparent),
+            inset 0 0 0 1px color-mix(in oklab, var(--c) 18%, transparent);
         }
 
         .npc-pager {
@@ -376,18 +403,51 @@ export default function NpcGrid({
           gap: 20px;
           margin: 10px 0 0;
         }
+
         .npc-pg-btn {
           font-size: 20px;
           background: none;
           border: none;
           cursor: pointer;
         }
+
         .npc-pg-btn:disabled {
           opacity: 0.5;
           cursor: default;
         }
+
         .npc-pg-text {
           font-size: 16px;
+        }
+
+        @media (max-width: 768px) {
+          .npc-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            column-gap: 12px;
+            row-gap: 18px;
+            margin: 14px 0;
+          }
+
+          .npc-card {
+            border-radius: 10px;
+          }
+
+          .npc-card-inner {
+            gap: 4px;
+          }
+
+          .npc-pager {
+            gap: 14px;
+            margin-top: 8px;
+          }
+
+          .npc-pg-btn {
+            font-size: 18px;
+          }
+
+          .npc-pg-text {
+            font-size: 14px;
+          }
         }
       `}</style>
     </div>
