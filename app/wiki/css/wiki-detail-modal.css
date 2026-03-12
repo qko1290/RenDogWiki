@@ -530,3 +530,82 @@ body.rd-modal-open{ overflow: hidden; }
     line-height: 1.35;
   }
 }
+
+@media (max-width: 420px) {
+  .npc-modal-backdrop {
+    padding: 4px;
+  }
+
+  .npc-modal-main {
+    width: 100%;
+    max-height: calc(100dvh - 8px);
+    border-radius: 12px;
+  }
+
+  .npc-modal-left {
+    padding: 8px 8px 6px;
+  }
+
+  .npc-modal-profile {
+    gap: 6px;
+    padding: 7px 8px;
+    margin-bottom: 6px;
+  }
+
+  .npc-modal-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .npc-modal-name {
+    font-size: 15px;
+  }
+
+  .npc-picture-slider,
+  .npc-picture-slider-empty {
+    min-height: 126px;
+    max-height: 180px;
+    border-radius: 10px;
+  }
+
+  .npc-modal-right {
+    padding: 7px;
+    gap: 7px;
+  }
+
+  .npc-modal-right .mgr-pill-row {
+    grid-template-columns: 76px 1fr;
+    min-height: 34px;
+  }
+
+  .npc-modal-right .mgr-pill-label {
+    font-size: 10px;
+    padding: 0 6px;
+  }
+
+  .npc-modal-right .mgr-pill-value {
+    font-size: 11px;
+    padding: 0 8px;
+  }
+
+  .npc-modal-right .mgr-pill-row--multi {
+    min-height: 110px;
+    padding: 8px;
+  }
+
+  .npc-modal-right .mgr-pill-row--multi .mgr-pill-label {
+    height: 26px;
+    padding: 0 8px;
+  }
+
+  .npc-line-scroll {
+    max-height: 120px !important;
+    font-size: 11px;
+  }
+
+  .npc-modal-close-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 15px;
+  }
+}
