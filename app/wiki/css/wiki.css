@@ -985,3 +985,29 @@
     line-height: 1.55 !important;
   }
 }
+
+@media (max-width: 768px) {
+  .wiki-content-title {
+    font-size: 25px !important;
+    line-height: 1.3 !important;
+  }
+
+  .wiki-breadcrumb-item {
+    font-size: 18px !important;
+    line-height: 1.35 !important;
+  }
+
+  .wiki-breadcrumb-sep {
+    font-size: 16px !important;
+  }
+
+  .wiki-read-mobile-scope [data-wiki-text="h1"] {
+    font-size: 27px !important;
+    line-height: 1.35 !important;
+  }
+
+  .wiki-read-mobile-scope [data-wiki-text="body"] {
+    font-size: 15px !important;
+    line-height: 1.6 !important;
+  }
+}
