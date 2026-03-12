@@ -2619,14 +2619,13 @@ function renderLeaf(node: any, key?: React.Key): React.ReactNode {
 
   // 🎯 폰트 패밀리 (boolean 방어 + 기본값 적용)
   const rawFamily = node.fontFamily;
-  let familyKey: string; // HANDWRITING_SCALE용 키
-  let familyCss: string; // 실제 CSS에 넣을 값
+  let familyKey: string;
+  let familyCss: string;
 
   if (typeof rawFamily === "string" && rawFamily.trim()) {
-    familyKey = rawFamily.trim(); // 예: 'BareunHippy'
-    familyCss = familyKey; // 그대로 사용
+    familyKey = rawFamily.trim();
+    familyCss = familyKey;
   } else {
-    // 마크가 없거나 잘못(true 등) 들어간 경우 → 기본 글꼴
     familyKey = "NanumSquareRound";
     familyCss =
       "'NanumSquareRound', -apple-system, BlinkMacSystemFont, system-ui, sans-serif";
@@ -2634,14 +2633,23 @@ function renderLeaf(node: any, key?: React.Key): React.ReactNode {
 
   style.fontFamily = familyCss;
 
+  // ✅ 원본 fontSize mark 유무
+  const hasCustomFontSize =
+    node.fontSize != null &&
+    String(node.fontSize).trim() !== "";
+
   // 폰트 크기 + 손글씨 보정
-  const normalized = normalizeFontSize(node.fontSize);  
+  const normalized = normalizeFontSize(node.fontSize);
   const basePx = toPxNumber(normalized as any);
   const scale = HANDWRITING_SCALE[familyKey] ?? 1;
 
+  // ✅ 최종 px 값을 따로 보관 (모바일에서 -4px 하기 위함)
+  let finalFontPx: number | undefined;
+
   if (scale !== 1) {
     if (typeof basePx === "number") {
-      style.fontSize = `${Math.round(basePx * scale)}px`;
+      finalFontPx = Math.round(basePx * scale);
+      style.fontSize = `${finalFontPx}px`;
     } else if (normalized !== undefined) {
       style.fontSize = normalized as any;
     } else {
@@ -2649,11 +2657,29 @@ function renderLeaf(node: any, key?: React.Key): React.ReactNode {
     }
     style.lineHeight = style.lineHeight ?? 1.35;
   } else {
-    if (normalized !== undefined) style.fontSize = normalized as any;
+    if (normalized !== undefined) {
+      style.fontSize = normalized as any;
+      if (typeof basePx === "number") {
+        finalFontPx = basePx;
+      }
+    }
+  }
+
+  const extraProps: Record<string, any> = {};
+
+  // ✅ 모바일 전용 조정을 위한 표시
+  // fontSize가 따로 지정된 텍스트만 data attr 부여
+  if (hasCustomFontSize) {
+    extraProps["data-wiki-inline-font"] = "custom";
+
+    // px로 환산 가능한 경우에만 CSS 변수로 전달
+    if (typeof finalFontPx === "number" && Number.isFinite(finalFontPx)) {
+      (style as any)["--wiki-inline-font-px"] = finalFontPx;
+    }
   }
 
   return (
-    <span key={key} style={style}>
+    <span key={key} style={style} {...extraProps}>
       {children}
     </span>
   );

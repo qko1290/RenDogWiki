@@ -1011,3 +1011,9 @@
     line-height: 1.6 !important;
   }
 }
+
+@media (max-width: 768px) {
+  .wiki-read-mobile-scope [data-wiki-inline-font="custom"] {
+    font-size: calc((var(--wiki-inline-font-px, 19) * 1px) - 4px) !important;
+  }
+}
