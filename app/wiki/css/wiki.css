@@ -903,3 +903,72 @@
     line-height: 1.6 !important;
   }
 }
+
+@media (max-width: 768px) {
+  .wiki-read-mobile-scope [data-wiki-card-wrap="price-table"] {
+    margin-left: 0 !important;
+    padding: 8px 0 !important;
+  }
+
+  .wiki-read-mobile-scope [data-wiki-card-row="price-table"] {
+    gap: 12px !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    max-width: 100% !important;
+  }
+
+  .wiki-read-mobile-scope [data-wiki-card="price-table"] {
+    min-width: 118px !important;
+    max-width: 118px !important;
+    min-height: 146px !important;
+    padding: 7px !important;
+    margin: 0 4px !important;
+    border-radius: 12px !important;
+  }
+
+  .wiki-read-mobile-scope [data-wiki-card="price-table"] [data-wiki-part="price-badge-wrap"] {
+    top: 4px !important;
+    width: 58px !important;
+  }
+
+  .wiki-read-mobile-scope [data-wiki-card="price-table"] [data-wiki-part="price-badge"] {
+    width: 58px !important;
+    font-size: 13px !important;
+    padding: 3px 0 !important;
+  }
+
+  .wiki-read-mobile-scope [data-wiki-card="price-table"] [data-wiki-part="price-image-wrap"] {
+    margin-top: 30px !important;
+    margin-bottom: 8px !important;
+    width: 56px !important;
+    height: 56px !important;
+  }
+
+  .wiki-read-mobile-scope [data-wiki-card="price-table"] [data-wiki-part="price-title"] {
+    font-size: 14px !important;
+    min-height: 34px !important;
+    line-height: 1.1 !important;
+  }
+
+  .wiki-read-mobile-scope [data-wiki-card="price-table"] [data-wiki-part="price-row"] {
+    font-size: 15px !important;
+    padding: 2px 6px !important;
+    min-height: 24px !important;
+    letter-spacing: 0 !important;
+  }
+
+  .wiki-read-mobile-scope [data-wiki-card="price-table"] [data-wiki-part="price-arrow-left"],
+  .wiki-read-mobile-scope [data-wiki-card="price-table"] [data-wiki-part="price-arrow-right"] {
+    width: 24px !important;
+    height: 24px !important;
+    font-size: 13px !important;
+  }
+
+  .wiki-read-mobile-scope [data-wiki-card="price-table"] [data-wiki-part="price-arrow-left"] {
+    left: -8px !important;
+  }
+
+  .wiki-read-mobile-scope [data-wiki-card="price-table"] [data-wiki-part="price-arrow-right"] {
+    right: -8px !important;
+  }
+}

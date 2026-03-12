@@ -1729,7 +1729,6 @@ function PriceTableCardBlock({
   const [indexes, setIndexes] = useState<number[]>(() => node.items.map(() => 0));
   const [hovered, setHovered] = useState<number | null>(null);
 
-  // ✅ node.items 길이/구성이 바뀌면 인덱스 배열도 맞춰줌
   useEffect(() => {
     const len = Array.isArray(node.items) ? node.items.length : 0;
     setIndexes((prev) => {
@@ -1738,9 +1737,6 @@ function PriceTableCardBlock({
     });
   }, [node.items]);
 
-  // ✅ 표시용 items: 문서 item + (라이브 시세) 병합
-  // - image 같은 커스텀은 문서 값을 유지
-  // - name/mode/prices는 최신 우선
   const viewItems = useMemo(() => {
     return Array.isArray(node.items) ? node.items : [];
   }, [node.items]);
@@ -1748,7 +1744,7 @@ function PriceTableCardBlock({
   const setCardIdx = (cardIdx: number, dir: -1 | 1) => {
     setIndexes((prev) => {
       const copy = [...prev];
-      const item = viewItems[cardIdx]; // ✅ viewItems 기준
+      const item = viewItems[cardIdx];
       if (!item) return copy;
 
       const len =
@@ -1764,6 +1760,7 @@ function PriceTableCardBlock({
   return (
     <div
       key={keyProp}
+      data-wiki-card-wrap="price-table"
       style={{
         width: "100%",
         display: "flex",
@@ -1778,6 +1775,7 @@ function PriceTableCardBlock({
       }}
     >
       <div
+        data-wiki-card-row="price-table"
         style={{
           display: "flex",
           flexDirection: "row",
@@ -1792,8 +1790,8 @@ function PriceTableCardBlock({
         {viewItems.map((item: any, idx: number) => {
           const stages: string[] =
             Array.isArray(item.stages) && item.stages.length
-              ? item.stages // 기존 데이터 호환
-              : stagesByFormat(item.mode); // ✅ 신규 로직
+              ? item.stages
+              : stagesByFormat(item.mode);
           const prices: Array<string | number> = resolvePricesForStages(item, stages);
 
           const cardIdx = indexes[idx] ?? 0;
@@ -1802,33 +1800,27 @@ function PriceTableCardBlock({
           const badgeColor = getPriceBadgeColor(stage, item.colorType);
 
           const nameShown = item.name?.trim() ? item.name : "이름 없음";
-
-          // ✅ 기존 줄바꿈 규칙 결과
           const { node: nameNode, broke: nameBroke } = smartNameBreakInfo(nameShown);
 
-          // ✅ 줄바꿈이 발생한 경우, "줄바꿈 이전(첫 줄)" 텍스트를 구해서 조건 판정
           let brokePrefixLen = 0;
           let brokePrefixSpaceCount = 0;
 
           if (nameBroke) {
             const chars = Array.from(String(nameShown ?? ""));
-            const breakAt = chars.findIndex((ch, i) => i >= 7 && ch === " "); // smartNameBreakInfo와 동일 기준
+            const breakAt = chars.findIndex((ch, i) => i >= 7 && ch === " ");
 
             if (breakAt !== -1) {
-              const first = chars.slice(0, breakAt).join(""); // 줄바꿈 이전
+              const first = chars.slice(0, breakAt).join("");
               brokePrefixLen = Array.from(first).length;
               brokePrefixSpaceCount = (first.match(/\s/g) ?? []).length;
             }
           }
 
-          // ✅ 폰트 결정
           let nameFont: number;
 
           if (nameBroke) {
-            // 🔥 추가 규칙:
-            // "줄바꿈 지점 이전" 글자수가 8글자 이상 && 띄어쓰기 1개 이상이면 16pt
             const prefixRule = brokePrefixLen >= 8 && brokePrefixSpaceCount >= 1;
-            nameFont = prefixRule ? 16 : 17; // 기본은 17pt 고정
+            nameFont = prefixRule ? 16 : 17;
           } else {
             nameFont = autoFont(20, String(nameShown), [
               [7, 18],
@@ -1871,6 +1863,7 @@ function PriceTableCardBlock({
           const badge =
             stages.length > 1 ? (
               <div
+                data-wiki-part="price-badge-wrap"
                 style={{
                   position: "absolute",
                   top: 5,
@@ -1883,6 +1876,7 @@ function PriceTableCardBlock({
                 }}
               >
                 <span
+                  data-wiki-part="price-badge"
                   style={{
                     background: badgeColor,
                     color: stage === "봉인" ? "#fff" : "#222",
@@ -1909,6 +1903,7 @@ function PriceTableCardBlock({
           return (
             <div
               key={idx}
+              data-wiki-card="price-table"
               style={{
                 background: "#fff",
                 borderRadius: 15,
@@ -1927,8 +1922,10 @@ function PriceTableCardBlock({
               onMouseLeave={() => setHovered(null)}
             >
               {badge}
+
               {showArrows && (
                 <button
+                  data-wiki-part="price-arrow-left"
                   style={{
                     position: "absolute",
                     left: -12,
@@ -1956,8 +1953,10 @@ function PriceTableCardBlock({
                   ◀
                 </button>
               )}
+
               {showArrows && (
                 <button
+                  data-wiki-part="price-arrow-right"
                   style={{
                     position: "absolute",
                     right: -12,
@@ -1987,6 +1986,7 @@ function PriceTableCardBlock({
               )}
 
               <div
+                data-wiki-part="price-image-wrap"
                 style={{
                   marginBottom: 10,
                   marginTop: 34,
@@ -2000,29 +2000,29 @@ function PriceTableCardBlock({
                 {image}
               </div>
 
-              {/* 이름: 길면 폰트 축소(여백/카드크기 불변) */}
               <div
+                data-wiki-part="price-title"
                 style={{
                   fontWeight: 700,
-                  fontSize: nameFont,     // ✅ 핵심: 글자수 기반 + 줄바꿈이면 17 고정
+                  fontSize: nameFont,
                   lineHeight: 1.12,
                   marginBottom: 0,
                   color: item.name ? "#333" : "#bbb",
                   textAlign: "center",
-                  minHeight: 40,          // ✅ 2줄 가능
+                  minHeight: 40,
                   width: "100%",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   padding: 0,
-                  whiteSpace: "normal",   // ✅ 줄바꿈 허용
+                  whiteSpace: "normal",
                 }}
               >
                 {item.name ? nameNode : <span style={{ color: "#bbb" }}>이름 없음</span>}
               </div>
 
-              {/* 가격: 필요시에만 ~ 뒤가 다음 줄로 + 길면 폰트 축소 */}
               <div
+                data-wiki-part="price-row"
                 style={{
                   fontWeight: 800,
                   fontSize: priceSize,
@@ -3024,22 +3024,21 @@ function renderNode(
     }
 
     case "info-box": {
-      const raw =
-        node.boxType ??
-        node.variant ??
-        node.tone ??
-        node.infoType ??
-        "info";
-
+      const raw = node.boxType ?? node.variant ?? node.tone ?? node.infoType ?? "info";
       const type = String(raw).toLowerCase();
       const { container, icon, role, showIcon } = getInfoboxPreset(type);
 
       return (
-        <div key={key} role={role} style={{ ...container, margin: "8px 0" }}>
+        <div
+          style={container}
+          role={role}
+          data-wiki-block="info-box"
+        >
           {showIcon && icon && (
-            <span aria-hidden="true" style={icon as React.CSSProperties} />
+            <span data-wiki-part="info-box-icon">{icon}</span>
           )}
-          <div style={{ flex: "1 1 auto", minWidth: 0, lineHeight: 1.55, fontWeight: 560, whiteSpace: "pre-wrap" }}>
+
+          <div data-wiki-part="info-box-body">
             {children}
           </div>
         </div>
