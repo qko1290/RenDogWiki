@@ -1590,7 +1590,7 @@ export default function WikiPageInner({ user }: Props) {
         user={user}
         mobileCategoryOpen={mobileCategoryOpen}
         onToggleMobileCategory={() => setMobileCategoryOpen((v) => !v)}
-        hideAdminMenu={true}
+        hideAdminMenu={false}
       />
 
       {/* ✅ 모바일 카테고리 오버레이 */}
