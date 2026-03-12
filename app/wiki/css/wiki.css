@@ -1002,7 +1002,17 @@
   }
 
   .wiki-read-mobile-scope [data-wiki-text="h1"] {
-    font-size: 27px !important;
+    font-size: 22px !important;
+    line-height: 1.35 !important;
+  }
+
+  .wiki-read-mobile-scope [data-wiki-text="h2"] {
+    font-size: 20px !important;
+    line-height: 1.35 !important;
+  }
+
+  .wiki-read-mobile-scope [data-wiki-text="h3"] {
+    font-size: 18px !important;
     line-height: 1.35 !important;
   }
 
@@ -1015,5 +1025,50 @@
 @media (max-width: 768px) {
   .wiki-read-mobile-scope [data-wiki-inline-font="custom"] {
     font-size: calc((var(--wiki-inline-font-px, 19) * 1px) - 4px) !important;
+  }
+
+  .wiki-read-mobile-scope
+    [data-wiki-inline-font="custom"][style*="--wiki-inline-font-px: 20"],
+  .wiki-read-mobile-scope
+    [data-wiki-inline-font="custom"][style*="--wiki-inline-font-px: 21"],
+  .wiki-read-mobile-scope
+    [data-wiki-inline-font="custom"][style*="--wiki-inline-font-px: 22"],
+  .wiki-read-mobile-scope
+    [data-wiki-inline-font="custom"][style*="--wiki-inline-font-px: 23"],
+  .wiki-read-mobile-scope
+    [data-wiki-inline-font="custom"][style*="--wiki-inline-font-px: 24"],
+  .wiki-read-mobile-scope
+    [data-wiki-inline-font="custom"][style*="--wiki-inline-font-px: 25"],
+  .wiki-read-mobile-scope
+    [data-wiki-inline-font="custom"][style*="--wiki-inline-font-px: 26"],
+  .wiki-read-mobile-scope
+    [data-wiki-inline-font="custom"][style*="--wiki-inline-font-px: 27"],
+  .wiki-read-mobile-scope
+    [data-wiki-inline-font="custom"][style*="--wiki-inline-font-px: 28"],
+  .wiki-read-mobile-scope
+    [data-wiki-inline-font="custom"][style*="--wiki-inline-font-px: 29"],
+  .wiki-read-mobile-scope
+    [data-wiki-inline-font="custom"][style*="--wiki-inline-font-px: 30"],
+  .wiki-read-mobile-scope
+    [data-wiki-inline-font="custom"][style*="--wiki-inline-font-px: 31"],
+  .wiki-read-mobile-scope
+    [data-wiki-inline-font="custom"][style*="--wiki-inline-font-px: 32"],
+  .wiki-read-mobile-scope
+    [data-wiki-inline-font="custom"][style*="--wiki-inline-font-px: 33"],
+  .wiki-read-mobile-scope
+    [data-wiki-inline-font="custom"][style*="--wiki-inline-font-px: 34"],
+  .wiki-read-mobile-scope
+    [data-wiki-inline-font="custom"][style*="--wiki-inline-font-px: 35"],
+  .wiki-read-mobile-scope
+    [data-wiki-inline-font="custom"][style*="--wiki-inline-font-px: 36"],
+  .wiki-read-mobile-scope
+    [data-wiki-inline-font="custom"][style*="--wiki-inline-font-px: 37"],
+  .wiki-read-mobile-scope
+    [data-wiki-inline-font="custom"][style*="--wiki-inline-font-px: 38"],
+  .wiki-read-mobile-scope
+    [data-wiki-inline-font="custom"][style*="--wiki-inline-font-px: 39"],
+  .wiki-read-mobile-scope
+    [data-wiki-inline-font="custom"][style*="--wiki-inline-font-px: 40"] {
+    font-size: calc((var(--wiki-inline-font-px, 19) * 1px) - 7px) !important;
   }
 }
