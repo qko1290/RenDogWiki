@@ -400,7 +400,7 @@ export default function NpcGrid({
             row-gap: 14px;
 
             width: calc(100% - 20px);
-            margin: 12px auto 0;
+            margin: 12px auto 4px;
           }
 
           .npc-card {
@@ -432,7 +432,7 @@ export default function NpcGrid({
 
           .npc-pager {
             gap: 12px;
-            margin-top: 6px;
+            margin-top: 0;
           }
 
           .npc-pg-btn {
