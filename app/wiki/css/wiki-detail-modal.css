@@ -527,3 +527,67 @@ body.rd-modal-open{ overflow: hidden; }
     line-height: 1.4;
   }
 }
+
+@media (max-width: 420px) {
+  .npc-modal-backdrop {
+    padding: 6px;
+  }
+
+  .npc-modal-main {
+    width: 100%;
+    max-height: calc(100dvh - 12px);
+    border-radius: 14px;
+  }
+
+  .npc-modal-left {
+    padding: 12px 12px 8px;
+  }
+
+  .npc-modal-profile {
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .npc-modal-icon {
+    width: 38px;
+    height: 38px;
+  }
+
+  .npc-modal-name {
+    font-size: 18px;
+  }
+
+  .npc-modal-right {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .npc-modal-right .mgr-pill-row {
+    grid-template-columns: 96px 1fr;
+  }
+
+  .npc-modal-right .mgr-pill-label {
+    font-size: 11px;
+    padding: 0 8px;
+  }
+
+  .npc-modal-right .mgr-pill-value {
+    padding: 0 10px;
+    font-size: 13px;
+  }
+
+  .npc-modal-right .mgr-pill-row--multi {
+    min-height: 150px;
+  }
+
+  .npc-line-scroll {
+    max-height: 170px !important;
+    font-size: 13px;
+  }
+
+  .npc-modal-close-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 17px;
+  }
+}
