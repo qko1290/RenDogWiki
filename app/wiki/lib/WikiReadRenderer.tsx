@@ -3024,26 +3024,22 @@ function renderNode(
     }
 
     case "info-box": {
-      const raw = node.boxType ?? node.variant ?? node.tone ?? node.infoType ?? "info";
+      const raw =
+        node.boxType ??
+        node.variant ??
+        node.tone ??
+        node.infoType ??
+        "info";
+
       const type = String(raw).toLowerCase();
       const { container, icon, role, showIcon } = getInfoboxPreset(type);
 
       return (
-        <div
-          key={key}
-          style={container}
-          role={role}
-          data-wiki-block="info-box"
-        >
+        <div key={key} role={role} style={{ ...container, margin: "8px 0" }}>
           {showIcon && icon && (
-            <span
-              data-wiki-part="info-box-icon"
-              style={icon}
-              aria-hidden="true"
-            />
+            <span aria-hidden="true" style={icon as React.CSSProperties} />
           )}
-
-          <div data-wiki-part="info-box-body">
+          <div style={{ flex: "1 1 auto", minWidth: 0, lineHeight: 1.55, fontWeight: 560, whiteSpace: "pre-wrap" }}>
             {children}
           </div>
         </div>
