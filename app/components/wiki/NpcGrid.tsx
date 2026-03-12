@@ -80,7 +80,7 @@ export default function NpcGrid({
     typeof pageSize === "number" && pageSize > 0
       ? pageSize
       : isMobile
-      ? 3 * 6
+      ? 3 * 4
       : 7 * 3;
 
   const curPage = typeof page === "number" ? page : innerPage;
@@ -215,7 +215,6 @@ export default function NpcGrid({
           --gap-x: clamp(18px, 3vw, 56px);
           --name: clamp(16px, 1.4vw, 24px);
           --pad: clamp(6px, 0.8vw, 8px);
-          --badge-out: 34%;
 
           display: grid;
           grid-template-columns: repeat(7, 1fr);
@@ -357,10 +356,8 @@ export default function NpcGrid({
           letter-spacing: 0.2px;
           font-size: clamp(12px, 1.2cqw, 14px);
           white-space: nowrap;
-
           box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06),
             0 6px var(--elev) color-mix(in oklab, var(--c) 22%, transparent);
-
           z-index: 3;
         }
 
@@ -422,10 +419,14 @@ export default function NpcGrid({
 
         @media (max-width: 768px) {
           .npc-grid {
+            --icon: 46px;
+            --name: 13px;
+            --pad: 5px;
+
             grid-template-columns: repeat(3, minmax(0, 1fr));
-            column-gap: 12px;
-            row-gap: 18px;
-            margin: 14px 0;
+            column-gap: 10px;
+            row-gap: 14px;
+            margin: 12px 0;
           }
 
           .npc-card {
@@ -433,20 +434,39 @@ export default function NpcGrid({
           }
 
           .npc-card-inner {
-            gap: 4px;
+            gap: 3px;
+          }
+
+          .npc-icon-wrap {
+            width: min(var(--icon), 54%);
+          }
+
+          .npc-icon-img {
+            border-radius: 8px;
+          }
+
+          .npc-name {
+            max-width: 94%;
+          }
+
+          .npc-tag-badge {
+            --badge-out: 4px;
+            --badge-h: 22px;
+            --badge-px: 8px;
+            font-size: 11px;
           }
 
           .npc-pager {
-            gap: 14px;
-            margin-top: 8px;
+            gap: 12px;
+            margin-top: 6px;
           }
 
           .npc-pg-btn {
-            font-size: 18px;
+            font-size: 17px;
           }
 
           .npc-pg-text {
-            font-size: 14px;
+            font-size: 13px;
           }
         }
       `}</style>
