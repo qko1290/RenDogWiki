@@ -1,34 +1,51 @@
-/* ===== [1] 전체 컨테이너/레이아웃 ===== */
+/* ============================================= */
+/* File: app/wiki/css/wiki.css                   */
+/* (전체 코드)                                   */
+/* ============================================= */
 
-/* === GLOBAL: 모든 이미지 픽셀 보존 & 필터 해제 === */
+/* ===== 공통 변수 ===== */
+:root {
+  --wiki-max-width: 1580px;
+  --wiki-gutter: 24px;
+}
+
+/* ===== GLOBAL: 이미지 기본 처리 ===== */
 :where(img) {
-  /* 픽셀 아트/도트 이미지가 리사이즈될 때 또렷하게 */
-  image-rendering: pixelated;         /* Chrome/Edge/Firefox */
-  image-rendering: crisp-edges;       /* Safari/일부 브라우저 */
-  image-rendering: -moz-crisp-edges;  /* 구형 Firefox 호환 */
-  -ms-interpolation-mode: nearest-neighbor; /* 구형 IE 호환 */
-
-  /* 혹시 전역/상속 필터가 걸려 있으면 제거 */
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  image-rendering: -moz-crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
   filter: none !important;
 }
 
-/* === 예외: 부드럽게 보고 싶은 이미지에 class="smooth" 지정 === */
 :where(img.smooth) {
   image-rendering: auto !important;
   filter: initial !important;
 }
 
+/* ===== 앱 공통 폭 ===== */
+.wiki-app {
+  max-width: var(--wiki-max-width);
+  margin: 0 auto;
+  padding: 0 var(--wiki-gutter);
+}
+
+/* ===== [1] 전체 컨테이너 / 레이아웃 ===== */
 .wiki-container {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  width: 100%;
+  max-width: 100%;
   background: #fff;
   color: #333;
-  font-family: 'NanumSquareRound', "Inter", "Inter Fallback", system-ui, arial;
+  font-family: 'NanumSquareRound', "Inter", "Inter Fallback", system-ui, Arial, sans-serif;
 }
 
 .wiki-layout {
   display: flex;
+  width: 100%;
+  max-width: 100%;
   margin-top: 64px;
   height: calc(100vh - 64px);
   overflow: hidden;
@@ -42,93 +59,45 @@
 .wiki-main-scrollable {
   display: flex;
   flex: 1;
+  min-width: 0;
   overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
-/* ===== [2] 사이드바(카테고리) ===== */
+.wiki-content {
+  flex: 1;
+  overflow-y: auto;
+  min-width: 0;
+  padding: 1rem 3rem 2rem 3rem;
+  background-color: #fff;
+}
+
+.wiki-content-body {
+  font-size: 1rem;
+  line-height: 1.75;
+  color: #333;
+}
+
+/* ===== [2] 사이드바 ===== */
 .wiki-sidebar {
   width: 320px;
   background: #ffffff;
   font-size: 14px;
   font-weight: 600;
-
-  /* ✅ margin-top 제거: 배경색 다른 띠가 생기는 원인 */
   margin-top: 0;
-
-  /* ✅ 위 여백은 padding-top으로 (흰 배경 유지) */
   padding: 12px 10px 10px 10px;
-
   border: none !important;
   overflow-y: auto;
   scrollbar-gutter: stable;
 }
 
-/* ✅ border는 "내용 높이까지만" 유지 */
 .wiki-sidebar-inner {
   position: relative;
-  display: inline-block;  /* 내용 높이까지만 */
+  display: inline-block;
   min-width: 100%;
-  padding-left: 12px;     /* 선과 텍스트 간격 */
-  /* ❗ padding-top 주지마 (주면 선이 같이 길어짐) */
+  padding-left: 12px;
   padding-top: 0;
-
   border-left: 1px solid rgba(15, 23, 42, 0.10);
-}
-
-/* 트랙은 항상 아주 옅게 */
-.wiki-sidebar::-webkit-scrollbar {
-  width: 10px;
-}
-
-.wiki-sidebar::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.06);  /* 옅은 회색 트랙 */
-  border-radius: 999px;
-  margin: 6px 2px;
-}
-
-/* thumb는 기본 숨김(투명) */
-.wiki-sidebar::-webkit-scrollbar-thumb {
-  background: transparent;
-  border-radius: 999px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
-  transition: background 0.15s ease;
-}
-
-/* hover 시 thumb 등장 */
-.wiki-sidebar:hover::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.9); /* 나타날 때 */
-}
-
-/* 화살표 제거 */
-.wiki-sidebar::-webkit-scrollbar-button {
-  display: none;
-  width: 0;
-  height: 0;
-}
-
-/* Firefox */
-.wiki-sidebar {
-  scrollbar-width: thin;
-  scrollbar-color: transparent rgba(15, 23, 42, 0.06); /* 기본: thumb 투명, 트랙 옅게 */
-}
-
-.wiki-sidebar:hover {
-  scrollbar-color: rgba(148, 163, 184, 0.9) rgba(15, 23, 42, 0.06); /* hover: thumb 표시 */
-}
-
-/* 필요하면 본문/TOC에도 동일하게 적용해 일관성 유지 */
-.wiki-main-scrollable,
-.wiki-toc,
-.wiki-toc-sidebar {
-  scrollbar-gutter: stable;
-}
-
-/* 폴백: scrollbar-gutter 미지원 브라우저에선 항상 트랙을 잡아서 폭 고정 */
-@supports not (scrollbar-gutter: stable) {
-  .wiki-sidebar {
-    overflow-y: scroll; /* ✅ 항상 같은 폭 */
-  }
 }
 
 .wiki-sidebar-title {
@@ -137,13 +106,15 @@
   margin-bottom: 1rem;
 }
 
-/* ===== [3] 사이드바 카테고리/문서 버튼 ===== */
+/* ===== [3] 카테고리 / 문서 버튼 ===== */
 .wiki-nav-item,
 .wiki-doc-item,
 .wiki-sub-nav-item {
   display: flex;
   align-items: center;
   justify-content: flex-start;
+  width: 100%;
+  position: relative;
   padding: 0.5rem 0.75rem 0.5rem 0.25rem;
   margin: 0.25rem 0;
   font-size: 1rem;
@@ -153,8 +124,39 @@
   border-radius: 6px;
   cursor: pointer;
   text-align: left;
-  width: 100%;
-  position: relative;
+}
+
+.wiki-nav-item {
+  min-height: 28px;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem 0.5rem 0.5rem;
+  gap: 10px;
+  border-radius: 10px;
+  transition: background .15s, color .15s;
+}
+
+.wiki-nav-item:hover {
+  background: #f8fafc;
+}
+
+.wiki-nav-item.active {
+  background: #eef5ff;
+}
+
+.wiki-doc-item {
+  font-size: 0.95rem;
+  color: #444;
+  padding: 6px 8px;
+  border-radius: 8px;
+  transition: background .15s, color .15s;
+}
+
+.wiki-doc-item:hover {
+  background: #f8fafc;
+}
+
+.wiki-doc-item.active {
+  background: #eef5ff;
 }
 
 .doc-title {
@@ -190,23 +192,12 @@
   transform: scaleY(1);
 }
 
-/* ===== [4] 카테고리/문서 트리(ul, li) ===== */
-.wiki-doc-list,
-.wiki-sub-nav-list {
-  list-style: none;
-  margin-left: 1.7rem; /* 트리 들여쓰기 */
-  padding-left: 0.75rem;
-  border-left: 2px solid #e0e0e0;
-
-  /* 중요: 슬라이드 중 내부 높이 변화가 부모에 전파되지 않도록 숨김 */
-  overflow-y: hidden; /* 높이 트랜지션용 */
-  overflow-x: visible;
-}
-
-.wiki-doc-item {
-  font-size: 0.95rem;
-  color: #444;
-  margin: 0.25rem 0;
+.wiki-category-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 1;
+  overflow: hidden;
 }
 
 .wiki-category-label {
@@ -214,29 +205,71 @@
   text-align: left;
 }
 
+.wiki-category-icon,
+.wiki-category-icon-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wiki-cat-icon-token {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #f1f5f9;
+  box-shadow: inset 0 0 0 1px #e5e7eb;
+  overflow: hidden;
+}
+
+.wiki-category-icon-img {
+  width: 80%;
+  height: 80%;
+  object-fit: cover;
+  border-radius: 999px;
+}
+
+.wiki-category-icon-emoji {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.wiki-category-label-text {
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #0f172a;
+}
+
 .wiki-category-arrow {
   display: inline-block;
+  transform-origin: 50% 50%;
   transition: transform 0.24s cubic-bezier(.46, 1.48, .57, .98);
-  transform-origin: 50% 50%; /* 반드시 svg의 중심 */
 }
 
 .wiki-category-arrow.open {
   transform: rotate(90deg);
 }
 
-.wiki-category-icon {
-  display: inline-flex;
-  align-items: center;
+.wiki-nav-item.active .wiki-category-arrow {
+  color: #1d4ed8;
+}
+
+/* ===== [4] 트리 ===== */
+.wiki-doc-list,
+.wiki-sub-nav-list {
+  list-style: none;
+  margin-left: 1.7rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid #e0e0e0;
+  overflow-y: hidden;
+  overflow-x: visible;
 }
 
 /* ===== [5] 본문 ===== */
-.wiki-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 1rem 3rem 2rem 3rem;
-  background-color: #fff;
-}
-
 .wiki-breadcrumb {
   margin: 8px 0 18px 10px;
   font-size: 16px;
@@ -276,13 +309,28 @@
   color: #0f172a;
 }
 
-.wiki-content-body {
-  font-size: 1rem;
-  line-height: 1.75;
-  color: #333;
+.wiki-content-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 40px;
 }
 
-/* ===== [6] 목차(TOC) ===== */
+.wiki-doc-icon-img {
+  width: 32px;
+  height: 32px;
+  vertical-align: middle;
+  margin-right: 8px;
+  object-fit: contain;
+  display: inline-block;
+}
+
+.wiki-doc-icon-emoji {
+  font-size: 28px;
+  margin-right: 8px;
+}
+
+/* ===== [6] TOC ===== */
 .wiki-toc,
 .wiki-toc-sidebar {
   width: 260px;
@@ -294,6 +342,7 @@
   position: sticky;
   top: 64px;
   height: calc(100vh - 64px);
+  scrollbar-gutter: stable;
 }
 
 .wiki-toc ul,
@@ -321,7 +370,7 @@
   text-decoration: underline;
 }
 
-/* ===== [7] 기타 ===== */
+/* ===== [7] 공통 버튼 / 페이징 ===== */
 .edit-button {
   background: #0070f3;
   color: #fff;
@@ -337,29 +386,6 @@
   background: #005ad1;
 }
 
-/* === 문서 제목/아이콘 === */
-.wiki-content-title-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding-bottom: 40px;
-}
-
-.wiki-doc-icon-img {
-  width: 32px;
-  height: 32px;
-  vertical-align: middle;
-  margin-right: 8px;
-  object-fit: contain;
-  display: inline-block;
-}
-
-.wiki-doc-icon-emoji {
-  font-size: 28px;
-  margin-right: 8px;
-}
-
-/* === 페이징 버튼 영역 === */
 .wiki-paging-bar {
   display: flex;
   justify-content: center;
@@ -385,11 +411,10 @@
   font-size: 16px;
 }
 
-/* === NPC/HEAD 상세 모달 === */
+/* ===== [8] NPC / HEAD 모달 ===== */
 .npc-modal-backdrop {
   position: fixed;
-  left: 0;
-  top: 0;
+  inset: 0;
   width: 100vw;
   height: 100vh;
   background: rgba(0, 0, 0, 0.28);
@@ -451,12 +476,12 @@
 
 .npc-modal-right {
   flex: 1;
+  min-width: 350px;
+  margin-top: 40px;
   padding: 54px 44px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  min-width: 350px;
-  margin-top: 40px;
 }
 
 .npc-modal-table {
@@ -466,16 +491,14 @@
   border-spacing: 0;
 }
 
-.npc-modal-table-label {
+.npc-modal-table-label,
+.npc-modal-table-label-top {
   color: #666;
   width: 120px;
   font-weight: 600;
 }
 
 .npc-modal-table-label-top {
-  color: #666;
-  width: 120px;
-  font-weight: 600;
   vertical-align: top;
 }
 
@@ -527,7 +550,7 @@
   color: #777;
 }
 
-/* === NpcPictureSlider === */
+/* ===== [9] NpcPictureSlider ===== */
 .npc-picture-slider-empty {
   width: 500px;
   height: 400px;
@@ -579,207 +602,50 @@
   right: 10px;
 }
 
-.wiki-category-icon-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-/* nav item 레이아웃/hover */
-.wiki-nav-item {
-  min-height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.5rem 0.75rem 0.5rem 0.5rem;
-  gap: 10px;
-  border-radius: 10px;
-  transition: background .15s, color .15s;
-}
-
-.wiki-nav-item:hover {
-  background: #f8fafc;
-}
-
-.wiki-nav-item.active {
-  background: #eef5ff;
-}
-
-/* 왼쪽: 아이콘 + 이름 묶음 */
-.wiki-category-main {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 1;
-  overflow: hidden;
-}
-
-/* 아이콘 '토큰' – 작고 둥근 배경 안에 이미지/이모지 */
-.wiki-cat-icon-token {
-  flex: 0 0 40px;
-  width: 40px;
-  height: 40px;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  background: #f1f5f9;
-  box-shadow: inset 0 0 0 1px #e5e7eb;
-  overflow: hidden;
-}
-
-/* 아이콘: 이미지 */
-.wiki-category-icon-img {
-  width: 80%;
-  height: 80%;
-  object-fit: cover;
-  border-radius: 999px;
-}
-
-/* 아이콘: 이모지 */
-.wiki-category-icon-emoji {
-  font-size: 16px;
-  line-height: 1;
-}
-
-/* 텍스트 */
-.wiki-category-label-text {
-  font-size: 15px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: #0f172a;
-}
-
-/* 활성 행에서는 케럿 색도 살짝 강조 */
-.wiki-nav-item.active .wiki-category-arrow {
-  color: #1d4ed8;
-}
-
-/* 문서 아이템 가독성 */
-.wiki-doc-item {
-  border-radius: 8px;
-  padding: 6px 8px;
-  transition: background .15s, color .15s;
-}
-
-.wiki-doc-item:hover {
-  background: #f8fafc;
-}
-
-.wiki-doc-item.active {
-  background: #eef5ff;
-}
-
-/* ====== Scrollbar 스타일 (Sidebar / Content / TOC) ====== */
-
-/* Firefox */
-.wiki-sidebar,
-.wiki-main-scrollable,
-.wiki-toc,
-.wiki-toc-sidebar {
-  scrollbar-width: thin;                /* 얇게 */
-  scrollbar-color: #94a3b8 transparent; /* thumb, track */
-}
-
-/* WebKit (Chrome/Edge/Safari) */
-.wiki-sidebar::-webkit-scrollbar,
-.wiki-main-scrollable::-webkit-scrollbar,
-.wiki-toc::-webkit-scrollbar,
-.wiki-toc-sidebar::-webkit-scrollbar {
-  width: 10px;
-}
-
-.wiki-sidebar::-webkit-scrollbar-track,
-.wiki-main-scrollable::-webkit-scrollbar-track,
-.wiki-toc::-webkit-scrollbar-track,
-.wiki-toc-sidebar::-webkit-scrollbar-track {
-  background: transparent; /* 트랙은 투명 */
-  margin: 6px 0;           /* 위/아래 여백으로 둔탁함 감소 */
-}
-
-.wiki-sidebar::-webkit-scrollbar-thumb,
-.wiki-main-scrollable::-webkit-scrollbar-thumb,
-.wiki-toc::-webkit-scrollbar-thumb,
-.wiki-toc-sidebar::-webkit-scrollbar-thumb {
-  background: #cbd5e1;           /* 기본: 연한 회색 */
-  border-radius: 999px;          /* 둥글게 */
-  border: 2px solid transparent; /* 여백처럼 보이는 효과 */
-  background-clip: padding-box;
-  transition: background .15s ease;
-}
-
-.wiki-sidebar:hover::-webkit-scrollbar-thumb,
-.wiki-main-scrollable:hover::-webkit-scrollbar-thumb,
-.wiki-toc:hover::-webkit-scrollbar-thumb,
-.wiki-toc-sidebar:hover::-webkit-scrollbar-thumb {
-  background: #94a3b8; /* hover 시 약간 진하게 */
-}
-
-/* ⛔ 맨위/맨아래 화살표 버튼 제거 */
-.wiki-sidebar::-webkit-scrollbar-button,
-.wiki-main-scrollable::-webkit-scrollbar-button,
-.wiki-toc::-webkit-scrollbar-button,
-.wiki-toc-sidebar::-webkit-scrollbar-button {
-  display: none;
-  width: 0;
-  height: 0;
-}
-
-/* 팝업 전역 클래스(외부 클릭 판정용) */
+/* ===== [10] FAQ / 기타 ===== */
 .faq-popover {
   pointer-events: auto;
 }
 
-/* 안전: 버튼 높이를 살짝 키움(클릭영역) */
 .faq-menu-btn {
   position: relative;
   z-index: 1;
 }
 
-/* 렌더러용 카드 컨테이너 – 위쪽 검은 여백 추가 (일부 코드) */
 .weapon-card--renderer {
   background: linear-gradient(180deg, #050815 0%, #02030a 100%);
   border-radius: 24px;
-  padding-top: 6px; /* ⬅️ 위쪽 검은 여백 */
+  padding-top: 6px;
   overflow: hidden;
 }
 
-/* === (구) rdw-heading 버튼 – 필요 시 유지 === */
-/* 위키 본문 헤딩 링크 버튼: 기본은 숨김 */
+/* ===== [11] 헤딩 링크 버튼 ===== */
 .rdw-heading-link-button {
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.15s ease-out, transform 0.1s ease-out,
-    box-shadow 0.1s ease-out;
+  transition: opacity 0.15s ease-out, transform 0.1s ease-out, box-shadow 0.1s ease-out;
 }
 
-/* 헤딩에 마우스를 올렸을 때만 보이게 */
 .rdw-heading:hover .rdw-heading-link-button {
   opacity: 1;
   pointer-events: auto;
 }
 
-/* 버튼 자체 hover 살짝 효과 */
 .rdw-heading-link-button:hover {
   transform: translateY(-1px);
   box-shadow: 0 2px 6px rgba(148, 163, 184, 0.6);
 }
 
-/* === 문서 본문 헤딩 오른쪽 링크 버튼 – 제목 버튼과 동일 스타일 === */
-
-/* 헤딩 전체 래퍼 */
 .wiki-heading-with-anchor {
   position: relative;
 }
 
-/* 기본: 버튼은 숨김 */
 .wiki-heading-with-anchor .wiki-heading-anchor-btn {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.15s ease-out;
 }
 
-/* 헤딩에 마우스를 올렸을 때만 표시 (focus-within 제거) */
 .wiki-heading-with-anchor:hover .wiki-heading-anchor-btn {
   opacity: 1;
   background: #eef2ff;
@@ -787,7 +653,6 @@
   border-radius: 50%;
 }
 
-/* 버튼 자체 – 시스템 기본 스타일 제거 + 크기 최소화 */
 .wiki-heading-anchor-btn {
   appearance: none;
   -webkit-appearance: none;
@@ -802,7 +667,6 @@
   justify-content: center;
 }
 
-/* 아이콘만 보이게 하는 래퍼 (제목 링크 버튼과 동일 크기) */
 .wiki-heading-anchor-pill {
   display: inline-flex;
   align-items: center;
@@ -810,177 +674,83 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  /* 제목 버튼과 비슷한 크기의 이모지 */
   font-size: 12px;
   line-height: 1;
   color: #9ca3af;
   transition: transform 0.15s ease-out, color 0.15s ease-out;
 }
 
-/* hover 모션: 살짝 띄우고 색만 진하게 */
 .wiki-heading-anchor-btn:hover .wiki-heading-anchor-pill {
   transform: translateY(-1px) scale(1.05);
   color: #4f46e5;
 }
 
-/* 클릭 순간 살짝 눌리는 느낌 */
 .wiki-heading-anchor-btn:active .wiki-heading-anchor-pill {
   transform: translateY(0) scale(0.95);
 }
 
-/* 복사 완료 상태: 초록색 체크 (배경 X, 색만 변경) */
 .wiki-heading-anchor-pill--copied {
   color: #16a34a;
 }
 
-:root {
-  --wiki-max-width: 1580px;
-  --wiki-gutter: 24px;
+/* ===== [12] 스크롤바 ===== */
+.wiki-sidebar,
+.wiki-main-scrollable,
+.wiki-toc,
+.wiki-toc-sidebar {
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 transparent;
 }
 
-/* Header는 fixed라 별도(inner)로 처리했고,
-   본문 루트는 중앙 정렬 + 좌우 여백 */
-.wiki-app {
-  max-width: var(--wiki-max-width);
-  margin: 0 auto;
-  padding: 0 var(--wiki-gutter);
+.wiki-sidebar::-webkit-scrollbar,
+.wiki-main-scrollable::-webkit-scrollbar,
+.wiki-toc::-webkit-scrollbar,
+.wiki-toc-sidebar::-webkit-scrollbar {
+  width: 10px;
 }
 
-.wiki-mobile-category-btn {
+.wiki-sidebar::-webkit-scrollbar-track,
+.wiki-main-scrollable::-webkit-scrollbar-track,
+.wiki-toc::-webkit-scrollbar-track,
+.wiki-toc-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 6px 0;
+}
+
+.wiki-sidebar::-webkit-scrollbar-thumb,
+.wiki-main-scrollable::-webkit-scrollbar-thumb,
+.wiki-toc::-webkit-scrollbar-thumb,
+.wiki-toc-sidebar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background .15s ease;
+}
+
+.wiki-sidebar:hover::-webkit-scrollbar-thumb,
+.wiki-main-scrollable:hover::-webkit-scrollbar-thumb,
+.wiki-toc:hover::-webkit-scrollbar-thumb,
+.wiki-toc-sidebar:hover::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+}
+
+.wiki-sidebar::-webkit-scrollbar-button,
+.wiki-main-scrollable::-webkit-scrollbar-button,
+.wiki-toc::-webkit-scrollbar-button,
+.wiki-toc-sidebar::-webkit-scrollbar-button {
   display: none;
-  border: none;
-  background: transparent;
-  font-size: 26px;
-  line-height: 1;
-  cursor: pointer;
-  color: #111827;
-  padding: 6px 8px;
-  margin-right: 6px;
+  width: 0;
+  height: 0;
 }
 
-.wiki-header-desktop-tools {
-  display: flex;
-  align-items: center;
-  flex: 1;
-  min-width: 0;
-}
-
-.wiki-admin-menu-btn {
-  border: none;
-  background: transparent;
-  font-size: 26px;
-  cursor: pointer;
-}
-
-.wiki-mobile-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.48);
-  z-index: 1200;
-  border: none;
-}
-
-.wiki-mobile-drawer {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: min(86vw, 340px);
-  height: 100dvh;
-  background: #ffffff;
-  z-index: 1300;
-  transform: translateX(-100%);
-  transition: transform 0.22s ease;
-  box-shadow: 10px 0 30px rgba(0, 0, 0, 0.12);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.wiki-mobile-drawer.open {
-  transform: translateX(0);
-}
-
-.wiki-mobile-drawer-header {
-  height: 58px;
-  padding: 0 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid #e5e7eb;
-  flex-shrink: 0;
-}
-
-.wiki-mobile-drawer-close {
-  border: none;
-  background: transparent;
-  font-size: 20px;
-  cursor: pointer;
-}
-
-.desktop-only {
-  display: block;
-}
-
-@media (max-width: 1024px) {
-  .wiki-right {
-    display: none !important;
+@supports not (scrollbar-gutter: stable) {
+  .wiki-sidebar {
+    overflow-y: scroll;
   }
 }
 
-@media (max-width: 768px) {
-  .wiki-mobile-category-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .wiki-header-desktop-tools {
-    display: none;
-  }
-
-  .desktop-only {
-    display: none !important;
-  }
-
-  .wiki-layout {
-    display: block !important;
-  }
-
-  .mobile-main,
-  .wiki-main {
-    width: 100% !important;
-    min-width: 0 !important;
-    padding-left: 12px !important;
-    padding-right: 12px !important;
-    box-sizing: border-box;
-  }
-
-  .wiki-content,
-  .wiki-doc-content,
-  .wiki-render-content {
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-  }
-
-  .wiki-logo span {
-    font-size: 18px;
-  }
-}
-
-@media (max-width: 768px) {
-  .wiki-block-mobile-safe {
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-  }
-
-  .wiki-block-mobile-safe * {
-    max-width: 100%;
-    box-sizing: border-box;
-  }
-}
-
+/* ===== [13] 모바일 드로어 / 오버레이 ===== */
 .wiki-mobile-overlay {
   position: fixed;
   inset: 0;
@@ -991,7 +761,7 @@
 
 .wiki-mobile-drawer {
   position: fixed;
-  top: 60px; /* 모바일 헤더 높이 */
+  top: 60px;
   left: 0;
   width: min(86vw, 340px);
   height: calc(100dvh - 60px);
@@ -1035,42 +805,9 @@
   -webkit-overflow-scrolling: touch;
 }
 
-@media (max-width: 768px) {
-  .wiki-sidebar,
-  .wiki-sidebar-desktop {
-    display: none !important;
-  }
-
-  .wiki-layout {
-    display: block !important;
-  }
-
-  .wiki-main-scrollable {
-    display: block !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-  }
-
-  .wiki-content {
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    padding-left: 12px !important;
-    padding-right: 12px !important;
-    box-sizing: border-box !important;
-  }
-}
-
-@media (max-width: 768px) {
-  .wiki-toc-sidebar,
-  .wiki-toc-sidebar-desktop {
-    display: none !important;
-  }
-}
-
-@media (max-width: 768px) {
-  .wiki-quick-badges-wrap {
+/* ===== [14] 모바일 안전 블럭 ===== */
+@media (max-width: 1024px) {
+  .wiki-right {
     display: none !important;
   }
 }
@@ -1087,53 +824,64 @@
   }
 
   .wiki-layout {
+    display: block !important;
     height: calc(100dvh - 60px);
     margin-top: 60px;
-    display: block !important;
     overflow: hidden;
+  }
+
+  .wiki-sidebar,
+  .wiki-sidebar-desktop,
+  .wiki-toc-sidebar,
+  .wiki-toc-sidebar-desktop,
+  .wiki-quick-badges-wrap,
+  .desktop-only {
+    display: none !important;
   }
 
   #wiki-scroll-root,
   .wiki-main-scrollable {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
     height: calc(100dvh - 60px);
     overflow-y: auto !important;
     overflow-x: hidden !important;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
-    display: block !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
   }
 
-  .wiki-content {
+  .mobile-main,
+  .wiki-main,
+  .wiki-content,
+  .wiki-doc-content,
+  .wiki-render-content,
+  .wiki-content-body {
     width: 100% !important;
     max-width: 100% !important;
     min-width: 0 !important;
     box-sizing: border-box !important;
+  }
+
+  .wiki-content {
     padding-left: 12px !important;
     padding-right: 12px !important;
     padding-bottom: 40px !important;
   }
 
   .wiki-content-body {
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
     overflow-x: hidden !important;
   }
-}
 
-.wiki-container {
-  width: 100%;
-  max-width: 100%;
-}
+  .wiki-block-mobile-safe {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
 
-.wiki-layout {
-  width: 100%;
-  max-width: 100%;
-}
-
-.wiki-main-scrollable {
-  min-width: 0;
+  .wiki-block-mobile-safe * {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
 }
