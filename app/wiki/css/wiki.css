@@ -1070,9 +1070,70 @@
 }
 
 @media (max-width: 768px) {
-  .doc-quick-badges,
-  .wiki-quick-badges,
-  .doc-quick-badges-wrap {
+  .wiki-quick-badges-wrap {
     display: none !important;
   }
+}
+
+@media (max-width: 768px) {
+  html,
+  body {
+    height: 100%;
+  }
+
+  .wiki-container {
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .wiki-layout {
+    height: calc(100dvh - 60px);
+    margin-top: 60px;
+    display: block !important;
+    overflow: hidden;
+  }
+
+  #wiki-scroll-root,
+  .wiki-main-scrollable {
+    height: calc(100dvh - 60px);
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .wiki-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    padding-bottom: 40px !important;
+  }
+
+  .wiki-content-body {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+  }
+}
+
+.wiki-container {
+  width: 100%;
+  max-width: 100%;
+}
+
+.wiki-layout {
+  width: 100%;
+  max-width: 100%;
+}
+
+.wiki-main-scrollable {
+  min-width: 0;
 }

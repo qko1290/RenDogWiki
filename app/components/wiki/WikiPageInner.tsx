@@ -257,25 +257,38 @@ export default function WikiPageInner({ user }: Props) {
 
   // 문서 열리면 모바일 카테고리는 자동 닫기
   useEffect(() => {
-    if (selectedDocId != null) {
-      setMobileCategoryOpen(false);
-    }
+    if (selectedDocId == null) return;
+
+    setMobileCategoryOpen(false);
+
+    document.body.style.overflow = '';
+    document.body.style.touchAction = '';
   }, [selectedDocId]);
 
   // ESC로 닫기
   useEffect(() => {
-    if (!mobileCategoryOpen) return;
+    const body = document.body;
+
+    if (!mobileCategoryOpen) {
+      body.style.overflow = '';
+      body.style.touchAction = '';
+      return;
+    }
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setMobileCategoryOpen(false);
     };
 
     window.addEventListener('keydown', onKeyDown);
-    document.body.style.overflow = 'hidden';
+
+    // ✅ 드로어 열렸을 때만 배경 스크롤 잠금
+    body.style.overflow = 'hidden';
+    body.style.touchAction = 'none';
 
     return () => {
       window.removeEventListener('keydown', onKeyDown);
-      document.body.style.overflow = '';
+      body.style.overflow = '';
+      body.style.touchAction = '';
     };
   }, [mobileCategoryOpen]);
 
@@ -1939,26 +1952,28 @@ export default function WikiPageInner({ user }: Props) {
         />
       )}
 
-      <DocQuickBadges
-        hidden={hold || loadingDoc}
-        items={[
-          {
-            icon: 'quest',
-            title: '퀘스트',
-            href: 'wiki?path=27&title=%ED%80%98%EC%8A%A4%ED%8A%B8&mode=RPG',
-          },
-          {
-            icon: 'head',
-            title: '머리찾기',
-            href: 'wiki?path=53&title=%EB%A8%B8%EB%A6%AC%EC%B0%BE%EA%B8%B0&mode=RPG',
-          },
-          {
-            icon: 'price',
-            title: '시세표',
-            href: 'wiki?path=38&title=%EC%8B%9C%EC%84%B8%ED%91%9C&mode=RPG',
-          },
-        ]}
-      />
+      <div className="wiki-quick-badges-wrap">
+        <DocQuickBadges
+          hidden={hold || loadingDoc}
+          items={[
+            {
+              icon: 'quest',
+              title: '퀘스트',
+              href: 'wiki?path=27&title=%ED%80%98%EC%8A%A4%ED%8A%B8&mode=RPG',
+            },
+            {
+              icon: 'head',
+              title: '머리찾기',
+              href: 'wiki?path=53&title=%EB%A8%B8%EB%A6%AC%EC%B0%BE%EA%B8%B0&mode=RPG',
+            },
+            {
+              icon: 'price',
+              title: '시세표',
+              href: 'wiki?path=38&title=%EC%8B%9C%EC%84%B8%ED%91%9C&mode=RPG',
+            },
+          ]}
+        />
+    </div>
 
       <style jsx global>{`
         .wiki-content.is-ready {
