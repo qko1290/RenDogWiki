@@ -3030,12 +3030,17 @@ function renderNode(
 
       return (
         <div
+          key={key}
           style={container}
           role={role}
           data-wiki-block="info-box"
         >
           {showIcon && icon && (
-            <span data-wiki-part="info-box-icon">{icon}</span>
+            <span
+              data-wiki-part="info-box-icon"
+              style={icon}
+              aria-hidden="true"
+            />
           )}
 
           <div data-wiki-part="info-box-body">
