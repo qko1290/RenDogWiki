@@ -1087,8 +1087,12 @@
   .wiki-read-mobile-scope
     [data-wiki-block="info-box"]
     [data-wiki-part="info-box-body"]
-    p[data-wiki-text="body"] {
-    white-space: pre-line !important;
+    p[data-wiki-text="body"],
+  .wiki-read-mobile-scope
+    [data-wiki-block="info-box"]
+    [data-wiki-part="info-box-body"]
+    p[data-wiki-text="body"] span {
+    white-space: normal !important;
     text-align: left !important;
     word-break: keep-all;
     overflow-wrap: anywhere;
