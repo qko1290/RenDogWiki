@@ -1,17 +1,21 @@
-/* wiki/css/wiki-detail-modal.css */
-/* - 모달 전체 NanumSquareRound 적용
-   - 모달 길어져도 왼쪽 배경이 끝까지 채워지게
-   - 상단 그라데이션 라인 제거
-   - pill: 반반 알약(오른쪽 더 김)
-   - 대사(multi)는 라벨이 세로로 늘어나지 않게 별도 처리
+/* ============================================= */
+/* File: app/wiki/css/wiki-detail-modal.css      */
+/* (전체 코드)                                   */
+/* ============================================= */
+
+/* 
+  NPC / Head 상세 모달 전용 스타일
+  - 데스크톱: 2열 레이아웃
+  - 모바일: 1열 스택 레이아웃
+  - wiki.css 와 중복되지 않도록 이 파일에서만 모달 스타일 관리
 */
 
 /* ───────── 공통 레이어 ───────── */
-.npc-modal-backdrop{
+.npc-modal-backdrop {
   position: fixed;
   inset: 0;
   z-index: 21000;
-  background: rgba(15, 23, 42, .38);
+  background: rgba(15, 23, 42, 0.38);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -21,144 +25,154 @@
 }
 
 /* 페이지 스크롤 잠금 */
-body.rd-modal-open{ overflow: hidden; }
+body.rd-modal-open {
+  overflow: hidden;
+}
 
-/* ───────── 모달 본체: 가로/컬럼 고정 ───────── */
-.npc-modal-main{
+/* ───────── 모달 본체 ───────── */
+.npc-modal-main {
   width: 980px;
   min-height: 500px;
   background: #fff;
   border-radius: 24px;
   overflow: hidden;
-
-  border: 1px solid rgba(15, 23, 42, .10);
+  border: 1px solid rgba(15, 23, 42, 0.1);
   box-shadow:
-    0 24px 70px rgba(15, 23, 42, .18),
-    0 10px 24px rgba(15, 23, 42, .10);
-
+    0 24px 70px rgba(15, 23, 42, 0.18),
+    0 10px 24px rgba(15, 23, 42, 0.1);
   display: grid;
-  grid-template-columns: 620px 560px;
-  column-gap: 0;
-
-  position: relative;
-
-  /* ✅ 왼쪽이 오른쪽 높이를 따라가도록 */
+  grid-template-columns: 620px 1fr;
   align-items: stretch;
-
-  /* ✅ 1) 모달 전체 폰트 */
-  font-family: "NanumSquareRound", "NanumSquare", Pretendard, "Malgun Gothic", system-ui, sans-serif;
+  position: relative;
+  font-family:
+    "NanumSquareRound",
+    "NanumSquare",
+    Pretendard,
+    "Malgun Gothic",
+    system-ui,
+    sans-serif;
 }
 
-/* ✅ 상단 그라데이션 라인 제거(완전 삭제) */
-.npc-modal-main::before{
+.npc-modal-main::before {
   display: none;
 }
 
-/* ───────── 좌측 영역(프로필+사진) ───────── */
-.npc-modal-left{
-  width: 620px;
-
-  /* ✅ 2) 왼쪽 배경이 아래까지 채워지게 */
+/* ───────── 좌측 영역(프로필 + 사진) ───────── */
+.npc-modal-left {
+  width: 100%;
   height: 100%;
   align-self: stretch;
-
   background: linear-gradient(180deg, #f8fafc, #f3f6fb);
-  border-right: 1px solid rgba(15, 23, 42, .06);
-
+  border-right: 1px solid rgba(15, 23, 42, 0.06);
   display: flex;
   flex-direction: column;
   align-items: center;
   box-sizing: border-box;
-
-  padding-top: 16px;
+  padding: 16px;
   position: relative;
 }
 
-.npc-modal-profile{
+.npc-modal-profile {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 12px;
-
   padding: 10px 12px;
   border-radius: 16px;
-  border: 1px solid rgba(15, 23, 42, .08);
-  background: rgba(255,255,255,.85);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, .08), 0 2px 6px rgba(15, 23, 42, .04);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow:
+    0 10px 24px rgba(15, 23, 42, 0.08),
+    0 2px 6px rgba(15, 23, 42, 0.04);
 }
 
-.npc-modal-icon{
-  width: 48px; height: 48px;
+.npc-modal-icon {
+  width: 48px;
+  height: 48px;
   border-radius: 12px;
   object-fit: cover;
-  border: 1.5px solid rgba(15, 23, 42, .10);
+  border: 1.5px solid rgba(15, 23, 42, 0.1);
   background: #fff;
-  box-shadow: 0 8px 16px rgba(15, 23, 42, .10);
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.1);
 }
 
-.npc-modal-name{
+.npc-modal-name {
   font-size: 24px;
   font-weight: 900;
-  letter-spacing: .2px;
+  letter-spacing: 0.2px;
   color: #0f172a;
 }
 
-/* 사진 슬라이더 */
+/* ───────── 사진 슬라이더 ───────── */
 .npc-picture-slider,
-.npc-picture-slider-empty{
+.npc-picture-slider-empty {
   position: relative;
-  width: 588px;
-  height: 400px;
+  width: 100%;
+  max-width: 588px;
+  aspect-ratio: 588 / 400;
   border-radius: 16px;
   overflow: hidden;
   background: #fff;
-
-  border: 1px solid rgba(15, 23, 42, .10);
-  box-shadow: 0 16px 36px rgba(15, 23, 42, .10), 0 4px 10px rgba(15, 23, 42, .06);
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  box-shadow:
+    0 16px 36px rgba(15, 23, 42, 0.1),
+    0 4px 10px rgba(15, 23, 42, 0.06);
 }
 
-.npc-picture-img{
-  width: 588px;
-  height: 400px;
+.npc-picture-img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
+  display: block;
 }
 
-.npc-picture-slider-empty{
+.npc-picture-slider-empty {
   display: grid;
   place-items: center;
   color: #94a3b8;
   background: linear-gradient(180deg, #f2f5f9, #eef2f7);
 }
 
-/* 슬라이더 버튼 */
-.npc-picture-slider-btn{
+.npc-picture-slider-btn {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 40px; height: 40px;
-  border: 1px solid rgba(255,255,255,.30);
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 9999px;
-  background: rgba(2, 6, 23, .32);
+  background: rgba(2, 6, 23, 0.32);
   display: grid;
   place-items: center;
   cursor: pointer;
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  box-shadow: 0 12px 24px rgba(2, 6, 23, .22);
-  transition: transform 140ms ease, background 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+  box-shadow: 0 12px 24px rgba(2, 6, 23, 0.22);
+  transition:
+    transform 140ms ease,
+    background 140ms ease,
+    box-shadow 140ms ease,
+    border-color 140ms ease;
 }
-.npc-picture-slider-btn:hover{
-  transform: translateY(-50%) scale(1.04);
-  background: rgba(2, 6, 23, .42);
-  border-color: rgba(147,197,253,.55);
-  box-shadow: 0 16px 30px rgba(2, 6, 23, .28);
-}
-.npc-picture-slider-btn-left{ left: 10px; }
-.npc-picture-slider-btn-right{ right: 10px; }
 
-/* ───────── 우측 영역(정보 폼) ───────── */
-.npc-modal-right{
-  width: 520px;
+.npc-picture-slider-btn:hover {
+  transform: translateY(-50%) scale(1.04);
+  background: rgba(2, 6, 23, 0.42);
+  border-color: rgba(147, 197, 253, 0.55);
+  box-shadow: 0 16px 30px rgba(2, 6, 23, 0.28);
+}
+
+.npc-picture-slider-btn-left {
+  left: 10px;
+}
+
+.npc-picture-slider-btn-right {
+  right: 10px;
+}
+
+/* ───────── 우측 영역(정보) ───────── */
+.npc-modal-right {
+  width: 100%;
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -168,176 +182,194 @@ body.rd-modal-open{ overflow: hidden; }
   background: linear-gradient(180deg, #fbfdff, #ffffff);
 }
 
-/* 닫기 버튼 */
-.npc-modal-close-btn{
+/* ───────── 닫기 버튼 ───────── */
+.npc-modal-close-btn {
   position: absolute;
   right: 16px;
   top: 12px;
   width: 36px;
   height: 36px;
-  border: 1px solid rgba(15, 23, 42, .10);
+  border: 1px solid rgba(15, 23, 42, 0.1);
   border-radius: 9999px;
-  background: rgba(255,255,255,.92);
-  box-shadow: 0 10px 22px rgba(15, 23, 42, .10), 0 2px 6px rgba(15, 23, 42, .06);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow:
+    0 10px 22px rgba(15, 23, 42, 0.1),
+    0 2px 6px rgba(15, 23, 42, 0.06);
   cursor: pointer;
   font-size: 20px;
   color: #64748b;
-  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease, color 140ms ease;
-}
-.npc-modal-close-btn:hover{
-  transform: translateY(-1px);
-  border-color: rgba(147,197,253,.90);
-  color: #0f172a;
-  box-shadow: 0 12px 28px rgba(2, 132, 199, 0.14), 0 3px 8px rgba(15, 23, 42, 0.08);
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
 }
 
-/* ───────── Pill: 반반 알약(오른쪽 더 김) ───────── */
-.npc-modal-right .mgr-pill-row{
-  width: 520px;
-  height: 44px;
+.npc-modal-close-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(147, 197, 253, 0.9);
+  color: #0f172a;
+  box-shadow:
+    0 12px 28px rgba(2, 132, 199, 0.14),
+    0 3px 8px rgba(15, 23, 42, 0.08);
+}
+
+/* ───────── Pill 공통 ───────── */
+.npc-modal-right .mgr-pill-row {
+  width: 100%;
+  min-height: 44px;
   padding: 0;
   border-radius: 9999px;
   background: #ffffff;
-  border: 1px solid rgba(15, 23, 42, .10);
-  box-shadow: 0 10px 22px rgba(15, 23, 42, .06), 0 2px 6px rgba(15, 23, 42, .04);
-
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  box-shadow:
+    0 10px 22px rgba(15, 23, 42, 0.06),
+    0 2px 6px rgba(15, 23, 42, 0.04);
   display: grid;
   grid-template-columns: 140px 1fr;
   gap: 0;
   box-sizing: border-box;
-
   align-items: center;
   overflow: hidden;
-
-  transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
 }
-.npc-modal-right .mgr-pill-row:hover{
+
+.npc-modal-right .mgr-pill-row:hover {
   transform: translateY(-1px);
-  border-color: rgba(147,197,253,.95);
-  box-shadow: 0 12px 28px rgba(2, 132, 199, 0.12), 0 3px 8px rgba(15, 23, 42, 0.07);
+  border-color: rgba(147, 197, 253, 0.95);
+  box-shadow:
+    0 12px 28px rgba(2, 132, 199, 0.12),
+    0 3px 8px rgba(15, 23, 42, 0.07);
 }
 
-.npc-modal-right .mgr-pill-label{
+.npc-modal-right .mgr-pill-label {
   height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0 14px;
   margin: 0;
-
   background: linear-gradient(180deg, #f2f7ff, #eaf2ff);
-  border-right: 1px solid rgba(59,130,246,.18);
-
+  border-right: 1px solid rgba(59, 130, 246, 0.18);
   color: #2457b6;
   font-weight: 900;
   font-size: 13px;
-  letter-spacing: .2px;
+  letter-spacing: 0.2px;
 }
 
-.npc-modal-right .mgr-pill-value{
+.npc-modal-right .mgr-pill-value {
+  min-width: 0;
   height: 100%;
   display: flex;
   align-items: center;
   justify-content: flex-start;
   padding: 0 16px;
   gap: 8px;
-
   color: #0f172a;
   font-weight: 800;
-
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.npc-modal-right .mgr-placeholder{
-  color:#94a3b8;
+.npc-modal-right .mgr-placeholder {
+  color: #94a3b8;
   font-weight: 700;
 }
 
-/* 칩(보상) */
-.npc-modal-right .mgr-chip{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  height: 30px;
-  padding:0 10px;
-  font-size:14px;
-
+/* ───────── 보상 칩 ───────── */
+.npc-modal-right .mgr-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 14px;
   background: linear-gradient(180deg, #ffffff, #fbfdff);
-  border: 1px solid rgba(15, 23, 42, .10);
+  border: 1px solid rgba(15, 23, 42, 0.1);
   border-radius: 999px;
-  box-shadow: 0 10px 18px rgba(15, 23, 42, .06), 0 2px 6px rgba(15, 23, 42, .04);
-}
-.npc-modal-right .mgr-chip img{
-  width:18px; height:18px; object-fit:contain; border-radius:4px;
-}
-.npc-modal-right .mgr-chip-emoji{
-  width:18px; text-align:center; font-size:16px;
+  box-shadow:
+    0 10px 18px rgba(15, 23, 42, 0.06),
+    0 2px 6px rgba(15, 23, 42, 0.04);
 }
 
-/* 좌표(모노스페이스 유지 + 깨짐 방지) */
-.npc-modal-right .quest-detail-loc{
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+.npc-modal-right .mgr-chip img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.npc-modal-right .mgr-chip-emoji {
+  width: 18px;
+  text-align: center;
+  font-size: 16px;
+}
+
+/* ───────── 좌표 텍스트 ───────── */
+.npc-modal-right .quest-detail-loc {
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    "Courier New",
+    monospace;
   font-variant-numeric: tabular-nums;
-  color:#1d4ed8;
+  color: #1d4ed8;
   font-weight: 900;
   word-break: keep-all;
   overflow-wrap: anywhere;
 }
 
-/* ───────── 대사(multi): 라벨이 세로로 늘어나지 않게 별도 처리 ───────── */
-.npc-modal-right .mgr-pill-row--multi{
-  height: 220px;
+/* ───────── multi 대사 카드 ───────── */
+.npc-modal-right .mgr-pill-row--multi {
+  min-height: 220px;
   padding: 12px 14px;
   border-radius: 18px;
-
-  /* multi는 카드형 */
   display: grid;
   grid-template-columns: 120px 1fr;
   gap: 10px;
-
   align-items: flex-start;
   overflow: hidden;
 }
 
-/* multi에서 라벨은 작은 알약으로 고정 */
-.npc-modal-right .mgr-pill-row--multi .mgr-pill-label{
-  height: 34px;              /* ✅ 100% 무효화 */
+.npc-modal-right .mgr-pill-row--multi .mgr-pill-label {
+  height: 34px;
   align-self: flex-start;
   padding: 0 14px;
-
   border-right: 0;
   border-radius: 999px;
-
   background: linear-gradient(180deg, #f2f7ff, #eaf2ff);
-  border: 1px solid rgba(59,130,246,.18);
+  border: 1px solid rgba(59, 130, 246, 0.18);
   color: #2457b6;
   font-weight: 900;
   font-size: 13px;
-  letter-spacing: .2px;
+  letter-spacing: 0.2px;
 }
 
-/* multi에서 값 영역은 스크롤 */
-.npc-modal-right .mgr-pill-row--multi .mgr-pill-value{
+.npc-modal-right .mgr-pill-row--multi .mgr-pill-value {
+  display: block;
   height: 180px;
-
-  display: block;            /* ✅ flex/height:100% 무효화 */
   padding: 6px 4px 0 4px;
-
   overflow: auto;
   white-space: pre-wrap;
   line-height: 1.55;
-
   color: #0f172a;
 }
 
-/* 퀘스트 전용: 줄바꿈 허용 */
-.npc-modal-right .mgr-pill-row--quest{
-  height: auto;
+/* ───────── quest 줄바꿈 허용 ───────── */
+.npc-modal-right .mgr-pill-row--quest {
   min-height: 44px;
+  height: auto;
 }
-.npc-modal-right .mgr-pill-row--quest .mgr-pill-value{
+
+.npc-modal-right .mgr-pill-row--quest .mgr-pill-value {
   white-space: pre-wrap;
   overflow: hidden;
   line-height: 1.55;
@@ -346,266 +378,191 @@ body.rd-modal-open{ overflow: hidden; }
 /* ===== 모바일: NPC 상세 모달 최적화 ===== */
 @media (max-width: 768px) {
   .npc-modal-backdrop {
-    padding: 6px;
-    align-items: flex-start;
-    justify-content: center;
-    overflow-y: auto;
+    padding: 4px !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    overflow-y: auto !important;
   }
 
   .npc-modal-main {
-    width: min(100%, 300px);
-    min-height: unset;
-    max-height: calc(100dvh - 12px);
-    border-radius: 14px;
-
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+    width: min(100%, 300px) !important;
+    min-width: 0 !important;
+    max-width: 300px !important;
+    min-height: unset !important;
+    max-height: calc(100dvh - 8px) !important;
+    border-radius: 12px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
   }
 
   .npc-modal-left {
-    width: 100%;
-    height: auto;
-    min-height: unset;
-    padding: 8px 8px 6px;
-    border-right: 0;
-    border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+    width: 100% !important;
+    min-width: 0 !important;
+    height: auto !important;
+    min-height: unset !important;
+    padding: 8px 8px 6px !important;
+    border-right: 0 !important;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.06) !important;
   }
 
   .npc-modal-profile {
-    width: 100%;
-    justify-content: center;
-    gap: 6px;
-    margin-bottom: 6px;
-    padding: 6px 8px;
-    border-radius: 10px;
+    width: 100% !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    margin-bottom: 6px !important;
+    padding: 6px 8px !important;
+    border-radius: 10px !important;
   }
 
   .npc-modal-icon {
-    width: 28px;
-    height: 28px;
-    border-radius: 7px;
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 7px !important;
   }
 
   .npc-modal-name {
-    font-size: 14px;
-    line-height: 1.1;
-    text-align: center;
-    word-break: keep-all;
+    font-size: 14px !important;
+    line-height: 1.1 !important;
+    text-align: center !important;
+    word-break: keep-all !important;
   }
 
   .npc-picture-slider,
   .npc-picture-slider-empty {
-    width: 100%;
-    aspect-ratio: 16 / 10;
-    height: auto;
-    min-height: 110px;
-    max-height: 150px;
-    border-radius: 10px;
+    width: 100% !important;
+    min-width: 0 !important;
+    aspect-ratio: 16 / 10 !important;
+    height: auto !important;
+    min-height: 110px !important;
+    max-height: 150px !important;
+    border-radius: 10px !important;
   }
 
   .npc-picture-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
   }
 
   .npc-picture-slider-btn {
-    width: 24px;
-    height: 24px;
+    width: 24px !important;
+    height: 24px !important;
   }
 
   .npc-picture-slider-btn svg {
-    width: 20px;
-    height: 20px;
+    width: 20px !important;
+    height: 20px !important;
   }
 
   .npc-picture-slider-btn-left {
-    left: 4px;
+    left: 4px !important;
   }
 
   .npc-picture-slider-btn-right {
-    right: 4px;
+    right: 4px !important;
   }
 
   .npc-modal-right {
-    width: 100%;
-    max-width: 100%;
-    padding: 6px;
-    gap: 6px;
-    overflow-y: auto;
-    background: linear-gradient(180deg, #fbfdff, #ffffff);
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    padding: 6px !important;
+    gap: 6px !important;
+    overflow-y: auto !important;
+    background: linear-gradient(180deg, #fbfdff, #ffffff) !important;
   }
 
   .npc-modal-close-btn {
-    right: 6px;
-    top: 6px;
-    width: 28px;
-    height: 28px;
-    font-size: 15px;
-    z-index: 5;
+    right: 6px !important;
+    top: 6px !important;
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 15px !important;
+    z-index: 5 !important;
   }
 
   .npc-modal-right .mgr-pill-row {
-    width: 100%;
-    min-height: 32px;
-    height: auto;
-    grid-template-columns: 68px 1fr;
-    border-radius: 9999px;
+    width: 100% !important;
+    min-height: 32px !important;
+    height: auto !important;
+    grid-template-columns: 68px 1fr !important;
+    border-radius: 9999px !important;
   }
 
   .npc-modal-right .mgr-pill-label {
-    padding: 0 6px;
-    font-size: 10px;
+    padding: 0 6px !important;
+    font-size: 10px !important;
   }
 
   .npc-modal-right .mgr-pill-value {
-    padding: 0 8px;
-    font-size: 11px;
-    min-width: 0;
+    padding: 0 8px !important;
+    font-size: 11px !important;
+    min-width: 0 !important;
   }
 
   .npc-modal-right .mgr-pill-row--quest {
-    min-height: 32px;
-    border-radius: 12px;
+    min-height: 32px !important;
+    border-radius: 12px !important;
   }
 
   .npc-modal-right .mgr-pill-row--quest .mgr-pill-value {
-    white-space: pre-wrap;
-    line-height: 1.4;
-    padding-top: 6px;
-    padding-bottom: 6px;
+    white-space: pre-wrap !important;
+    line-height: 1.4 !important;
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
   }
 
   .npc-modal-right .mgr-pill-row--multi {
-    height: auto;
-    min-height: 96px;
-    grid-template-columns: 1fr;
-    gap: 5px;
-    padding: 8px;
-    border-radius: 12px;
+    min-height: 96px !important;
+    height: auto !important;
+    grid-template-columns: 1fr !important;
+    gap: 5px !important;
+    padding: 8px !important;
+    border-radius: 12px !important;
   }
 
   .npc-modal-right .mgr-pill-row--multi .mgr-pill-label {
-    width: fit-content;
-    height: 24px;
-    padding: 0 8px;
-    justify-self: flex-start;
+    width: fit-content !important;
+    height: 24px !important;
+    padding: 0 8px !important;
+    justify-self: flex-start !important;
   }
 
   .npc-modal-right .mgr-pill-row--multi .mgr-pill-value {
-    height: auto;
-    min-height: 56px;
-    max-height: 110px;
-    padding: 0 2px;
+    height: auto !important;
+    min-height: 56px !important;
+    max-height: 110px !important;
+    padding: 0 2px !important;
   }
 
   .npc-line-scroll {
     max-height: 100px !important;
-    font-size: 11px;
-    line-height: 1.45;
+    font-size: 11px !important;
+    line-height: 1.45 !important;
   }
 
   .npc-modal-right .mgr-chip {
-    min-height: 22px;
-    height: auto;
-    padding: 2px 7px;
-    font-size: 10px;
-    line-height: 1.25;
-    gap: 3px;
+    min-height: 22px !important;
+    height: auto !important;
+    padding: 2px 7px !important;
+    font-size: 10px !important;
+    line-height: 1.25 !important;
+    gap: 3px !important;
   }
 
   .npc-modal-right .mgr-chip img {
-    width: 12px;
-    height: 12px;
+    width: 12px !important;
+    height: 12px !important;
   }
 
   .npc-modal-right .mgr-chip-emoji {
-    width: 12px;
-    font-size: 11px;
+    width: 12px !important;
+    font-size: 11px !important;
   }
 
   .npc-modal-right .quest-detail-loc {
-    font-size: 10px;
-    line-height: 1.3;
-  }
-}
-
-@media (max-width: 420px) {
-  .npc-modal-backdrop {
-    padding: 4px;
-  }
-
-  .npc-modal-main {
-    width: 100%;
-    max-height: calc(100dvh - 8px);
-    border-radius: 12px;
-  }
-
-  .npc-modal-left {
-    padding: 8px 8px 6px;
-  }
-
-  .npc-modal-profile {
-    gap: 6px;
-    padding: 7px 8px;
-    margin-bottom: 6px;
-  }
-
-  .npc-modal-icon {
-    width: 30px;
-    height: 30px;
-  }
-
-  .npc-modal-name {
-    font-size: 15px;
-  }
-
-  .npc-picture-slider,
-  .npc-picture-slider-empty {
-    min-height: 126px;
-    max-height: 180px;
-    border-radius: 10px;
-  }
-
-  .npc-modal-right {
-    padding: 7px;
-    gap: 7px;
-  }
-
-  .npc-modal-right .mgr-pill-row {
-    grid-template-columns: 76px 1fr;
-    min-height: 34px;
-  }
-
-  .npc-modal-right .mgr-pill-label {
-    font-size: 10px;
-    padding: 0 6px;
-  }
-
-  .npc-modal-right .mgr-pill-value {
-    font-size: 11px;
-    padding: 0 8px;
-  }
-
-  .npc-modal-right .mgr-pill-row--multi {
-    min-height: 110px;
-    padding: 8px;
-  }
-
-  .npc-modal-right .mgr-pill-row--multi .mgr-pill-label {
-    height: 26px;
-    padding: 0 8px;
-  }
-
-  .npc-line-scroll {
-    max-height: 120px !important;
-    font-size: 11px;
-  }
-
-  .npc-modal-close-btn {
-    width: 28px;
-    height: 28px;
-    font-size: 15px;
+    font-size: 10px !important;
+    line-height: 1.3 !important;
   }
 }
