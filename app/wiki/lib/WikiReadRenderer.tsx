@@ -2711,7 +2711,11 @@ function renderNode(
       }
 
       return (
-        <p key={key} style={style}>
+        <p
+          key={key}
+          data-wiki-text="body"
+          style={style}
+        >
           {children}
         </p>
       );
@@ -2789,28 +2793,18 @@ function renderNode(
           key={key}
           id={domId}
           suppressHydrationWarning
-          className="wiki-heading-with-anchor"
+          data-wiki-text={level === 1 ? "h1" : level === 2 ? "h2" : "h3"}
           style={{
+            margin: level === 1 ? "18px 0 10px" : "14px 0 8px",
             fontSize,
-            textAlign: el.textAlign || "left",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            width: "100%",
+            lineHeight: 1.35,
+            fontWeight: 800,
+            scrollMarginTop: "120px",
           }}
         >
           {iconHtml}
-          <span
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-            }}
-          >
-            <span>{safeChildren}</span>
-            {/* 🔗 제목과 동일 디자인의 링크 버튼 */}
-            <HeadingAnchorButton anchorId={domId} />
-          </span>
+          {safeChildren}
+          <HeadingAnchorButton anchorId={domId} />
         </Tag>
       );
     }

@@ -1891,11 +1891,13 @@ export default function WikiPageInner({ user }: Props) {
                   )}
                 </div>
               ) : Array.isArray(docContent) && docContent.length > 0 ? (
-                <WikiReadRenderer
-                  content={docContent as Descendant[]}
-                  readOnly
-                  onWikiRefClick={handleWikiRefClick}
-                />
+                <div className="wiki-read-mobile-scope">
+                  <WikiReadRenderer
+                    content={docContent}
+                    readOnly
+                    onWikiRefClick={handleWikiRefClick}
+                  />
+                </div>
               ) : (
                 <BookLoader />
               )}
