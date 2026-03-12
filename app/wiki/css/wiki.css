@@ -1072,3 +1072,13 @@
     font-size: calc((var(--wiki-inline-font-px, 19) * 1px) - 7px) !important;
   }
 }
+
+@media (max-width: 768px) {
+  .wiki-read-mobile-scope [data-wiki-block="info-box"] [data-wiki-part="info-box-body"] p,
+  .wiki-read-mobile-scope [data-wiki-block="info-box"] [data-wiki-part="info-box-body"] div,
+  .wiki-read-mobile-scope [data-wiki-block="info-box"] [data-wiki-part="info-box-body"] span {
+    white-space: pre-line !important;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+}
