@@ -137,17 +137,6 @@ export default function WikiHeader({
     <>
       <header className="wiki-header">
         <div className="wiki-header-inner">
-          {/* ✅ 모바일 카테고리 햄버거 */}
-          <button
-            type="button"
-            className="wiki-mobile-category-btn"
-            onClick={onToggleMobileCategory}
-            aria-label={mobileCategoryOpen ? '카테고리 닫기' : '카테고리 열기'}
-            aria-expanded={mobileCategoryOpen}
-          >
-            ☰
-          </button>
-
           {/* 로고 */}
           <Link href="/wiki" className="wiki-logo flex items-center gap-2 no-underline">
             <Image
@@ -209,6 +198,17 @@ export default function WikiHeader({
             </div>
           </div>
 
+          {/* ✅ 모바일 카테고리 햄버거 */}
+          <button
+            type="button"
+            className="wiki-mobile-category-btn"
+            onClick={onToggleMobileCategory}
+            aria-label={mobileCategoryOpen ? '카테고리 닫기' : '카테고리 열기'}
+            aria-expanded={mobileCategoryOpen}
+          >
+            ☰
+          </button>
+          
           {/* ✅ 기존 관리자 메뉴 햄버거 */}
           {!hideAdminMenu && (
             <>

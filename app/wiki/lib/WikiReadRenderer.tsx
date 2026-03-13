@@ -3119,7 +3119,7 @@ function renderNode(
               minWidth: 0,
               lineHeight: 1.55,
               fontWeight: 560,
-              whiteSpace: env?.isMobile ? "normal" : "pre-wrap",
+              whiteSpace: env?.isMobile ? "pre-line" : "pre-wrap",
             }}
           >
             {infoChildren}
