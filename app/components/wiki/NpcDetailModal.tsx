@@ -6,7 +6,7 @@
 import React, { useEffect } from 'react';
 import NpcPictureSlider from './NpcPictureSlider';
 import '@/wiki/css/wiki-detail-modal.css';
-import { toProxyUrl } from '@lib/cdn';
+import { toProxyUrl } from '@lib/cdn'; // ✅ 추가
 
 type Reward = { icon?: string; text: string };
 export type Npc = {
@@ -47,7 +47,7 @@ export default function NpcDetailModal({ npc, onClose, mode = 'quest' }: Props) 
           <div className="npc-modal-profile">
             {npc.icon?.startsWith('http') ? (
               <img
-                src={toProxyUrl(npc.icon)}
+                src={toProxyUrl(npc.icon)}          // ✅ CloudFront 리라이트
                 alt="icon"
                 className="npc-modal-icon"
                 loading="lazy"
@@ -59,6 +59,7 @@ export default function NpcDetailModal({ npc, onClose, mode = 'quest' }: Props) 
             <div className="npc-modal-name">{npc.name}</div>
           </div>
 
+          {/* 사진들도 모두 CDN 경유 */}
           <NpcPictureSlider pictures={(npc.pictures || []).map(toProxyUrl)} />
         </div>
 
@@ -81,7 +82,7 @@ export default function NpcDetailModal({ npc, onClose, mode = 'quest' }: Props) 
                 <span className="mgr-pill-label">퀘스트</span>
                 <span className="mgr-pill-value">
                   {npc.quest?.trim() ? (
-                    <span style={{ whiteSpace: 'pre-wrap' }}>{npc.quest}</span>
+                    <span style={{ whiteSpace: "pre-wrap" }}>{npc.quest}</span>
                   ) : (
                     <span className="mgr-placeholder">-</span>
                   )}
@@ -110,7 +111,7 @@ export default function NpcDetailModal({ npc, onClose, mode = 'quest' }: Props) 
                 </span>
               </div>
 
-              {/* requirement가 비어 있으면 칸 자체를 렌더링 안함 */}
+              {/* ✅ requirement가 비어 있으면 칸 자체를 렌더링 안함 */}
               {npc.requirement?.trim() && (
                 <div className="mgr-pill-row">
                   <span className="mgr-pill-label">선행조건</span>
