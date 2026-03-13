@@ -29,9 +29,18 @@ function createSql(): SQL {
   return postgres(DB_URL, {
     prepare: false,
     ssl: 'require',
+
+    // 너무 낮으면 요청이 줄 서고, 너무 높으면 pooler를 더 압박할 수 있음.
+    // 현재는 2 정도로 소폭 완화.
     max: 2,
+
+    // 장애 시 너무 오래 잡고 있지 않게 단축
     connect_timeout: 8,
+
+    // 유휴 연결 정리
     idle_timeout: 10,
+
+    // notice 억제
     onnotice: () => {},
   }) as unknown as SQL;
 }

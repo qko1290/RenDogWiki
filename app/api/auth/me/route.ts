@@ -1,17 +1,13 @@
 // =============================================
 // File: app/api/auth/me/route.ts
+// (전체 코드)
+// - GET: 로그인 여부/유저 정보 반환
+// - DELETE: 회원 탈퇴
+// - 개선:
+//   1) GET은 기본적으로 JWT + role 쿠키로 빠르게 응답
+//   2) role 쿠키가 없을 때만 DB 조회
+//   3) DB CONNECT_TIMEOUT 시 guest로 강등하되 200 응답
 // =============================================
-/**
- * 현재 로그인 사용자 정보 & 회원 탈퇴
- * - GET -> 쿠키의 JWT를 검증하고 DB에서 최신 사용자 정보를 반환
- * - DELETE -> 비밀번호 확인 후 본인 계정을 삭제하고 JWT 쿠키를 만료
- * - 실시간 성격의 데이터 -> 캐시는 no-store로 응답
- *
- * 개선:
- * - GET /api/auth/me 는 "로그인 여부 확인용" 성격으로 사용되므로
- *   비로그인 상태를 401이 아닌 200 + guest 응답으로 반환
- * - DELETE 는 실제 인증이 필요한 작업이므로 401 유지
- */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
@@ -20,6 +16,8 @@ import bcrypt from 'bcryptjs';
 
 type Role = 'guest' | 'writer' | 'admin';
 
+const ROLE_COOKIE = 'rd_role';
+
 function noStoreHeaders() {
   return {
     'Cache-Control': 'no-store',
@@ -27,11 +25,24 @@ function noStoreHeaders() {
   };
 }
 
-export async function GET() {
+function normalizeRole(v: unknown): Role {
+  const s = String(v ?? '').toLowerCase();
+  return s === 'admin' || s === 'writer' ? s : 'guest';
+}
+
+function isConnectTimeoutError(err: unknown) {
+  const e = err as any;
+  return (
+    e?.code === 'CONNECT_TIMEOUT' ||
+    e?.errno === 'CONNECT_TIMEOUT' ||
+    String(e?.message ?? '').includes('CONNECT_TIMEOUT')
+  );
+}
+
+export async function GET(req: NextRequest) {
   try {
     const auth = getAuthUser();
 
-    // ✅ 비로그인 = 정상적인 "게스트 상태"
     if (!auth) {
       return NextResponse.json(
         {
@@ -45,50 +56,89 @@ export async function GET() {
       );
     }
 
-    // ✅ auth 존재 확인 뒤에만 DB 조회
-    const rows = await sql`
-      SELECT id, username, email, minecraft_name, role
-      FROM users
-      WHERE id = ${auth.id}
-      LIMIT 1
-    `;
-
-    // ✅ 토큰은 있는데 DB 유저가 없으면 게스트 처리
-    if (!Array.isArray(rows) || rows.length === 0) {
+    // 1) role 쿠키가 있으면 DB 안 보고 즉시 응답
+    const cachedRole = normalizeRole(req.cookies.get(ROLE_COOKIE)?.value);
+    if (cachedRole !== 'guest') {
       return NextResponse.json(
         {
-          loggedIn: false,
-          user: null,
-          role: 'guest',
-          roles: [],
-          permissions: [],
+          loggedIn: true,
+          user: auth,
+          role: cachedRole,
+          roles: [cachedRole],
+          permissions: [cachedRole],
+          roleSource: 'cookie',
         },
         { status: 200, headers: noStoreHeaders() }
       );
     }
 
-    const dbUser = rows[0] as {
-      id: number;
-      username: string;
-      email: string;
-      minecraft_name: string;
-      role?: string | null;
-    };
+    // 2) fresh=1 이거나 role 쿠키가 없으면 DB 1회 조회
+    try {
+      const rows = await sql<{
+        id: number;
+        username: string;
+        email: string;
+        minecraft_name: string;
+        role?: string | null;
+      }[]>`
+        SELECT id, username, email, minecraft_name, role
+        FROM users
+        WHERE id = ${auth.id}
+        LIMIT 1
+      `;
 
-    const roleRaw = String(dbUser.role || 'guest').toLowerCase();
-    const role: Role =
-      roleRaw === 'admin' || roleRaw === 'writer' ? (roleRaw as Role) : 'guest';
+      const row = rows?.[0];
+      const role = normalizeRole(row?.role);
 
-    return NextResponse.json(
-      {
-        loggedIn: true,
-        user: dbUser,
-        role,
-        roles: [],
-        permissions: [],
-      },
-      { status: 200, headers: noStoreHeaders() }
-    );
+      const res = NextResponse.json(
+        {
+          loggedIn: true,
+          user: row
+            ? {
+                id: row.id,
+                username: row.username,
+                email: row.email,
+                minecraft_name: row.minecraft_name,
+              }
+            : auth,
+          role,
+          roles: role === 'guest' ? [] : [role],
+          permissions: role === 'guest' ? [] : [role],
+          roleSource: 'db',
+        },
+        { status: 200, headers: noStoreHeaders() }
+      );
+
+      res.cookies.set(ROLE_COOKIE, role, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
+        maxAge: 60 * 60, // 1시간
+      });
+
+      return res;
+    } catch (err) {
+      // 3) DB가 죽어도 위키 진입 자체는 막지 않음
+      if (isConnectTimeoutError(err)) {
+        console.warn('[auth/me:GET] DB timeout, falling back to token-only mode');
+
+        return NextResponse.json(
+          {
+            loggedIn: true,
+            user: auth,
+            role: 'guest',
+            roles: [],
+            permissions: [],
+            degraded: true,
+            roleSource: 'token-fallback',
+          },
+          { status: 200, headers: noStoreHeaders() }
+        );
+      }
+
+      throw err;
+    }
   } catch (err) {
     console.error('[auth/me:GET] unexpected error:', err);
     return NextResponse.json(
@@ -101,7 +151,6 @@ export async function GET() {
 export async function DELETE(req: NextRequest) {
   try {
     const auth = getAuthUser();
-
     if (!auth) {
       return NextResponse.json(
         { error: '인증 필요' },
@@ -119,7 +168,7 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    const rows = await sql`
+    const rows = await sql<{ id: number; password_hash: string }[]>`
       SELECT id, password_hash
       FROM users
       WHERE id = ${auth.id}
@@ -133,11 +182,7 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    const ok = await bcrypt.compare(
-      password,
-      (rows[0] as { password_hash: string }).password_hash
-    );
-
+    const ok = await bcrypt.compare(password, rows[0].password_hash);
     if (!ok) {
       return NextResponse.json(
         { error: '비밀번호가 일치하지 않습니다.' },
@@ -153,6 +198,15 @@ export async function DELETE(req: NextRequest) {
     );
 
     res.cookies.set('token', '', {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 0,
+      expires: new Date(0),
+    });
+
+    res.cookies.set(ROLE_COOKIE, '', {
       httpOnly: true,
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',

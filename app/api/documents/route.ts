@@ -1,4 +1,11 @@
-// C:\next\rdwiki\app\api\documents\route.ts
+// =============================================
+// File: app/api/documents/route.ts
+// (전체 코드)
+// - 문서 단건 / 목록 / 전체 조회 / 삭제
+// - 단건은 documents + document_contents JOIN 1회 조회
+// - list/all 은 로컬 TTL 캐시 사용
+// - detail 은 항상 직접 조회(no-store)
+// =============================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
@@ -14,52 +21,133 @@ export const revalidate = 0;
 const docTag = (id: number) => `doc:${id}`;
 const listTag = (p: string | number) => `doclist:${String(p)}`;
 
-function toContentArray(raw: unknown): any[] {
-  if (Array.isArray(raw)) return raw;
+function noStoreHeaders() {
+  return {
+    'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+  };
+}
+
+function splitTags(raw: unknown): string[] {
+  if (Array.isArray(raw)) {
+    return raw.map(String).map((v) => v.trim()).filter(Boolean);
+  }
   if (typeof raw === 'string') {
-    try {
-      const p = JSON.parse(raw);
-      return Array.isArray(p) ? p : [];
-    } catch {
-      return [];
-    }
+    return raw
+      .split(',')
+      .map((v) => v.trim())
+      .filter(Boolean);
   }
   return [];
 }
 
-async function getDocByIdCached(id: number) {
-  return cached(
-    cacheKey('doc', id),
-    { ttlSec: 30, tags: [docTag(id)] },
-    async () => {
-      const rows = await sql/*sql*/`
-        SELECT id, title, path, icon, tags, created_at, updated_at, special, "order"
-        FROM documents
-        WHERE id = ${id}
+function toContentArray(raw: unknown): any[] {
+  if (Array.isArray(raw)) return raw;
+
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
+}
+
+async function getDocById(id: number) {
+  const rows = await sql`
+    SELECT
+      d.id,
+      d.title,
+      d.path,
+      d.icon,
+      d.tags,
+      d.created_at,
+      d.updated_at,
+      d.special,
+      d."order",
+      dc.content
+    FROM documents d
+    LEFT JOIN document_contents dc
+      ON dc.document_id = d.id
+    WHERE d.id = ${id}
+    LIMIT 1
+  `;
+
+  const row = rows?.[0];
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    title: row.title,
+    path: row.path,
+    icon: row.icon,
+    tags: splitTags(row.tags),
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    special: row.special ?? null,
+    order: Number(row.order ?? 0),
+    content: toContentArray(row.content ?? []),
+  };
+}
+
+async function getDocByPathAndTitle(path: string, title?: string) {
+  const rows = title
+    ? await sql`
+        SELECT
+          d.id,
+          d.title,
+          d.path,
+          d.icon,
+          d.tags,
+          d.created_at,
+          d.updated_at,
+          d.special,
+          d."order",
+          dc.content
+        FROM documents d
+        LEFT JOIN document_contents dc
+          ON dc.document_id = d.id
+        WHERE d.path = ${path}
+          AND d.title = ${title}
+        LIMIT 1
+      `
+    : await sql`
+        SELECT
+          d.id,
+          d.title,
+          d.path,
+          d.icon,
+          d.tags,
+          d.created_at,
+          d.updated_at,
+          d.special,
+          d."order",
+          dc.content
+        FROM documents d
+        LEFT JOIN document_contents dc
+          ON dc.document_id = d.id
+        WHERE d.path = ${path}
+        ORDER BY d.is_featured DESC, d."order" ASC, d.updated_at DESC, d.id DESC
         LIMIT 1
       `;
-      const doc = rows[0];
-      if (!doc) return null;
 
-      const bodyRows = await sql/*sql*/`
-        SELECT content FROM document_contents WHERE document_id = ${id} LIMIT 1
-      `;
-      const content = toContentArray(bodyRows[0]?.content ?? []);
+  const row = rows?.[0];
+  if (!row) return null;
 
-      return {
-        id: doc.id,
-        title: doc.title,
-        path: doc.path,
-        icon: doc.icon,
-        tags: doc.tags ? String(doc.tags).split(',') : [],
-        created_at: doc.created_at,
-        updated_at: doc.updated_at,
-        special: doc.special ?? null,
-        order: Number(doc.order ?? 0),
-        content,
-      };
-    }
-  );
+  return {
+    id: row.id,
+    title: row.title,
+    path: row.path,
+    icon: row.icon,
+    tags: splitTags(row.tags),
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    special: row.special ?? null,
+    order: Number(row.order ?? 0),
+    content: toContentArray(row.content ?? []),
+  };
 }
 
 export async function GET(req: NextRequest) {
@@ -73,33 +161,60 @@ export async function GET(req: NextRequest) {
 
       const data = await cached(
         cacheKey('doclist', pathNorm),
-        { ttlSec: 30, tags: ['doc:list', listTag(pathNorm)] },
+        {
+          ttlSec: 30,
+          tags: ['doc:list', listTag(pathNorm)],
+        },
         async () => {
           let mainDocId: number | null = null;
+
           try {
             if (/^\d+$/.test(pathNorm)) {
-              const r = await sql`SELECT document_id FROM categories WHERE id = ${Number(pathNorm)} LIMIT 1`;
+              const r = await sql`
+                SELECT document_id
+                FROM categories
+                WHERE id = ${Number(pathNorm)}
+                LIMIT 1
+              `;
               mainDocId = r?.[0]?.document_id ?? null;
             } else {
-              const r = await sql`SELECT document_id FROM categories WHERE name = ${pathNorm} LIMIT 1`;
+              const r = await sql`
+                SELECT document_id
+                FROM categories
+                WHERE name = ${pathNorm}
+                LIMIT 1
+              `;
               mainDocId = r?.[0]?.document_id ?? null;
             }
-          } catch {}
+          } catch {
+            // category 대표 문서 조회 실패는 목록 자체를 막지 않음
+            mainDocId = null;
+          }
 
-          const rows = (await sql/*sql*/`
-            SELECT id, title, path, icon, tags, created_at, updated_at, is_featured, special, "order"
+          const rows = await sql`
+            SELECT
+              id,
+              title,
+              path,
+              icon,
+              tags,
+              created_at,
+              updated_at,
+              is_featured,
+              special,
+              "order"
             FROM documents
             WHERE path = ${pathNorm}
               AND (${mainDocId}::int IS NULL OR id <> ${mainDocId})
             ORDER BY "order" ASC, updated_at DESC, id DESC
-          `) as any[];
+          `;
 
-          const items = rows.map((r) => ({
+          const items = rows.map((r: any) => ({
             id: r.id,
             title: r.title,
             path: r.path,
             icon: r.icon,
-            tags: r.tags ? String(r.tags).split(',') : [],
+            tags: splitTags(r.tags),
             created_at: r.created_at,
             updated_at: r.updated_at,
             special: r.special ?? null,
@@ -108,16 +223,20 @@ export async function GET(req: NextRequest) {
             is_main: mainDocId != null && Number(mainDocId) === Number(r.id),
           }));
 
-          return { items, main_document_id: mainDocId };
+          return {
+            items,
+            main_document_id: mainDocId,
+          };
         }
       );
 
-      return NextResponse.json(data, {
-        headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' },
-      });
+      return NextResponse.json(data, { headers: noStoreHeaders() });
     } catch (e) {
       console.error('문서 경로별 목록 실패:', e);
-      return NextResponse.json({ error: 'Server error' }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json(
+        { error: 'Server error' },
+        { status: 500, headers: noStoreHeaders() }
+      );
     }
   }
 
@@ -131,18 +250,27 @@ export async function GET(req: NextRequest) {
     try {
       const id = Number(idRaw);
       if (!Number.isFinite(id) || id <= 0) {
-        return NextResponse.json({ error: 'Invalid id' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+        return NextResponse.json(
+          { error: 'Invalid id' },
+          { status: 400, headers: noStoreHeaders() }
+        );
       }
 
-      const data = await getDocByIdCached(id);
-      if (!data) return new NextResponse(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
+      const data = await getDocById(id);
+      if (!data) {
+        return new NextResponse(null, {
+          status: 204,
+          headers: noStoreHeaders(),
+        });
+      }
 
-      return NextResponse.json(data, {
-        headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' },
-      });
+      return NextResponse.json(data, { headers: noStoreHeaders() });
     } catch (e) {
-      console.error(e);
-      return NextResponse.json({ error: 'Server error' }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
+      console.error('[documents GET by id] error:', e);
+      return NextResponse.json(
+        { error: 'Server error' },
+        { status: 500, headers: noStoreHeaders() }
+      );
     }
   }
 
@@ -150,16 +278,32 @@ export async function GET(req: NextRequest) {
   if (all === '1') {
     try {
       const result = await cached(
-        'doc:all',
-       { ttlSec: 60, tags: ['doc:list'] },
+        'doc:all:v2',
+        { ttlSec: 60, tags: ['doc:list'] },
         async () => {
-          const rows = await sql/*sql*/`
-            SELECT id, title, path, icon, tags, created_at, updated_at, is_featured, special, "order"
+          const rows = await sql`
+            SELECT
+              id,
+              title,
+              path,
+              icon,
+              tags,
+              created_at,
+              updated_at,
+              is_featured,
+              special,
+              "order"
             FROM documents
           `;
+
           return rows.map((r: any) => ({
-            ...r,
-            tags: r.tags ? String(r.tags).split(',') : [],
+            id: r.id,
+            title: r.title,
+            path: r.path,
+            icon: r.icon,
+            tags: splitTags(r.tags),
+            created_at: r.created_at,
+            updated_at: r.updated_at,
             is_featured: Boolean(r.is_featured),
             special: r.special ?? null,
             order: Number(r.order ?? 0),
@@ -167,76 +311,93 @@ export async function GET(req: NextRequest) {
         }
       );
 
-      return NextResponse.json(result, {
-        headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' }, // ★ 실시간
-      });
+      return NextResponse.json(result, { headers: noStoreHeaders() });
     } catch (e) {
-      console.error(e);
-      return NextResponse.json({ error: 'Server error' }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
+      console.error('[documents GET all] error:', e);
+      return NextResponse.json(
+        { error: 'Server error' },
+        { status: 500, headers: noStoreHeaders() }
+      );
     }
   }
 
   // path(+title) 단건
   const path = (pathRaw ?? '').trim();
-  if (!path) return NextResponse.json({ error: 'Missing path' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+  if (!path) {
+    return NextResponse.json(
+      { error: 'Missing path' },
+      { status: 400, headers: noStoreHeaders() }
+    );
+  }
 
   try {
     const title = (titleRaw ?? '').trim();
+    const data = await getDocByPathAndTitle(path, title || undefined);
 
-    const row = title
-      ? (await sql/*sql*/`
-          SELECT id FROM documents WHERE path = ${path} AND title = ${title} LIMIT 1
-        `)[0]
-      : (await sql/*sql*/`
-          SELECT id FROM documents WHERE path = ${path} LIMIT 1
-        `)[0];
+    if (!data) {
+      return new NextResponse(null, {
+        status: 204,
+        headers: noStoreHeaders(),
+      });
+    }
 
-    if (!row?.id) return new NextResponse(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
-
-    const data = await getDocByIdCached(Number(row.id));
-
-    return NextResponse.json(data, {
-      headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' },
-    });
+    return NextResponse.json(data, { headers: noStoreHeaders() });
   } catch (e) {
-    console.error(e);
-    return NextResponse.json({ error: 'Server error' }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
+    console.error('[documents GET by path/title] error:', e);
+    return NextResponse.json(
+      { error: 'Server error' },
+      { status: 500, headers: noStoreHeaders() }
+    );
   }
 }
 
 export async function DELETE(req: NextRequest) {
-
   const gate = await requireRole(['writer', 'admin']);
+
   if (!gate.ok) {
     return new Response(JSON.stringify({ error: gate.error }), {
       status: gate.status,
       headers: { 'content-type': 'application/json' },
     });
   }
-  
+
   const sp = req.nextUrl.searchParams;
   const idRaw = sp.get('id');
-  if (!idRaw) return NextResponse.json({ error: 'Missing id' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+
+  if (!idRaw) {
+    return NextResponse.json(
+      { error: 'Missing id' },
+      { status: 400, headers: noStoreHeaders() }
+    );
+  }
 
   try {
     const id = Number(idRaw);
     if (!Number.isFinite(id) || id <= 0) {
-      return NextResponse.json({ error: 'Invalid id' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json(
+        { error: 'Invalid id' },
+        { status: 400, headers: noStoreHeaders() }
+      );
     }
 
-    const before = await sql/*sql*/`
+    const before = await sql`
       SELECT id, title, path, tags
       FROM documents
       WHERE id = ${id}
       LIMIT 1
     `;
+
     const doc = before[0];
-    if (!doc) return NextResponse.json({ error: 'not found' }, { status: 404, headers: { 'Cache-Control': 'no-store' } });
+    if (!doc) {
+      return NextResponse.json(
+        { error: 'not found' },
+        { status: 404, headers: noStoreHeaders() }
+      );
+    }
 
-    await sql/*sql*/`DELETE FROM document_contents WHERE document_id = ${id}`;
-    await sql/*sql*/`DELETE FROM documents WHERE id = ${id}`;
+    await sql`DELETE FROM document_contents WHERE document_id = ${id}`;
+    await sql`DELETE FROM documents WHERE id = ${id}`;
 
-    // ✅ 캐시 무효화
     invalidate(docTag(id), 'doc:list', listTag(doc?.path));
 
     const user = getAuthUser();
@@ -244,6 +405,7 @@ export async function DELETE(req: NextRequest) {
 
     let targetPathLabel: string | null = null;
     const p = doc?.path;
+
     if (p === 0 || p === '0') targetPathLabel = '루트 카테고리';
     else if (p == null) targetPathLabel = '루트 카테고리';
     else if (/^\d+$/.test(String(p))) targetPathLabel = await resolveCategoryName(Number(p));
@@ -259,9 +421,15 @@ export async function DELETE(req: NextRequest) {
       meta: { tags: doc?.tags ?? null },
     });
 
-    return NextResponse.json({ message: 'deleted' }, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json(
+      { message: 'deleted' },
+      { headers: noStoreHeaders() }
+    );
   } catch (e) {
-    console.error(e);
-    return NextResponse.json({ error: 'Server error' }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
+    console.error('[documents DELETE] error:', e);
+    return NextResponse.json(
+      { error: 'Server error' },
+      { status: 500, headers: noStoreHeaders() }
+    );
   }
 }
