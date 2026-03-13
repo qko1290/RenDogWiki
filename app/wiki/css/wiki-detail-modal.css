@@ -391,11 +391,12 @@ body.rd-modal-open {
   }
 
   .npc-modal-main {
-    width: min(100%, 300px) !important;
+    width: min(100%, 330px) !important;
     min-width: 0 !important;
-    max-width: 300px !important;
+    max-width: 330px !important;
     min-height: unset !important;
-    max-height: calc(100dvh - 32px) !important;
+    height: 520px !important;
+    max-height: calc(100dvh - 16px) !important;
     margin-top: 24px !important;
     border-radius: 12px !important;
     display: flex !important;
