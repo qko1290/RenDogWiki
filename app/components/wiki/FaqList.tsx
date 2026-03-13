@@ -1,4 +1,7 @@
+// =============================================
 // File: app/components/wiki/FaqList.tsx
+// (전체 코드)
+// =============================================
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -23,7 +26,11 @@ export type FaqItem = {
 
 /** 권한 플래그: canWrite(작성 가능), isAdmin(관리자 전용 UI) */
 function useAuthFlags(user: User) {
-  const [flags, setFlags] = useState({ canWrite: false, isAdmin: false, loading: true });
+  const [flags, setFlags] = useState({
+    canWrite: false,
+    isAdmin: false,
+    loading: true,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -37,15 +44,22 @@ function useAuthFlags(user: User) {
         const me = r.ok ? await r.json() : null;
 
         const role = (me?.role ?? me?.user?.role ?? '').toLowerCase?.() || '';
-        const roles: string[] = (me?.roles ?? me?.user?.roles ?? me?.permissions ?? me?.user?.permissions ?? [])
-          .map((v: any) => String(v).toLowerCase());
+        const roles: string[] = (
+          me?.roles ??
+          me?.user?.roles ??
+          me?.permissions ??
+          me?.user?.permissions ??
+          []
+        ).map((v: any) => String(v).toLowerCase());
 
         const isAdmin = role === 'admin' || roles.includes('admin');
         const canWrite = isAdmin || role === 'writer' || roles.includes('writer');
 
         if (!cancelled) setFlags({ canWrite, isAdmin, loading: false });
       } catch {
-        if (!cancelled) setFlags({ canWrite: false, isAdmin: false, loading: false });
+        if (!cancelled) {
+          setFlags({ canWrite: false, isAdmin: false, loading: false });
+        }
       }
     })();
     return () => {
@@ -79,15 +93,30 @@ export function FaqDetailModal({
 }) {
   return (
     <>
-      <div className="faq-modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
+      <div
+        className="faq-modal-backdrop"
+        onClick={onClose}
+        role="dialog"
+        aria-modal="true"
+      >
         <div className="faq-modal" onClick={(e) => e.stopPropagation()}>
           <div className="faq-modal-header">
             <div className="faq-modal-title">
               <span className="faq-qa q">Q</span>
               <h3>{sel.title}</h3>
             </div>
-            <button className="faq-modal-close" onClick={onClose} aria-label="close">
-              <svg className="x-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8">
+            <button
+              className="faq-modal-close"
+              onClick={onClose}
+              aria-label="close"
+            >
+              <svg
+                className="x-ic"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.8"
+              >
                 <path d="M6 6L18 18M18 6L6 18" strokeLinecap="round" />
               </svg>
             </button>
@@ -112,6 +141,7 @@ export function FaqDetailModal({
           padding: 16px;
           z-index: 1000;
         }
+
         .faq-modal {
           width: min(760px, 100%);
           background: #fff;
@@ -119,6 +149,7 @@ export function FaqDetailModal({
           padding: 18px 18px 20px;
           box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
         }
+
         .faq-modal-header {
           display: flex;
           align-items: center;
@@ -126,17 +157,23 @@ export function FaqDetailModal({
           gap: 10px;
           margin-bottom: 8px;
         }
+
         .faq-modal-title {
           display: inline-flex;
           align-items: center;
           gap: 12px;
+          min-width: 0;
         }
+
         .faq-modal-title h3 {
           margin: 0;
           font-size: 20px;
           font-weight: 800;
           color: #0f172a;
+          min-width: 0;
+          word-break: break-word;
         }
+
         .faq-modal-close {
           width: 36px;
           height: 36px;
@@ -148,17 +185,22 @@ export function FaqDetailModal({
           color: #ef4444;
           cursor: pointer;
           transition: transform 0.12s ease;
+          flex: 0 0 36px;
         }
+
         .faq-modal-close:hover {
           transform: scale(1.06);
         }
+
         .faq-modal-close:focus {
           outline: none;
         }
+
         .faq-modal-close .x-ic {
           width: 18px;
           height: 18px;
         }
+
         .faq-modal-body {
           display: grid;
           gap: 10px;
@@ -179,10 +221,12 @@ export function FaqDetailModal({
           transform: translateY(-1px);
           flex: 0 0 22px;
         }
+
         .faq-qa.q {
           background: #eaf2ff;
           color: #1d4ed8;
         }
+
         .faq-qa.a {
           background: #ffe9e9;
           color: #dc2626;
@@ -195,15 +239,74 @@ export function FaqDetailModal({
           border-radius: 12px;
           padding: 12px 14px;
         }
+
         .qa-line.a {
           background: #fff5f5;
           border: 1px solid #ffe2e2;
         }
+
         .qa-text {
           margin: 0;
           white-space: pre-wrap;
           font: inherit;
           color: #111827;
+          font-size: 14px;
+          line-height: 1.6;
+        }
+
+        @media (max-width: 768px) {
+          .faq-modal-backdrop {
+            padding: 10px;
+          }
+
+          .faq-modal {
+            width: min(100%, 340px);
+            border-radius: 14px;
+            padding: 12px 12px 14px;
+          }
+
+          .faq-modal-header {
+            gap: 8px;
+            margin-bottom: 6px;
+          }
+
+          .faq-modal-title {
+            gap: 8px;
+          }
+
+          .faq-modal-title h3 {
+            font-size: 12px;
+            line-height: 1.35;
+          }
+
+          .faq-modal-close {
+            width: 30px;
+            height: 30px;
+            flex: 0 0 30px;
+          }
+
+          .faq-modal-close .x-ic {
+            width: 14px;
+            height: 14px;
+          }
+
+          .faq-qa {
+            width: 18px;
+            height: 18px;
+            font-size: 10px;
+            flex: 0 0 18px;
+          }
+
+          .qa-line {
+            gap: 8px;
+            padding: 8px 9px;
+            border-radius: 10px;
+          }
+
+          .qa-text {
+            font-size: 12px;
+            line-height: 1.5;
+          }
         }
       `}</style>
     </>
@@ -222,24 +325,47 @@ export default function FaqList({
   refreshSignal?: number;
 }) {
   const { canWrite, isAdmin } = useAuthFlags(user);
+
   const [items, setItems] = useState<FaqItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [sel, setSel] = useState<FaqItem | null>(null);
   const [editTarget, setEditTarget] = useState<FaqItem | null>(null);
 
-  const [menu, setMenu] = useState<{ open: boolean; id: number | null; x: number; y: number }>({
+  const [menu, setMenu] = useState<{
+    open: boolean;
+    id: number | null;
+    x: number;
+    y: number;
+  }>({
     open: false,
     id: null,
     x: 0,
     y: 0,
   });
 
-  // 하단 로컬 검색
   const [bottomSearch, setBottomSearch] = useState('');
-
-  // --- 페이징 ---
   const [page, setPage] = useState(0);
-  const PAGE_SIZE = 12;
+  const [isMobile, setIsMobile] = useState(false);
+
+  const PAGE_SIZE = isMobile ? 10 : 12;
+  const MAX_VISIBLE_PAGE_BTNS = isMobile ? 5 : Number.MAX_SAFE_INTEGER;
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const mq = window.matchMedia('(max-width: 768px)');
+    const apply = () => setIsMobile(mq.matches);
+
+    apply();
+
+    if (typeof mq.addEventListener === 'function') {
+      mq.addEventListener('change', apply);
+      return () => mq.removeEventListener('change', apply);
+    }
+
+    mq.addListener(apply);
+    return () => mq.removeListener(apply);
+  }, []);
 
   const normalizedBottomSearch = bottomSearch.trim().toLowerCase();
 
@@ -249,7 +375,9 @@ export default function FaqList({
     return items.filter((it) => {
       const title = (it.title ?? '').toLowerCase();
       const content = (it.content ?? '').toLowerCase();
-      const tagsText = Array.isArray(it.tags) ? it.tags.join(' ').toLowerCase() : '';
+      const tagsText = Array.isArray(it.tags)
+        ? it.tags.join(' ').toLowerCase()
+        : '';
       const uploader = (it.uploader ?? '').toLowerCase();
 
       return (
@@ -262,21 +390,38 @@ export default function FaqList({
   }, [items, normalizedBottomSearch]);
 
   const pageCount = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
+
   const viewItems = useMemo(
     () => filteredItems.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE),
-    [filteredItems, page]
+    [filteredItems, page, PAGE_SIZE]
   );
+
+  const visiblePageNumbers = useMemo(() => {
+    if (!isMobile || pageCount <= MAX_VISIBLE_PAGE_BTNS) {
+      return Array.from({ length: pageCount }, (_, i) => i);
+    }
+
+    const half = Math.floor(MAX_VISIBLE_PAGE_BTNS / 2);
+    let start = Math.max(0, page - half);
+    let end = start + MAX_VISIBLE_PAGE_BTNS - 1;
+
+    if (end >= pageCount) {
+      end = pageCount - 1;
+      start = Math.max(0, end - MAX_VISIBLE_PAGE_BTNS + 1);
+    }
+
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+  }, [isMobile, page, pageCount, MAX_VISIBLE_PAGE_BTNS]);
 
   useEffect(() => {
     const maxIdx = Math.max(0, Math.ceil(filteredItems.length / PAGE_SIZE) - 1);
     if (page > maxIdx) setPage(0);
-  }, [filteredItems, page]);
+  }, [filteredItems, page, PAGE_SIZE]);
 
   useEffect(() => {
     setPage(0);
-  }, [bottomSearch]);
+  }, [bottomSearch, isMobile]);
 
-  // 서버 쿼리(필터만 반영)
   const qs = useMemo(() => {
     const usp = new URLSearchParams();
     if (query) usp.set('q', query);
@@ -284,7 +429,6 @@ export default function FaqList({
     return usp.toString();
   }, [query, tags]);
 
-  // ✅ 100개 제한이 있어도 전부 로드(100단위 반복 호출)
   async function refresh() {
     setLoading(true);
     try {
@@ -296,12 +440,15 @@ export default function FaqList({
       let rounds = 0;
 
       while (rounds < MAX_ROUNDS) {
-        const r = await fetch(`/api/faq?${qs}${qs ? '&' : ''}limit=${limit}&offset=${offset}`, {
-          cache: 'no-store',
-        });
+        const r = await fetch(
+          `/api/faq?${qs}${qs ? '&' : ''}limit=${limit}&offset=${offset}`,
+          { cache: 'no-store' }
+        );
 
         const data = r.ok ? await r.json() : null;
-        const chunk = Array.isArray(data?.items) ? (data.items as FaqItem[]) : [];
+        const chunk = Array.isArray(data?.items)
+          ? (data.items as FaqItem[])
+          : [];
 
         all = all.concat(chunk);
 
@@ -323,10 +470,14 @@ export default function FaqList({
     if (!menu.open) return;
 
     const close = () => setMenu({ open: false, id: null, x: 0, y: 0 });
+
     const onPointer = (e: Event) => {
       const el = e.target as HTMLElement | null;
-      if (!el?.closest('.faq-popover') && !el?.closest('.faq-menu-btn')) close();
+      if (!el?.closest('.faq-popover') && !el?.closest('.faq-menu-btn')) {
+        close();
+      }
     };
+
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') close();
     };
@@ -364,13 +515,14 @@ export default function FaqList({
 
   return (
     <div className="faq-wrap">
-      {/* 리스트 카드 (✅ 내용만큼만, 높이 안 늘림) */}
       <div className="faq-list-card">
         {loading ? (
           <div className="faq-row muted">불러오는 중…</div>
         ) : filteredItems.length === 0 ? (
           <div className="faq-row muted">
-            {bottomSearch.trim() ? '검색 결과가 없습니다.' : '등록된 질문이 없습니다.'}
+            {bottomSearch.trim()
+              ? '검색 결과가 없습니다.'
+              : '등록된 질문이 없습니다.'}
           </div>
         ) : (
           viewItems.map((it) => (
@@ -393,8 +545,13 @@ export default function FaqList({
                     className="faq-menu-btn"
                     aria-label="more"
                     onClick={(e) => {
-                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                      const x = Math.min(window.innerWidth - 100 - 8, Math.max(8, rect.right - 100));
+                      const rect = (
+                        e.currentTarget as HTMLElement
+                      ).getBoundingClientRect();
+                      const x = Math.min(
+                        window.innerWidth - 100 - 8,
+                        Math.max(8, rect.right - 100)
+                      );
                       const y = rect.bottom + 6;
 
                       setMenu((m) => ({
@@ -416,7 +573,6 @@ export default function FaqList({
         )}
       </div>
 
-      {/* ✅ 카드 밖(바깥) 여백만 늘어남 */}
       <div className="faq-between-spacer" aria-hidden="true" />
 
       {menu.open && (
@@ -438,7 +594,9 @@ export default function FaqList({
               const id = menu.id!;
               setMenu({ open: false, id: null, x: 0, y: 0 });
               const fresh = await fetchFaqDetail(id);
-              setEditTarget(fresh ?? items.find((i) => i.id === id) ?? null);
+              setEditTarget(
+                fresh ?? items.find((i) => i.id === id) ?? null
+              );
             }}
             type="button"
           >
@@ -459,7 +617,6 @@ export default function FaqList({
         </div>
       )}
 
-      {/* 페이징 */}
       {pageCount > 1 && (
         <div className="faq-paging">
           <div className="faq-paging-seg">
@@ -470,13 +627,23 @@ export default function FaqList({
               type="button"
               aria-label="이전 페이지"
             >
-              <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M15 6l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" />
+              <svg
+                className="ico"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+              >
+                <path
+                  d="M15 6l-6 6 6 6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
             </button>
 
             <ul className="faq-pages">
-              {Array.from({ length: pageCount }).map((_, i) => (
+              {visiblePageNumbers.map((i) => (
                 <li key={i}>
                   <button
                     className={`faq-page ${i === page ? 'active' : ''}`}
@@ -496,18 +663,33 @@ export default function FaqList({
               type="button"
               aria-label="다음 페이지"
             >
-              <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+              <svg
+                className="ico"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+              >
+                <path
+                  d="M9 6l6 6-6 6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
             </button>
           </div>
         </div>
       )}
 
-      {/* 하단 검색칸 */}
       <div className="faq-bottom-search">
         <div className="faq-search-box">
-          <svg className="faq-search-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+          <svg
+            className="faq-search-ico"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+          >
             <circle cx="11" cy="11" r="7" />
             <path d="M20 20l-3.5-3.5" strokeLinecap="round" />
           </svg>
@@ -533,15 +715,18 @@ export default function FaqList({
         </div>
       </div>
 
-      {/* 상세 모달(Q/A 뷰) */}
       {sel && <FaqDetailModal sel={sel} onClose={() => setSel(null)} />}
 
-      {/* 수정 모달 */}
       {editTarget && (
         <FaqUpsertModal
           open
           mode="edit"
-          initial={{ id: editTarget.id, title: editTarget.title, content: editTarget.content, tags: editTarget.tags }}
+          initial={{
+            id: editTarget.id,
+            title: editTarget.title,
+            content: editTarget.content,
+            tags: editTarget.tags,
+          }}
           onClose={() => setEditTarget(null)}
           onSaved={async () => {
             setEditTarget(null);
@@ -555,7 +740,6 @@ export default function FaqList({
       )}
 
       <style jsx>{`
-        /* wrap 자체를 고정된 세로 슬롯으로 */
         .faq-wrap {
           padding-top: 12px;
           display: flex;
@@ -563,7 +747,6 @@ export default function FaqList({
           min-height: calc(52px * 12 + 64px + 32px);
         }
 
-        /* 카드 컨테이너(✅ 내용만큼만) */
         .faq-list-card {
           border: 1px solid var(--border, #e5e7eb);
           border-radius: 14px;
@@ -572,7 +755,6 @@ export default function FaqList({
           box-shadow: 0 8px 24px rgba(16, 24, 40, 0.04);
         }
 
-        /* 카드 밖 빈공간(질문 적을 때 여기만 늘어난다) */
         .faq-between-spacer {
           flex: 1 1 auto;
           min-height: 12px;
@@ -587,12 +769,15 @@ export default function FaqList({
           gap: 12px;
           transition: background 0.15s ease;
         }
+
         .faq-row:first-child {
           border-top: 0;
         }
+
         .faq-row.muted {
           color: #888;
         }
+
         .faq-row:hover {
           background: #f8fafc;
         }
@@ -611,6 +796,7 @@ export default function FaqList({
           text-align: left;
           flex: 1 1 auto;
           color: #0f172a;
+          min-width: 0;
         }
 
         .faq-q {
@@ -629,6 +815,7 @@ export default function FaqList({
           transform: translateY(-1px);
           flex: 0 0 22px;
         }
+
         .faq-title-text {
           overflow: hidden;
           text-overflow: ellipsis;
@@ -638,6 +825,7 @@ export default function FaqList({
         .faq-menu {
           position: relative;
         }
+
         .faq-menu-btn {
           width: 32px;
           height: 32px;
@@ -650,10 +838,13 @@ export default function FaqList({
           display: grid;
           place-items: center;
           transition: background 0.15s;
+          flex: 0 0 32px;
         }
+
         .faq-menu-btn:hover {
           background: #f3f4f6;
         }
+
         .faq-menu-pop {
           position: absolute;
           right: 0;
@@ -667,9 +858,11 @@ export default function FaqList({
           display: none;
           z-index: 10;
         }
+
         .faq-menu-pop.open {
           display: block;
         }
+
         .faq-menu-pop button {
           width: 100%;
           text-align: left;
@@ -679,9 +872,11 @@ export default function FaqList({
           border-radius: 8px;
           cursor: pointer;
         }
+
         .faq-menu-pop button:hover {
           background: #f3f4f6;
         }
+
         .faq-menu-pop .danger {
           color: #d11;
         }
@@ -712,20 +907,22 @@ export default function FaqList({
           transition: background 0.15s, color 0.15s;
           white-space: nowrap;
         }
+
         .seg-btn .ico,
         .faq-page-btn .ico {
           width: 20px;
           height: 20px;
         }
+
         .seg-btn:hover {
           background: #f3f4f6;
         }
+
         .seg-btn:disabled {
           opacity: 0.55;
           cursor: not-allowed;
         }
 
-        /* 페이징 */
         .faq-paging {
           display: flex;
           align-items: center;
@@ -790,7 +987,6 @@ export default function FaqList({
           background: #eef5ff;
         }
 
-        /* 하단 검색 */
         .faq-bottom-search {
           display: flex;
           justify-content: center;
@@ -847,6 +1043,100 @@ export default function FaqList({
 
         .faq-search-clear:hover {
           background: #e5e7eb;
+        }
+
+        @media (max-width: 768px) {
+          .faq-wrap {
+            padding-top: 8px;
+            min-height: auto;
+          }
+
+          .faq-list-card {
+            border-radius: 12px;
+            padding: 4px;
+          }
+
+          .faq-between-spacer {
+            min-height: 8px;
+          }
+
+          .faq-row {
+            padding: 8px 10px;
+            gap: 8px;
+          }
+
+          .faq-title {
+            gap: 8px;
+            font-size: 12px;
+            line-height: 1.35;
+          }
+
+          .faq-q {
+            width: 18px;
+            height: 18px;
+            font-size: 10px;
+            flex: 0 0 18px;
+          }
+
+          .faq-menu-btn {
+            width: 28px;
+            height: 28px;
+            font-size: 16px;
+            flex: 0 0 28px;
+          }
+
+          .faq-paging {
+            min-height: 38px;
+          }
+
+          .faq-paging-seg {
+            border-radius: 10px;
+          }
+
+          .faq-page-btn,
+          .faq-page {
+            min-width: 34px;
+            height: 32px;
+            padding: 6px 8px;
+            font-size: 12px;
+          }
+
+          .faq-page-btn .ico {
+            width: 16px;
+            height: 16px;
+          }
+
+          .faq-pages {
+            max-width: none;
+            flex-wrap: nowrap;
+          }
+
+          .faq-bottom-search {
+            margin-top: 8px;
+          }
+
+          .faq-search-box {
+            border-radius: 10px;
+            padding: 8px 10px;
+            gap: 8px;
+          }
+
+          .faq-search-ico {
+            width: 16px;
+            height: 16px;
+            flex: 0 0 16px;
+          }
+
+          .faq-search-box input {
+            font-size: 12px;
+          }
+
+          .faq-search-clear {
+            width: 22px;
+            height: 22px;
+            font-size: 14px;
+            flex: 0 0 22px;
+          }
         }
       `}</style>
     </div>
