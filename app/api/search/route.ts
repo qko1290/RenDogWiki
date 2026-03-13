@@ -1,10 +1,15 @@
 // =============================================
 // File: app/api/search/route.ts
 // (전체 코드)
-// - pg_trgm 기반 유사 검색 + 띄어쓰기 무시 검색 지원
-// - title / tags 에만 적용
-// - content 검색 완전 제외
-// - 우선순위 병합: title > tags
+// - title / tags:
+//   1) 부분검색
+//   2) 공백 제거 검색
+//   3) pg_trgm 유사도 검색
+//   4) 비연속 글자 매칭(subsequence regex)
+// - content:
+//   - 일반 검색 + 공백 제거 검색 복구
+//   - 비연속 글자 매칭 / trgm 미적용
+// - 우선순위 병합: title > tags > content
 // =============================================
 
 import { NextRequest, NextResponse } from "next/server";
@@ -20,7 +25,8 @@ type SearchRow = {
   path: string | number;
   icon?: string | null;
   tags?: string | string[] | null;
-  match_type: "title" | "tags";
+  match_type: "title" | "tags" | "content";
+  content?: string | null;
   category_breadcrumb?: string | null;
   score?: number | null;
 };
@@ -40,6 +46,27 @@ function shouldUseTrgm(raw: string) {
   return compactSearchText(raw).length >= 3;
 }
 
+function shouldUseLooseRegex(raw: string) {
+  return compactSearchText(raw).length >= 2;
+}
+
+function escapeRegexChar(ch: string) {
+  return ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * "아도" -> "아.*도"
+ * 공백 제거 기준으로 비연속 글자 매칭
+ */
+function makeLooseRegex(raw: string) {
+  const compact = compactSearchText(raw);
+  if (!compact) return "";
+  return compact
+    .split("")
+    .map(escapeRegexChar)
+    .join(".*");
+}
+
 function parseTags(raw: unknown): string[] {
   if (Array.isArray(raw)) {
     return raw.map((v) => String(v ?? "").trim()).filter(Boolean);
@@ -49,7 +76,6 @@ function parseTags(raw: unknown): string[] {
     const s = raw.trim();
     if (!s) return [];
 
-    // postgres text[] 문자열 대응: {a,b,c}
     if (s.startsWith("{") && s.endsWith("}")) {
       return s
         .slice(1, -1)
@@ -86,7 +112,10 @@ export async function GET(req: NextRequest) {
     const compactRaw = compactSearchText(raw);
     const pattern = `%${raw}%`;
     const compactPattern = `%${compactRaw}%`;
+
     const useTrgm = shouldUseTrgm(raw);
+    const useLooseRegex = shouldUseLooseRegex(raw);
+    const looseRegex = makeLooseRegex(raw);
 
     const breadcrumbExpr = sql/* sql */ `
       (
@@ -124,6 +153,9 @@ export async function GET(req: NextRequest) {
             WHEN LOWER(COALESCE(d.title, '')) = ${normalizedRaw} THEN 100
             WHEN LOWER(COALESCE(d.title, '')) LIKE LOWER(${pattern}) THEN 80
             WHEN regexp_replace(LOWER(COALESCE(d.title, '')), '\\s+', '', 'g') LIKE ${compactPattern} THEN 72
+            WHEN ${useLooseRegex}
+              AND regexp_replace(LOWER(COALESCE(d.title, '')), '\\s+', '', 'g') ~ ${looseRegex}
+              THEN 66
             ELSE 0
           END,
           CASE
@@ -136,6 +168,10 @@ export async function GET(req: NextRequest) {
       WHERE
         LOWER(COALESCE(d.title, '')) LIKE LOWER(${pattern})
         OR regexp_replace(LOWER(COALESCE(d.title, '')), '\\s+', '', 'g') LIKE ${compactPattern}
+        OR (
+          ${useLooseRegex}
+          AND regexp_replace(LOWER(COALESCE(d.title, '')), '\\s+', '', 'g') ~ ${looseRegex}
+        )
         OR (
           ${useTrgm}
           AND similarity(LOWER(COALESCE(d.title, '')), ${normalizedRaw}) >= 0.2
@@ -158,6 +194,9 @@ export async function GET(req: NextRequest) {
           CASE
             WHEN LOWER(COALESCE(d.tags::text, '')) LIKE LOWER(${pattern}) THEN 60
             WHEN regexp_replace(LOWER(COALESCE(d.tags::text, '')), '\\s+', '', 'g') LIKE ${compactPattern} THEN 54
+            WHEN ${useLooseRegex}
+              AND regexp_replace(LOWER(COALESCE(d.tags::text, '')), '\\s+', '', 'g') ~ ${looseRegex}
+              THEN 50
             ELSE 0
           END,
           CASE
@@ -171,6 +210,10 @@ export async function GET(req: NextRequest) {
         LOWER(COALESCE(d.tags::text, '')) LIKE LOWER(${pattern})
         OR regexp_replace(LOWER(COALESCE(d.tags::text, '')), '\\s+', '', 'g') LIKE ${compactPattern}
         OR (
+          ${useLooseRegex}
+          AND regexp_replace(LOWER(COALESCE(d.tags::text, '')), '\\s+', '', 'g') ~ ${looseRegex}
+        )
+        OR (
           ${useTrgm}
           AND similarity(LOWER(COALESCE(d.tags::text, '')), ${normalizedRaw}) >= 0.2
         )
@@ -178,7 +221,49 @@ export async function GET(req: NextRequest) {
       LIMIT ${limit}
     `;
 
-    // 3) 우선순위 병합 (title > tags)
+    // 3) 본문 검색 복구
+    const contentRows = await sql<SearchRow[]>/* sql */ `
+      SELECT
+        d.id,
+        d.title,
+        d.path,
+        d.icon,
+        d.tags,
+        'content' AS match_type,
+        LEFT(REGEXP_REPLACE(dc.content, '\\s+', ' ', 'g'), 1024) AS content,
+        (
+          WITH parts AS (
+            SELECT regexp_split_to_array(
+              regexp_replace(COALESCE((d.path)::text, ''), '^/+|/+$', '', 'g'),
+              '/+'
+            ) AS pp
+          ),
+          ids AS (
+            SELECT
+              (pp[i])::bigint AS cid,
+              i AS ord
+            FROM parts, generate_subscripts(pp, 1) AS g(i)
+            WHERE pp[i] ~ '^[0-9]+$'
+          )
+          SELECT COALESCE(string_agg(c.name, ' > ' ORDER BY ids.ord), '')
+          FROM ids
+          JOIN categories c ON c.id = ids.cid
+        ) AS category_breadcrumb,
+        CASE
+          WHEN LOWER(COALESCE(dc.content, '')) LIKE LOWER(${pattern}) THEN 30
+          WHEN regexp_replace(LOWER(COALESCE(dc.content, '')), '\\s+', '', 'g') LIKE ${compactPattern} THEN 28
+          ELSE 0
+        END AS score
+      FROM documents d
+      JOIN document_contents dc ON d.id = dc.document_id
+      WHERE
+        LOWER(COALESCE(dc.content, '')) LIKE LOWER(${pattern})
+        OR regexp_replace(LOWER(COALESCE(dc.content, '')), '\\s+', '', 'g') LIKE ${compactPattern}
+      ORDER BY score DESC, d.updated_at DESC NULLS LAST, d.id DESC
+      LIMIT ${limit}
+    `;
+
+    // 4) 우선순위 병합 (title > tags > content)
     const seen = new Set<number>();
     const merged: SearchRow[] = [];
 
@@ -202,6 +287,7 @@ export async function GET(req: NextRequest) {
 
     pushUnique(titleRows ?? []);
     if (merged.length < limit) pushUnique(tagRows ?? []);
+    if (merged.length < limit) pushUnique(contentRows ?? []);
 
     return NextResponse.json(merged, {
       headers: { "Cache-Control": "no-store" },

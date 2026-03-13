@@ -2,8 +2,14 @@
 // File: app/api/faq/route.ts
 // (전체 코드)
 // - FAQ 목록/생성
-// - title / tags 에만 pg_trgm + 띄어쓰기 무시 검색 적용
-// - content 검색 제외
+// - title / tags:
+//   1) 부분검색
+//   2) 공백 제거 검색
+//   3) pg_trgm 유사도 검색
+//   4) 비연속 글자 매칭(subsequence regex)
+// - content:
+//   - 일반 검색 + 공백 제거 검색 복구
+//   - 비연속 매칭 / trgm 미적용
 // - no-store 강제
 // =============================================
 import { NextRequest, NextResponse } from 'next/server';
@@ -33,6 +39,23 @@ function normalizeSearchText(v: string) {
 
 function shouldUseTrgm(raw: string) {
   return compactSearchText(raw).length >= 3;
+}
+
+function shouldUseLooseRegex(raw: string) {
+  return compactSearchText(raw).length >= 2;
+}
+
+function escapeRegexChar(ch: string) {
+  return ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function makeLooseRegex(raw: string) {
+  const compact = compactSearchText(raw);
+  if (!compact) return '';
+  return compact
+    .split('')
+    .map(escapeRegexChar)
+    .join('.*');
 }
 
 function pgArrayToJs(input: unknown): string[] {
@@ -90,6 +113,8 @@ export async function GET(req: NextRequest) {
     const pattern = `%${q}%`;
     const compactPattern = `%${compactQ}%`;
     const useTrgm = shouldUseTrgm(q);
+    const useLooseRegex = shouldUseLooseRegex(q);
+    const looseRegex = makeLooseRegex(q);
 
     const rows = await sql`
       SELECT
@@ -107,9 +132,18 @@ export async function GET(req: NextRequest) {
               WHEN LOWER(COALESCE(f.title, '')) = ${normalizedQ} THEN 100
               WHEN LOWER(COALESCE(f.title, '')) LIKE LOWER(${pattern}) THEN 80
               WHEN regexp_replace(LOWER(COALESCE(f.title, '')), '\\s+', '', 'g') LIKE ${compactPattern} THEN 72
+              WHEN ${useLooseRegex}
+                AND regexp_replace(LOWER(COALESCE(f.title, '')), '\\s+', '', 'g') ~ ${looseRegex}
+                THEN 66
 
               WHEN LOWER(COALESCE(array_to_string(f.tags, ' '), '')) LIKE LOWER(${pattern}) THEN 60
               WHEN regexp_replace(LOWER(COALESCE(array_to_string(f.tags, ' '), '')), '\\s+', '', 'g') LIKE ${compactPattern} THEN 54
+              WHEN ${useLooseRegex}
+                AND regexp_replace(LOWER(COALESCE(array_to_string(f.tags, ' '), '')), '\\s+', '', 'g') ~ ${looseRegex}
+                THEN 50
+
+              WHEN LOWER(COALESCE(f.content, '')) LIKE LOWER(${pattern}) THEN 30
+              WHEN regexp_replace(LOWER(COALESCE(f.content, '')), '\\s+', '', 'g') LIKE ${compactPattern} THEN 28
 
               ELSE 0
             END,
@@ -129,8 +163,18 @@ export async function GET(req: NextRequest) {
           ${q} = ''
           OR LOWER(COALESCE(f.title, '')) LIKE LOWER(${pattern})
           OR regexp_replace(LOWER(COALESCE(f.title, '')), '\\s+', '', 'g') LIKE ${compactPattern}
+          OR (
+            ${useLooseRegex}
+            AND regexp_replace(LOWER(COALESCE(f.title, '')), '\\s+', '', 'g') ~ ${looseRegex}
+          )
           OR LOWER(COALESCE(array_to_string(f.tags, ' '), '')) LIKE LOWER(${pattern})
           OR regexp_replace(LOWER(COALESCE(array_to_string(f.tags, ' '), '')), '\\s+', '', 'g') LIKE ${compactPattern}
+          OR (
+            ${useLooseRegex}
+            AND regexp_replace(LOWER(COALESCE(array_to_string(f.tags, ' '), '')), '\\s+', '', 'g') ~ ${looseRegex}
+          )
+          OR LOWER(COALESCE(f.content, '')) LIKE LOWER(${pattern})
+          OR regexp_replace(LOWER(COALESCE(f.content, '')), '\\s+', '', 'g') LIKE ${compactPattern}
           OR (
             ${useTrgm}
             AND (
@@ -164,8 +208,18 @@ export async function GET(req: NextRequest) {
           ${q} = ''
           OR LOWER(COALESCE(f.title, '')) LIKE LOWER(${pattern})
           OR regexp_replace(LOWER(COALESCE(f.title, '')), '\\s+', '', 'g') LIKE ${compactPattern}
+          OR (
+            ${useLooseRegex}
+            AND regexp_replace(LOWER(COALESCE(f.title, '')), '\\s+', '', 'g') ~ ${looseRegex}
+          )
           OR LOWER(COALESCE(array_to_string(f.tags, ' '), '')) LIKE LOWER(${pattern})
           OR regexp_replace(LOWER(COALESCE(array_to_string(f.tags, ' '), '')), '\\s+', '', 'g') LIKE ${compactPattern}
+          OR (
+            ${useLooseRegex}
+            AND regexp_replace(LOWER(COALESCE(array_to_string(f.tags, ' '), '')), '\\s+', '', 'g') ~ ${looseRegex}
+          )
+          OR LOWER(COALESCE(f.content, '')) LIKE LOWER(${pattern})
+          OR regexp_replace(LOWER(COALESCE(f.content, '')), '\\s+', '', 'g') LIKE ${compactPattern}
           OR (
             ${useTrgm}
             AND (
