@@ -31,7 +31,7 @@ body.rd-modal-open {
 
 /* ───────── 모달 본체 ───────── */
 .npc-modal-main {
-  width: 980px;
+  width: auto;
   min-height: 500px;
   background: #fff;
   border-radius: 24px;
