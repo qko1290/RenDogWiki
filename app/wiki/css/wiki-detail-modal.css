@@ -395,7 +395,7 @@ body.rd-modal-open {
     min-width: 0 !important;
     max-width: 330px !important;
     min-height: unset !important;
-    height: 520px !important;
+    height: 570px !important;
     max-height: calc(100dvh - 16px) !important;
     margin-top: 24px !important;
     border-radius: 12px !important;
