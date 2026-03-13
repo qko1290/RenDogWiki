@@ -62,6 +62,7 @@ function useAuthFlags(user: User) {
         }
       }
     })();
+
     return () => {
       cancelled = true;
     };
@@ -105,11 +106,7 @@ export function FaqDetailModal({
               <span className="faq-qa q">Q</span>
               <h3>{sel.title}</h3>
             </div>
-            <button
-              className="faq-modal-close"
-              onClick={onClose}
-              aria-label="close"
-            >
+            <button className="faq-modal-close" onClick={onClose} aria-label="close">
               <svg
                 className="x-ic"
                 viewBox="0 0 24 24"
@@ -172,6 +169,7 @@ export function FaqDetailModal({
           color: #0f172a;
           min-width: 0;
           word-break: break-word;
+          line-height: 1.4;
         }
 
         .faq-modal-close {
@@ -375,9 +373,7 @@ export default function FaqList({
     return items.filter((it) => {
       const title = (it.title ?? '').toLowerCase();
       const content = (it.content ?? '').toLowerCase();
-      const tagsText = Array.isArray(it.tags)
-        ? it.tags.join(' ').toLowerCase()
-        : '';
+      const tagsText = Array.isArray(it.tags) ? it.tags.join(' ').toLowerCase() : '';
       const uploader = (it.uploader ?? '').toLowerCase();
 
       return (
@@ -446,9 +442,7 @@ export default function FaqList({
         );
 
         const data = r.ok ? await r.json() : null;
-        const chunk = Array.isArray(data?.items)
-          ? (data.items as FaqItem[])
-          : [];
+        const chunk = Array.isArray(data?.items) ? (data.items as FaqItem[]) : [];
 
         all = all.concat(chunk);
 
@@ -473,9 +467,7 @@ export default function FaqList({
 
     const onPointer = (e: Event) => {
       const el = e.target as HTMLElement | null;
-      if (!el?.closest('.faq-popover') && !el?.closest('.faq-menu-btn')) {
-        close();
-      }
+      if (!el?.closest('.faq-popover') && !el?.closest('.faq-menu-btn')) close();
     };
 
     const onKey = (e: KeyboardEvent) => {
@@ -520,9 +512,7 @@ export default function FaqList({
           <div className="faq-row muted">불러오는 중…</div>
         ) : filteredItems.length === 0 ? (
           <div className="faq-row muted">
-            {bottomSearch.trim()
-              ? '검색 결과가 없습니다.'
-              : '등록된 질문이 없습니다.'}
+            {bottomSearch.trim() ? '검색 결과가 없습니다.' : '등록된 질문이 없습니다.'}
           </div>
         ) : (
           viewItems.map((it) => (
@@ -545,9 +535,7 @@ export default function FaqList({
                     className="faq-menu-btn"
                     aria-label="more"
                     onClick={(e) => {
-                      const rect = (
-                        e.currentTarget as HTMLElement
-                      ).getBoundingClientRect();
+                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                       const x = Math.min(
                         window.innerWidth - 100 - 8,
                         Math.max(8, rect.right - 100)
@@ -594,9 +582,7 @@ export default function FaqList({
               const id = menu.id!;
               setMenu({ open: false, id: null, x: 0, y: 0 });
               const fresh = await fetchFaqDetail(id);
-              setEditTarget(
-                fresh ?? items.find((i) => i.id === id) ?? null
-              );
+              setEditTarget(fresh ?? items.find((i) => i.id === id) ?? null);
             }}
             type="button"
           >
@@ -634,11 +620,7 @@ export default function FaqList({
                 stroke="currentColor"
                 strokeWidth="2.2"
               >
-                <path
-                  d="M15 6l-6 6 6 6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
+                <path d="M15 6l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
 
@@ -670,11 +652,7 @@ export default function FaqList({
                 stroke="currentColor"
                 strokeWidth="2.2"
               >
-                <path
-                  d="M9 6l6 6-6 6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
+                <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
           </div>
@@ -838,7 +816,6 @@ export default function FaqList({
           display: grid;
           place-items: center;
           transition: background 0.15s;
-          flex: 0 0 32px;
         }
 
         .faq-menu-btn:hover {
@@ -1048,15 +1025,20 @@ export default function FaqList({
         @media (max-width: 768px) {
           .faq-wrap {
             padding-top: 8px;
-            min-height: auto;
+            min-height: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
           }
 
           .faq-list-card {
             border-radius: 12px;
             padding: 4px;
+            flex: 0 0 auto;
           }
 
           .faq-between-spacer {
+            flex: 1 1 auto;
             min-height: 8px;
           }
 
@@ -1086,7 +1068,18 @@ export default function FaqList({
           }
 
           .faq-paging {
+            position: sticky;
+            bottom: 44px;
+            z-index: 2;
             min-height: 38px;
+            margin-top: auto;
+            padding-top: 6px;
+            background: linear-gradient(
+              180deg,
+              rgba(255, 255, 255, 0) 0%,
+              rgba(255, 255, 255, 0.92) 18%,
+              rgba(255, 255, 255, 1) 100%
+            );
           }
 
           .faq-paging-seg {
@@ -1112,7 +1105,13 @@ export default function FaqList({
           }
 
           .faq-bottom-search {
-            margin-top: 8px;
+            position: sticky;
+            bottom: 0;
+            z-index: 3;
+            margin-top: 0;
+            padding-top: 6px;
+            padding-bottom: 4px;
+            background: #fff;
           }
 
           .faq-search-box {
