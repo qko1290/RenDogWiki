@@ -530,7 +530,7 @@ body.rd-modal-open {
 
   .npc-modal-right .mgr-pill-row--multi {
     min-height: 72px !important;
-    height: auto !important;
+    height: 130px !important;
     display: block !important;
     padding: 6px !important;
     border-radius: 10px !important;
