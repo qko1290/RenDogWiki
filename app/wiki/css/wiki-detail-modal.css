@@ -473,8 +473,8 @@ body.rd-modal-open {
     width: 100% !important;
     min-width: 0 !important;
     max-width: 100% !important;
-    padding: 5px !important;
-    gap: 5px !important;
+    padding: 4px !important;
+    gap: 0px !important;
     overflow-y: auto !important;
     background: linear-gradient(180deg, #fbfdff, #ffffff) !important;
   }
@@ -498,13 +498,13 @@ body.rd-modal-open {
 
   .npc-modal-right .mgr-pill-label {
     padding: 0 4px !important;
-    font-size: 8px !important;
+    font-size: 12px !important;
     line-height: 1 !important;
   }
 
   .npc-modal-right .mgr-pill-value {
     padding: 0 6px !important;
-    font-size: 9px !important;
+    font-size: 12px !important;
     min-width: 0 !important;
     line-height: 1.15 !important;
   }
@@ -548,7 +548,7 @@ body.rd-modal-open {
 
   .npc-line-scroll {
     max-height: 80px !important;
-    font-size: 10px !important;
+    font-size: 12px !important;
     line-height: 1.35 !important;
   }
 
@@ -556,7 +556,7 @@ body.rd-modal-open {
     min-height: 15px !important;
     height: auto !important;
     padding: 1px 5px !important;
-    font-size: 8px !important;
+    font-size: 12px !important;
     line-height: 1.1 !important;
     gap: 2px !important;
   }
@@ -568,11 +568,11 @@ body.rd-modal-open {
 
   .npc-modal-right .mgr-chip-emoji {
     width: 9px !important;
-    font-size: 8px !important;
+    font-size: 12px !important;
   }
 
   .npc-modal-right .quest-detail-loc {
-    font-size: 9px !important;
+    font-size: 12px !important;
     line-height: 1.2 !important;
   }
 }
