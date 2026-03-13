@@ -1043,7 +1043,7 @@ export default function FaqList({
           }
 
           .faq-row {
-            padding: 8px 10px;
+            padding: 4px 10px;
             gap: 8px;
           }
 
@@ -1068,18 +1068,29 @@ export default function FaqList({
           }
 
           .faq-paging {
-            position: sticky;
-            bottom: 44px;
-            z-index: 2;
+            position: fixed;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 52px;
+            z-index: 30;
             min-height: 38px;
-            margin-top: auto;
-            padding-top: 6px;
-            background: linear-gradient(
-              180deg,
-              rgba(255, 255, 255, 0) 0%,
-              rgba(255, 255, 255, 0.92) 18%,
-              rgba(255, 255, 255, 1) 100%
-            );
+            margin-top: 0;
+            padding-top: 0;
+            background: transparent;
+          }
+
+          .faq-bottom-search {
+            position: fixed;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 8px;
+            z-index: 31;
+            width: calc(100% - 24px);
+            max-width: 420px;
+            margin-top: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            background: transparent;
           }
 
           .faq-paging-seg {
@@ -1104,16 +1115,6 @@ export default function FaqList({
             flex-wrap: nowrap;
           }
 
-          .faq-bottom-search {
-            position: sticky;
-            bottom: 0;
-            z-index: 3;
-            margin-top: 0;
-            padding-top: 6px;
-            padding-bottom: 4px;
-            background: #fff;
-          }
-
           .faq-search-box {
             border-radius: 10px;
             padding: 8px 10px;
@@ -1135,6 +1136,14 @@ export default function FaqList({
             height: 22px;
             font-size: 14px;
             flex: 0 0 22px;
+          }
+
+          .faq-wrap {
+            padding-bottom: 110px;
+          }
+
+          .faq-wrap {
+            padding-bottom: 110px;
           }
         }
       `}</style>
