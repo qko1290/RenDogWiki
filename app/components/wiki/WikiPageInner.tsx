@@ -408,6 +408,7 @@ export default function WikiPageInner({ user }: Props) {
   const searchParams = useSearchParams();
   const contentRef = useRef<HTMLDivElement>(null);
   const pendingScrollDomIdRef = useRef<string>('');
+  const docAbortRef = useRef<AbortController | null>(null);
 
   function normalizeHashToDomId(hashLike: string | null | undefined) {
     let h = String(hashLike ?? '').trim();
@@ -1151,9 +1152,18 @@ export default function WikiPageInner({ user }: Props) {
   ) {
     const reqId = ++docReqIdRef.current;
     setLoadingDoc(true);
+
+    docAbortRef.current?.abort();
+    const controller = new AbortController();
+    docAbortRef.current = controller;
+
     try {
-      const r = await fetch(withTs(`/api/documents?id=${docId}`), NC);
+      const r = await fetch(withTs(`/api/documents?id=${docId}`), {
+        ...NC,
+        signal: controller.signal,
+      });
       if (!r.ok) throw 0;
+
       const data = await r.json();
       if (!mountedRef.current || reqId !== docReqIdRef.current) return;
 
@@ -1168,6 +1178,7 @@ export default function WikiPageInner({ user }: Props) {
       const special = data.special ?? docInList?.special ?? null;
       const meta = parseSpecial(special);
       setSpecialMeta(meta);
+
       if (meta?.kind === 'faq') {
         setFaqQuery(meta.q ?? '');
         setFaqTags(meta.tags ?? []);
@@ -1178,7 +1189,6 @@ export default function WikiPageInner({ user }: Props) {
 
       setSelectedDocTitle(data.title ?? null);
 
-      // ★★★ 경로 계산 고정
       let nextPath: number[] = [];
       if (docInList?.fullPath) {
         nextPath = docInList.fullPath;
@@ -1192,16 +1202,21 @@ export default function WikiPageInner({ user }: Props) {
             (Number.isFinite(cid) ? [cid] : []);
         }
       }
+
       setSelectedDocPath(nextPath);
       setHideDocChrome(Number(data?.id) === ROOT_FEATURED_DOC_ID);
 
       syncUrlWithDoc(data.title ?? null, nextPath, { history: 'replace' });
       isPopStateSyncRef.current = false;
 
-      setHideDocChrome(!!opts?.hideChrome || Number(data?.id) === ROOT_FEATURED_DOC_ID);
+      setHideDocChrome(
+        !!opts?.hideChrome || Number(data?.id) === ROOT_FEATURED_DOC_ID
+      );
       setLoadingDoc(false);
-    } catch {
+    } catch (e: any) {
+      if (e?.name === 'AbortError') return;
       if (!mountedRef.current || reqId !== docReqIdRef.current) return;
+
       setDocContent(null);
       setSpecialMeta(null);
       setFaqQuery('');
@@ -1510,14 +1525,19 @@ export default function WikiPageInner({ user }: Props) {
       categories &&
       categories.length > 0 &&
       allDocuments &&
-      allDocuments.length > 0 &&
-      !selectedDocId;
+      allDocuments.length > 0;
 
     if (!ready) return;
 
     const hasUrl =
       !!(searchParams.get('path') && searchParams.get('title'));
     if (hasUrl) return; // 딥링크 우선
+
+    // ✅ bootstrap에서 이미 대표 문서가 세팅됐으면 추가 fetch 금지
+    if (selectedDocId === ROOT_FEATURED_DOC_ID && docContent) {
+      firstLoadRef.current = false;
+      return;
+    }
 
     firstLoadRef.current = false;
 
@@ -1537,7 +1557,7 @@ export default function WikiPageInner({ user }: Props) {
         delete (window as any).__wiki_root_open_cleanup;
       }
     };
-  }, [categories, allDocuments, selectedDocId, searchParams]);
+  }, [categories, allDocuments, selectedDocId, docContent, searchParams]);
 
   // ✅ 로고 클릭: 루트 대표 문서(ID=73) 강제 오픈
   useEffect(() => {
