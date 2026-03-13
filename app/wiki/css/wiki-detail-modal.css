@@ -31,7 +31,7 @@ body.rd-modal-open {
 
 /* ───────── 모달 본체 ───────── */
 .npc-modal-main {
-  width: auto;
+  width: 1100px;
   min-height: 500px;
   background: #fff;
   border-radius: 24px;
@@ -42,7 +42,7 @@ body.rd-modal-open {
     0 10px 24px rgba(15, 23, 42, 0.1);
   display: grid;
   grid-template-columns: 620px 1fr;
-  align-items: stretch;
+  align-items: center;
   position: relative;
   font-family:
     "NanumSquareRound",
@@ -366,7 +366,7 @@ body.rd-modal-open {
 /* ───────── quest 줄바꿈 허용 ───────── */
 .npc-modal-right .mgr-pill-row--quest {
   min-height: 28px !important;
-  border-radius: 10px !important;
+  border-radius: 999px !important;
 }
 
 .npc-modal-right .mgr-pill-row--quest .mgr-pill-label {
