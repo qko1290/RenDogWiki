@@ -139,6 +139,47 @@ function normalizeTag(raw: string) {
   return String(raw ?? '').replace(/^#+\s*/, '').trim();
 }
 
+function escapeRegexChar(ch: string) {
+  return ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function makeLooseRegex(keyword: string) {
+  const compact = normalizeSearchText(keyword);
+  if (!compact) return null;
+
+  try {
+    return new RegExp(compact.split('').map(escapeRegexChar).join('.*'), 'i');
+  } catch {
+    return null;
+  }
+}
+
+function isTagMatched(tag: string, keyword: string) {
+  const cleanTag = normalizeTag(tag);
+  const q = String(keyword ?? '').trim();
+
+  if (!cleanTag || !q) return false;
+
+  const lowerTag = cleanTag.toLowerCase();
+  const lowerQ = q.toLowerCase();
+
+  // 1) 일반 포함
+  if (lowerTag.includes(lowerQ)) return true;
+
+  // 2) 공백 제거 포함
+  const compactTag = normalizeSearchText(cleanTag);
+  const compactQ = normalizeSearchText(q);
+  if (compactQ && compactTag.includes(compactQ)) return true;
+
+  // 3) 비연속 글자 매칭
+  if (compactQ.length >= 2) {
+    const loose = makeLooseRegex(q);
+    if (loose && loose.test(compactTag)) return true;
+  }
+
+  return false;
+}
+
 // -------------------- component --------------------
 type Props = {
   /** 헤더 안 정렬: center | left */
@@ -421,7 +462,8 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
                   // ✅ 오른쪽 태그: # 제거 + 빈 값 제거
                   const cleanTags = (res.tags ?? [])
                     .map(normalizeTag)
-                    .filter(Boolean);
+                    .filter(Boolean)
+                    .filter((tag) => isTagMatched(tag, query));
 
                   return (
                     <li
