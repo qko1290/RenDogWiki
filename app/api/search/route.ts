@@ -1,24 +1,11 @@
 // =============================================
 // File: app/api/search/route.ts
 // (전체 코드)
-// - 띄어쓰기 무시 검색 지원
-//   예)
-//   - "초월 퀘스트" 문서를 "초월퀘"로 검색 가능
-//   - "초월퀘스트" 문서를 "초월 퀘"로 검색 가능
-// - 제목(title), 태그(tags), 본문(content) 모두 동일 규칙 적용
-// - 우선순위 병합: title > tags > content
+// - pg_trgm 기반 유사 검색 + 띄어쓰기 무시 검색 지원
+// - title / tags 에만 적용
+// - content 검색 완전 제외
+// - 우선순위 병합: title > tags
 // =============================================
-/**
- * 위키 문서 통합 검색
- * - GET 쿼리 ->
- *   - query: 검색어(필수, 부분 일치)
- *   - limit: 1~500 (기본 200)
- * - 검색 대상 -> 제목(title), 태그(tags), 본문(content)
- * - 띄어쓰기 무시 검색 지원
- * - 중복 문서는 우선순위로 1회만 반환 -> title > tags > content
- * - 정렬 -> 각 범주 내 updated_at DESC, 병합 후 limit 적용
- * - 응답은 캐시 금지
- */
 
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/wiki/lib/db";
@@ -27,36 +14,81 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+type SearchRow = {
+  id: number;
+  title: string;
+  path: string | number;
+  icon?: string | null;
+  tags?: string | string[] | null;
+  match_type: "title" | "tags";
+  category_breadcrumb?: string | null;
+  score?: number | null;
+};
+
 function compactSearchText(v: string) {
-  return String(v ?? "").replace(/\s+/g, "");
+  return String(v ?? "")
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .trim();
+}
+
+function normalizeSearchText(v: string) {
+  return String(v ?? "").toLowerCase().trim();
+}
+
+function shouldUseTrgm(raw: string) {
+  return compactSearchText(raw).length >= 3;
+}
+
+function parseTags(raw: unknown): string[] {
+  if (Array.isArray(raw)) {
+    return raw.map((v) => String(v ?? "").trim()).filter(Boolean);
+  }
+
+  if (typeof raw === "string") {
+    const s = raw.trim();
+    if (!s) return [];
+
+    // postgres text[] 문자열 대응: {a,b,c}
+    if (s.startsWith("{") && s.endsWith("}")) {
+      return s
+        .slice(1, -1)
+        .split(",")
+        .map((v) => v.replace(/^"(.*)"$/, "$1").trim())
+        .filter(Boolean);
+    }
+
+    return s
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean);
+  }
+
+  return [];
 }
 
 export async function GET(req: NextRequest) {
   try {
-    // 1) 파라미터 파싱
     const sp = req.nextUrl.searchParams;
     const raw = (sp.get("query") ?? "").trim();
     const lim = Number(sp.get("limit"));
-    const limit = Number.isFinite(lim) ? Math.min(500, Math.max(1, Math.trunc(lim))) : 200;
+    const limit = Number.isFinite(lim)
+      ? Math.min(500, Math.max(1, Math.trunc(lim)))
+      : 50;
 
     if (!raw) {
-      return NextResponse.json([], { headers: { "Cache-Control": "no-store" } });
+      return NextResponse.json([], {
+        headers: { "Cache-Control": "no-store" },
+      });
     }
 
-    // ✅ 일반 패턴 + 공백 제거 패턴 둘 다 준비
+    const normalizedRaw = normalizeSearchText(raw);
     const compactRaw = compactSearchText(raw);
     const pattern = `%${raw}%`;
     const compactPattern = `%${compactRaw}%`;
+    const useTrgm = shouldUseTrgm(raw);
 
-    /**
-     * ✅ path(예: "12/34/56" 또는 "12/34/56/문서슬러그")에서
-     *   숫자 조각만 뽑아 categories.id에 조인 → categories.name을 순서대로 string_agg
-     *   => "루트 > ... > 직접 소속 카테고리"
-     *
-     * - path 마지막이 문서 slug(문자열)면 숫자 필터에서 자동 제외됨
-     * - path 마지막이 문서 id(숫자)여도 categories에 없으면 JOIN에서 자동 제외됨
-     */
-    const breadcrumbExpr = sql/*sql*/`
+    const breadcrumbExpr = sql/* sql */ `
       (
         WITH parts AS (
           SELECT regexp_split_to_array(
@@ -77,82 +109,90 @@ export async function GET(req: NextRequest) {
       )
     `;
 
-    // 2) title 검색
-    // ✅ 일반 검색 + 공백 제거 검색 동시 지원
-    const titleRows = await sql/*sql*/`
+    // 1) 제목 검색
+    const titleRows = await sql<SearchRow[]>/* sql */ `
       SELECT
-        id, title, path, icon, tags,
+        d.id,
+        d.title,
+        d.path,
+        d.icon,
+        d.tags,
         'title' AS match_type,
-        ${breadcrumbExpr} AS category_breadcrumb
-      FROM documents
-      WHERE
-        title ILIKE ${pattern}
-        OR regexp_replace(COALESCE(title, ''), '\\s+', '', 'g') ILIKE ${compactPattern}
-      ORDER BY updated_at DESC NULLS LAST, id DESC
-      LIMIT ${limit}
-    `;
-
-    // 3) tags 검색
-    const tagRows = await sql/*sql*/`
-      SELECT
-        id, title, path, icon, tags,
-        'tags' AS match_type,
-        ${breadcrumbExpr} AS category_breadcrumb
-      FROM documents
-      WHERE
-        tags ILIKE ${pattern}
-        OR regexp_replace(COALESCE(tags, ''), '\\s+', '', 'g') ILIKE ${compactPattern}
-      ORDER BY updated_at DESC NULLS LAST, id DESC
-      LIMIT ${limit}
-    `;
-
-    // 4) 본문 검색
-    // ✅ 본문도 공백 제거 검색 지원
-    const contentRows = await sql/*sql*/`
-      SELECT
-        d.id, d.title, d.path, d.icon, d.tags,
-        'content' AS match_type,
-        LEFT(REGEXP_REPLACE(dc.content, '\\s+', ' ', 'g'), 1024) AS content,
-        (
-          WITH parts AS (
-            SELECT regexp_split_to_array(
-              regexp_replace(COALESCE((d.path)::text, ''), '^/+|/+$', '', 'g'),
-              '/+'
-            ) AS pp
-          ),
-          ids AS (
-            SELECT
-              (pp[i])::bigint AS cid,
-              i AS ord
-            FROM parts, generate_subscripts(pp, 1) AS g(i)
-            WHERE pp[i] ~ '^[0-9]+$'
-          )
-          SELECT COALESCE(string_agg(c.name, ' > ' ORDER BY ids.ord), '')
-          FROM ids
-          JOIN categories c ON c.id = ids.cid
-        ) AS category_breadcrumb
+        ${breadcrumbExpr} AS category_breadcrumb,
+        GREATEST(
+          CASE
+            WHEN LOWER(COALESCE(d.title, '')) = ${normalizedRaw} THEN 100
+            WHEN LOWER(COALESCE(d.title, '')) LIKE LOWER(${pattern}) THEN 80
+            WHEN regexp_replace(LOWER(COALESCE(d.title, '')), '\\s+', '', 'g') LIKE ${compactPattern} THEN 72
+            ELSE 0
+          END,
+          CASE
+            WHEN ${useTrgm}
+              THEN similarity(LOWER(COALESCE(d.title, '')), ${normalizedRaw}) * 60
+            ELSE 0
+          END
+        ) AS score
       FROM documents d
-      JOIN document_contents dc ON d.id = dc.document_id
       WHERE
-        dc.content ILIKE ${pattern}
-        OR regexp_replace(COALESCE(dc.content, ''), '\\s+', '', 'g') ILIKE ${compactPattern}
-      ORDER BY d.updated_at DESC NULLS LAST, d.id DESC
+        LOWER(COALESCE(d.title, '')) LIKE LOWER(${pattern})
+        OR regexp_replace(LOWER(COALESCE(d.title, '')), '\\s+', '', 'g') LIKE ${compactPattern}
+        OR (
+          ${useTrgm}
+          AND similarity(LOWER(COALESCE(d.title, '')), ${normalizedRaw}) >= 0.2
+        )
+      ORDER BY score DESC, d.updated_at DESC NULLS LAST, d.id DESC
       LIMIT ${limit}
     `;
 
-    // 5) 우선순위 병합 (title > tags > content)
-    const seen = new Set<number>();
-    const merged: any[] = [];
+    // 2) 태그 검색
+    const tagRows = await sql<SearchRow[]>/* sql */ `
+      SELECT
+        d.id,
+        d.title,
+        d.path,
+        d.icon,
+        d.tags,
+        'tags' AS match_type,
+        ${breadcrumbExpr} AS category_breadcrumb,
+        GREATEST(
+          CASE
+            WHEN LOWER(COALESCE(d.tags::text, '')) LIKE LOWER(${pattern}) THEN 60
+            WHEN regexp_replace(LOWER(COALESCE(d.tags::text, '')), '\\s+', '', 'g') LIKE ${compactPattern} THEN 54
+            ELSE 0
+          END,
+          CASE
+            WHEN ${useTrgm}
+              THEN similarity(LOWER(COALESCE(d.tags::text, '')), ${normalizedRaw}) * 45
+            ELSE 0
+          END
+        ) AS score
+      FROM documents d
+      WHERE
+        LOWER(COALESCE(d.tags::text, '')) LIKE LOWER(${pattern})
+        OR regexp_replace(LOWER(COALESCE(d.tags::text, '')), '\\s+', '', 'g') LIKE ${compactPattern}
+        OR (
+          ${useTrgm}
+          AND similarity(LOWER(COALESCE(d.tags::text, '')), ${normalizedRaw}) >= 0.2
+        )
+      ORDER BY score DESC, d.updated_at DESC NULLS LAST, d.id DESC
+      LIMIT ${limit}
+    `;
 
-    const pushUnique = (rows: any[]) => {
+    // 3) 우선순위 병합 (title > tags)
+    const seen = new Set<number>();
+    const merged: SearchRow[] = [];
+
+    const pushUnique = (rows: SearchRow[]) => {
       for (const row of rows) {
         const id = Number(row.id);
         if (seen.has(id)) continue;
 
         merged.push({
           ...row,
-          tags: row.tags ? String(row.tags).split(",") : [],
-          category_breadcrumb: row.category_breadcrumb ? String(row.category_breadcrumb) : "",
+          tags: parseTags(row.tags),
+          category_breadcrumb: row.category_breadcrumb
+            ? String(row.category_breadcrumb)
+            : "",
         });
 
         seen.add(id);
@@ -160,17 +200,20 @@ export async function GET(req: NextRequest) {
       }
     };
 
-    pushUnique(titleRows as any[]);
-    if (merged.length < limit) pushUnique(tagRows as any[]);
-    if (merged.length < limit) pushUnique(contentRows as any[]);
+    pushUnique(titleRows ?? []);
+    if (merged.length < limit) pushUnique(tagRows ?? []);
 
-    // 6) 응답
-    return NextResponse.json(merged, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json(merged, {
+      headers: { "Cache-Control": "no-store" },
+    });
   } catch (err) {
     console.error("[search GET] unexpected error:", err);
     return NextResponse.json(
       { error: "server error" },
-      { status: 500, headers: { "Cache-Control": "no-store" } }
+      {
+        status: 500,
+        headers: { "Cache-Control": "no-store" },
+      }
     );
   }
 }
