@@ -32,6 +32,13 @@ type FaqItem = {
   updated_at?: string;
 };
 
+type QuestNpcResult = {
+  id: number;
+  name: string;
+  icon?: string | null;
+  village_name?: string | null;
+};
+
 // -------------------- utils --------------------
 function normalizeSearchText(v: string) {
   return String(v ?? '')
@@ -186,15 +193,24 @@ type Props = {
   align?: 'center' | 'left';
   /** 박스 너비 (CSS 값). 기본: min(720px, 56vw) */
   width?: string;
+  /** 퀘스트 NPC 클릭 시 상위에서 모달 열기 */
+  onQuestNpcClick?: (id: number) => void;
 };
 
-export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)' }: Props) {
+export default function SearchBox({
+  align = 'center',
+  width = 'min(720px, 56vw)',
+  onQuestNpcClick,
+}: Props) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
 
   // 문서
   const [docs, setDocs] = useState<DocResult[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
+
+  const [questNpcs, setQuestNpcs] = useState<QuestNpcResult[]>([]);
+  const [loadingQuestNpcs, setLoadingQuestNpcs] = useState(false);
 
   // FAQ
   const [faqs, setFaqs] = useState<FaqItem[]>([]);
@@ -207,6 +223,7 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
   const wrapRef = useRef<HTMLDivElement>(null);
 
   const abortDocsRef = useRef<AbortController | null>(null);
+  const abortQuestNpcRef = useRef<AbortController | null>(null);
   const abortFaqRef = useRef<AbortController | null>(null);
   const timerRef = useRef<number | null>(null);
 
@@ -226,6 +243,24 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
 
   const docsCount = sortedDocs.length;
 
+  const combinedDocItems = useMemo(() => {
+    const docItems = sortedDocs.map((doc) => ({
+      kind: 'doc' as const,
+      id: doc.id,
+      data: doc,
+    }));
+
+    const questItems = questNpcs.map((npc) => ({
+      kind: 'quest' as const,
+      id: npc.id,
+      data: npc,
+    }));
+
+    return [...docItems, ...questItems];
+  }, [sortedDocs, questNpcs]);
+
+  const combinedCount = combinedDocItems.length;
+
   // ===== 디바운스 & 동시 fetch(문서 + FAQ) =====
   useEffect(() => {
     const q = query.trim();
@@ -233,9 +268,11 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
     if (!q) {
       setOpen(false);
       setDocs([]);
+      setQuestNpcs([]);
       setFaqs([]);
       setActiveDocIndex(-1);
       if (abortDocsRef.current) abortDocsRef.current.abort();
+      if (abortQuestNpcRef.current) abortQuestNpcRef.current.abort();
       if (abortFaqRef.current) abortFaqRef.current.abort();
       return;
     }
@@ -247,6 +284,34 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
       const acDocs = new AbortController();
       abortDocsRef.current = acDocs;
       setLoadingDocs(true);
+
+      // --- 퀘스트 NPC 요청 ---
+      if (abortQuestNpcRef.current) abortQuestNpcRef.current.abort();
+      const acQuestNpc = new AbortController();
+      abortQuestNpcRef.current = acQuestNpc;
+      setLoadingQuestNpcs(true);
+
+      (async () => {
+        try {
+          const res = await fetch(
+            `/api/search/quest?query=${encodeURIComponent(q)}&limit=20`,
+            {
+              signal: acQuestNpc.signal,
+              cache: 'no-store',
+            }
+          );
+          if (!res.ok) throw new Error('quest-search-failed');
+          const data = (await res.json()) as QuestNpcResult[];
+          setQuestNpcs(Array.isArray(data) ? data : []);
+        } catch (e: any) {
+          if (e?.name !== 'AbortError') {
+            setQuestNpcs([]);
+          }
+        } finally {
+          setLoadingQuestNpcs(false);
+        }
+      })();
+
 
       (async () => {
         try {
@@ -326,24 +391,46 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
     router.push(`/wiki?path=${encodeURIComponent(res.path)}&title=${encodeURIComponent(res.title)}`);
   };
 
+  const openQuestNpc = (npc: QuestNpcResult | null) => {
+    if (!npc) return;
+
+    setOpen(false);
+    setQuery('');
+    setDocs([]);
+    setQuestNpcs([]);
+    setFaqs([]);
+    setActiveDocIndex(-1);
+
+    onQuestNpcClick?.(npc.id);
+  };
+
   // 키보드(문서 리스트 포커스)
   const onKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
-    if (!open || (!docsCount && e.key !== 'Escape')) {
+    if (!open || (!combinedCount && e.key !== 'Escape')) {
       if (e.key === 'Escape') {
         setOpen(false);
         setActiveDocIndex(-1);
       }
       return;
     }
+
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setActiveDocIndex((i) => (docsCount ? (i + 1) % docsCount : -1));
+      setActiveDocIndex((i) => (combinedCount ? (i + 1) % combinedCount : -1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setActiveDocIndex((i) => (docsCount ? (i - 1 + docsCount) % docsCount : -1));
+      setActiveDocIndex((i) => (combinedCount ? (i - 1 + combinedCount) % combinedCount : -1));
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      goDoc(sortedDocs[activeDocIndex] ?? sortedDocs[0] ?? null);
+
+      const picked = combinedDocItems[activeDocIndex] ?? combinedDocItems[0] ?? null;
+      if (!picked) return;
+
+      if (picked.kind === 'doc') {
+        goDoc(picked.data);
+      } else {
+        openQuestNpc(picked.data);
+      }
     } else if (e.key === 'Escape') {
       e.preventDefault();
       setOpen(false);
@@ -378,7 +465,7 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
         value={query}
         onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
         onChange={(e) => setQuery(e.target.value)}
-        onFocus={() => (docs.length || faqs.length) && setOpen(true)}
+        onFocus={() => (docs.length || questNpcs.length || faqs.length) && setOpen(true)}
         onKeyDown={onKeyDown}
         autoComplete="off"
         autoCorrect="off"
@@ -387,8 +474,8 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
         aria-autocomplete="list"
         aria-controls={listId}
         aria-activedescendant={
-          activeDocIndex >= 0 && sortedDocs[activeDocIndex]
-            ? `${listId}-opt-${sortedDocs[activeDocIndex].id}`
+          activeDocIndex >= 0 && combinedDocItems[activeDocIndex]
+            ? `${listId}-opt-${combinedDocItems[activeDocIndex].kind}-${combinedDocItems[activeDocIndex].id}`
             : undefined
         }
       />
@@ -410,9 +497,10 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
             overflow: 'auto',
           }}
         >
-          {(loadingDocs || loadingFaqs) && (
+          {(loadingDocs || loadingQuestNpcs || loadingFaqs) && (
             <div style={{ color: '#9aa1ac', fontSize: 13, padding: '6px 2px 8px' }}>
-              {loadingDocs ? '문서 검색 중…' : ''} {loadingDocs && loadingFaqs ? '·' : ' '}
+              {loadingDocs ? '문서 검색 중… ' : ''}
+              {loadingQuestNpcs ? '퀘스트 검색 중… ' : ''}
               {loadingFaqs ? 'FAQ 검색 중…' : ''}
             </div>
           )}
@@ -430,7 +518,7 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
             <div style={{ borderRight: '1px solid #f0f2f5', paddingRight: 8 }}>
               <div style={{ fontWeight: 800, fontSize: 13, color: '#556070', marginBottom: 6 }}>문서</div>
 
-              {!loadingDocs && sortedDocs.length === 0 && (
+              {!loadingDocs && !loadingQuestNpcs && combinedDocItems.length === 0 && (
                 <div style={{ color: '#9aa1ac', fontSize: 14, padding: '6px 4px' }}>결과가 없습니다.</div>
               )}
 
@@ -445,38 +533,160 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
                   overflowY: 'auto',
                 }}
               >
-                {sortedDocs.map((res, idx) => {
+                {combinedDocItems.map((item, idx) => {
                   const selected = idx === activeDocIndex;
 
-                  // content 스니펫
-                  let contentSnippet: string | null = null;
-                  if (res.match_type === 'content') {
-                    try {
-                      const slate = typeof res.content === 'string' ? JSON.parse(res.content) : res.content;
-                      contentSnippet = extractSlateSnippet(slate, query);
-                    } catch {
-                      contentSnippet = null;
+                  if (item.kind === 'doc') {
+                    const res = item.data;
+
+                    let contentSnippet: string | null = null;
+                    if (res.match_type === 'content') {
+                      try {
+                        const slate = typeof res.content === 'string' ? JSON.parse(res.content) : res.content;
+                        contentSnippet = extractSlateSnippet(slate, query);
+                      } catch {
+                        contentSnippet = null;
+                      }
                     }
+
+                    const cleanTags = (res.tags ?? [])
+                      .map(normalizeTag)
+                      .filter(Boolean)
+                      .filter((tag) => isTagMatched(tag, query));
+
+                    return (
+                      <li
+                        id={`${listId}-opt-doc-${res.id}`}
+                        role="option"
+                        aria-selected={selected}
+                        key={`doc-${res.id}`}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          padding: '11px 12px',
+                          cursor: 'pointer',
+                          borderBottom: idx !== combinedDocItems.length - 1 ? '1px solid #f5f6fa' : undefined,
+                          background: selected ? 'rgba(24,118,247,0.06)' : 'transparent',
+                          fontSize: 15,
+                          lineHeight: 1.3,
+                          gap: 10,
+                          borderRadius: 8,
+                        }}
+                        onMouseEnter={() => setActiveDocIndex(idx)}
+                        onClick={() => goDoc(res)}
+                      >
+                        <span style={{ marginRight: 8, fontSize: 20 }}>
+                          {res.icon ? (
+                            isImageLike(res.icon) ? (
+                              <img
+                                src={isRemoteHttp(res.icon) ? toProxyUrl(res.icon) : res.icon}
+                                alt=""
+                                width={22}
+                                height={22}
+                                style={{ width: 22, height: 22, objectFit: 'cover' }}
+                                loading="lazy"
+                                decoding="async"
+                                draggable={false}
+                              />
+                            ) : (
+                              res.icon
+                            )
+                          ) : (
+                            '📄'
+                          )}
+                        </span>
+
+                        <div style={{ minWidth: 0, flex: 1, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ fontWeight: 700, fontSize: 16 }}>{highlight(res.title, query)}</div>
+
+                            {!!res.category_breadcrumb && (
+                              <div
+                                style={{
+                                  marginTop: 4,
+                                  fontSize: 12,
+                                  color: '#8a93a3',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                                title={res.category_breadcrumb}
+                              >
+                                {res.category_breadcrumb}
+                              </div>
+                            )}
+
+                            {res.match_type === 'content' && contentSnippet && (
+                              <div
+                                style={{
+                                  color: '#667085',
+                                  fontSize: 13,
+                                  marginTop: 6,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {highlight(contentSnippet, query)}
+                              </div>
+                            )}
+                          </div>
+
+                          {cleanTags.length > 0 && (
+                            <div
+                              style={{
+                                flex: '0 0 auto',
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                justifyContent: 'flex-end',
+                                gap: 6,
+                                maxWidth: 180,
+                                marginTop: 2,
+                              }}
+                            >
+                              {cleanTags.map((t, i) => (
+                                <span
+                                  key={`${t}-${i}`}
+                                  style={{
+                                    fontSize: 12,
+                                    color: '#198544',
+                                    background: '#ecfdf3',
+                                    border: '1px solid #d1fadf',
+                                    borderRadius: 999,
+                                    padding: '2px 8px',
+                                    lineHeight: 1.4,
+                                    maxWidth: 180,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                  title={t}
+                                >
+                                  {highlight(t, query)}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </li>
+                    );
                   }
 
-                  // ✅ 오른쪽 태그: # 제거 + 빈 값 제거
-                  const cleanTags = (res.tags ?? [])
-                    .map(normalizeTag)
-                    .filter(Boolean)
-                    .filter((tag) => isTagMatched(tag, query));
+                  const npc = item.data;
+                  const villageName = String(npc.village_name ?? '').trim();
 
                   return (
                     <li
-                      id={`${listId}-opt-${res.id}`}
+                      id={`${listId}-opt-quest-${npc.id}`}
                       role="option"
                       aria-selected={selected}
-                      key={`doc-${res.id}`}
+                      key={`quest-${npc.id}`}
                       style={{
                         display: 'flex',
                         alignItems: 'flex-start',
                         padding: '11px 12px',
                         cursor: 'pointer',
-                        borderBottom: idx !== sortedDocs.length - 1 ? '1px solid #f5f6fa' : undefined,
+                        borderBottom: idx !== combinedDocItems.length - 1 ? '1px solid #f5f6fa' : undefined,
                         background: selected ? 'rgba(24,118,247,0.06)' : 'transparent',
                         fontSize: 15,
                         lineHeight: 1.3,
@@ -484,13 +694,13 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
                         borderRadius: 8,
                       }}
                       onMouseEnter={() => setActiveDocIndex(idx)}
-                      onClick={() => goDoc(res)}
+                      onClick={() => openQuestNpc(npc)}
                     >
                       <span style={{ marginRight: 8, fontSize: 20 }}>
-                        {res.icon ? (
-                          isImageLike(res.icon) ? (
+                        {npc.icon ? (
+                          isImageLike(npc.icon ?? undefined) ? (
                             <img
-                              src={isRemoteHttp(res.icon) ? toProxyUrl(res.icon) : res.icon}
+                              src={isRemoteHttp(npc.icon ?? undefined) ? toProxyUrl(npc.icon as string) : (npc.icon as string)}
                               alt=""
                               width={22}
                               height={22}
@@ -500,53 +710,33 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
                               draggable={false}
                             />
                           ) : (
-                            res.icon
+                            npc.icon
                           )
                         ) : (
-                          '📄'
+                          '🧑'
                         )}
                       </span>
 
-                      {/* ✅ 본문(왼쪽) + 태그(오른쪽) 2영역 */}
                       <div style={{ minWidth: 0, flex: 1, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                        {/* 왼쪽: 제목/브레드크럼/스니펫 */}
                         <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ fontWeight: 700, fontSize: 16 }}>{highlight(res.title, query)}</div>
+                          <div style={{ fontWeight: 700, fontSize: 16 }}>{highlight(npc.name, query)}</div>
 
-                          {!!res.category_breadcrumb && (
-                            <div
-                              style={{
-                                marginTop: 4,
-                                fontSize: 12,
-                                color: '#8a93a3',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                              }}
-                              title={res.category_breadcrumb}
-                            >
-                              {res.category_breadcrumb}
-                            </div>
-                          )}
-
-                          {res.match_type === 'content' && contentSnippet && (
-                            <div
-                              style={{
-                                color: '#667085',
-                                fontSize: 13,
-                                marginTop: 6,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {highlight(contentSnippet, query)}
-                            </div>
-                          )}
+                          <div
+                            style={{
+                              marginTop: 4,
+                              fontSize: 12,
+                              color: '#8a93a3',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                            title="퀘스트"
+                          >
+                            퀘스트
+                          </div>
                         </div>
 
-                        {/* 오른쪽: 태그(항상 보여주되, 있으면) */}
-                        {cleanTags.length > 0 && (
+                        {villageName && (
                           <div
                             style={{
                               flex: '0 0 auto',
@@ -558,27 +748,24 @@ export default function SearchBox({ align = 'center', width = 'min(720px, 56vw)'
                               marginTop: 2,
                             }}
                           >
-                            {cleanTags.map((t, i) => (
-                              <span
-                                key={`${t}-${i}`}
-                                style={{
-                                  fontSize: 12,
-                                  color: '#198544',
-                                  background: '#ecfdf3',
-                                  border: '1px solid #d1fadf',
-                                  borderRadius: 999,
-                                  padding: '2px 8px',
-                                  lineHeight: 1.4,
-                                  maxWidth: 180,
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
-                                }}
-                                title={t}
-                              >
-                                {highlight(t, query)}
-                              </span>
-                            ))}
+                            <span
+                              style={{
+                                fontSize: 12,
+                                color: '#198544',
+                                background: '#ecfdf3',
+                                border: '1px solid #d1fadf',
+                                borderRadius: 999,
+                                padding: '2px 8px',
+                                lineHeight: 1.4,
+                                maxWidth: 180,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                              title={villageName}
+                            >
+                              {highlight(villageName, query)}
+                            </span>
                           </div>
                         )}
                       </div>

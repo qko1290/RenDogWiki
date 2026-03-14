@@ -20,7 +20,7 @@ type WikiHeaderProps = {
     minecraft_name: string;
     email: string;
   } | null;
-
+  onQuestNpcClick?: (id: number) => void;
   mobileCategoryOpen?: boolean;
   onToggleMobileCategory?: () => void;
   hideAdminMenu?: boolean;
@@ -46,6 +46,7 @@ export default function WikiHeader({
   mobileCategoryOpen = false,
   onToggleMobileCategory,
   hideAdminMenu = false,
+  onQuestNpcClick,
 }: WikiHeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [comingSoonOpen, setComingSoonOpen] = useState(false);
@@ -194,7 +195,7 @@ export default function WikiHeader({
             </div>
 
             <div className="wiki-search-container">
-              <SearchBox />
+              <SearchBox onQuestNpcClick={onQuestNpcClick} />
             </div>
           </div>
 

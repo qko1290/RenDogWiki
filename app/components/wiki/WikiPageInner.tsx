@@ -1656,6 +1656,7 @@ export default function WikiPageInner({ user }: Props) {
         mobileCategoryOpen={mobileCategoryOpen}
         onToggleMobileCategory={() => setMobileCategoryOpen((v) => !v)}
         hideAdminMenu={false}
+        onQuestNpcClick={(id) => handleWikiRefClick('quest', id)}
       />
 
       {/* ✅ 모바일 카테고리 오버레이 */}
