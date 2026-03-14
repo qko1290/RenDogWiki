@@ -2,8 +2,8 @@
 // File: app/wiki/lib/db.ts
 // (전체 코드)
 // - postgres 드라이버 singleton 구성
-// - Supabase Transaction Pooler 호환
-// - 연결 불안정 시 pool 압박을 줄이기 위해 max=1 유지
+// - Supabase Transaction Pooler(6543) 호환
+// - serverless 환경에서는 max=1로 보수 운영
 // =============================================
 
 import postgres from 'postgres';
@@ -30,13 +30,13 @@ function createSql(): SQL {
     prepare: false,
     ssl: 'require',
 
-    // pooler 압박 최소화
+    // Supabase 권장 방향: serverless/transaction mode에서는 1부터 시작
     max: 1,
 
-    // 오래 물고 있지 않게
+    // pooler 블립 시 오래 붙잡지 않게
     connect_timeout: 8,
 
-    // 유휴 연결 정리
+    // 유휴 연결은 짧게 정리
     idle_timeout: 10,
 
     onnotice: () => {},
@@ -45,7 +45,7 @@ function createSql(): SQL {
 
 export const sql: SQL = global.__wiki_sql__ ?? createSql();
 
-// production에서도 같은 인스턴스 내 재사용 가능하도록 보관
+// production에서도 같은 인스턴스 내 재사용
 global.__wiki_sql__ = sql;
 
 /** 트랜잭션 유틸 */

@@ -4,7 +4,8 @@
 // - 문서 단건 / 목록 / 전체 조회 / 삭제
 // - 단건은 documents + document_contents JOIN 1회 조회
 // - list/all 은 로컬 TTL 캐시 사용
-// - detail 은 항상 직접 조회(no-store)
+// - detail(id / path+title)도 짧은 stale cache 적용
+// - pooler 블립 시 마지막 정상 응답으로 버티도록 방어
 // =============================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -256,7 +257,17 @@ export async function GET(req: NextRequest) {
         );
       }
 
-      const data = await getDocById(id);
+      const data = await cached(
+        cacheKey('doc:detail:id', id),
+        {
+          ttlSec: 20,
+          tags: [docTag(id), 'doc:detail'],
+        },
+        async () => {
+          return await getDocById(id);
+        }
+      );
+
       if (!data) {
         return new NextResponse(null, {
           status: 204,
@@ -332,7 +343,17 @@ export async function GET(req: NextRequest) {
 
   try {
     const title = (titleRaw ?? '').trim();
-    const data = await getDocByPathAndTitle(path, title || undefined);
+
+    const data = await cached(
+      cacheKey('doc:detail:path-title', path, title || '__featured__'),
+      {
+        ttlSec: 20,
+        tags: ['doc:detail', listTag(path)],
+      },
+      async () => {
+        return await getDocByPathAndTitle(path, title || undefined);
+      }
+    );
 
     if (!data) {
       return new NextResponse(null, {
@@ -398,17 +419,20 @@ export async function DELETE(req: NextRequest) {
     await sql`DELETE FROM document_contents WHERE document_id = ${id}`;
     await sql`DELETE FROM documents WHERE id = ${id}`;
 
-    invalidate(docTag(id), 'doc:list', listTag(doc?.path));
+    // ✅ 상세 / 리스트 stale cache 모두 무효화
+    invalidate(docTag(id), 'doc:list', 'doc:detail', listTag(doc?.path));
 
     const user = getAuthUser();
-    const username = gate.dbUser.minecraft_name || gate.dbUser.username || 'unknown';
+    const username =
+      gate.dbUser.minecraft_name || gate.dbUser.username || 'unknown';
 
     let targetPathLabel: string | null = null;
     const p = doc?.path;
 
     if (p === 0 || p === '0') targetPathLabel = '루트 카테고리';
     else if (p == null) targetPathLabel = '루트 카테고리';
-    else if (/^\d+$/.test(String(p))) targetPathLabel = await resolveCategoryName(Number(p));
+    else if (/^\d+$/.test(String(p)))
+      targetPathLabel = await resolveCategoryName(Number(p));
     else targetPathLabel = String(p);
 
     await logActivity({

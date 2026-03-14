@@ -128,39 +128,20 @@ const NC: RequestInit = { cache: 'no-store' };
 // ---- 권한 체크(Writer+)
 function useCanWrite(user: Props['user']) {
   const [can, setCan] = useState(false);
+
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        if (!user) {
-          setCan(false);
-          return;
-        }
-        const r = await fetch('/api/auth/me', { cache: 'no-store' });
-        const me = r.ok ? await r.json() : null;
-        const role = (me?.role ?? me?.user?.role ?? '').toLowerCase?.() || '';
-        const roles: string[] = (
-          me?.roles ??
-          me?.user?.roles ??
-          me?.permissions ??
-          me?.user?.permissions ??
-          []
-        ).map((v: any) => String(v).toLowerCase());
-        // ✅ manager 제외
-        const ok =
-          role === 'admin' ||
-          role === 'writer' ||
-          roles.includes('admin') ||
-          roles.includes('writer');
-        if (!cancelled) setCan(!!ok);
-      } catch {
-        if (!cancelled) setCan(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    // ✅ 초기 진입에서 /api/auth/me를 자동 호출하지 않음
+    // pooler 불안정 시 불필요한 DB 요청 1개를 줄이는 목적
+    if (!user) {
+      setCan(false);
+      return;
+    }
+
+    // 로그인 사용자가 있어도 우선은 false로 두고,
+    // 실제 쓰기 액션이 필요할 때만 서버 검증으로 넘긴다.
+    setCan(false);
   }, [user?.id]);
+
   return can;
 }
 
@@ -851,32 +832,10 @@ export default function WikiPageInner({ user }: Props) {
         return;
       }
 
-      // ✅ 정말 없을 때만 fallback
-      try {
-        const res = await fetch(`/api/documents?id=${docId}`, {
-          cache: 'no-store',
-        });
-
-        if (!res.ok) throw new Error('대표 문서를 찾을 수 없습니다');
-
-        const doc = await res.json();
-
-        if (!doc || !doc.title) {
-          setSelectedDocId(null);
-          setSelectedDocTitle(null);
-          setSelectedDocPath([]);
-          setSelectedCategoryPath(path);
-          return;
-        }
-
-        await fetchDoc(path, doc.title, doc.id, {
-          clearCategoryPath: false,
-          forceRoot: path.length === 0,
-        });
-        return;
-      } catch (e) {
-        console.error('대표 문서 로드 실패', e);
-      }
+      // bootstrap 메타에 없으면 추가 DB fetch를 하지 않고 종료
+      // pooler 불안정 시 대표 문서 fallback 호출까지 겹치지 않게 한다.
+      console.warn('[togglePath] representative document metadata missing:', docId);
+      return;
     }
   };
 
@@ -1077,14 +1036,21 @@ export default function WikiPageInner({ user }: Props) {
     const reqId = ++docReqIdRef.current;
     setLoadingDoc(true);
 
+    // ✅ path/title 조회도 이전 요청 취소
+    docAbortRef.current?.abort();
+    const controller = new AbortController();
+    docAbortRef.current = controller;
+
     const pathParam = isRoot ? '0' : String(categoryPath.at(-1));
+
     fetch(
       withTs(
-        `/api/documents?path=${pathParam}&title=${encodeURIComponent(
-          docTitle,
-        )}`,
+        `/api/documents?path=${pathParam}&title=${encodeURIComponent(docTitle)}`
       ),
-      NC,
+      {
+        ...NC,
+        signal: controller.signal,
+      },
     )
       .then(res => {
         if (!res.ok) throw new Error('문서를 찾을 수 없습니다.');
@@ -1092,10 +1058,12 @@ export default function WikiPageInner({ user }: Props) {
       })
       .then(data => {
         if (!mountedRef.current || reqId !== docReqIdRef.current) return;
+
         const content: Descendant[] =
           typeof data.content === 'string'
             ? JSON.parse(data.content)
             : data.content;
+
         setDocContent(content);
         setTableOfContents(extractHeadings(content));
 
@@ -1112,7 +1080,6 @@ export default function WikiPageInner({ user }: Props) {
           setFaqTags([]);
         }
 
-        // 🔁 fullPath 기준으로 nextPath 계산 (없으면 기존 categoryPath/루트 사용)
         let nextPath: number[] = [];
         if (Array.isArray(data.fullPath)) {
           nextPath = [...data.fullPath];
@@ -1121,27 +1088,27 @@ export default function WikiPageInner({ user }: Props) {
         } else {
           nextPath = [...categoryPath];
         }
+
         setSelectedDocPath(nextPath);
         setHideDocChrome(Number(data?.id) === ROOT_FEATURED_DOC_ID);
         ensureOpenForDocPath(nextPath);
 
-        // ✅ 문서 로드 후 URL ?path=&title= 동기화
-        syncUrlWithDoc(
-          data.title ?? docTitle,
-          nextPath,
-          { history: isPopStateSyncRef.current ? 'replace' : 'push' }
-        );
+        syncUrlWithDoc(data.title ?? docTitle, nextPath, {
+          history: isPopStateSyncRef.current ? 'replace' : 'push',
+        });
         isPopStateSyncRef.current = false;
 
-        setLoadingDoc(false); // 성공 종료
+        setLoadingDoc(false);
       })
-      .catch(() => {
+      .catch((e: any) => {
+        if (e?.name === 'AbortError') return;
         if (!mountedRef.current || reqId !== docReqIdRef.current) return;
+
         setDocContent(null);
         setSpecialMeta(null);
         setFaqQuery('');
         setFaqTags([]);
-        setLoadingDoc(false); // 실패 종료
+        setLoadingDoc(false);
       });
   }
 
@@ -1805,7 +1772,7 @@ export default function WikiPageInner({ user }: Props) {
                     </h2>
                   </div>
 
-                  {isFaq && canWrite && (
+                  {isFaq && !!user && (
                     <FaqAddButton onClick={() => setShowNewFaq(true)} />
                   )}
                 </div>
