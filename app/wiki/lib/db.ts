@@ -3,7 +3,7 @@
 // (전체 코드)
 // - postgres 드라이버 singleton 구성
 // - Supabase Transaction Pooler 호환
-// - CONNECT_TIMEOUT 시 오래 물고 있지 않도록 timeout 단축
+// - 연결 불안정 시 pool 압박을 줄이기 위해 max=1 유지
 // =============================================
 
 import postgres from 'postgres';
@@ -30,26 +30,23 @@ function createSql(): SQL {
     prepare: false,
     ssl: 'require',
 
-    // 너무 낮으면 요청이 줄 서고, 너무 높으면 pooler를 더 압박할 수 있음.
-    // 현재는 2 정도로 소폭 완화.
-    max: 2,
+    // pooler 압박 최소화
+    max: 1,
 
-    // 장애 시 너무 오래 잡고 있지 않게 단축
+    // 오래 물고 있지 않게
     connect_timeout: 8,
 
     // 유휴 연결 정리
     idle_timeout: 10,
 
-    // notice 억제
     onnotice: () => {},
   }) as unknown as SQL;
 }
 
 export const sql: SQL = global.__wiki_sql__ ?? createSql();
 
-if (process.env.NODE_ENV !== 'production') {
-  global.__wiki_sql__ = sql;
-}
+// production에서도 같은 인스턴스 내 재사용 가능하도록 보관
+global.__wiki_sql__ = sql;
 
 /** 트랜잭션 유틸 */
 export async function withTx<T>(fn: (tx: SQL) => Promise<T>): Promise<T> {
