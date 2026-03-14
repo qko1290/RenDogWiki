@@ -5,7 +5,7 @@ import "./globals.css";
 import '@/wiki/css/fonts-kor.css';
 import { Analytics } from "@vercel/analytics/react";
 import logoImg from "./image/logo.png";
-import { useEffect } from "react";
+import Track from "./track";
 export const dynamic = 'force-dynamic';
 
 // NOTE: 배포 도메인을 환경변수로 설정하면 메타데이터/OG에 반영됩니다.
@@ -15,12 +15,6 @@ const inter = Inter({
   subsets: ["latin"],
   display: "swap",
 });
-
-useEffect(() => {
-  fetch("/api/track", {
-    method: "POST",
-  }).catch(() => {});
-}, []);
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -92,6 +86,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className={inter.className}>
         {children}
+        <Track />
         <Analytics />
       </body>
     </html>
