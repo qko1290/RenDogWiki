@@ -497,13 +497,6 @@ export default function SearchBox({
             overflow: 'auto',
           }}
         >
-          {(loadingDocs || loadingQuestNpcs || loadingFaqs) && (
-            <div style={{ color: '#9aa1ac', fontSize: 13, padding: '6px 2px 8px' }}>
-              {loadingDocs ? '문서 검색 중… ' : ''}
-              {loadingQuestNpcs ? '퀘스트 검색 중… ' : ''}
-              {loadingFaqs ? 'FAQ 검색 중…' : ''}
-            </div>
-          )}
 
           <div
             style={{
