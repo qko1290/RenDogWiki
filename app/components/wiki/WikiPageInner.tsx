@@ -726,14 +726,15 @@ export default function WikiPageInner({ user }: Props) {
     const titleParam = titleParamRaw ? titleParamRaw.replace(/_/g, ' ') : null;
     if (Number.isFinite(idParam) && idParam > 0) {
       const meta = allDocuments.find((d) => d.id === idParam) ?? null;
+      const fullPath = Array.isArray(meta?.fullPath) ? meta.fullPath : null;
       const isRoot =
         Number(meta?.path) === 0 ||
-        (Array.isArray(meta?.fullPath) && meta.fullPath.length === 0);
+        (Array.isArray(fullPath) && fullPath.length === 0);
 
       setSelectedCategoryPath(null);
       setSelectedDocId(idParam);
       setSelectedDocTitle(meta?.title ?? titleParam ?? null);
-      setSelectedDocPath(isRoot ? [] : meta?.fullPath ?? null);
+      setSelectedDocPath(isRoot ? [] : fullPath);
       void fetchDocById(idParam, { hideChrome: isRoot });
       return;
     }
