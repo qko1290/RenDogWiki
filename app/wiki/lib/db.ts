@@ -1,116 +1,166 @@
 // =============================================
 // File: app/wiki/lib/db.ts
 // (전체 코드)
-// - postgres 드라이버 singleton 구성
-// - Supabase Transaction Pooler(6543) 호환
-// - serverless 환경에서는 max=1로 보수 운영
-// - CONNECT_TIMEOUT 계열 읽기 쿼리 1회 재시도 유틸 제공
+// - postgres singleton
+// - pooled(기본) / direct(테스트용) 연결 분기
+// - serverless 환경 보수 설정
+// - 읽기 쿼리 재시도 유틸 제공
+// - 기존 코드 호환용 runDbRead export 포함
 // =============================================
 
-import postgres from 'postgres';
+import postgres, { type Sql } from 'postgres';
 
-function getDbUrl(): string {
-  const url = process.env.DATABASE_URL;
-  if (!url) {
-    throw new Error('DATABASE_URL is not set');
+function getRequiredEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`${name} is not set`);
   }
-  return url;
+  return value;
 }
 
-const DB_URL = getDbUrl();
+function getDbConfig() {
+  const mode = (process.env.DB_CONNECTION_MODE ?? 'pooled').toLowerCase();
 
-export type SQL = ReturnType<typeof postgres>;
+  if (mode === 'direct') {
+    return {
+      mode: 'direct' as const,
+      url: getRequiredEnv('DIRECT_DB_URL'),
+    };
+  }
+
+  return {
+    mode: 'pooled' as const,
+    url: getRequiredEnv('DATABASE_URL'),
+  };
+}
+
+const DB = getDbConfig();
+
+export type SQL = Sql;
 
 declare global {
   // eslint-disable-next-line no-var
   var __wiki_sql__: SQL | undefined;
+  // eslint-disable-next-line no-var
+  var __wiki_db_mode__: 'pooled' | 'direct' | undefined;
+}
+
+function createSql(): SQL {
+  return postgres(DB.url, {
+    prepare: false,
+    ssl: 'require',
+    max: 1,
+    connect_timeout: 5,
+    idle_timeout: 10,
+    onnotice: () => {},
+  });
+}
+
+export const sql: SQL =
+  global.__wiki_sql__ && global.__wiki_db_mode__ === DB.mode
+    ? global.__wiki_sql__
+    : createSql();
+
+global.__wiki_sql__ = sql;
+global.__wiki_db_mode__ = DB.mode;
+
+/**
+ * 트랜잭션 유틸
+ * postgres 타입과 충돌하지 않게 내부 tx는 unknown -> SQL로 단언
+ */
+export async function withTx<T>(fn: (tx: SQL) => Promise<T>): Promise<T> {
+  return sql.begin(async (tx) => {
+    return fn(tx as unknown as SQL);
+  }) as Promise<T>;
+}
+
+/**
+ * 단일 행 유틸
+ * RowList -> unknown -> T[] 로 명시 변환
+ */
+export async function one<T>(
+  strings: TemplateStringsArray,
+  ...values: any[]
+): Promise<T | null> {
+  const rows = (await sql(strings, ...values)) as unknown as T[];
+  return rows[0] ?? null;
+}
+
+type DbErrorLike = {
+  code?: string;
+  errno?: string;
+  message?: string;
+};
+
+export function isTransientDbError(err: unknown): boolean {
+  const e = (err ?? {}) as DbErrorLike;
+  const code = e.code ?? e.errno;
+  const message = String(e.message ?? '');
+
+  return (
+    code === 'CONNECT_TIMEOUT' ||
+    code === 'ECONNRESET' ||
+    code === 'ETIMEDOUT' ||
+    code === 'EPIPE' ||
+    message.includes('CONNECT_TIMEOUT') ||
+    message.includes('terminating connection') ||
+    message.includes('Connection refused') ||
+    message.includes('connection terminated unexpectedly')
+  );
 }
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export function isDbConnectTimeoutError(err: unknown) {
-  const e = err as any;
-  const msg = String(e?.message ?? '');
-  return (
-    e?.code === 'CONNECT_TIMEOUT' ||
-    e?.errno === 'CONNECT_TIMEOUT' ||
-    msg.includes('CONNECT_TIMEOUT')
-  );
-}
-
-function createSql(): SQL {
-  return postgres(DB_URL, {
-    prepare: false,
-    ssl: 'require',
-
-    // Supabase transaction pooler + serverless 조합에서는 과한 병렬 연결보다
-    // "같은 인스턴스에서 1개 연결 재사용"이 더 안정적이다.
-    max: 1,
-
-    // 장애 시 너무 오래 매달리지 않게 조기 실패
-    connect_timeout: 5,
-
-    // 유휴 연결은 짧게 정리
-    idle_timeout: 10,
-
-    onnotice: () => {},
-  }) as unknown as SQL;
-}
-
-export const sql: SQL = global.__wiki_sql__ ?? createSql();
-
-// production에서도 같은 인스턴스 내 재사용
-global.__wiki_sql__ = sql;
-
-export async function runDbRead<T>(
+export async function withDbRetry<T>(
   label: string,
   fn: () => Promise<T>,
-  options: {
-    retries?: number;
-    retryDelayMs?: number;
-  } = {}
+  retries = 1,
+  delayMs = 250
 ): Promise<T> {
-  const retries = options.retries ?? 1;
-  const retryDelayMs = options.retryDelayMs ?? 150;
-
+  let attempt = 0;
   let lastError: unknown;
 
-  for (let attempt = 0; attempt <= retries; attempt++) {
+  while (attempt <= retries) {
     try {
       return await fn();
     } catch (err) {
       lastError = err;
 
-      const canRetry = isDbConnectTimeoutError(err) && attempt < retries;
-      if (!canRetry) {
+      const retryable = isTransientDbError(err);
+      const hasNext = attempt < retries;
+
+      if (!retryable || !hasNext) {
         throw err;
       }
 
+      const e = (err ?? {}) as DbErrorLike;
+
       console.warn(
-        `[db] ${label} failed with CONNECT_TIMEOUT, retrying (${attempt + 1}/${retries})`
+        `[db] ${label} failed with ${e.code ?? e.errno ?? 'UNKNOWN'}, retrying (${attempt + 1}/${retries})`
       );
-      await sleep(retryDelayMs * (attempt + 1));
+
+      await sleep(delayMs);
+      attempt += 1;
     }
   }
 
   throw lastError;
 }
 
-/** 트랜잭션 유틸 */
-export async function withTx<T>(fn: (tx: SQL) => Promise<T>): Promise<T> {
-  return (sql as any).begin((tx: SQL) => fn(tx)) as Promise<T>;
+/**
+ * 기존 코드 호환용 별칭
+ */
+export async function runDbRead<T>(
+  label: string,
+  fn: () => Promise<T>,
+  retries = 1,
+  delayMs = 250
+): Promise<T> {
+  return withDbRetry(label, fn, retries, delayMs);
 }
 
-/** 단일 행 유틸 */
-export async function one<T = any>(
-  strings: TemplateStringsArray,
-  ...values: any[]
-): Promise<T | null> {
-  const rows = await runDbRead('one()', async () => {
-    return ((await (sql as any)(strings, ...values)) as T[]) ?? [];
-  });
-
-  return rows?.[0] ?? null;
+export function getDbMode(): 'pooled' | 'direct' {
+  return DB.mode;
 }
