@@ -1,10 +1,6 @@
 // =============================================
 // File: app/wiki/page.tsx
 // (전체 코드)
-// - 위키 메인 페이지
-// - 초기 진입에서 /api/auth/me를 즉시 호출하지 않음
-// - bootstrap/documents와 겹치지 않도록 약간 지연 후 사용자 정보 조회
-// - ✅ 실제 사용하는 app/wiki/WikiPageInner.tsx를 import
 // =============================================
 'use client';
 
@@ -12,17 +8,17 @@ import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import '@wiki/css/wiki.css';
 
+// ✅ 네 현재 구조 기준 실제 사용 경로로 맞춰야 함
+const WikiPageInner = dynamic(() => import('@/components/wiki/WikiPageInner'), {
+  ssr: false,
+});
+
 type User = {
   id: number;
   username: string;
   minecraft_name: string;
   email: string;
 } | null;
-
-// ✅ 경로 수정
-const WikiPageInner = dynamic(() => import('@/components/wiki/WikiPageInner'), {
-  ssr: false,
-});
 
 export default function WikiPage() {
   const [user, setUser] = useState<User>(null);
@@ -51,5 +47,9 @@ export default function WikiPage() {
     };
   }, []);
 
-  return <WikiPageInner user={user} />;
+  return (
+    <div className="wiki-app">
+      <WikiPageInner user={user} />
+    </div>
+  );
 }
