@@ -369,6 +369,7 @@ export default function WikiPageInner({ user }: Props) {
   // ⭐ 루트 문서는 문서 크롬(제목/브레드크럼) 숨김
   const [hideDocChrome, setHideDocChrome] = useState(false);
   const [loadingDoc, setLoadingDoc] = useState(false);
+  const [bootstrapReady, setBootstrapReady] = useState(false);
 
   // ---------- 전환 지연(딜레이) 상태 ----------
   const [delaying, setDelaying] = useState(false);
@@ -674,6 +675,7 @@ export default function WikiPageInner({ user }: Props) {
         });
         if (cancelled || !mountedRef.current) return;
         setAllDocuments(mapped);
+        setBootstrapReady(true);
 
         // 최초 뷰를 바로 렌더(대표 문서)
         if (featured?.id && featured?.content) {
@@ -697,6 +699,9 @@ export default function WikiPageInner({ user }: Props) {
         }
       } catch (e) {
         console.error('[bootstrap init] failed', e);
+        if (!cancelled && mountedRef.current) {
+          setBootstrapReady(true);
+        }
       }
     })();
     return () => {
@@ -707,6 +712,8 @@ export default function WikiPageInner({ user }: Props) {
   // 쿼리 진입: /wiki?path=...&title=...
   // ✅ allDocuments/카테고리 맵이 준비된 뒤 실행되며, 루트(path=0)는 id 우선 로딩
   useEffect(() => {
+    if (!bootstrapReady) return;
+
     if (ignoreNextUrlSyncRef.current) {
       ignoreNextUrlSyncRef.current = false;
       return;
@@ -759,7 +766,7 @@ export default function WikiPageInner({ user }: Props) {
         });
       }
     }
-  }, [searchParams, allDocuments, categoryIdToPathMap]);
+  }, [bootstrapReady, searchParams, allDocuments, categoryIdToPathMap]);
 
   const isPathOpen = (path: number[]) =>
     openPaths.some(p => pathToStr(p) === pathToStr(path)); // 비교 버그 수정
@@ -1487,6 +1494,7 @@ export default function WikiPageInner({ user }: Props) {
 
   // ✅ 초기 자동 오픈: 카테고리/문서 세팅 완료 후 "ID=73"
   useEffect(() => {
+    if (!bootstrapReady) return;
     if (!firstLoadRef.current) return;
     if (!mountedRef.current) return;
 
@@ -1526,7 +1534,7 @@ export default function WikiPageInner({ user }: Props) {
         delete (window as any).__wiki_root_open_cleanup;
       }
     };
-  }, [categories, allDocuments, selectedDocId, docContent, searchParams]);
+  }, [bootstrapReady, categories, allDocuments, selectedDocId, docContent, searchParams]);
 
   // ✅ 로고 클릭: 루트 대표 문서(ID=73) 강제 오픈
   useEffect(() => {
