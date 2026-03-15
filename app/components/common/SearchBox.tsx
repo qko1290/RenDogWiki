@@ -396,7 +396,9 @@ export default function SearchBox({
     setDocs([]);
     setFaqs([]);
     setActiveDocIndex(-1);
-    router.push(`/wiki?path=${encodeURIComponent(res.path)}&title=${encodeURIComponent(res.title)}`);
+    router.push(
+      `/wiki?id=${encodeURIComponent(res.id)}&path=${encodeURIComponent(res.path)}&title=${encodeURIComponent(res.title)}`
+    );
   };
 
   const openQuestNpc = (npc: QuestNpcResult | null) => {

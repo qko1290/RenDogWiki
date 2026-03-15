@@ -533,6 +533,9 @@ export default function WikiPageInner({ user }: Props) {
       const u = new URL(window.location.href);
 
       // path 보정
+      if (selectedDocId != null) {
+        u.searchParams.set('id', String(selectedDocId));
+      }
       if (!u.searchParams.get('path')) {
         if (Array.isArray(selectedDocPath) && selectedDocPath.length > 0) {
           u.searchParams.set('path', String(selectedDocPath[selectedDocPath.length - 1]));
@@ -677,8 +680,7 @@ export default function WikiPageInner({ user }: Props) {
         setAllDocuments(mapped);
         setBootstrapReady(true);
 
-        // 최초 뷰는 대표 문서 "메타만" 세팅하고,
-        // 본문은 /api/documents?id=... 로 별도 조회한다.
+        // 최초 뷰를 bootstrap 응답 하나로 바로 렌더
         if (featured?.id) {
           setHideDocChrome(true);
           setSelectedDocId(featured.id);
@@ -686,12 +688,12 @@ export default function WikiPageInner({ user }: Props) {
           setSelectedDocPath([]);
           setSelectedCategoryPath(null);
 
-          // ✅ bootstrap과 같은 tick에서 documents를 바로 안 치고 한 박자 미룸
-          setTimeout(() => {
-            if (!cancelled && mountedRef.current) {
-              void fetchDocById(featured.id, { hideChrome: true });
-            }
-          }, 0);
+          const initialContent: Descendant[] = Array.isArray(featured.content)
+            ? featured.content
+            : [];
+
+          setDocContent(initialContent);
+          setTableOfContents(extractHeadings(initialContent));
         }
       } catch (e) {
         console.error('[bootstrap init] failed', e);
@@ -717,9 +719,24 @@ export default function WikiPageInner({ user }: Props) {
 
     isPopStateSyncRef.current = true;
 
+    const idParamRaw = searchParams.get('id');
+    const idParam = idParamRaw ? Number(idParamRaw) : NaN;
     const pathParam = searchParams.get('path');
     const titleParamRaw = searchParams.get('title');
     const titleParam = titleParamRaw ? titleParamRaw.replace(/_/g, ' ') : null;
+    if (Number.isFinite(idParam) && idParam > 0) {
+      const meta = allDocuments.find((d) => d.id === idParam) ?? null;
+      const isRoot =
+        Number(meta?.path) === 0 ||
+        (Array.isArray(meta?.fullPath) && meta.fullPath.length === 0);
+
+      setSelectedCategoryPath(null);
+      setSelectedDocId(idParam);
+      setSelectedDocTitle(meta?.title ?? titleParam ?? null);
+      setSelectedDocPath(isRoot ? [] : meta?.fullPath ?? null);
+      void fetchDocById(idParam, { hideChrome: isRoot });
+      return;
+    }
     if (!pathParam || !titleParam) return;
 
     // ✅ 현재 URL hash를 항상 먼저 읽어서 저장

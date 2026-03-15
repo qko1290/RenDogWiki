@@ -2,9 +2,9 @@
 // File: app/api/bootstrap/route.ts
 // (전체 코드)
 // - 위키 초기 bootstrap 데이터
-// - 대표 문서는 메타만 내려주고 본문은 별도 /api/documents?id=... 로 로드
+// - 대표 문서는 다시 "본문 포함"으로 한 번에 내려줌
+// - 첫 화면 DB 요청을 bootstrap 1회로 줄이는 것이 목적
 // - 로컬 TTL 캐시 + stale-on-error 사용
-// - DB timeout 시에도 최소 구조를 반환하여 첫 화면 전체가 죽지 않게 처리
 // =============================================
 
 import { NextResponse } from 'next/server';
@@ -28,7 +28,7 @@ type BootstrapDocument = {
   updated_at?: string | null;
 };
 
-type BootstrapFeaturedMeta = {
+type BootstrapFeatured = {
   id: number;
   title: string;
   path: string | number;
@@ -37,12 +37,13 @@ type BootstrapFeaturedMeta = {
   special?: string | null;
   order?: number | null;
   updated_at?: string | null;
+  content: any[];
 } | null;
 
 type BootstrapPayload = {
   categories: any[];
   documents: BootstrapDocument[];
-  featured: BootstrapFeaturedMeta;
+  featured: BootstrapFeatured;
   degraded?: boolean;
   stale?: boolean;
 };
@@ -62,10 +63,23 @@ function emptyBootstrapPayload(extra?: Partial<BootstrapPayload>): BootstrapPayl
   };
 }
 
+function toContentArray(raw: unknown): any[] {
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 export async function GET() {
   try {
     const data = await cached<BootstrapPayload>(
-      'bootstrap:v4',
+      'bootstrap:v5',
       {
         ttlSec: 60,
         tags: ['category:list', 'category:tree', 'doc:list', `doc:${FEATURED_ID}`],
@@ -101,19 +115,22 @@ export async function GET() {
           `;
         });
 
-        const featuredRows = await runDbRead('bootstrap:featured-meta', async () => {
+        const featuredRows = await runDbRead('bootstrap:featured', async () => {
           return await sql`
             SELECT
-              id,
-              title,
-              path,
-              icon,
-              tags,
-              special,
-              "order",
-              updated_at
-            FROM documents
-            WHERE id = ${FEATURED_ID}
+              d.id,
+              d.title,
+              d.path,
+              d.icon,
+              d.tags,
+              d.special,
+              d."order",
+              d.updated_at,
+              dc.content
+            FROM documents d
+            LEFT JOIN document_contents dc
+              ON dc.document_id = d.id
+            WHERE d.id = ${FEATURED_ID}
             LIMIT 1
           `;
         });
@@ -128,10 +145,11 @@ export async function GET() {
               special?: string | null;
               order?: number | null;
               updated_at?: string | null;
+              content?: unknown;
             }
           | null;
 
-        const featured: BootstrapFeaturedMeta = featuredRow
+        const featured: BootstrapFeatured = featuredRow
           ? {
               id: featuredRow.id,
               title: featuredRow.title,
@@ -141,6 +159,7 @@ export async function GET() {
               special: featuredRow.special ?? null,
               order: featuredRow.order ?? null,
               updated_at: featuredRow.updated_at ?? null,
+              content: toContentArray(featuredRow.content),
             }
           : null;
 
@@ -188,4 +207,4 @@ export async function GET() {
       }
     );
   }
-} 
+}
