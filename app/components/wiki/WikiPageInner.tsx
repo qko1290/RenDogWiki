@@ -121,8 +121,10 @@ function sendDocView(documentId: number) {
 }
 
 // no-cache 유틸
-const withTs = (url: string) =>
-  url + (url.includes('?') ? '&' : '?') + '_ts=' + Date.now();
+// - 이전에는 _ts를 붙여 강제로 매 요청을 새로운 URL로 만들었음
+// - 이제는 URL은 그대로 두고 fetch 옵션만 no-store로 유지
+// - 서버 로컬 TTL 캐시 / inflight dedupe가 동작할 수 있게 query string 노이즈를 제거
+const withTs = (url: string) => url;
 const NC: RequestInit = { cache: 'no-store' };
 
 // ---- 권한 체크(Writer+)

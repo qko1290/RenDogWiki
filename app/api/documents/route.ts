@@ -6,10 +6,11 @@
 // - list/all 은 로컬 TTL 캐시 사용
 // - detail(id / path+title)도 짧은 stale cache 적용
 // - pooler 블립 시 마지막 정상 응답으로 버티도록 방어
+// - CONNECT_TIMEOUT 계열 읽기 쿼리는 1회 짧게 재시도
 // =============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/wiki/lib/db';
+import { sql, runDbRead } from '@/wiki/lib/db';
 import { logActivity, resolveCategoryName } from '@wiki/lib/activity';
 import { getAuthUser } from '@/wiki/lib/auth';
 import { cached, cacheKey, invalidate } from '@wiki/lib/cache';
@@ -57,24 +58,26 @@ function toContentArray(raw: unknown): any[] {
 }
 
 async function getDocById(id: number) {
-  const rows = await sql`
-    SELECT
-      d.id,
-      d.title,
-      d.path,
-      d.icon,
-      d.tags,
-      d.created_at,
-      d.updated_at,
-      d.special,
-      d."order",
-      dc.content
-    FROM documents d
-    LEFT JOIN document_contents dc
-      ON dc.document_id = d.id
-    WHERE d.id = ${id}
-    LIMIT 1
-  `;
+  const rows = await runDbRead('documents:getDocById', async () => {
+    return await sql`
+      SELECT
+        d.id,
+        d.title,
+        d.path,
+        d.icon,
+        d.tags,
+        d.created_at,
+        d.updated_at,
+        d.special,
+        d."order",
+        dc.content
+      FROM documents d
+      LEFT JOIN document_contents dc
+        ON dc.document_id = d.id
+      WHERE d.id = ${id}
+      LIMIT 1
+    `;
+  });
 
   const row = rows?.[0];
   if (!row) return null;
@@ -94,45 +97,47 @@ async function getDocById(id: number) {
 }
 
 async function getDocByPathAndTitle(path: string, title?: string) {
-  const rows = title
-    ? await sql`
-        SELECT
-          d.id,
-          d.title,
-          d.path,
-          d.icon,
-          d.tags,
-          d.created_at,
-          d.updated_at,
-          d.special,
-          d."order",
-          dc.content
-        FROM documents d
-        LEFT JOIN document_contents dc
-          ON dc.document_id = d.id
-        WHERE d.path = ${path}
-          AND d.title = ${title}
-        LIMIT 1
-      `
-    : await sql`
-        SELECT
-          d.id,
-          d.title,
-          d.path,
-          d.icon,
-          d.tags,
-          d.created_at,
-          d.updated_at,
-          d.special,
-          d."order",
-          dc.content
-        FROM documents d
-        LEFT JOIN document_contents dc
-          ON dc.document_id = d.id
-        WHERE d.path = ${path}
-        ORDER BY d.is_featured DESC, d."order" ASC, d.updated_at DESC, d.id DESC
-        LIMIT 1
-      `;
+  const rows = await runDbRead('documents:getDocByPathAndTitle', async () => {
+    return title
+      ? await sql`
+          SELECT
+            d.id,
+            d.title,
+            d.path,
+            d.icon,
+            d.tags,
+            d.created_at,
+            d.updated_at,
+            d.special,
+            d."order",
+            dc.content
+          FROM documents d
+          LEFT JOIN document_contents dc
+            ON dc.document_id = d.id
+          WHERE d.path = ${path}
+            AND d.title = ${title}
+          LIMIT 1
+        `
+      : await sql`
+          SELECT
+            d.id,
+            d.title,
+            d.path,
+            d.icon,
+            d.tags,
+            d.created_at,
+            d.updated_at,
+            d.special,
+            d."order",
+            dc.content
+          FROM documents d
+          LEFT JOIN document_contents dc
+            ON dc.document_id = d.id
+          WHERE d.path = ${path}
+          ORDER BY d.is_featured DESC, d."order" ASC, d.updated_at DESC, d.id DESC
+          LIMIT 1
+        `;
+  });
 
   const row = rows?.[0];
   if (!row) return null;
@@ -154,7 +159,6 @@ async function getDocByPathAndTitle(path: string, title?: string) {
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
 
-  // 경로별 리스트
   if (sp.get('list') === '1') {
     try {
       const pathParam = (sp.get('path') ?? '0').trim();
@@ -163,7 +167,7 @@ export async function GET(req: NextRequest) {
       const data = await cached(
         cacheKey('doclist', pathNorm),
         {
-          ttlSec: 30,
+          ttlSec: 60,
           tags: ['doc:list', listTag(pathNorm)],
         },
         async () => {
@@ -171,44 +175,49 @@ export async function GET(req: NextRequest) {
 
           try {
             if (/^\d+$/.test(pathNorm)) {
-              const r = await sql`
-                SELECT document_id
-                FROM categories
-                WHERE id = ${Number(pathNorm)}
-                LIMIT 1
-              `;
+              const r = await runDbRead('documents:list:mainDocByCategoryId', async () => {
+                return await sql`
+                  SELECT document_id
+                  FROM categories
+                  WHERE id = ${Number(pathNorm)}
+                  LIMIT 1
+                `;
+              });
               mainDocId = r?.[0]?.document_id ?? null;
             } else {
-              const r = await sql`
-                SELECT document_id
-                FROM categories
-                WHERE name = ${pathNorm}
-                LIMIT 1
-              `;
+              const r = await runDbRead('documents:list:mainDocByCategoryName', async () => {
+                return await sql`
+                  SELECT document_id
+                  FROM categories
+                  WHERE name = ${pathNorm}
+                  LIMIT 1
+                `;
+              });
               mainDocId = r?.[0]?.document_id ?? null;
             }
           } catch {
-            // category 대표 문서 조회 실패는 목록 자체를 막지 않음
             mainDocId = null;
           }
 
-          const rows = await sql`
-            SELECT
-              id,
-              title,
-              path,
-              icon,
-              tags,
-              created_at,
-              updated_at,
-              is_featured,
-              special,
-              "order"
-            FROM documents
-            WHERE path = ${pathNorm}
-              AND (${mainDocId}::int IS NULL OR id <> ${mainDocId})
-            ORDER BY "order" ASC, updated_at DESC, id DESC
-          `;
+          const rows = await runDbRead('documents:list:rows', async () => {
+            return await sql`
+              SELECT
+                id,
+                title,
+                path,
+                icon,
+                tags,
+                created_at,
+                updated_at,
+                is_featured,
+                special,
+                "order"
+              FROM documents
+              WHERE path = ${pathNorm}
+                AND (${mainDocId}::int IS NULL OR id <> ${mainDocId})
+              ORDER BY "order" ASC, updated_at DESC, id DESC
+            `;
+          });
 
           const items = rows.map((r: any) => ({
             id: r.id,
@@ -246,7 +255,6 @@ export async function GET(req: NextRequest) {
   const titleRaw = sp.get('title');
   const idRaw = sp.get('id');
 
-  // id 단건
   if (idRaw) {
     try {
       const id = Number(idRaw);
@@ -260,7 +268,7 @@ export async function GET(req: NextRequest) {
       const data = await cached(
         cacheKey('doc:detail:id', id),
         {
-          ttlSec: 20,
+          ttlSec: 30,
           tags: [docTag(id), 'doc:detail'],
         },
         async () => {
@@ -285,27 +293,28 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // 전체
   if (all === '1') {
     try {
       const result = await cached(
-        'doc:all:v2',
-        { ttlSec: 60, tags: ['doc:list'] },
+        'doc:all:v3',
+        { ttlSec: 120, tags: ['doc:list'] },
         async () => {
-          const rows = await sql`
-            SELECT
-              id,
-              title,
-              path,
-              icon,
-              tags,
-              created_at,
-              updated_at,
-              is_featured,
-              special,
-              "order"
-            FROM documents
-          `;
+          const rows = await runDbRead('documents:all', async () => {
+            return await sql`
+              SELECT
+                id,
+                title,
+                path,
+                icon,
+                tags,
+                created_at,
+                updated_at,
+                is_featured,
+                special,
+                "order"
+              FROM documents
+            `;
+          });
 
           return rows.map((r: any) => ({
             id: r.id,
@@ -332,7 +341,6 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // path(+title) 단건
   const path = (pathRaw ?? '').trim();
   if (!path) {
     return NextResponse.json(
@@ -347,7 +355,7 @@ export async function GET(req: NextRequest) {
     const data = await cached(
       cacheKey('doc:detail:path-title', path, title || '__featured__'),
       {
-        ttlSec: 20,
+        ttlSec: 30,
         tags: ['doc:detail', listTag(path)],
       },
       async () => {
@@ -401,12 +409,14 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    const before = await sql`
-      SELECT id, title, path, tags
-      FROM documents
-      WHERE id = ${id}
-      LIMIT 1
-    `;
+    const before = await runDbRead('documents:delete:before', async () => {
+      return await sql`
+        SELECT id, title, path, tags
+        FROM documents
+        WHERE id = ${id}
+        LIMIT 1
+      `;
+    });
 
     const doc = before[0];
     if (!doc) {
@@ -419,20 +429,17 @@ export async function DELETE(req: NextRequest) {
     await sql`DELETE FROM document_contents WHERE document_id = ${id}`;
     await sql`DELETE FROM documents WHERE id = ${id}`;
 
-    // ✅ 상세 / 리스트 stale cache 모두 무효화
     invalidate(docTag(id), 'doc:list', 'doc:detail', listTag(doc?.path));
 
     const user = getAuthUser();
-    const username =
-      gate.dbUser.minecraft_name || gate.dbUser.username || 'unknown';
+    const username = gate.dbUser.minecraft_name || gate.dbUser.username || user?.username || 'unknown';
 
     let targetPathLabel: string | null = null;
     const p = doc?.path;
 
     if (p === 0 || p === '0') targetPathLabel = '루트 카테고리';
     else if (p == null) targetPathLabel = '루트 카테고리';
-    else if (/^\d+$/.test(String(p)))
-      targetPathLabel = await resolveCategoryName(Number(p));
+    else if (/^\d+$/.test(String(p))) targetPathLabel = await resolveCategoryName(Number(p));
     else targetPathLabel = String(p);
 
     await logActivity({

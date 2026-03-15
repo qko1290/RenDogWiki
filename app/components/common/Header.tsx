@@ -1,6 +1,8 @@
 // =============================================
 // File: app/components/common/Header.tsx
 // (전체 코드)
+// - 관리자 햄버거 메뉴는 열릴 때만 마운트
+// - 닫힌 상태에서 HamburgerMenu 내부 effect/auth 호출 방지
 // =============================================
 'use client';
 
@@ -26,7 +28,6 @@ type WikiHeaderProps = {
   hideAdminMenu?: boolean;
 };
 
-// ✅ 모드 옵션 (All 제거)
 const MODE_OPTIONS = [
   { label: 'RPG', tag: 'RPG' as const },
   { label: '렌독런', tag: '렌독런' as const },
@@ -51,7 +52,6 @@ export default function WikiHeader({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [comingSoonOpen, setComingSoonOpen] = useState(false);
 
-  // ✅ 초기 모드: URL > localStorage > DEFAULT_MODE
   const initialMode = useMemo(() => {
     if (typeof window === 'undefined') return DEFAULT_MODE;
 
@@ -66,7 +66,6 @@ export default function WikiHeader({
 
   const [mode, setMode] = useState<string>(initialMode);
 
-  // Esc로 관리자 햄버거 닫기
   useEffect(() => {
     if (!isMenuOpen) return;
 
@@ -78,7 +77,6 @@ export default function WikiHeader({
     return () => window.removeEventListener('keydown', onKey);
   }, [isMenuOpen]);
 
-  // ✅ 모드 적용: 항상 유효 태그만
   const applyMode = (next: string) => {
     const safe = MODE_TAG_SET.has(next as any) ? next : DEFAULT_MODE;
 
@@ -97,7 +95,6 @@ export default function WikiHeader({
     }
   };
 
-  // ✅ RPG 외 모드는 준비중 모달 띄우고 차단
   const handleModeClick = (next: string) => {
     if (next !== DEFAULT_MODE) {
       setComingSoonOpen(true);
@@ -106,7 +103,6 @@ export default function WikiHeader({
     applyMode(next);
   };
 
-  // ✅ 최초 렌더에서 URL/LS가 비어있으면 기본값 반영
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -138,7 +134,6 @@ export default function WikiHeader({
     <>
       <header className="wiki-header">
         <div className="wiki-header-inner">
-          {/* 로고 */}
           <Link href="/wiki" className="wiki-logo flex items-center gap-2 no-underline">
             <Image
               src={logo}
@@ -150,7 +145,6 @@ export default function WikiHeader({
             <span>RDWIKI</span>
           </Link>
 
-          {/* ✅ 데스크톱에서만 보일 영역 */}
           <div className="wiki-header-desktop-tools">
             <div
               style={{
@@ -199,7 +193,6 @@ export default function WikiHeader({
             </div>
           </div>
 
-          {/* ✅ 모바일 카테고리 햄버거 */}
           <button
             type="button"
             className="wiki-mobile-category-btn"
@@ -209,8 +202,7 @@ export default function WikiHeader({
           >
             ☰
           </button>
-          
-          {/* ✅ 기존 관리자 메뉴 햄버거 */}
+
           {!hideAdminMenu && (
             <>
               <button
@@ -222,20 +214,21 @@ export default function WikiHeader({
                 ☰
               </button>
 
-              <HamburgerMenu
-                isOpen={isMenuOpen}
-                onClose={() => setIsMenuOpen(false)}
-                isLoggedIn={!!user}
-                username={user?.minecraft_name || ''}
-                uuid={undefined}
-                onLogout={handleLogout}
-              />
+              {isMenuOpen && (
+                <HamburgerMenu
+                  isOpen={isMenuOpen}
+                  onClose={() => setIsMenuOpen(false)}
+                  isLoggedIn={!!user}
+                  username={user?.minecraft_name || ''}
+                  uuid={undefined}
+                  onLogout={handleLogout}
+                />
+              )}
             </>
           )}
         </div>
       </header>
 
-      {/* 준비중 모달 */}
       <ModalCard
         open={comingSoonOpen}
         onClose={() => setComingSoonOpen(false)}

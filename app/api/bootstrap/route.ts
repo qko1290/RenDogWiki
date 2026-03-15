@@ -4,11 +4,12 @@
 // - 위키 초기 bootstrap 데이터
 // - 대표 문서는 헤더+본문을 한 번에 조회
 // - 로컬 TTL 캐시 + stale-on-error 사용
+// - CONNECT_TIMEOUT 계열 읽기 쿼리는 1회 짧게 재시도
 // =============================================
 
-import { NextResponse } from 'next/server';
-import { sql } from '@/wiki/lib/db';
-import { cached } from '@/wiki/lib/cache';
+import { NextRequest, NextResponse } from 'next/server';
+import { sql, runDbRead } from '@/wiki/lib/db';
+import { cached, cacheKey } from '@/wiki/lib/cache';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -22,43 +23,55 @@ function noStoreHeaders() {
   };
 }
 
-export async function GET() {
+function normalizeMode(raw: string | null) {
+  return (raw ?? 'RPG').trim() || 'RPG';
+}
+
+export async function GET(req: NextRequest) {
+  const mode = normalizeMode(req.nextUrl.searchParams.get('m'));
+
   try {
     const data = await cached(
-      'bootstrap:v2',
+      cacheKey('bootstrap:v3', mode),
       {
-        ttlSec: 60,
+        ttlSec: 120,
         tags: ['category:list', 'category:tree', 'doc:list', `doc:${FEATURED_ID}`],
       },
       async () => {
-        const categories = await sql`
-          SELECT id, name, parent_id, "order", document_id, icon, mode_tags
-          FROM categories
-          ORDER BY parent_id, "order"
-        `;
+        const categories = await runDbRead('bootstrap:categories', async () => {
+          return await sql`
+            SELECT id, name, parent_id, "order", document_id, icon, mode_tags
+            FROM categories
+            ORDER BY parent_id, "order"
+          `;
+        });
 
-        const docs = await sql`
-          SELECT id, title, path, icon, is_featured, special, "order", updated_at
-          FROM documents
-        `;
+        const docs = await runDbRead('bootstrap:documents', async () => {
+          return await sql`
+            SELECT id, title, path, icon, is_featured, special, "order", updated_at
+            FROM documents
+          `;
+        });
 
-        const featuredRows = await sql`
-          SELECT
-            d.id,
-            d.title,
-            d.path,
-            d.icon,
-            d.tags,
-            d.special,
-            d."order",
-            d.updated_at,
-            dc.content
-          FROM documents d
-          LEFT JOIN document_contents dc
-            ON dc.document_id = d.id
-          WHERE d.id = ${FEATURED_ID}
-          LIMIT 1
-        `;
+        const featuredRows = await runDbRead('bootstrap:featured', async () => {
+          return await sql`
+            SELECT
+              d.id,
+              d.title,
+              d.path,
+              d.icon,
+              d.tags,
+              d.special,
+              d."order",
+              d.updated_at,
+              dc.content
+            FROM documents d
+            LEFT JOIN document_contents dc
+              ON dc.document_id = d.id
+            WHERE d.id = ${FEATURED_ID}
+            LIMIT 1
+          `;
+        });
 
         const featured = featuredRows?.[0]
           ? {
