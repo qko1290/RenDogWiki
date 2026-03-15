@@ -724,12 +724,14 @@ export default function WikiPageInner({ user }: Props) {
     const pathParam = searchParams.get('path');
     const titleParamRaw = searchParams.get('title');
     const titleParam = titleParamRaw ? titleParamRaw.replace(/_/g, ' ') : null;
+
     if (Number.isFinite(idParam) && idParam > 0) {
       const meta = allDocuments.find((d) => d.id === idParam) ?? null;
-      const fullPath = Array.isArray(meta?.fullPath) ? meta.fullPath : null;
+      const metaFullPath = meta?.fullPath;
+      const fullPath: number[] | null = Array.isArray(metaFullPath) ? metaFullPath : null;
       const isRoot =
         Number(meta?.path) === 0 ||
-        (Array.isArray(fullPath) && fullPath.length === 0);
+        (fullPath !== null && fullPath.length === 0);
 
       setSelectedCategoryPath(null);
       setSelectedDocId(idParam);
