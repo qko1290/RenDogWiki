@@ -2,7 +2,7 @@
 // File: app/api/bootstrap/route.ts
 // (전체 코드)
 // - 위키 초기 bootstrap 데이터
-// - 대표 문서는 헤더+본문을 한 번에 조회
+// - 대표 문서는 메타만 내려주고 본문은 별도 /api/documents?id=... 로 로드
 // - 로컬 TTL 캐시 + stale-on-error 사용
 // - DB timeout 시에도 최소 구조를 반환하여 첫 화면 전체가 죽지 않게 처리
 // =============================================
@@ -28,7 +28,7 @@ type BootstrapDocument = {
   updated_at?: string | null;
 };
 
-type BootstrapFeatured = {
+type BootstrapFeaturedMeta = {
   id: number;
   title: string;
   path: string | number;
@@ -37,13 +37,12 @@ type BootstrapFeatured = {
   special?: string | null;
   order?: number | null;
   updated_at?: string | null;
-  content: any[];
 } | null;
 
 type BootstrapPayload = {
   categories: any[];
   documents: BootstrapDocument[];
-  featured: BootstrapFeatured;
+  featured: BootstrapFeaturedMeta;
   degraded?: boolean;
   stale?: boolean;
 };
@@ -66,7 +65,7 @@ function emptyBootstrapPayload(extra?: Partial<BootstrapPayload>): BootstrapPayl
 export async function GET() {
   try {
     const data = await cached<BootstrapPayload>(
-      'bootstrap:v3',
+      'bootstrap:v4',
       {
         ttlSec: 60,
         tags: ['category:list', 'category:tree', 'doc:list', `doc:${FEATURED_ID}`],
@@ -102,53 +101,48 @@ export async function GET() {
           `;
         });
 
-        const featuredRows = await runDbRead('bootstrap:featured', async () => {
+        const featuredRows = await runDbRead('bootstrap:featured-meta', async () => {
           return await sql`
             SELECT
-              d.id,
-              d.title,
-              d.path,
-              d.icon,
-              d.tags,
-              d.special,
-              d."order",
-              d.updated_at,
-              dc.content
-            FROM documents d
-            LEFT JOIN document_contents dc
-              ON dc.document_id = d.id
-            WHERE d.id = ${FEATURED_ID}
+              id,
+              title,
+              path,
+              icon,
+              tags,
+              special,
+              "order",
+              updated_at
+            FROM documents
+            WHERE id = ${FEATURED_ID}
             LIMIT 1
           `;
         });
 
         const featuredRow = (featuredRows?.[0] ?? null) as
-        | {
-            id: number;
-            title: string;
-            path: string | number;
-            icon?: string | null;
-            tags?: string[] | string | null;
-            special?: string | null;
-            order?: number | null;
-            updated_at?: string | null;
-            content?: any[] | null;
-          }
-        | null;
+          | {
+              id: number;
+              title: string;
+              path: string | number;
+              icon?: string | null;
+              tags?: string[] | string | null;
+              special?: string | null;
+              order?: number | null;
+              updated_at?: string | null;
+            }
+          | null;
 
-      const featured: BootstrapFeatured = featuredRow
-        ? {
-            id: featuredRow.id,
-            title: featuredRow.title,
-            path: featuredRow.path,
-            icon: featuredRow.icon ?? null,
-            tags: featuredRow.tags ?? null,
-            special: featuredRow.special ?? null,
-            order: featuredRow.order ?? null,
-            updated_at: featuredRow.updated_at ?? null,
-            content: featuredRow.content ?? [],
-          }
-        : null;
+        const featured: BootstrapFeaturedMeta = featuredRow
+          ? {
+              id: featuredRow.id,
+              title: featuredRow.title,
+              path: featuredRow.path,
+              icon: featuredRow.icon ?? null,
+              tags: featuredRow.tags ?? null,
+              special: featuredRow.special ?? null,
+              order: featuredRow.order ?? null,
+              updated_at: featuredRow.updated_at ?? null,
+            }
+          : null;
 
         return {
           categories,
@@ -187,13 +181,11 @@ export async function GET() {
     }
 
     return NextResponse.json(
-      {
-        error: 'Server error',
-      },
+      { error: 'Server error' },
       {
         status: 500,
         headers: noStoreHeaders(),
       }
     );
   }
-}
+} 

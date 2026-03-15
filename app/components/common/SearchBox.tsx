@@ -265,7 +265,8 @@ export default function SearchBox({
   useEffect(() => {
     const q = query.trim();
     const compactQuery = normalizeSearchText(q);
-    if (!q) {
+
+    if (compactQuery.length < 2) {
       setOpen(false);
       setDocs([]);
       setQuestNpcs([]);
@@ -291,26 +292,26 @@ export default function SearchBox({
       abortQuestNpcRef.current = acQuestNpc;
       setLoadingQuestNpcs(true);
 
-      (async () => {
-        try {
-          const res = await fetch(
-            `/api/search/quest?query=${encodeURIComponent(q)}&limit=20`,
-            {
-              signal: acQuestNpc.signal,
-              cache: 'no-store',
-            }
-          );
-          if (!res.ok) throw new Error('quest-search-failed');
-          const data = (await res.json()) as QuestNpcResult[];
-          setQuestNpcs(Array.isArray(data) ? data : []);
-        } catch (e: any) {
-          if (e?.name !== 'AbortError') {
-            setQuestNpcs([]);
+      if (compactQuery.length >= 2) {
+        (async () => {
+          try {
+            const res = await fetch(
+              `/api/search/quest?query=${encodeURIComponent(q)}&limit=20`,
+              { signal: acQuestNpc.signal, cache: 'no-store' }
+            );
+            if (!res.ok) throw new Error('quest-search-failed');
+            const data = (await res.json()) as QuestNpcResult[];
+            setQuestNpcs(Array.isArray(data) ? data : []);
+          } catch (e: any) {
+            if (e?.name !== 'AbortError') setQuestNpcs([]);
+          } finally {
+            setLoadingQuestNpcs(false);
           }
-        } finally {
-          setLoadingQuestNpcs(false);
-        }
-      })();
+        })();
+      } else {
+        setQuestNpcs([]);
+        setLoadingQuestNpcs(false);
+      }
 
 
       (async () => {
@@ -343,19 +344,26 @@ export default function SearchBox({
       setLoadingFaqs(true);
 
       (async () => {
-        try {
-          const url =
-            `/api/faq?q=${encodeURIComponent(q)}` +
-            `&compact=${encodeURIComponent(compactQuery)}` +
-            `&limit=10&offset=0`;
-          const res = await fetch(url, { signal: acFaq.signal, cache: 'no-store' });
-          const data = res.ok ? await res.json() : { items: [] };
-          setFaqs(Array.isArray(data.items) ? data.items : []);
-        } catch (e: any) {
-          if (e?.name !== 'AbortError') setFaqs([]);
-        } finally {
-          setLoadingFaqs(false);
-        }
+        window.setTimeout(async () => {
+          try {
+            const url =
+              `/api/faq?q=${encodeURIComponent(q)}` +
+              `&compact=${encodeURIComponent(compactQuery)}` +
+              `&limit=10&offset=0`;
+
+            const res = await fetch(url, {
+              signal: acFaq.signal,
+              cache: 'no-store',
+            });
+
+            const data = res.ok ? await res.json() : { items: [] };
+            setFaqs(Array.isArray(data.items) ? data.items : []);
+          } catch (e: any) {
+            if (e?.name !== 'AbortError') setFaqs([]);
+          } finally {
+            setLoadingFaqs(false);
+          }
+        }, 180);
       })();
 
       setOpen(true);

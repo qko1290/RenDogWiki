@@ -1,16 +1,14 @@
 // =============================================
 // File: app/api/documents/route.ts
 // (전체 코드)
-// - 문서 단건 / 목록 / 전체 조회 / 삭제
-// - 단건은 documents + document_contents JOIN 1회 조회
-// - list/all 은 로컬 TTL 캐시 사용
-// - detail(id / path+title)도 짧은 stale cache 적용
-// - pooler 블립 시 마지막 정상 응답으로 버티도록 방어
-// - CONNECT_TIMEOUT 계열 읽기 쿼리는 1회 짧게 재시도
+// - 문서 상세/리스트/전체 조회
+// - 상세 조회는 TTL 캐시
+// - 모든 읽기 경로에 runDbRead 적용
+// - DB timeout 시 가능한 범위에서 degraded 응답
 // =============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { sql, runDbRead } from '@/wiki/lib/db';
+import { sql, runDbRead, isTransientDbError } from '@/wiki/lib/db';
 import { logActivity, resolveCategoryName } from '@wiki/lib/activity';
 import { getAuthUser } from '@/wiki/lib/auth';
 import { cached, cacheKey, invalidate } from '@wiki/lib/cache';
@@ -23,137 +21,65 @@ export const revalidate = 0;
 const docTag = (id: number) => `doc:${id}`;
 const listTag = (p: string | number) => `doclist:${String(p)}`;
 
-function noStoreHeaders() {
-  return {
-    'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
-  };
-}
-
-function splitTags(raw: unknown): string[] {
-  if (Array.isArray(raw)) {
-    return raw.map(String).map((v) => v.trim()).filter(Boolean);
-  }
-  if (typeof raw === 'string') {
-    return raw
-      .split(',')
-      .map((v) => v.trim())
-      .filter(Boolean);
-  }
-  return [];
-}
-
 function toContentArray(raw: unknown): any[] {
   if (Array.isArray(raw)) return raw;
-
   if (typeof raw === 'string') {
     try {
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
+      const p = JSON.parse(raw);
+      return Array.isArray(p) ? p : [];
     } catch {
       return [];
     }
   }
-
   return [];
 }
 
-async function getDocById(id: number) {
-  const rows = await runDbRead('documents:getDocById', async () => {
-    return await sql`
-      SELECT
-        d.id,
-        d.title,
-        d.path,
-        d.icon,
-        d.tags,
-        d.created_at,
-        d.updated_at,
-        d.special,
-        d."order",
-        dc.content
-      FROM documents d
-      LEFT JOIN document_contents dc
-        ON dc.document_id = d.id
-      WHERE d.id = ${id}
-      LIMIT 1
-    `;
-  });
-
-  const row = rows?.[0];
-  if (!row) return null;
-
-  return {
-    id: row.id,
-    title: row.title,
-    path: row.path,
-    icon: row.icon,
-    tags: splitTags(row.tags),
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-    special: row.special ?? null,
-    order: Number(row.order ?? 0),
-    content: toContentArray(row.content ?? []),
-  };
-}
-
-async function getDocByPathAndTitle(path: string, title?: string) {
-  const rows = await runDbRead('documents:getDocByPathAndTitle', async () => {
-    return title
-      ? await sql`
-          SELECT
-            d.id,
-            d.title,
-            d.path,
-            d.icon,
-            d.tags,
-            d.created_at,
-            d.updated_at,
-            d.special,
-            d."order",
-            dc.content
-          FROM documents d
-          LEFT JOIN document_contents dc
-            ON dc.document_id = d.id
-          WHERE d.path = ${path}
-            AND d.title = ${title}
-          LIMIT 1
-        `
-      : await sql`
-          SELECT
-            d.id,
-            d.title,
-            d.path,
-            d.icon,
-            d.tags,
-            d.created_at,
-            d.updated_at,
-            d.special,
-            d."order",
-            dc.content
-          FROM documents d
-          LEFT JOIN document_contents dc
-            ON dc.document_id = d.id
-          WHERE d.path = ${path}
-          ORDER BY d.is_featured DESC, d."order" ASC, d.updated_at DESC, d.id DESC
+async function getDocByIdCached(id: number) {
+  return cached(
+    cacheKey('doc', id),
+    { ttlSec: 30, tags: [docTag(id)] },
+    async () => {
+      const rows = await runDbRead('documents:getDocById:doc', async () => {
+        return await sql`
+          SELECT id, title, path, icon, tags, created_at, updated_at, special, "order"
+          FROM documents
+          WHERE id = ${id}
           LIMIT 1
         `;
-  });
+      });
 
-  const row = rows?.[0];
-  if (!row) return null;
+      const doc = rows[0];
+      if (!doc) return null;
 
-  return {
-    id: row.id,
-    title: row.title,
-    path: row.path,
-    icon: row.icon,
-    tags: splitTags(row.tags),
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-    special: row.special ?? null,
-    order: Number(row.order ?? 0),
-    content: toContentArray(row.content ?? []),
-  };
+      const bodyRows = await runDbRead('documents:getDocById:content', async () => {
+        return await sql`
+          SELECT content
+          FROM document_contents
+          WHERE document_id = ${id}
+          LIMIT 1
+        `;
+      });
+
+      const content = toContentArray(bodyRows[0]?.content ?? []);
+
+      return {
+        id: doc.id,
+        title: doc.title,
+        path: doc.path,
+        icon: doc.icon,
+        tags: doc.tags ? String(doc.tags).split(',') : [],
+        created_at: doc.created_at,
+        updated_at: doc.updated_at,
+        special: doc.special ?? null,
+        order: Number(doc.order ?? 0),
+        content,
+      };
+    }
+  );
+}
+
+function noStoreHeaders() {
+  return { 'Cache-Control': 'no-store' };
 }
 
 export async function GET(req: NextRequest) {
@@ -166,16 +92,13 @@ export async function GET(req: NextRequest) {
 
       const data = await cached(
         cacheKey('doclist', pathNorm),
-        {
-          ttlSec: 60,
-          tags: ['doc:list', listTag(pathNorm)],
-        },
+        { ttlSec: 30, tags: ['doc:list', listTag(pathNorm)] },
         async () => {
           let mainDocId: number | null = null;
 
           try {
             if (/^\d+$/.test(pathNorm)) {
-              const r = await runDbRead('documents:list:mainDocByCategoryId', async () => {
+              const r = await runDbRead('documents:list:mainDocById', async () => {
                 return await sql`
                   SELECT document_id
                   FROM categories
@@ -185,7 +108,7 @@ export async function GET(req: NextRequest) {
               });
               mainDocId = r?.[0]?.document_id ?? null;
             } else {
-              const r = await runDbRead('documents:list:mainDocByCategoryName', async () => {
+              const r = await runDbRead('documents:list:mainDocByName', async () => {
                 return await sql`
                   SELECT document_id
                   FROM categories
@@ -195,36 +118,26 @@ export async function GET(req: NextRequest) {
               });
               mainDocId = r?.[0]?.document_id ?? null;
             }
-          } catch {
-            mainDocId = null;
-          }
+          } catch {}
 
-          const rows = await runDbRead('documents:list:rows', async () => {
+          const rows = (await runDbRead('documents:list:rows', async () => {
             return await sql`
               SELECT
-                id,
-                title,
-                path,
-                icon,
-                tags,
-                created_at,
-                updated_at,
-                is_featured,
-                special,
-                "order"
+                id, title, path, icon, tags, created_at, updated_at,
+                is_featured, special, "order"
               FROM documents
               WHERE path = ${pathNorm}
                 AND (${mainDocId}::int IS NULL OR id <> ${mainDocId})
               ORDER BY "order" ASC, updated_at DESC, id DESC
             `;
-          });
+          })) as any[];
 
-          const items = rows.map((r: any) => ({
+          const items = rows.map((r) => ({
             id: r.id,
             title: r.title,
             path: r.path,
             icon: r.icon,
-            tags: splitTags(r.tags),
+            tags: r.tags ? String(r.tags).split(',') : [],
             created_at: r.created_at,
             updated_at: r.updated_at,
             special: r.special ?? null,
@@ -233,20 +146,24 @@ export async function GET(req: NextRequest) {
             is_main: mainDocId != null && Number(mainDocId) === Number(r.id),
           }));
 
-          return {
-            items,
-            main_document_id: mainDocId,
-          };
+          return { items, main_document_id: mainDocId };
         }
       );
 
-      return NextResponse.json(data, { headers: noStoreHeaders() });
+      return NextResponse.json(data, {
+        headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' },
+      });
     } catch (e) {
       console.error('문서 경로별 목록 실패:', e);
-      return NextResponse.json(
-        { error: 'Server error' },
-        { status: 500, headers: noStoreHeaders() }
-      );
+
+      if (isTransientDbError(e)) {
+        return NextResponse.json(
+          { items: [], main_document_id: null, degraded: true },
+          { status: 200, headers: noStoreHeaders() }
+        );
+      }
+
+      return NextResponse.json({ error: 'Server error' }, { status: 500, headers: noStoreHeaders() });
     }
   }
 
@@ -259,71 +176,44 @@ export async function GET(req: NextRequest) {
     try {
       const id = Number(idRaw);
       if (!Number.isFinite(id) || id <= 0) {
-        return NextResponse.json(
-          { error: 'Invalid id' },
-          { status: 400, headers: noStoreHeaders() }
-        );
+        return NextResponse.json({ error: 'Invalid id' }, { status: 400, headers: noStoreHeaders() });
       }
 
-      const data = await cached(
-        cacheKey('doc:detail:id', id),
-        {
-          ttlSec: 30,
-          tags: [docTag(id), 'doc:detail'],
-        },
-        async () => {
-          return await getDocById(id);
-        }
-      );
+      const data = await getDocByIdCached(id);
+      if (!data) return new NextResponse(null, { status: 204, headers: noStoreHeaders() });
 
-      if (!data) {
-        return new NextResponse(null, {
-          status: 204,
-          headers: noStoreHeaders(),
-        });
-      }
-
-      return NextResponse.json(data, { headers: noStoreHeaders() });
+      return NextResponse.json(data, {
+        headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' },
+      });
     } catch (e) {
       console.error('[documents GET by id] error:', e);
-      return NextResponse.json(
-        { error: 'Server error' },
-        { status: 500, headers: noStoreHeaders() }
-      );
+
+      if (isTransientDbError(e)) {
+        return new NextResponse(null, { status: 204, headers: noStoreHeaders() });
+      }
+
+      return NextResponse.json({ error: 'Server error' }, { status: 500, headers: noStoreHeaders() });
     }
   }
 
   if (all === '1') {
     try {
       const result = await cached(
-        'doc:all:v3',
-        { ttlSec: 120, tags: ['doc:list'] },
+        'doc:all',
+        { ttlSec: 60, tags: ['doc:list'] },
         async () => {
           const rows = await runDbRead('documents:all', async () => {
             return await sql`
               SELECT
-                id,
-                title,
-                path,
-                icon,
-                tags,
-                created_at,
-                updated_at,
-                is_featured,
-                special,
-                "order"
+                id, title, path, icon, tags, created_at, updated_at,
+                is_featured, special, "order"
               FROM documents
             `;
           });
 
-          return rows.map((r: any) => ({
-            id: r.id,
-            title: r.title,
-            path: r.path,
-            icon: r.icon,
-            tags: splitTags(r.tags),
-            created_at: r.created_at,
-            updated_at: r.updated_at,
+          return (rows as any[]).map((r: any) => ({
+            ...r,
+            tags: r.tags ? String(r.tags).split(',') : [],
             is_featured: Boolean(r.is_featured),
             special: r.special ?? null,
             order: Number(r.order ?? 0),
@@ -331,58 +221,71 @@ export async function GET(req: NextRequest) {
         }
       );
 
-      return NextResponse.json(result, { headers: noStoreHeaders() });
+      return NextResponse.json(result, {
+        headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' },
+      });
     } catch (e) {
       console.error('[documents GET all] error:', e);
-      return NextResponse.json(
-        { error: 'Server error' },
-        { status: 500, headers: noStoreHeaders() }
-      );
+
+      if (isTransientDbError(e)) {
+        return NextResponse.json([], { status: 200, headers: noStoreHeaders() });
+      }
+
+      return NextResponse.json({ error: 'Server error' }, { status: 500, headers: noStoreHeaders() });
     }
   }
 
   const path = (pathRaw ?? '').trim();
   if (!path) {
-    return NextResponse.json(
-      { error: 'Missing path' },
-      { status: 400, headers: noStoreHeaders() }
-    );
+    return NextResponse.json({ error: 'Missing path' }, { status: 400, headers: noStoreHeaders() });
   }
 
   try {
     const title = (titleRaw ?? '').trim();
 
-    const data = await cached(
-      cacheKey('doc:detail:path-title', path, title || '__featured__'),
-      {
-        ttlSec: 30,
-        tags: ['doc:detail', listTag(path)],
-      },
-      async () => {
-        return await getDocByPathAndTitle(path, title || undefined);
-      }
-    );
+    const row = title
+      ? (
+          await runDbRead('documents:getIdByPathTitle', async () => {
+            return await sql`
+              SELECT id
+              FROM documents
+              WHERE path = ${path} AND title = ${title}
+              LIMIT 1
+            `;
+          })
+        )[0]
+      : (
+          await runDbRead('documents:getIdByPath', async () => {
+            return await sql`
+              SELECT id
+              FROM documents
+              WHERE path = ${path}
+              LIMIT 1
+            `;
+          })
+        )[0];
 
-    if (!data) {
-      return new NextResponse(null, {
-        status: 204,
-        headers: noStoreHeaders(),
-      });
+    if (!row?.id) {
+      return new NextResponse(null, { status: 204, headers: noStoreHeaders() });
     }
 
-    return NextResponse.json(data, { headers: noStoreHeaders() });
+    const data = await getDocByIdCached(Number(row.id));
+    return NextResponse.json(data, {
+      headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' },
+    });
   } catch (e) {
     console.error('[documents GET by path/title] error:', e);
-    return NextResponse.json(
-      { error: 'Server error' },
-      { status: 500, headers: noStoreHeaders() }
-    );
+
+    if (isTransientDbError(e)) {
+      return new NextResponse(null, { status: 204, headers: noStoreHeaders() });
+    }
+
+    return NextResponse.json({ error: 'Server error' }, { status: 500, headers: noStoreHeaders() });
   }
 }
 
 export async function DELETE(req: NextRequest) {
   const gate = await requireRole(['writer', 'admin']);
-
   if (!gate.ok) {
     return new Response(JSON.stringify({ error: gate.error }), {
       status: gate.status,
@@ -392,51 +295,37 @@ export async function DELETE(req: NextRequest) {
 
   const sp = req.nextUrl.searchParams;
   const idRaw = sp.get('id');
-
   if (!idRaw) {
-    return NextResponse.json(
-      { error: 'Missing id' },
-      { status: 400, headers: noStoreHeaders() }
-    );
+    return NextResponse.json({ error: 'Missing id' }, { status: 400, headers: noStoreHeaders() });
   }
 
   try {
     const id = Number(idRaw);
     if (!Number.isFinite(id) || id <= 0) {
-      return NextResponse.json(
-        { error: 'Invalid id' },
-        { status: 400, headers: noStoreHeaders() }
-      );
+      return NextResponse.json({ error: 'Invalid id' }, { status: 400, headers: noStoreHeaders() });
     }
 
-    const before = await runDbRead('documents:delete:before', async () => {
-      return await sql`
-        SELECT id, title, path, tags
-        FROM documents
-        WHERE id = ${id}
-        LIMIT 1
-      `;
-    });
-
+    const before = await sql`
+      SELECT id, title, path, tags
+      FROM documents
+      WHERE id = ${id}
+      LIMIT 1
+    `;
     const doc = before[0];
     if (!doc) {
-      return NextResponse.json(
-        { error: 'not found' },
-        { status: 404, headers: noStoreHeaders() }
-      );
+      return NextResponse.json({ error: 'not found' }, { status: 404, headers: noStoreHeaders() });
     }
 
     await sql`DELETE FROM document_contents WHERE document_id = ${id}`;
     await sql`DELETE FROM documents WHERE id = ${id}`;
 
-    invalidate(docTag(id), 'doc:list', 'doc:detail', listTag(doc?.path));
+    invalidate(docTag(id), 'doc:list', listTag(doc?.path));
 
     const user = getAuthUser();
-    const username = gate.dbUser.minecraft_name || gate.dbUser.username || user?.username || 'unknown';
+    const username = gate.dbUser.minecraft_name || gate.dbUser.username || 'unknown';
 
     let targetPathLabel: string | null = null;
     const p = doc?.path;
-
     if (p === 0 || p === '0') targetPathLabel = '루트 카테고리';
     else if (p == null) targetPathLabel = '루트 카테고리';
     else if (/^\d+$/.test(String(p))) targetPathLabel = await resolveCategoryName(Number(p));
@@ -452,15 +341,9 @@ export async function DELETE(req: NextRequest) {
       meta: { tags: doc?.tags ?? null },
     });
 
-    return NextResponse.json(
-      { message: 'deleted' },
-      { headers: noStoreHeaders() }
-    );
+    return NextResponse.json({ message: 'deleted' }, { headers: noStoreHeaders() });
   } catch (e) {
-    console.error('[documents DELETE] error:', e);
-    return NextResponse.json(
-      { error: 'Server error' },
-      { status: 500, headers: noStoreHeaders() }
-    );
+    console.error(e);
+    return NextResponse.json({ error: 'Server error' }, { status: 500, headers: noStoreHeaders() });
   }
 }

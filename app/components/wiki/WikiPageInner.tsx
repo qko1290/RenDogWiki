@@ -677,25 +677,21 @@ export default function WikiPageInner({ user }: Props) {
         setAllDocuments(mapped);
         setBootstrapReady(true);
 
-        // 최초 뷰를 바로 렌더(대표 문서)
-        if (featured?.id && featured?.content) {
+        // 최초 뷰는 대표 문서 "메타만" 세팅하고,
+        // 본문은 /api/documents?id=... 로 별도 조회한다.
+        if (featured?.id) {
           setHideDocChrome(true);
           setSelectedDocId(featured.id);
           setSelectedDocTitle(featured.title ?? null);
-          setSelectedDocPath([]); // 루트
+          setSelectedDocPath([]);
           setSelectedCategoryPath(null);
-          setDocContent(
-            typeof featured.content === 'string'
-              ? JSON.parse(featured.content)
-              : featured.content,
-          );
-          setTableOfContents(
-            extractHeadings(
-              typeof featured.content === 'string'
-                ? JSON.parse(featured.content)
-                : featured.content,
-            ),
-          );
+
+          // ✅ bootstrap과 같은 tick에서 documents를 바로 안 치고 한 박자 미룸
+          setTimeout(() => {
+            if (!cancelled && mountedRef.current) {
+              void fetchDocById(featured.id, { hideChrome: true });
+            }
+          }, 0);
         }
       } catch (e) {
         console.error('[bootstrap init] failed', e);
