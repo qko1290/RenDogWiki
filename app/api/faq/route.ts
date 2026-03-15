@@ -11,9 +11,11 @@
 //   - 일반 검색 + 공백 제거 검색 복구
 //   - 비연속 매칭 / trgm 미적용
 // - no-store 강제
+// - GET은 DB timeout 시 빈 목록 반환(200)
 // =============================================
+
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/wiki/lib/db';
+import { sql, runDbRead, isTransientDbError } from '@/wiki/lib/db';
 import { requireRole } from '@/app/wiki/lib/requireRole';
 
 export const runtime = 'nodejs';
@@ -61,6 +63,7 @@ function makeLooseRegex(raw: string) {
 function pgArrayToJs(input: unknown): string[] {
   if (Array.isArray(input)) return input as string[];
   if (typeof input !== 'string') return [];
+
   const s = input.trim();
   if (!s.startsWith('{') || !s.endsWith('}')) return s ? [s] : [];
 
@@ -84,8 +87,8 @@ function pgArrayToJs(input: unknown): string[] {
     }
     cur += ch;
   }
-  out.push(cur.replace(/\\"/g, '"'));
 
+  out.push(cur.replace(/\\"/g, '"'));
   return out.map(v => v.trim()).filter(Boolean);
 }
 
@@ -93,9 +96,11 @@ function normalizeTags(tags: unknown): string[] {
   if (Array.isArray(tags)) {
     return [...new Set(tags.map(String).map(s => s.trim()).filter(Boolean))];
   }
+
   if (typeof tags === 'string') {
     return [...new Set(tags.split(',').map(s => s.trim()).filter(Boolean))];
   }
+
   return [];
 }
 
@@ -116,131 +121,128 @@ export async function GET(req: NextRequest) {
     const useLooseRegex = shouldUseLooseRegex(q);
     const looseRegex = makeLooseRegex(q);
 
-    const rows = await sql`
-      SELECT
-        f.id,
-        f.title,
-        f.content,
-        f.tags,
-        f.uploader,
-        f.created_at,
-        f.updated_at,
-        CASE
-          WHEN ${q} = '' THEN 999
-          ELSE GREATEST(
-            CASE
-              WHEN LOWER(COALESCE(f.title, '')) = ${normalizedQ} THEN 100
-              WHEN LOWER(COALESCE(f.title, '')) LIKE LOWER(${pattern}) THEN 80
-              WHEN regexp_replace(LOWER(COALESCE(f.title, '')), '\\s+', '', 'g') LIKE ${compactPattern} THEN 72
-              WHEN ${useLooseRegex}
-                AND regexp_replace(LOWER(COALESCE(f.title, '')), '\\s+', '', 'g') ~ ${looseRegex}
-                THEN 66
-
-              WHEN LOWER(COALESCE(array_to_string(f.tags, ' '), '')) LIKE LOWER(${pattern}) THEN 60
-              WHEN regexp_replace(LOWER(COALESCE(array_to_string(f.tags, ' '), '')), '\\s+', '', 'g') LIKE ${compactPattern} THEN 54
-              WHEN ${useLooseRegex}
-                AND regexp_replace(LOWER(COALESCE(array_to_string(f.tags, ' '), '')), '\\s+', '', 'g') ~ ${looseRegex}
-                THEN 50
-
-              WHEN LOWER(COALESCE(f.content, '')) LIKE LOWER(${pattern}) THEN 30
-              WHEN regexp_replace(LOWER(COALESCE(f.content, '')), '\\s+', '', 'g') LIKE ${compactPattern} THEN 28
-
-              ELSE 0
-            END,
-            CASE
-              WHEN ${useTrgm}
-                THEN GREATEST(
+    const [rows, totalRows] = await runDbRead('faq:list', async () => {
+      const rowsPromise = sql`
+        SELECT
+          f.id,
+          f.title,
+          f.content,
+          f.tags,
+          f.uploader,
+          f.created_at,
+          f.updated_at,
+          CASE
+            WHEN ${q} = '' THEN 999
+            ELSE GREATEST(
+              CASE
+                WHEN LOWER(COALESCE(f.title, '')) = ${normalizedQ} THEN 100
+                WHEN LOWER(COALESCE(f.title, '')) LIKE LOWER(${pattern}) THEN 80
+                WHEN regexp_replace(LOWER(COALESCE(f.title, '')), '\\s+', '', 'g') LIKE ${compactPattern} THEN 72
+                WHEN ${useLooseRegex} AND regexp_replace(LOWER(COALESCE(f.title, '')), '\\s+', '', 'g') ~ ${looseRegex} THEN 66
+                WHEN LOWER(COALESCE(array_to_string(f.tags, ' '), '')) LIKE LOWER(${pattern}) THEN 60
+                WHEN regexp_replace(LOWER(COALESCE(array_to_string(f.tags, ' '), '')), '\\s+', '', 'g') LIKE ${compactPattern} THEN 54
+                WHEN ${useLooseRegex} AND regexp_replace(LOWER(COALESCE(array_to_string(f.tags, ' '), '')), '\\s+', '', 'g') ~ ${looseRegex} THEN 50
+                WHEN LOWER(COALESCE(f.content, '')) LIKE LOWER(${pattern}) THEN 30
+                WHEN regexp_replace(LOWER(COALESCE(f.content, '')), '\\s+', '', 'g') LIKE ${compactPattern} THEN 28
+                ELSE 0
+              END,
+              CASE
+                WHEN ${useTrgm} THEN GREATEST(
                   similarity(LOWER(COALESCE(f.title, '')), ${normalizedQ}) * 60,
                   similarity(LOWER(COALESCE(array_to_string(f.tags, ' '), '')), ${normalizedQ}) * 45
                 )
-              ELSE 0
-            END
-          )
-        END AS score
-      FROM faq_questions f
-      WHERE
-        (
-          ${q} = ''
-          OR LOWER(COALESCE(f.title, '')) LIKE LOWER(${pattern})
-          OR regexp_replace(LOWER(COALESCE(f.title, '')), '\\s+', '', 'g') LIKE ${compactPattern}
-          OR (
-            ${useLooseRegex}
-            AND regexp_replace(LOWER(COALESCE(f.title, '')), '\\s+', '', 'g') ~ ${looseRegex}
-          )
-          OR LOWER(COALESCE(array_to_string(f.tags, ' '), '')) LIKE LOWER(${pattern})
-          OR regexp_replace(LOWER(COALESCE(array_to_string(f.tags, ' '), '')), '\\s+', '', 'g') LIKE ${compactPattern}
-          OR (
-            ${useLooseRegex}
-            AND regexp_replace(LOWER(COALESCE(array_to_string(f.tags, ' '), '')), '\\s+', '', 'g') ~ ${looseRegex}
-          )
-          OR LOWER(COALESCE(f.content, '')) LIKE LOWER(${pattern})
-          OR regexp_replace(LOWER(COALESCE(f.content, '')), '\\s+', '', 'g') LIKE ${compactPattern}
-          OR (
-            ${useTrgm}
-            AND (
-              similarity(LOWER(COALESCE(f.title, '')), ${normalizedQ}) >= 0.2
-              OR similarity(LOWER(COALESCE(array_to_string(f.tags, ' '), '')), ${normalizedQ}) >= 0.2
+                ELSE 0
+              END
+            )
+          END AS score
+        FROM faq_questions f
+        WHERE
+          (
+            ${q} = ''
+            OR LOWER(COALESCE(f.title, '')) LIKE LOWER(${pattern})
+            OR regexp_replace(LOWER(COALESCE(f.title, '')), '\\s+', '', 'g') LIKE ${compactPattern}
+            OR (
+              ${useLooseRegex}
+              AND regexp_replace(LOWER(COALESCE(f.title, '')), '\\s+', '', 'g') ~ ${looseRegex}
+            )
+            OR LOWER(COALESCE(array_to_string(f.tags, ' '), '')) LIKE LOWER(${pattern})
+            OR regexp_replace(LOWER(COALESCE(array_to_string(f.tags, ' '), '')), '\\s+', '', 'g') LIKE ${compactPattern}
+            OR (
+              ${useLooseRegex}
+              AND regexp_replace(LOWER(COALESCE(array_to_string(f.tags, ' '), '')), '\\s+', '', 'g') ~ ${looseRegex}
+            )
+            OR LOWER(COALESCE(f.content, '')) LIKE LOWER(${pattern})
+            OR regexp_replace(LOWER(COALESCE(f.content, '')), '\\s+', '', 'g') LIKE ${compactPattern}
+            OR (
+              ${useTrgm}
+              AND (
+                similarity(LOWER(COALESCE(f.title, '')), ${normalizedQ}) >= 0.2
+                OR similarity(LOWER(COALESCE(array_to_string(f.tags, ' '), '')), ${normalizedQ}) >= 0.2
+              )
             )
           )
-        )
-        AND (
-          ${tagsCsv} = ''
-          OR EXISTS (
-            SELECT 1
-            FROM unnest(f.tags) AS tag
-            JOIN unnest(string_to_array(${tagsCsv}, ',')) AS input_tag ON TRUE
-            WHERE REPLACE(tag, ' ', '') = REPLACE(TRIM(input_tag), ' ', '')
+          AND (
+            ${tagsCsv} = ''
+            OR EXISTS (
+              SELECT 1
+              FROM unnest(f.tags) AS tag
+              JOIN unnest(string_to_array(${tagsCsv}, ',')) AS input_tag ON TRUE
+              WHERE REPLACE(tag, ' ', '') = REPLACE(TRIM(input_tag), ' ', '')
+            )
           )
-        )
-      ORDER BY
-        CASE WHEN ${q} = '' THEN f.created_at END DESC,
-        score DESC,
-        f.created_at DESC,
-        f.id DESC
-      LIMIT ${limit} OFFSET ${offset}
-    `;
+        ORDER BY
+          CASE WHEN ${q} = '' THEN f.created_at END DESC,
+          score DESC,
+          f.created_at DESC,
+          f.id DESC
+        LIMIT ${limit}
+        OFFSET ${offset}
+      `;
 
-    const totalRows = await sql`
-      SELECT COUNT(*) AS cnt
-      FROM faq_questions f
-      WHERE
-        (
-          ${q} = ''
-          OR LOWER(COALESCE(f.title, '')) LIKE LOWER(${pattern})
-          OR regexp_replace(LOWER(COALESCE(f.title, '')), '\\s+', '', 'g') LIKE ${compactPattern}
-          OR (
-            ${useLooseRegex}
-            AND regexp_replace(LOWER(COALESCE(f.title, '')), '\\s+', '', 'g') ~ ${looseRegex}
-          )
-          OR LOWER(COALESCE(array_to_string(f.tags, ' '), '')) LIKE LOWER(${pattern})
-          OR regexp_replace(LOWER(COALESCE(array_to_string(f.tags, ' '), '')), '\\s+', '', 'g') LIKE ${compactPattern}
-          OR (
-            ${useLooseRegex}
-            AND regexp_replace(LOWER(COALESCE(array_to_string(f.tags, ' '), '')), '\\s+', '', 'g') ~ ${looseRegex}
-          )
-          OR LOWER(COALESCE(f.content, '')) LIKE LOWER(${pattern})
-          OR regexp_replace(LOWER(COALESCE(f.content, '')), '\\s+', '', 'g') LIKE ${compactPattern}
-          OR (
-            ${useTrgm}
-            AND (
-              similarity(LOWER(COALESCE(f.title, '')), ${normalizedQ}) >= 0.2
-              OR similarity(LOWER(COALESCE(array_to_string(f.tags, ' '), '')), ${normalizedQ}) >= 0.2
+      const totalPromise = sql`
+        SELECT COUNT(*) AS cnt
+        FROM faq_questions f
+        WHERE
+          (
+            ${q} = ''
+            OR LOWER(COALESCE(f.title, '')) LIKE LOWER(${pattern})
+            OR regexp_replace(LOWER(COALESCE(f.title, '')), '\\s+', '', 'g') LIKE ${compactPattern}
+            OR (
+              ${useLooseRegex}
+              AND regexp_replace(LOWER(COALESCE(f.title, '')), '\\s+', '', 'g') ~ ${looseRegex}
+            )
+            OR LOWER(COALESCE(array_to_string(f.tags, ' '), '')) LIKE LOWER(${pattern})
+            OR regexp_replace(LOWER(COALESCE(array_to_string(f.tags, ' '), '')), '\\s+', '', 'g') LIKE ${compactPattern}
+            OR (
+              ${useLooseRegex}
+              AND regexp_replace(LOWER(COALESCE(array_to_string(f.tags, ' '), '')), '\\s+', '', 'g') ~ ${looseRegex}
+            )
+            OR LOWER(COALESCE(f.content, '')) LIKE LOWER(${pattern})
+            OR regexp_replace(LOWER(COALESCE(f.content, '')), '\\s+', '', 'g') LIKE ${compactPattern}
+            OR (
+              ${useTrgm}
+              AND (
+                similarity(LOWER(COALESCE(f.title, '')), ${normalizedQ}) >= 0.2
+                OR similarity(LOWER(COALESCE(array_to_string(f.tags, ' '), '')), ${normalizedQ}) >= 0.2
+              )
             )
           )
-        )
-        AND (
-          ${tagsCsv} = ''
-          OR EXISTS (
-            SELECT 1
-            FROM unnest(f.tags) AS tag
-            JOIN unnest(string_to_array(${tagsCsv}, ',')) AS input_tag ON TRUE
-            WHERE REPLACE(tag, ' ', '') = REPLACE(TRIM(input_tag), ' ', '')
+          AND (
+            ${tagsCsv} = ''
+            OR EXISTS (
+              SELECT 1
+              FROM unnest(f.tags) AS tag
+              JOIN unnest(string_to_array(${tagsCsv}, ',')) AS input_tag ON TRUE
+              WHERE REPLACE(tag, ' ', '') = REPLACE(TRIM(input_tag), ' ', '')
+            )
           )
-        )
-    `;
+      `;
+
+      return await Promise.all([rowsPromise, totalPromise]);
+    });
 
     const data = {
-      items: rows.map((r: any) => ({
+      items: (rows ?? []).map((r: any) => ({
         id: r.id,
         title: r.title,
         content: r.content,
@@ -249,12 +251,30 @@ export async function GET(req: NextRequest) {
         created_at: r.created_at,
         updated_at: r.updated_at,
       })),
-      total: Number(totalRows[0]?.cnt ?? 0),
+      total: Number(totalRows?.[0]?.cnt ?? 0),
     };
 
     return NextResponse.json(data, { headers: NO_STORE_HEADERS });
   } catch (e) {
     console.error('FAQ 목록 실패:', e);
+
+    if (isTransientDbError(e)) {
+      return NextResponse.json(
+        {
+          items: [],
+          total: 0,
+          degraded: true,
+        },
+        {
+          status: 200,
+          headers: {
+            ...NO_STORE_HEADERS,
+            'X-FAQ-Degraded': '1',
+          },
+        }
+      );
+    }
+
     return NextResponse.json(
       { error: 'Server error' },
       { status: 500, headers: NO_STORE_HEADERS }
@@ -262,7 +282,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST /api/faq  {title, content, tags?: string[]|csv}
+// POST /api/faq {title, content, tags?: string[]|csv}
 export async function POST(req: Request) {
   const gate = await requireRole(['writer', 'admin']);
   if (!gate.ok) {
@@ -293,7 +313,8 @@ export async function POST(req: Request) {
       RETURNING id, title, content, tags, uploader, created_at, updated_at
     `;
 
-    const r = rows[0];
+    const r: any = rows[0];
+
     return NextResponse.json(
       {
         id: r.id,
