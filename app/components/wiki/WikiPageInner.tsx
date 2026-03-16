@@ -2103,11 +2103,13 @@ export default function WikiPageInner({ user }: Props) {
               icon: 'collection',
               title: '도감',
               href: 'https://cafe.naver.com/rendogserver/98577',
+              external: true,
             },
             {
               icon: 'calc',
               title: '계산기',
               href: 'https://shkim1217.mycafe24.com/rendog/home.php',
+              external: true,
             },
           ]}
         />

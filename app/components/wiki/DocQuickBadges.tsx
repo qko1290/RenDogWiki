@@ -10,6 +10,7 @@ export type DocQuickBadgeItem = {
   icon: 'price' | 'quest' | 'head' | 'collection' | 'calc' ;
   title: string;
   href: string;
+  external?: boolean;
 };
 
 type Props = {
@@ -57,8 +58,13 @@ export default function DocQuickBadges({
 
   const stack = useMemo(() => items.slice(0, 5), [items]);
 
-  const go = (href: string) => {
-    router.push(href, { scroll: false });
+  const go = (item: DocQuickBadgeItem) => {
+    if (item.external) {
+      window.open(item.href, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    router.push(item.href, { scroll: false });
   };
 
   useEffect(() => {
@@ -158,7 +164,7 @@ export default function DocQuickBadges({
               transform: open ? `translateY(${56 * idx}px)` : 'translateY(0px)',
               transitionDelay: open ? `${idx * 55}ms` : '0ms',
             }}
-            onClick={() => go(it.href)}
+            onClick={() => go(it)}
             aria-label={it.title}
             title={it.title}
             data-label={it.title}
