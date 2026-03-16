@@ -5,12 +5,13 @@
 // - 상세 조회는 TTL 캐시
 // - 모든 읽기 경로에 runDbRead 적용
 // - DB timeout 시 가능한 범위에서 degraded 응답
+// - 상세 조회 transient 에러는 503(JSON)로 반환
+//   -> 프론트에서 자동 재시도 판정 가능
 // =============================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { sql, runDbRead, isTransientDbError } from '@/wiki/lib/db';
 import { logActivity, resolveCategoryName } from '@wiki/lib/activity';
-import { getAuthUser } from '@/wiki/lib/auth';
 import { cached, cacheKey, invalidate } from '@wiki/lib/cache';
 import { requireRole } from '@/app/wiki/lib/requireRole';
 
@@ -32,6 +33,23 @@ function toContentArray(raw: unknown): any[] {
     }
   }
   return [];
+}
+
+function noStoreHeaders() {
+  return { 'Cache-Control': 'no-store' };
+}
+
+function transientDocUnavailable() {
+  return NextResponse.json(
+    {
+      error: 'Document DB temporarily unavailable',
+      transient: true,
+    },
+    {
+      status: 503,
+      headers: noStoreHeaders(),
+    }
+  );
 }
 
 async function getDocByIdCached(id: number) {
@@ -81,10 +99,6 @@ async function getDocByIdCached(id: number) {
       };
     }
   );
-}
-
-function noStoreHeaders() {
-  return { 'Cache-Control': 'no-store' };
 }
 
 export async function GET(req: NextRequest) {
@@ -168,7 +182,10 @@ export async function GET(req: NextRequest) {
         );
       }
 
-      return NextResponse.json({ error: 'Server error' }, { status: 500, headers: noStoreHeaders() });
+      return NextResponse.json(
+        { error: 'Server error' },
+        { status: 500, headers: noStoreHeaders() }
+      );
     }
   }
 
@@ -181,11 +198,19 @@ export async function GET(req: NextRequest) {
     try {
       const id = Number(idRaw);
       if (!Number.isFinite(id) || id <= 0) {
-        return NextResponse.json({ error: 'Invalid id' }, { status: 400, headers: noStoreHeaders() });
+        return NextResponse.json(
+          { error: 'Invalid id' },
+          { status: 400, headers: noStoreHeaders() }
+        );
       }
 
       const data = await getDocByIdCached(id);
-      if (!data) return new NextResponse(null, { status: 204, headers: noStoreHeaders() });
+      if (!data) {
+        return new NextResponse(null, {
+          status: 204,
+          headers: noStoreHeaders(),
+        });
+      }
 
       return NextResponse.json(data, {
         headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' },
@@ -194,10 +219,13 @@ export async function GET(req: NextRequest) {
       console.error('[documents GET by id] error:', e);
 
       if (isTransientDbError(e)) {
-        return new NextResponse(null, { status: 204, headers: noStoreHeaders() });
+        return transientDocUnavailable();
       }
 
-      return NextResponse.json({ error: 'Server error' }, { status: 500, headers: noStoreHeaders() });
+      return NextResponse.json(
+        { error: 'Server error' },
+        { status: 500, headers: noStoreHeaders() }
+      );
     }
   }
 
@@ -236,13 +264,19 @@ export async function GET(req: NextRequest) {
         return NextResponse.json([], { status: 200, headers: noStoreHeaders() });
       }
 
-      return NextResponse.json({ error: 'Server error' }, { status: 500, headers: noStoreHeaders() });
+      return NextResponse.json(
+        { error: 'Server error' },
+        { status: 500, headers: noStoreHeaders() }
+      );
     }
   }
 
   const path = (pathRaw ?? '').trim();
   if (!path) {
-    return NextResponse.json({ error: 'Missing path' }, { status: 400, headers: noStoreHeaders() });
+    return NextResponse.json(
+      { error: 'Missing path' },
+      { status: 400, headers: noStoreHeaders() }
+    );
   }
 
   try {
@@ -277,7 +311,10 @@ export async function GET(req: NextRequest) {
       )[0];
 
       if (!row) {
-        return new NextResponse(null, { status: 204, headers: noStoreHeaders() });
+        return new NextResponse(null, {
+          status: 204,
+          headers: noStoreHeaders(),
+        });
       }
 
       return NextResponse.json(
@@ -315,10 +352,20 @@ export async function GET(req: NextRequest) {
     )[0];
 
     if (!row?.id) {
-      return new NextResponse(null, { status: 204, headers: noStoreHeaders() });
+      return new NextResponse(null, {
+        status: 204,
+        headers: noStoreHeaders(),
+      });
     }
 
     const data = await getDocByIdCached(Number(row.id));
+    if (!data) {
+      return new NextResponse(null, {
+        status: 204,
+        headers: noStoreHeaders(),
+      });
+    }
+
     return NextResponse.json(data, {
       headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' },
     });
@@ -326,10 +373,13 @@ export async function GET(req: NextRequest) {
     console.error('[documents GET by path/title] error:', e);
 
     if (isTransientDbError(e)) {
-      return new NextResponse(null, { status: 204, headers: noStoreHeaders() });
+      return transientDocUnavailable();
     }
 
-    return NextResponse.json({ error: 'Server error' }, { status: 500, headers: noStoreHeaders() });
+    return NextResponse.json(
+      { error: 'Server error' },
+      { status: 500, headers: noStoreHeaders() }
+    );
   }
 }
 
@@ -345,13 +395,19 @@ export async function DELETE(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const idRaw = sp.get('id');
   if (!idRaw) {
-    return NextResponse.json({ error: 'Missing id' }, { status: 400, headers: noStoreHeaders() });
+    return NextResponse.json(
+      { error: 'Missing id' },
+      { status: 400, headers: noStoreHeaders() }
+    );
   }
 
   try {
     const id = Number(idRaw);
     if (!Number.isFinite(id) || id <= 0) {
-      return NextResponse.json({ error: 'Invalid id' }, { status: 400, headers: noStoreHeaders() });
+      return NextResponse.json(
+        { error: 'Invalid id' },
+        { status: 400, headers: noStoreHeaders() }
+      );
     }
 
     const before = await sql`
@@ -362,7 +418,10 @@ export async function DELETE(req: NextRequest) {
     `;
     const doc = before[0];
     if (!doc) {
-      return NextResponse.json({ error: 'not found' }, { status: 404, headers: noStoreHeaders() });
+      return NextResponse.json(
+        { error: 'not found' },
+        { status: 404, headers: noStoreHeaders() }
+      );
     }
 
     await sql`DELETE FROM document_contents WHERE document_id = ${id}`;
@@ -370,7 +429,6 @@ export async function DELETE(req: NextRequest) {
 
     invalidate(docTag(id), 'doc:list', listTag(doc?.path));
 
-    const user = getAuthUser();
     const username = gate.dbUser.minecraft_name || gate.dbUser.username || 'unknown';
 
     let targetPathLabel: string | null = null;
@@ -393,6 +451,9 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ message: 'deleted' }, { headers: noStoreHeaders() });
   } catch (e) {
     console.error(e);
-    return NextResponse.json({ error: 'Server error' }, { status: 500, headers: noStoreHeaders() });
+    return NextResponse.json(
+      { error: 'Server error' },
+      { status: 500, headers: noStoreHeaders() }
+    );
   }
 }

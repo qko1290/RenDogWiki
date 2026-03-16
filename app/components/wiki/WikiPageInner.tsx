@@ -127,6 +127,60 @@ function sendDocView(documentId: number) {
 const withTs = (url: string) => url;
 const NC: RequestInit = { cache: 'no-store' };
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function shouldRetryDocStatus(status: number) {
+  return status === 503 || status === 504 || status === 429;
+}
+
+async function fetchDocJsonWithRetry(
+  url: string,
+  signal: AbortSignal,
+) {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch(withTs(url), {
+        ...NC,
+        signal,
+      });
+
+      // 진짜 not found
+      if (res.status === 204) {
+        return null;
+      }
+
+      if (!res.ok) {
+        const err = new Error(`doc-fetch-failed:${res.status}`);
+        (err as any).status = res.status;
+        throw err;
+      }
+
+      const text = await res.text();
+      return text ? JSON.parse(text) : null;
+    } catch (e: any) {
+      if (e?.name === 'AbortError') {
+        throw e;
+      }
+
+      const status = Number(e?.status ?? 0);
+      const retryable = attempt === 0 && (status === 0 || shouldRetryDocStatus(status));
+
+      if (!retryable) {
+        lastError = e;
+        break;
+      }
+
+      await sleep(150);
+    }
+  }
+
+  throw lastError ?? new Error('doc-fetch-failed');
+}
+
 // ---- 권한 체크(Writer+)
 function useCanWrite(user: Props['user']) {
   const [can, setCan] = useState(false);
@@ -1079,20 +1133,19 @@ export default function WikiPageInner({ user }: Props) {
 
     const pathParam = isRoot ? '0' : String(categoryPath.at(-1));
 
-    fetch(
-      withTs(
-        `/api/documents?path=${pathParam}&title=${encodeURIComponent(docTitle)}`
-      ),
-      {
-        ...NC,
-        signal: controller.signal,
-      },
+    fetchDocJsonWithRetry(
+      `/api/documents?path=${pathParam}&title=${encodeURIComponent(docTitle)}`,
+      controller.signal,
     )
-      .then(res => {
-        if (!res.ok) throw new Error('문서를 찾을 수 없습니다.');
-        return res.json();
-      })
       .then(data => {
+        if (!data) {
+          setDocContent(null);
+          setSpecialMeta(null);
+          setFaqQuery('');
+          setFaqTags([]);
+          setLoadingDoc(false);
+          return;
+        } 
         if (!mountedRef.current || reqId !== docReqIdRef.current) return;
 
         const content: Descendant[] =
@@ -1166,13 +1219,19 @@ export default function WikiPageInner({ user }: Props) {
     docAbortRef.current = controller;
 
     try {
-      const r = await fetch(withTs(`/api/documents?id=${docId}`), {
-        ...NC,
-        signal: controller.signal,
-      });
-      if (!r.ok) throw 0;
+      const data = await fetchDocJsonWithRetry(
+        `/api/documents?id=${docId}`,
+        controller.signal,
+      );
 
-      const data = await r.json();
+      if (!data) {
+        setDocContent(null);
+        setSpecialMeta(null);
+        setFaqQuery('');
+        setFaqTags([]);
+        setLoadingDoc(false);
+        return;
+      }
       if (!mountedRef.current || reqId !== docReqIdRef.current) return;
 
       const content: Descendant[] =
