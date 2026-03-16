@@ -4,16 +4,16 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faDollarSign, faScroll, faCube, faBoltLightning } from '@fortawesome/free-solid-svg-icons';
+import { faDollarSign, faScroll, faCube, faBoltLightning, faCalculator, faBookOpen } from '@fortawesome/free-solid-svg-icons';
 
 export type DocQuickBadgeItem = {
-  icon: 'price' | 'quest' | 'head';
+  icon: 'price' | 'quest' | 'head' | 'collection' | 'calc' ;
   title: string;
   href: string;
 };
 
 type Props = {
-  items: [DocQuickBadgeItem, DocQuickBadgeItem, DocQuickBadgeItem];
+  items: [DocQuickBadgeItem, DocQuickBadgeItem, DocQuickBadgeItem, DocQuickBadgeItem, DocQuickBadgeItem];
   mainTitle?: string;
   hidden?: boolean;
   expandWidth?: number;
@@ -30,6 +30,10 @@ function iconByKey(key: DocQuickBadgeItem['icon']) {
       return faScroll;
     case 'head':
       return faCube;
+    case 'collection':
+      return faBookOpen;
+    case 'calc':
+      return faCalculator;
   }
 }
 
@@ -51,7 +55,7 @@ export default function DocQuickBadges({
   const hoverLockTimerRef = useRef<number | null>(null);
   const prevOpenRef = useRef(false);
 
-  const stack = useMemo(() => items.slice(0, 3), [items]);
+  const stack = useMemo(() => items.slice(0, 5), [items]);
 
   const go = (href: string) => {
     router.push(href, { scroll: false });

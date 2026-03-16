@@ -2099,6 +2099,16 @@ export default function WikiPageInner({ user }: Props) {
               title: '시세표',
               href: 'wiki?path=38&title=%EC%8B%9C%EC%84%B8%ED%91%9C&mode=RPG',
             },
+            {
+              icon: 'collection',
+              title: '도감',
+              href: 'https://cafe.naver.com/rendogserver/98577',
+            },
+            {
+              icon: 'calc',
+              title: '계산기',
+              href: 'https://shkim1217.mycafe24.com/rendog/home.php',
+            },
           ]}
         />
     </div>
