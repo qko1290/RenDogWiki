@@ -39,40 +39,45 @@ async function getDocByIdCached(id: number) {
     cacheKey('doc', id),
     { ttlSec: 30, tags: [docTag(id)] },
     async () => {
-      const rows = await runDbRead('documents:getDocById:doc', async () => {
-        return await sql`
-          SELECT id, title, path, icon, tags, created_at, updated_at, special, "order"
-          FROM documents
-          WHERE id = ${id}
-          LIMIT 1
-        `;
-      });
+      const rows = await runDbRead(
+        'documents:getDocById',
+        async () => {
+          return await sql`
+            SELECT
+              d.id,
+              d.title,
+              d.path,
+              d.icon,
+              d.tags,
+              d.created_at,
+              d.updated_at,
+              d.special,
+              d."order",
+              dc.content
+            FROM documents d
+            LEFT JOIN document_contents dc
+              ON dc.document_id = d.id
+            WHERE d.id = ${id}
+            LIMIT 1
+          `;
+        },
+        0
+      );
 
-      const doc = rows[0];
-      if (!doc) return null;
-
-      const bodyRows = await runDbRead('documents:getDocById:content', async () => {
-        return await sql`
-          SELECT content
-          FROM document_contents
-          WHERE document_id = ${id}
-          LIMIT 1
-        `;
-      });
-
-      const content = toContentArray(bodyRows[0]?.content ?? []);
+      const row = rows[0];
+      if (!row) return null;
 
       return {
-        id: doc.id,
-        title: doc.title,
-        path: doc.path,
-        icon: doc.icon,
-        tags: doc.tags ? String(doc.tags).split(',') : [],
-        created_at: doc.created_at,
-        updated_at: doc.updated_at,
-        special: doc.special ?? null,
-        order: Number(doc.order ?? 0),
-        content,
+        id: row.id,
+        title: row.title,
+        path: row.path,
+        icon: row.icon,
+        tags: row.tags ? String(row.tags).split(',') : [],
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        special: row.special ?? null,
+        order: Number(row.order ?? 0),
+        content: toContentArray(row.content ?? []),
       };
     }
   );
@@ -243,27 +248,71 @@ export async function GET(req: NextRequest) {
   try {
     const title = (titleRaw ?? '').trim();
 
-    const row = title
-      ? (
-          await runDbRead('documents:getIdByPathTitle', async () => {
+    if (title) {
+      const row = (
+        await runDbRead(
+          'documents:getDocByPathTitle',
+          async () => {
             return await sql`
-              SELECT id
-              FROM documents
-              WHERE path = ${path} AND title = ${title}
+              SELECT
+                d.id,
+                d.title,
+                d.path,
+                d.icon,
+                d.tags,
+                d.created_at,
+                d.updated_at,
+                d.special,
+                d."order",
+                dc.content
+              FROM documents d
+              LEFT JOIN document_contents dc
+                ON dc.document_id = d.id
+              WHERE d.path = ${path} AND d.title = ${title}
               LIMIT 1
             `;
-          })
-        )[0]
-      : (
-          await runDbRead('documents:getIdByPath', async () => {
-            return await sql`
-              SELECT id
-              FROM documents
-              WHERE path = ${path}
-              LIMIT 1
-            `;
-          })
-        )[0];
+          },
+          0
+        )
+      )[0];
+
+      if (!row) {
+        return new NextResponse(null, { status: 204, headers: noStoreHeaders() });
+      }
+
+      return NextResponse.json(
+        {
+          id: row.id,
+          title: row.title,
+          path: row.path,
+          icon: row.icon,
+          tags: row.tags ? String(row.tags).split(',') : [],
+          created_at: row.created_at,
+          updated_at: row.updated_at,
+          special: row.special ?? null,
+          order: Number(row.order ?? 0),
+          content: toContentArray(row.content ?? []),
+        },
+        {
+          headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' },
+        }
+      );
+    }
+
+    const row = (
+      await runDbRead(
+        'documents:getIdByPath',
+        async () => {
+          return await sql`
+            SELECT id
+            FROM documents
+            WHERE path = ${path}
+            LIMIT 1
+          `;
+        },
+        0
+      )
+    )[0];
 
     if (!row?.id) {
       return new NextResponse(null, { status: 204, headers: noStoreHeaders() });

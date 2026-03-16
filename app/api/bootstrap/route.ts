@@ -85,55 +85,67 @@ export async function GET() {
         tags: ['category:list', 'category:tree', 'doc:list', `doc:${FEATURED_ID}`],
       },
       async () => {
-        const categories = await runDbRead('bootstrap:categories', async () => {
-          return await sql`
-            SELECT
-              id,
-              name,
-              parent_id,
-              "order",
-              document_id,
-              icon,
-              mode_tags
-            FROM categories
-            ORDER BY parent_id, "order"
-          `;
-        });
+        const categories = await runDbRead(
+          'bootstrap:categories',
+          async () => {
+            return await sql`
+              SELECT
+                id,
+                name,
+                parent_id,
+                "order",
+                document_id,
+                icon,
+                mode_tags
+              FROM categories
+              ORDER BY parent_id, "order"
+            `;
+          },
+          0
+        );
 
-        const docs = await runDbRead('bootstrap:documents', async () => {
-          return await sql`
-            SELECT
-              id,
-              title,
-              path,
-              icon,
-              is_featured,
-              special,
-              "order",
-              updated_at
-            FROM documents
-          `;
-        });
+        const docs = await runDbRead(
+          'bootstrap:documents',
+          async () => {
+            return await sql`
+              SELECT
+                id,
+                title,
+                path,
+                icon,
+                is_featured,
+                special,
+                "order",
+                updated_at
+              FROM documents
+            `;
+          },
+          0
+        );
 
-        const featuredRows = await runDbRead('bootstrap:featured', async () => {
-          return await sql`
-            SELECT
-              d.id,
-              d.title,
-              d.path,
-              d.icon,
-              d.tags,
-              d.special,
-              d."order",
-              d.updated_at,
-              dc.content
-            FROM documents d
-            LEFT JOIN document_contents dc
-              ON dc.document_id = d.id
-            WHERE d.id = ${FEATURED_ID}
-            LIMIT 1
-          `;
-        });
+        const featuredRows = await runDbRead(
+          'bootstrap:featured',
+          async () => {
+            return await sql`
+              SELECT
+                d.id,
+                d.title,
+                d.path,
+                d.icon,
+                d.tags,
+                d.special,
+                d."order",
+                d.updated_at,
+                dc.content
+              FROM documents d
+              LEFT JOIN document_contents dc
+                ON dc.document_id = d.id
+              WHERE d.id = ${FEATURED_ID}
+              LIMIT 1
+            `;
+          },
+          0
+        );
 
         const featuredRow = (featuredRows?.[0] ?? null) as
           | {

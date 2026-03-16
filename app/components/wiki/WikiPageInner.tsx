@@ -486,6 +486,7 @@ export default function WikiPageInner({ user }: Props) {
   };
 
   const syncUrlWithDoc = (
+    docId: number | null,
     docTitle: string | null,
     fullPath: number[] | null | undefined,
     options?: { history?: 'push' | 'replace' }
@@ -506,6 +507,13 @@ export default function WikiPageInner({ user }: Props) {
 
     search.set('path', lastId);
     search.set('title', encodedTitle);
+
+    if (docId != null && Number.isFinite(docId)) {
+      search.set('id', String(docId));
+    } else {
+      search.delete('id');
+    }
+
     search.delete('_t');
 
     // ✅ hash는 건드리지 않음
@@ -1049,12 +1057,15 @@ export default function WikiPageInner({ user }: Props) {
             ((Array.isArray(d.fullPath) &&
               d.fullPath.length === 0) ||
               Number(d.path) === 0)) ||
-            JSON.stringify(d.fullPath) ===
-              JSON.stringify(categoryPath)),
+            JSON.stringify(d.fullPath) === JSON.stringify(categoryPath)),
       );
+
       if (doc) {
         setSelectedDocId(doc.id);
         setSelectedDocPath(isRoot ? [] : [...categoryPath]);
+        setLoadingDoc(true);
+        void fetchDocById(doc.id, { hideChrome: isRoot });
+        return;
       }
     }
 
@@ -1118,9 +1129,14 @@ export default function WikiPageInner({ user }: Props) {
         setHideDocChrome(Number(data?.id) === ROOT_FEATURED_DOC_ID);
         ensureOpenForDocPath(nextPath);
 
-        syncUrlWithDoc(data.title ?? docTitle, nextPath, {
-          history: isPopStateSyncRef.current ? 'replace' : 'push',
-        });
+        syncUrlWithDoc(
+          Number(data?.id ?? docId ?? null),
+          data.title ?? docTitle,
+          nextPath,
+          {
+            history: isPopStateSyncRef.current ? 'replace' : 'push',
+          }
+        );
         isPopStateSyncRef.current = false;
 
         setLoadingDoc(false);
@@ -1198,7 +1214,12 @@ export default function WikiPageInner({ user }: Props) {
       setSelectedDocPath(nextPath);
       setHideDocChrome(Number(data?.id) === ROOT_FEATURED_DOC_ID);
 
-      syncUrlWithDoc(data.title ?? null, nextPath, { history: 'replace' });
+      syncUrlWithDoc(
+        Number(data?.id ?? docId),
+        data.title ?? null,
+        nextPath,
+        { history: 'replace' }
+      );
       isPopStateSyncRef.current = false;
 
       setHideDocChrome(
