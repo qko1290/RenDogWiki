@@ -48,7 +48,15 @@ export default function HeadManager() {
   /** 유저 */
   const [user, setUser] = useState<any>(null);
   useEffect(() => {
-    fetch('/api/auth/me').then(r => (r.ok ? r.json() : null)).then(d => setUser(d?.user ?? null));
+    fetch('/api/auth/me')
+      .then(r => (r.ok ? r.json() : null))
+      .then(d =>
+        setUser(
+          d?.user
+            ? { ...d.user, role: d?.user?.role ?? d?.role ?? 'guest' }
+            : null
+        )
+      );
   }, []);
 
   // 권한/비교용

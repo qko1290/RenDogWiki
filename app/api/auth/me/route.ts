@@ -62,7 +62,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(
         {
           loggedIn: true,
-          user: auth,
+          user: {
+            ...auth,
+            role: cachedRole,
+          },
           role: cachedRole,
           roles: [cachedRole],
           permissions: [cachedRole],
@@ -99,8 +102,12 @@ export async function GET(req: NextRequest) {
                 username: row.username,
                 email: row.email,
                 minecraft_name: row.minecraft_name,
+                role,
               }
-            : auth,
+            : {
+                ...auth,
+                role,
+              },
           role,
           roles: role === 'guest' ? [] : [role],
           permissions: role === 'guest' ? [] : [role],
@@ -126,7 +133,10 @@ export async function GET(req: NextRequest) {
         return NextResponse.json(
           {
             loggedIn: true,
-            user: auth,
+            user: {
+              ...auth,
+              role: 'guest',
+            },
             role: 'guest',
             roles: [],
             permissions: [],

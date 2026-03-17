@@ -401,7 +401,13 @@ export default function ImageManagePage() {
   useEffect(() => {
     fetch('/api/auth/me', { cache: 'no-store' })
       .then((res) => (res.ok ? res.json() : null))
-      .then((d) => setUser(d?.user ?? null));
+      .then((d) =>
+        setUser(
+          d?.user
+            ? { ...d.user, role: d?.user?.role ?? d?.role ?? 'guest' }
+            : null
+        )
+      );
   }, []);
 
   const role: Role =

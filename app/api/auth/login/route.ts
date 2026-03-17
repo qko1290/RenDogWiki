@@ -13,6 +13,7 @@
  * - 실패 시 짧은 지연 추가(브루트포스 완화)
  * - 존재하지 않는 아이디/비밀번호 불일치 응답 통일
  * - dummy bcrypt compare로 타이밍 차이 완화
+ * - 성공 시 rd_role 쿠키도 함께 발급
  */
 
 import { sql } from '@/wiki/lib/db';

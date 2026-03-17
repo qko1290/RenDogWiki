@@ -31,7 +31,12 @@ export default function ChatPage() {
         const r = await fetch('/api/auth/me', { cache: 'no-store' });
         if (!r.ok) { if (!aborted) setUser(null); return; }
         const j = await r.json();
-        if (!aborted && j?.user) setUser(j.user as UserInfo);
+        if (!aborted && j?.user) {
+          setUser({
+            ...j.user,
+            role: j?.user?.role ?? j?.role ?? 'guest',
+          } as UserInfo);
+        }
       } catch {
         if (!aborted) setUser(null);
       }

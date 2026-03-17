@@ -59,8 +59,14 @@ export default function QuestNpcManager() {
   const [user, setUser] = useState<any>(null);
   useEffect(() => {
     fetch('/api/auth/me')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setUser(d?.user ?? null));
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) =>
+      setUser(
+        d?.user
+          ? { ...d.user, role: d?.user?.role ?? d?.role ?? 'guest' }
+          : null
+      )
+    );
   }, []);
 
   const role: Role =
