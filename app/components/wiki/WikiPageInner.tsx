@@ -186,16 +186,44 @@ function useCanWrite(user: Props['user']) {
   const [can, setCan] = useState(false);
 
   useEffect(() => {
-    // ✅ 초기 진입에서 /api/auth/me를 자동 호출하지 않음
-    // pooler 불안정 시 불필요한 DB 요청 1개를 줄이는 목적
+    let cancelled = false;
+
     if (!user) {
       setCan(false);
       return;
     }
 
-    // 로그인 사용자가 있어도 우선은 false로 두고,
-    // 실제 쓰기 액션이 필요할 때만 서버 검증으로 넘긴다.
-    setCan(false);
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/me', {
+          cache: 'no-store',
+          credentials: 'include',
+        });
+
+        if (!res.ok) {
+          if (!cancelled) setCan(false);
+          return;
+        }
+
+        const data = await res.json();
+        const role = String(data?.role ?? '').toLowerCase();
+        const perms = Array.isArray(data?.permissions) ? data.permissions : [];
+
+        const allowed =
+          role === 'writer' ||
+          role === 'admin' ||
+          perms.includes('writer') ||
+          perms.includes('admin');
+
+        if (!cancelled) setCan(allowed);
+      } catch {
+        if (!cancelled) setCan(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [user?.id]);
 
   return can;

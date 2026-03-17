@@ -9,15 +9,19 @@
 
 import dynamic from 'next/dynamic';
 import '@wiki/css/wiki.css';
+import { getAuthUser } from '@/wiki/lib/auth';
 
 const WikiPageInner = dynamic(() => import('@/components/wiki/WikiPageInner'), {
   ssr: false,
 });
 
 export default function WikiPage() {
+
+  const user = getAuthUser();
+  
   return (
     <div className="wiki-app">
-      <WikiPageInner user={null} />
+      <WikiPageInner user={user} />
     </div>
   );
 }

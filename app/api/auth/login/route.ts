@@ -37,6 +37,7 @@ type UserRow = {
   minecraft_name: string;
   password_hash: string;
   verified: boolean;
+  role?: string | null;
 };
 
 // ---------------------------------------------
@@ -219,7 +220,7 @@ export async function POST(req: NextRequest) {
 
     // 3) 사용자 조회 -> 필요한 컬럼만 + LIMIT 1
     const rows = (await sql`
-      SELECT id, username, email, minecraft_name, password_hash, verified
+      SELECT id, username, email, minecraft_name, password_hash, verified, role
       FROM users
       WHERE username = ${username}
       LIMIT 1
@@ -275,6 +276,21 @@ export async function POST(req: NextRequest) {
       secure: process.env.NODE_ENV === 'production',
       path: '/',
       maxAge: 60 * 60 * 24 * 7,
+    });
+
+    const role =
+      String(user.role ?? '').toLowerCase() === 'admin'
+        ? 'admin'
+        : String(user.role ?? '').toLowerCase() === 'writer'
+          ? 'writer'
+          : 'guest';
+
+    res.cookies.set('rd_role', role, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 60, // 1시간
     });
 
     // 10) 성공 응답

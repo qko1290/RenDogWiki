@@ -27,6 +27,15 @@ export async function POST() {
       expires: new Date(0),                 // 백업 방어선(1970-01-01)
     });
 
+    res.cookies.set('rd_role', '', {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 0,
+      expires: new Date(0),
+    });
+
     return res;
   } catch (err) {
     // 예기치 못한 에러 -> 서버 에러로 정리
