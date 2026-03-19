@@ -35,6 +35,62 @@ export default function TableOfContents({
   const rootRef = useRef<HTMLElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const [rootKey, setRootKey] = useState(0); // 루트 변경 트리거 키
+  const [isDark, setIsDark] = useState(false);
+
+  // 다크모드 감지
+  useEffect(() => {
+    const detectDark = () => {
+      const html = document.documentElement;
+      const body = document.body;
+
+      const darkByClass =
+        html.classList.contains('dark') ||
+        body.classList.contains('dark');
+
+      const darkByDataTheme =
+        html.getAttribute('data-theme') === 'dark' ||
+        body.getAttribute('data-theme') === 'dark';
+
+      const darkByMedia = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+      setIsDark(darkByClass || darkByDataTheme || darkByMedia);
+    };
+
+    detectDark();
+
+    const htmlObserver = new MutationObserver(detectDark);
+    const bodyObserver = new MutationObserver(detectDark);
+
+    htmlObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class', 'data-theme'],
+    });
+
+    bodyObserver.observe(document.body, {
+      attributes: true,
+      attributeFilter: ['class', 'data-theme'],
+    });
+
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const onMediaChange = () => detectDark();
+
+    if (media.addEventListener) {
+      media.addEventListener('change', onMediaChange);
+    } else {
+      media.addListener(onMediaChange);
+    }
+
+    return () => {
+      htmlObserver.disconnect();
+      bodyObserver.disconnect();
+
+      if (media.removeEventListener) {
+        media.removeEventListener('change', onMediaChange);
+      } else {
+        media.removeListener(onMediaChange);
+      }
+    };
+  }, []);
 
   // 동일 id에 발생 순번 부여
   const indexed = useMemo(() => {
@@ -148,17 +204,17 @@ export default function TableOfContents({
 
   // 초기 진입 시 URL 해시가 있으면 해당 위치로 스크롤
   const didInitialHashScroll = useRef(false);
-    useEffect(() => {
-      if (didInitialHashScroll.current) return;
-      const hash = decodeURIComponent(window.location.hash || '').replace(/^#/, '');
-      if (!hash) return;
-      // 타겟이 렌더된 뒤 한 프레임 후 이동
-      const raf = requestAnimationFrame(() => {
-        scrollToId(hash, 0);
-        didInitialHashScroll.current = true;
-      });
-      return () => cancelAnimationFrame(raf);
-    }, []);
+  useEffect(() => {
+    if (didInitialHashScroll.current) return;
+    const hash = decodeURIComponent(window.location.hash || '').replace(/^#/, '');
+    if (!hash) return;
+    // 타겟이 렌더된 뒤 한 프레임 후 이동
+    const raf = requestAnimationFrame(() => {
+      scrollToId(hash, 0);
+      didInitialHashScroll.current = true;
+    });
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   // ----- UI -----
   const boxStyle: React.CSSProperties = {
@@ -174,7 +230,12 @@ export default function TableOfContents({
   };
   const listStyle: React.CSSProperties = { listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 2 };
   const iconBox: React.CSSProperties = { width: 24, height: 24, display: 'grid', placeItems: 'center', flex: '0 0 auto', marginRight: 8 };
-  const titleStyle: React.CSSProperties = { fontSize: 14, fontWeight: 800, color: '#0f172a', margin: '0 0 10px 8px' };
+  const titleStyle: React.CSSProperties = {
+    fontSize: 14,
+    fontWeight: 800,
+    color: isDark ? '#e5e7eb' : '#0f172a',
+    margin: '0 0 10px 8px',
+  };
   const textStyle: React.CSSProperties = { fontSize: 13.5, fontWeight: 600, letterSpacing: '-0.15px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
 
   if (!indexed.length) {
