@@ -2280,11 +2280,11 @@ export default function WikiPageInner({ user }: Props) {
         .wiki-paging-seg {
           display: inline-flex;
           align-items: stretch;
-          background: #fff;
-          border: 1px solid #e5e7eb;
+          background: var(--surface-elevated);
+          border: 1px solid var(--border);
           border-radius: 12px;
           overflow: hidden;
-          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+          box-shadow: var(--shadow-sm);
         }
 
         .wiki-paging-btn,
@@ -2300,7 +2300,7 @@ export default function WikiPageInner({ user }: Props) {
           background: transparent;
           font-weight: 600;
           font-size: 0.95rem;
-          color: #4b5563;
+          color: var(--foreground);
           line-height: 1;
         }
 
@@ -2310,7 +2310,7 @@ export default function WikiPageInner({ user }: Props) {
         }
 
         .wiki-paging-btn:hover {
-          background: #f3f4f6;
+          background: var(--surface-soft);
         }
 
         .wiki-paging-btn:disabled {
@@ -2325,11 +2325,11 @@ export default function WikiPageInner({ user }: Props) {
         }
 
         .wiki-paging-btn:first-child {
-          border-right: 1px solid #e5e7eb;
+          border-right: 1px solid var(--border);
         }
 
         .wiki-paging-btn.next {
-          border-left: 1px solid #e5e7eb;
+          border-left: 1px solid var(--border);
         }
 
         .wiki-paging-text {
@@ -2372,12 +2372,9 @@ export default function WikiPageInner({ user }: Props) {
           .wiki-paging-seg {
             pointer-events: auto;
             border-radius: 14px;
-            background: rgba(255, 255, 255, 0.96);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            box-shadow:
-              0 10px 30px rgba(15, 23, 42, 0.14),
-              0 2px 8px rgba(15, 23, 42, 0.08);
+            background: var(--surface-elevated);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-lg);
           }
 
           .wiki-paging-btn,
@@ -2564,42 +2561,52 @@ function NewFaqModal({
 const backdropStyle: React.CSSProperties = {
   position: 'fixed',
   inset: 0,
-  background: 'rgba(0,0,0,0.45)',
+  background: 'var(--overlay)',
   zIndex: 1000,
   display: 'grid',
   placeItems: 'center',
   padding: 16,
 };
+
 const modalStyle: React.CSSProperties = {
   width: 'min(680px, 100%)',
-  background: '#fff',
+  background: 'var(--surface-elevated)',
+  border: '1px solid var(--border)',
   borderRadius: 16,
   padding: 16,
-  boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+  boxShadow: 'var(--shadow-xl)',
+  color: 'var(--foreground)',
 };
+
 const modalHeaderStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
   marginBottom: 12,
 };
+
 const closeBtnStyle: React.CSSProperties = {
-  border: '1px solid #e5e7eb',
-  background: '#fff',
+  border: '1px solid var(--border)',
+  background: 'var(--surface)',
+  color: 'var(--foreground)',
   borderRadius: 8,
   width: 32,
   height: 32,
   cursor: 'pointer',
 };
+
 const labelStyle: React.CSSProperties = {
   display: 'block',
   fontSize: 13,
-  color: '#555',
+  color: 'var(--muted)',
   marginBottom: 6,
 };
+
 const inputStyle: React.CSSProperties = {
   width: '100%',
-  border: '1px solid #e5e7eb',
+  border: '1px solid var(--border)',
+  background: 'var(--surface)',
+  color: 'var(--foreground)',
   borderRadius: 8,
   padding: '8px 10px',
 };
@@ -2636,11 +2643,11 @@ function FaqAddButton({ onClick }: { onClick: () => void }) {
         .faq-add-group {
           display: inline-flex;
           align-items: stretch;
-          background: #fff;
-          border: 1px solid #e5e7eb;
+          background: var(--surface-elevated);
+          border: 1px solid var(--border);
           border-radius: 12px;
           overflow: hidden;
-          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+          box-shadow: var(--shadow-sm);
           flex: 0 0 auto;
         }
 
@@ -2654,7 +2661,7 @@ function FaqAddButton({ onClick }: { onClick: () => void }) {
           cursor: pointer;
           font-weight: 600;
           font-size: 0.95rem;
-          color: #4b5563;
+          color: var(--foreground);
           line-height: 1;
           white-space: nowrap;
           height: 38px;
@@ -2662,7 +2669,7 @@ function FaqAddButton({ onClick }: { onClick: () => void }) {
         }
 
         .faq-add-seg:hover {
-          background: #f3f4f6;
+          background: var(--surface-soft);
         }
 
         .faq-add-seg:focus-visible {

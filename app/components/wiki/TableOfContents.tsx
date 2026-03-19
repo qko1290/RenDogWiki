@@ -528,10 +528,10 @@ export default function TableOfContents({
     right,
     top,
     width,
-    background: '#fff',
-    border: '1px solid #eef1f5',
+    background: 'var(--surface-elevated)',
+    border: '1px solid var(--border)',
     borderRadius: 12,
-    boxShadow: '0 2px 14px rgba(0,0,0,.05)',
+    boxShadow: 'var(--shadow-lg)',
     padding: '12px 10px',
     zIndex: 50,
     maxHeight: `calc(100vh - ${top + 20}px)`,
@@ -556,7 +556,7 @@ export default function TableOfContents({
   const titleStyle: React.CSSProperties = {
     fontSize: 14,
     fontWeight: 800,
-    color: '#0f172a',
+    color: 'var(--foreground)',
     margin: '0 0 10px 8px',
   };
   const textStyle: React.CSSProperties = {
@@ -655,14 +655,14 @@ export default function TableOfContents({
         <div
           style={{
             marginTop: 4,
-            color: '#9aa1ad',
+            color: 'var(--muted-2)',
             fontSize: 13,
             fontWeight: 600,
             textAlign: 'center',
             padding: '14px 8px',
             borderRadius: 10,
-            background: '#fafbfc',
-            border: '1px dashed #e5e7eb',
+            background: 'var(--surface-soft)',
+            border: '1px dashed var(--border)',
           }}
         >
           목차 없음
@@ -709,7 +709,7 @@ export default function TableOfContents({
                 border: 0,
                 background: 'transparent',
                 borderLeft: '3px solid transparent',
-                color: '#0f172a',
+                color: 'var(--foreground)',
                 padding: '8px 8px',
                 paddingLeft: 8,
                 borderRadius: 10,
@@ -771,8 +771,8 @@ export default function TableOfContents({
               top: indicatorTop,
               height: indicatorHeight,
               borderRadius: 8,
-              background: '#eff6ff',
-              borderLeft: '3px solid #2563eb',
+              background: 'var(--accent-soft)',
+              borderLeft: '3px solid var(--accent)',
               zIndex: 0,
               transitionProperty: 'top, height',
               transitionDuration: indicatorDuration,
@@ -805,7 +805,7 @@ export default function TableOfContents({
                   border: 0,
                   background: 'transparent',
                   borderLeft: '3px solid transparent',
-                  color: active ? '#2563eb' : '#4b5563',
+                  color: active ? 'var(--accent)' : 'var(--muted)',
                   padding: '6px 8px',
                   paddingLeft: padLeft,
                   borderRadius: 8,

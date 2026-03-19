@@ -22,7 +22,7 @@
   --accent-hover: #5c3df0;
   --accent-soft: rgba(111, 76, 255, 0.10);
 
-  --header-bg: rgba(255, 255, 255, 0.88);
+  --header-bg: #ffffff;
   --header-fg: #1f2937;
   --header-hover: #f3f4f6;
 
@@ -73,7 +73,7 @@
   --accent-hover: #8c71ff;
   --accent-soft: rgba(159, 134, 255, 0.18);
 
-  --header-bg: rgba(11, 18, 32, 0.82);
+  --header-bg: #0f172a;
   --header-fg: #e5edf7;
   --header-hover: #172033;
 
