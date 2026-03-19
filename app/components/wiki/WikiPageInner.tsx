@@ -455,7 +455,7 @@ export default function WikiPageInner({ user }: Props) {
 
   // ---------- 전환 지연(딜레이) 상태 ----------
   const [delaying, setDelaying] = useState(false);
-  const SWAP_DELAY_MS = 60; // 체감 120~220ms 권장
+  const SWAP_DELAY_MS = 120; // 체감 120~220ms 권장
   // -------------------------------------------
 
   const firstLoadRef = useRef(true);
