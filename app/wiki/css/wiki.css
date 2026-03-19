@@ -436,6 +436,23 @@
   overflow: hidden;
 }
 
+/* ===== [10-1] 문서 렌더러 테마 연동 ===== */
+.wiki-table {
+  color: var(--foreground);
+  background: transparent;
+}
+
+[data-wiki-block="link-block"],
+[data-wiki-block="info-box"],
+[data-wiki-card="price-table"],
+.wiki-table td {
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
 /* ===== [11] 헤딩 링크 버튼 ===== */
 .rdw-heading-link-button {
   opacity: 0;

@@ -2,6 +2,7 @@
 // File: app/wiki/lib/WikiReadRenderer.tsx
 // (이미지 lazy/async/fetchPriority 적용 + 외부 파비콘 네트워크 호출 제거)
 // + CloudFront CDN 치환(cdn) 및 버전 파라미터(withVersion) 적용
+// + 문서 렌더러 내부 요소 다크모드 테마 토큰 적용
 // =============================================
 /**
  * Slate JSON(Descendant[])을 React JSX로 렌더링하는 컴포넌트
@@ -233,31 +234,31 @@ function getInfoboxPreset(
   const normalize = (t: string) => {
     const v = (t || "info").toLowerCase().trim();
 
-    // 기존 호환
     if (v === "note") return "info";
     if (v === "warn") return "warning";
     if (v === "error") return "danger";
     if (v === "success") return "tip";
 
-    // ✅ 새 타입 호환(영문/국문/별칭)
     if (v === "white" || v === "하양" || v === "흰색") return "white";
     if (v === "yellow" || v === "노랑" || v === "노란") return "yellow";
 
-    // 연두: lime / green 둘 다 들어올 수 있으니 하나로 통일
     if (
       v === "lime" ||
       v === "green" ||
       v === "lightgreen" ||
       v === "mint" ||
       v === "연두"
-    )
+    ) {
       return "lime";
+    }
 
-    if (v === "pink" || v === "lightpink" || v === "rose" || v === "연분홍")
+    if (v === "pink" || v === "lightpink" || v === "rose" || v === "연분홍") {
       return "pink";
+    }
 
-    if (v === "red" || v === "crimson" || v === "빨강" || v === "빨간")
+    if (v === "red" || v === "crimson" || v === "빨강" || v === "빨간") {
       return "red";
+    }
 
     return v;
   };
@@ -268,8 +269,8 @@ function getInfoboxPreset(
     gap: 12,
     padding: "12px 14px",
     borderRadius: 12,
-    color: "#1c1d1f",
-    boxShadow: "0 1px 0 rgba(0,0,0,0.02)",
+    color: "var(--foreground)",
+    boxShadow: "var(--shadow-sm)",
   };
 
   const map: Record<
@@ -278,88 +279,83 @@ function getInfoboxPreset(
       bg: string;
       bd: string;
       accent: string;
-      mask?: string; // 아이콘이 있는 타입만
+      mask?: string;
       role: "note" | "alert";
-      noIcon?: boolean; // ✅ 새 타입은 아이콘 없음
+      noIcon?: boolean;
     }
   > = {
-    // 기존 4종(아이콘 유지)
     info: {
-      bg: "#f2f6ff",
-      bd: "#dbeafe",
-      accent: "#2563eb",
+      bg: "rgba(59,130,246,0.12)",
+      bd: "rgba(96,165,250,0.28)",
+      accent: "#3b82f6",
       mask:
         "https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-info.svg?v=2&token=a463935e93",
       role: "note",
     },
     warning: {
-      bg: "#fff7ea",
-      bd: "#ffe3b3",
+      bg: "rgba(245,158,11,0.12)",
+      bd: "rgba(251,191,36,0.30)",
       accent: "#f59e0b",
       mask:
         "https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-exclamation.svg?v=2&token=a463935e93",
       role: "note",
     },
     danger: {
-      bg: "#fff3f3",
-      bd: "#ffd8d8",
+      bg: "rgba(239,68,68,0.12)",
+      bd: "rgba(248,113,113,0.28)",
       accent: "#ef4444",
       mask:
         "https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/triangle-exclamation.svg?v=2&token=a463935e93",
       role: "alert",
     },
     tip: {
-      bg: "#eefdf6",
-      bd: "#c9f1de",
+      bg: "rgba(16,185,129,0.12)",
+      bd: "rgba(52,211,153,0.28)",
       accent: "#10b981",
       mask:
         "https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-exclamation.svg?v=2&token=a463935e93",
       role: "note",
     },
 
-    // ✅ 새 5종(아이콘 없음)
     white: {
-      bg: "#ffffff",
-      bd: "#e5e7eb",
-      accent: "#6b7280",
+      bg: "var(--surface-elevated)",
+      bd: "var(--border)",
+      accent: "var(--muted-2)",
       role: "note",
       noIcon: true,
     },
     yellow: {
-      bg: "#fffbeb",
-      bd: "#fde68a",
-      accent: "#b45309",
+      bg: "rgba(250,204,21,0.14)",
+      bd: "rgba(250,204,21,0.32)",
+      accent: "#ca8a04",
       role: "note",
       noIcon: true,
     },
-
-    // ✅ 연두: green / lime 둘 다 같은 프리셋으로 지원
     green: {
-      bg: "#f0fdf4",
-      bd: "#bbf7d0",
-      accent: "#15803d",
+      bg: "rgba(34,197,94,0.14)",
+      bd: "rgba(74,222,128,0.28)",
+      accent: "#16a34a",
       role: "note",
       noIcon: true,
     },
     lime: {
-      bg: "#f0fdf4",
-      bd: "#bbf7d0",
-      accent: "#15803d",
+      bg: "rgba(34,197,94,0.14)",
+      bd: "rgba(74,222,128,0.28)",
+      accent: "#16a34a",
       role: "note",
       noIcon: true,
     },
-
     pink: {
-      bg: "#fdf2f8",
-      bd: "#fbcfe8",
-      accent: "#be185d",
+      bg: "rgba(236,72,153,0.12)",
+      bd: "rgba(244,114,182,0.28)",
+      accent: "#db2777",
       role: "note",
       noIcon: true,
     },
     red: {
-      bg: "#fef2f2",
-      bd: "#fecaca",
-      accent: "#b91c1c",
+      bg: "rgba(239,68,68,0.12)",
+      bd: "rgba(248,113,113,0.28)",
+      accent: "#dc2626",
       role: "alert",
       noIcon: true,
     },
@@ -624,10 +620,10 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
   // --- UI ---
   const [hovered, setHovered] = useState(false);
 
-  const BORDER = hovered ? "1.5px solid #93c5fd" : "1.5px solid #d1d5db";
-  const SHADOW = hovered
-    ? "0 12px 28px rgba(2, 132, 199, 0.16), 0 3px 8px rgba(15, 23, 42, 0.08)"
-    : "0 10px 24px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.05)";
+  const BORDER = hovered
+    ? "1.5px solid var(--accent)"
+    : "1.5px solid var(--border)";
+  const SHADOW = hovered ? "var(--shadow-lg)" : "var(--shadow-sm)";
 
   const titleFontPx = autoFont(16, labelText, [
     [18, 16],
@@ -654,7 +650,11 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
   };
 
   return (
-    <div style={{ position: "relative", ...wrapperStyle }}>
+    <div
+      data-wiki-block="link-block"
+      data-wiki-link-kind={isWikiLink ? "internal" : "external"}
+      style={{ position: "relative", ...wrapperStyle }}
+    >
       {isWikiLink ? (
         // ✅ 내부: <a> 유지 + preventDefault + router.push (히스토리 일관성)
         <a
@@ -681,7 +681,7 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
               marginBottom: 10,
               width: "100%",
               boxSizing: "border-box",
-              background: "#ffffff",
+              background: "var(--surface-elevated)",
               boxShadow: SHADOW,
               transition: "box-shadow .14s ease, border-color .14s ease, transform .14s ease",
               transform: hovered ? "translateY(-1px)" : "translateY(0)",
@@ -693,12 +693,12 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
                 width: 38,
                 height: 38,
                 borderRadius: 12,
-                background: "rgba(37,99,235,0.10)",
+                background: "var(--accent-soft)",
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
                 flex: "0 0 auto",
-                boxShadow: "0 1px 0 rgba(0,0,0,0.02) inset",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
               }}
             >
               {wikiIcon ? (
@@ -734,7 +734,7 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
                 style={{
                   fontSize: titleFontPx,
                   fontWeight: 750,
-                  color: "#0f172a",
+                  color: "var(--foreground)",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
@@ -748,7 +748,7 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
                 style={{
                   fontSize: 12,
                   fontWeight: 600,
-                  color: "#64748b",
+                  color: "var(--muted)",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
@@ -763,7 +763,7 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
             <div
               style={{
                 flex: "0 0 auto",
-                color: hovered ? "#2563eb" : "#94a3b8",
+                color: hovered ? "var(--accent)" : "var(--muted-2)",
                 fontSize: 18,
                 fontWeight: 900,
                 lineHeight: 1,
@@ -804,7 +804,7 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
               marginBottom: 10,
               width: "100%",
               boxSizing: "border-box",
-              background: "#ffffff",
+              background: "var(--surface-elevated)",
               boxShadow: SHADOW,
               transition: "box-shadow .14s ease, border-color .14s ease, transform .14s ease",
               transform: hovered ? "translateY(-1px)" : "translateY(0)",
@@ -816,12 +816,12 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
                 width: 38,
                 height: 38,
                 borderRadius: 12,
-                background: "rgba(15,23,42,0.06)",
+                background: "var(--surface-soft)",
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
                 flex: "0 0 auto",
-                boxShadow: "0 1px 0 rgba(0,0,0,0.02) inset",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
               }}
             >
               {externalFavicon && !faviconFailed ? (
@@ -843,7 +843,7 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
                   }}
                 />
               ) : (
-                <span style={{ fontSize: 18, lineHeight: 1, color: "#64748b" }} aria-hidden>
+                <span style={{ fontSize: 18, lineHeight: 1, color: "var(--muted)" }} aria-hidden>
                   🌐
                 </span>
               )}
@@ -863,7 +863,7 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
                 style={{
                   fontSize: titleFontPx,
                   fontWeight: 750,
-                  color: "#0f172a",
+                  color: "var(--foreground)",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
@@ -877,7 +877,7 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
                 style={{
                   fontSize: 12,
                   fontWeight: 600,
-                  color: "#64748b",
+                  color: "var(--muted)",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
@@ -892,7 +892,7 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
             <div
               style={{
                 flex: "0 0 auto",
-                color: hovered ? "#2563eb" : "#94a3b8",
+                color: hovered ? "var(--accent)" : "var(--muted-2)",
                 fontSize: 18,
                 fontWeight: 900,
                 lineHeight: 1,
@@ -1060,7 +1060,7 @@ function ColoredCompressedText({ value }: { value: string | number }) {
               {c.text}
             </span>
           ))}
-          <span style={{ color: '#5b80f5' }}>~</span>
+          <span style={{ color: 'var(--accent)' }}>~</span>
         </span>
 
         <wbr />
@@ -1269,7 +1269,7 @@ const WEAPON_TYPES_META: Record<
   rune: {
     label: 'RUNE',
     headerBg: '#2e1065',
-    border: '#7c3aed', 
+    border: '#7c3aed',
     badgeBg: '#1e0b3a',
   },
   'fishing-rod': {
@@ -1304,13 +1304,13 @@ const WEAPON_TYPES_META: Record<
   },
   armor: {
     label: 'ARMOR',
-    headerBg: '#0f172a', // 남색/다크
+    headerBg: '#0f172a',
     border: '#334155',
     badgeBg: '#111827',
   },
   weapon: {
     label: 'WEAPON',
-    headerBg: '#1f2937', // 다크 그레이
+    headerBg: '#1f2937',
     border: '#6b7280',
     badgeBg: '#111827',
   },
@@ -1855,7 +1855,7 @@ function PriceTableCardBlock({
                 height: 65,
                 objectFit: "contain",
                 borderRadius: 7,
-                background: "#fff",
+                background: "var(--surface)",
               }}
             />
           ) : (
@@ -1863,9 +1863,10 @@ function PriceTableCardBlock({
               style={{
                 width: 54,
                 height: 54,
-                background: "#ececec",
+                background: "var(--surface-soft)",
                 borderRadius: 7,
                 display: "inline-block",
+                boxShadow: "inset 0 0 0 1px var(--border)",
               }}
             />
           );
@@ -1897,7 +1898,7 @@ function PriceTableCardBlock({
                     width: 66,
                     display: "inline-block",
                     boxShadow: "0 1px 8px #0001",
-                    border: "1.5px solid #fff",
+                    border: "1.5px solid var(--surface-elevated)",
                     textAlign: "center",
                     letterSpacing: "1px",
                     transition: "background .1s",
@@ -1915,10 +1916,11 @@ function PriceTableCardBlock({
               key={idx}
               data-wiki-card="price-table"
               style={{
-                background: "#fff",
+                background: "var(--surface-elevated)",
+                border: "1px solid var(--border)",
                 borderRadius: 15,
                 padding: 8,
-                boxShadow: "0 4px 24px 0 rgba(60,60,80,0.12)",
+                boxShadow: "var(--shadow-lg)",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
@@ -1941,8 +1943,8 @@ function PriceTableCardBlock({
                     left: -12,
                     top: "50%",
                     transform: "translateY(-50%)",
-                    background: "#fff",
-                    border: "1.2px solid #eee",
+                    background: "var(--surface-elevated)",
+                    border: "1.2px solid var(--border)",
                     borderRadius: "50%",
                     width: 28,
                     height: 28,
@@ -1951,7 +1953,8 @@ function PriceTableCardBlock({
                     justifyContent: "center",
                     fontWeight: 800,
                     fontSize: 16,
-                    boxShadow: "0 2px 6px #0001",
+                    color: "var(--foreground)",
+                    boxShadow: "var(--shadow-sm)",
                     zIndex: 2,
                     cursor: "pointer",
                     opacity: 0.9,
@@ -1972,8 +1975,8 @@ function PriceTableCardBlock({
                     right: -12,
                     top: "50%",
                     transform: "translateY(-50%)",
-                    background: "#fff",
-                    border: "1.2px solid #eee",
+                    background: "var(--surface-elevated)",
+                    border: "1.2px solid var(--border)",
                     borderRadius: "50%",
                     width: 28,
                     height: 28,
@@ -1982,7 +1985,8 @@ function PriceTableCardBlock({
                     justifyContent: "center",
                     fontWeight: 800,
                     fontSize: 16,
-                    boxShadow: "0 2px 6px #0001",
+                    color: "var(--foreground)",
+                    boxShadow: "var(--shadow-sm)",
                     zIndex: 2,
                     cursor: "pointer",
                     opacity: 0.9,
@@ -2017,7 +2021,7 @@ function PriceTableCardBlock({
                   fontSize: nameFont,
                   lineHeight: 1.12,
                   marginBottom: 0,
-                  color: item.name ? "#333" : "#bbb",
+                  color: item.name ? "var(--foreground)" : "var(--muted-2)",
                   textAlign: "center",
                   minHeight: 40,
                   width: "100%",
@@ -2028,7 +2032,7 @@ function PriceTableCardBlock({
                   whiteSpace: "normal",
                 }}
               >
-                {item.name ? nameNode : <span style={{ color: "#bbb" }}>이름 없음</span>}
+                {item.name ? nameNode : <span style={{ color: "var(--muted-2)" }}>이름 없음</span>}
               </div>
 
               <div
@@ -2037,7 +2041,7 @@ function PriceTableCardBlock({
                   fontWeight: 800,
                   fontSize: priceSize,
                   lineHeight: 1.04,
-                  color: "#5b80f5",
+                  color: "var(--accent)",
                   textAlign: "center",
                   letterSpacing: "1px",
                   marginTop: 3,
@@ -2146,7 +2150,7 @@ function WeaponLevelSelector({
     <div
       style={{
         position: "relative",
-        marginLeft: 10,          // 살짝만 여유
+        marginLeft: 10,
         alignSelf: "flex-start",
       }}
     >
@@ -2160,7 +2164,7 @@ function WeaponLevelSelector({
           cursor: "pointer",
           display: "inline-flex",
           alignItems: "center",
-          gap: 8,                 // 기존 4 → 8
+          gap: 8,
           padding: 0,
           background: "transparent",
           color: BASE_TEXT,
@@ -2190,7 +2194,7 @@ function WeaponLevelSelector({
 
         <span
           style={{
-            fontSize: 12,          // 기존 10 → 12
+            fontSize: 12,
             opacity: 0.8,
             transform: open ? "translateY(-1px)" : "translateY(0)",
             transition: "transform 0.12s ease",
@@ -2207,7 +2211,7 @@ function WeaponLevelSelector({
           position: "absolute",
           top: "100%",
           right: 17,
-          marginTop: 8,           // 기존 4 → 8
+          marginTop: 8,
           zIndex: 40,
           pointerEvents: open ? "auto" : "none",
           opacity: open ? 1 : 0,
@@ -2224,7 +2228,7 @@ function WeaponLevelSelector({
             boxShadow: "none",
             display: "flex",
             flexDirection: "column",
-            gap: 10,              // 기존 6 → 10 (더 고급스럽게 여백)
+            gap: 10,
             alignItems: "center",
           }}
         >
@@ -2389,7 +2393,7 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
     return { value: v, unit };
   };
 
-  const cardWidth = 260; // 🔹 Element 와 동일
+  const cardWidth = 260;
 
   return (
     <div key={keyProp} style={{ margin: "14px 0" }}>
@@ -2400,7 +2404,7 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
           justifyContent: "center",
           alignItems: "flex-start",
           gap: 10,
-          flexWrap: "nowrap", // ✅ 아래로 떨어지는 것 방지
+          flexWrap: "nowrap",
         }}
       >
         {/* 카드 본체 – Element 와 거의 동일한 스타일 */}
@@ -2742,26 +2746,27 @@ function renderNode(
       const paragraphFontPx = isEmpty
         ? baseFont
         : autoFont(baseFont, plainText, [
-            [40, baseFont],        // 40자 이하면 19
-            [80, baseFont - 1],    // 80자 이하면 18
-            [120, baseFont - 2],   // 120자 이하면 17
-            [170, baseFont - 3],   // 170자 이하면 16
-            [230, baseFont - 4],   // 230자 이하면 15
-            [320, baseFont - 5],   // 320자 이하면 14
-            [450, baseFont - 6],   // 450자 이하면 13
+            [40, baseFont],
+            [80, baseFont - 1],
+            [120, baseFont - 2],
+            [170, baseFont - 3],
+            [230, baseFont - 4],
+            [320, baseFont - 5],
+            [450, baseFont - 6],
           ]);
 
       const style: React.CSSProperties = {
         textAlign: node.textAlign || "left",
         margin: 0,
         lineHeight: 1.6,
-        fontSize: `${paragraphFontPx}px`, // ✅ 글자수 기반 폰트
+        fontSize: `${paragraphFontPx}px`,
         whiteSpace: "pre-wrap",
         minHeight: isEmpty ? "1.6em" : undefined,
+        color: "var(--foreground)",
       };
 
       if (indentLine) {
-        style.borderLeft = "2px solid #aaa";
+        style.borderLeft = "2px solid var(--border-strong)";
         style.paddingLeft = 16;
       }
 
@@ -2855,6 +2860,7 @@ function renderNode(
             lineHeight: 1.35,
             fontWeight: 800,
             scrollMarginTop: "120px",
+            color: "var(--foreground)",
           }}
         >
           {iconHtml}
@@ -2870,13 +2876,11 @@ function renderNode(
       const href = normalizeToAppHref(rawHref);
 
       if (internal) {
-        // ✅ 내부 위키 링크는 일반 a로 렌더
-        // 실제 이동은 WikiPageInner의 contentRef click handler가 처리
         return (
           <a
             key={key}
             href={href}
-            style={{ color: "#2676ff", textDecoration: "none" }}
+            style={{ color: "var(--accent)", textDecoration: "none" }}
           >
             {children}
           </a>
@@ -2889,7 +2893,7 @@ function renderNode(
           href={href}
           target="_blank"
           rel="noopener noreferrer nofollow"
-          style={{ color: "#2676ff", textDecoration: "none" }}
+          style={{ color: "var(--accent)", textDecoration: "none" }}
         >
           {children}
         </a>
@@ -2897,7 +2901,7 @@ function renderNode(
     }
 
     case "divider": {
-      const borderColor = "#e0e0e0";
+      const borderColor = "var(--border-strong)";
       switch (node.style) {
         case "bold":
           return (
@@ -2957,7 +2961,7 @@ function renderNode(
                 style={{
                   fontSize: 24,
                   letterSpacing: 12,
-                  color: "#666",
+                  color: "var(--muted)",
                 }}
               >
                 ◇───◇
@@ -2974,7 +2978,7 @@ function renderNode(
                 style={{
                   fontSize: 22,
                   letterSpacing: 6,
-                  color: "#666",
+                  color: "var(--muted)",
                 }}
               >
                 ◇ ⋅ ⋅ ⋅ ◇
@@ -3050,7 +3054,6 @@ function renderNode(
       }
     }
 
-    // 링크 블록(박스형)
     case "link-block": {
       return (
         <LinkBlockView key={key} node={node}>
@@ -3059,7 +3062,6 @@ function renderNode(
       );
     }
 
-    // 내부적으로도 사용되는 컨테이너
     case "link-block-row": {
       return (
         <div
@@ -3160,7 +3162,7 @@ function renderNode(
                 height={h}
                 sizes="(max-width: 768px) 90vw, 60vw"
                 rounded={10}
-                style={{ boxShadow: "0 2px 12px 0 #0001", background: "#fff" }}
+                style={{ boxShadow: "0 2px 12px 0 #0001", background: "var(--surface-elevated)" }}
               />
             </div>
           </div>
@@ -3239,7 +3241,7 @@ function renderNode(
           style={{
             display: "inline-block",
             fontWeight: "bold",
-            color: node.color || "#888",
+            color: node.color || "var(--muted-2)",
             fontSize: "1.08em",
             marginRight: 8,
             marginLeft: 2,
@@ -3311,10 +3313,11 @@ function renderNode(
           colSpan={colSpan}
           rowSpan={rowSpan}
           style={{
-            border: "1px solid #e5e7eb",
+            border: "1px solid var(--border)",
             padding: "6px 8px",
             verticalAlign: "top",
-            background: "#ffffff",
+            background: "var(--surface-elevated)",
+            color: "var(--foreground)",
           }}
         >
           {children}
@@ -3324,7 +3327,7 @@ function renderNode(
 
     case 'wiki-ref': {
       const el = node as any;
-      const kind = (el.kind ?? el.refType) as any; // 'quest' | 'npc' | 'qna'
+      const kind = (el.kind ?? el.refType) as any;
       const id = Number(el.id ?? el.refId);
       const label = el.label ?? (typeof kind === 'string' ? kind : 'ref');
 
@@ -3344,7 +3347,7 @@ function renderNode(
           tabIndex={clickable ? 0 : undefined}
           title={Number.isFinite(id) ? `${label} #${id}` : undefined}
           style={{
-            color: '#2563eb',
+            color: 'var(--accent)',
             cursor: clickable ? 'pointer' : 'default',
             textDecoration: 'none',
           }}
@@ -3398,6 +3401,6 @@ function stripFontSizeFromDescendants(node: any): any {
 function stripReact(node: React.ReactNode): string {
   if (typeof node === "string" || typeof node === "number") return String(node);
   if (Array.isArray(node)) return node.map(stripReact).join("");
-  if (React.isValidElement(node)) return stripReact(node.props.children);
+  if (React.isValidElement(node)) return stripReact((node as any).props.children);
   return "";
 }
