@@ -25,6 +25,7 @@ type Props = {
   content: Descendant[];
   readOnly?: boolean;
   onWikiRefClick?: (kind: WikiRefKind, id: number) => void | Promise<void>;
+  onWikiNavigate?: (href: string) => void;
 };
 
 // ── Element.tsx와 동일한 전역 캐시 (HMR 안전) ─────────────────────

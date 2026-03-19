@@ -45,7 +45,12 @@ type Props = {
     categoryPath: number[],
     docTitle: string,
     docId?: number,
-    options?: { clearCategoryPath?: boolean }
+    options?: {
+      clearCategoryPath?: boolean;
+      history?: 'push' | 'replace';
+      skipUrlSync?: boolean;
+      forceRoot?: boolean;
+    }
   ) => void;
   allDocuments: Document[];
   openPaths: number[][];
@@ -438,7 +443,10 @@ const CategoryTree: React.FC<Props> = ({
         e.preventDefault();
         e.stopPropagation();
 
-        fetchDoc([0], rootRep.title, rootRep.id, { clearCategoryPath: true });
+        fetchDoc([0], rootRep.title, rootRep.id, {
+          clearCategoryPath: true,
+          history: 'push',
+        });
       } catch {}
     };
 
@@ -519,7 +527,10 @@ const CategoryTree: React.FC<Props> = ({
                   if (title) {
                     // ✅ 카테고리 강조를 위해: clearCategoryPath 쓰면 안 됨
                     setSelectedCategoryPath(currentPath);
-                    fetchDoc(currentPath, title, repId, { clearCategoryPath: false });
+                    fetchDoc(currentPath, title, repId, {
+                      clearCategoryPath: false,
+                      history: 'push',
+                    });
                   }
                   return;
                 }
@@ -625,7 +636,10 @@ const CategoryTree: React.FC<Props> = ({
                       data-docid={doc.id}
                       onClick={(e) => {
                         if (guardClick(e as any)) return;
-                        fetchDoc(currentPath, doc.title, doc.id, { clearCategoryPath: true });
+                        fetchDoc(currentPath, doc.title, doc.id, {
+                          clearCategoryPath: true,
+                          history: 'push',
+                        });
                       }}
                       aria-disabled={!interactionReady}
                       title={!interactionReady ? "로딩 중입니다…" : undefined}
@@ -683,7 +697,10 @@ const CategoryTree: React.FC<Props> = ({
                 }`}
                 onClick={(e) => {
                   if (guardClick(e)) return;
-                  fetchDoc([0], doc.title, doc.id, { clearCategoryPath: true });
+                  fetchDoc([0], doc.title, doc.id, {
+                    clearCategoryPath: true,
+                    history: 'push',
+                  });
                 }}
                 aria-disabled={!interactionReady}
                 disabled={!interactionReady}

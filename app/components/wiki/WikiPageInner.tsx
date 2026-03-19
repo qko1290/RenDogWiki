@@ -469,7 +469,6 @@ export default function WikiPageInner({ user }: Props) {
 
   const canWrite = useCanWrite(user);
   const ignoreNextUrlSyncRef = useRef(false);
-  const isPopStateSyncRef = useRef(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const contentRef = useRef<HTMLDivElement>(null);
@@ -807,8 +806,6 @@ export default function WikiPageInner({ user }: Props) {
       return;
     }
 
-    isPopStateSyncRef.current = true;
-
     const idParamRaw = searchParams.get('id');
     const idParam = idParamRaw ? Number(idParamRaw) : NaN;
     const pathParam = searchParams.get('path');
@@ -827,7 +824,11 @@ export default function WikiPageInner({ user }: Props) {
       setSelectedDocId(idParam);
       setSelectedDocTitle(meta?.title ?? titleParam ?? null);
       setSelectedDocPath(isRoot ? [] : fullPath);
-      void fetchDocById(idParam, { hideChrome: isRoot });
+      void fetchDocById(idParam, {
+        hideChrome: isRoot,
+        history: 'replace',
+        skipUrlSync: true,
+      }); 
       return;
     }
     if (!pathParam || !titleParam) return;
@@ -842,6 +843,8 @@ export default function WikiPageInner({ user }: Props) {
         fetchDoc(isRoot ? [] : [/*unused*/], titleParam, id, {
           clearCategoryPath: true,
           forceRoot: isRoot,
+          history: 'replace',
+          skipUrlSync: true,
         });
         return true;
       }
@@ -862,6 +865,8 @@ export default function WikiPageInner({ user }: Props) {
       fetchDoc([], titleParam, undefined, {
         clearCategoryPath: true,
         forceRoot: true,
+        history: 'replace',
+        skipUrlSync: true,
       });
     } else {
       const pathId = Number(pathParam);
@@ -869,6 +874,8 @@ export default function WikiPageInner({ user }: Props) {
       if (fullPath) {
         fetchDoc(fullPath, titleParam, undefined, {
           clearCategoryPath: true,
+          history: 'replace',
+          skipUrlSync: true,
         });
       }
     }
@@ -1084,13 +1091,23 @@ export default function WikiPageInner({ user }: Props) {
     );
   }
 
+  type DocOpenHistory = 'push' | 'replace';
+
+  type FetchDocOptions = {
+    clearCategoryPath?: boolean;
+    forceRoot?: boolean;
+    hideChrome?: boolean;
+    history?: DocOpenHistory;
+    skipUrlSync?: boolean;
+  };
+
   // 문서 fetch (path/title)
-  function fetchDoc(
+  const fetchDoc = async (
     categoryPath: number[],
     docTitle: string,
     docId?: number,
-    options?: { clearCategoryPath?: boolean; forceRoot?: boolean },
-  ) {
+    options?: FetchDocOptions
+  ) => {
 
     if (docId != null) {
       const isRoot = options?.forceRoot || categoryPath.length === 0;
@@ -1101,14 +1118,18 @@ export default function WikiPageInner({ user }: Props) {
       if (options?.clearCategoryPath) setSelectedCategoryPath(null);
 
       setLoadingDoc(true);
-      void fetchDocById(docId, { hideChrome: isRoot });
+      void fetchDocById(docId, {
+        hideChrome: isRoot,
+        history: options?.history,
+        skipUrlSync: options?.skipUrlSync,
+      });
       return;
     }
     
     const isRoot = options?.forceRoot || categoryPath.length === 0; // ✅ 루트 문서 여부
     if (options?.clearCategoryPath) setSelectedCategoryPath(null);
     setSelectedDocTitle(docTitle);
-    setHideDocChrome(false); // ✅ 루트는 카테고리 스타일(크롬 숨김)
+    setHideDocChrome(isRoot); // ✅ 루트는 카테고리 스타일(크롬 숨김)
 
     // 루트 + id 미지정 → 목록에서 id로 로딩
     if (isRoot && docId == null) {
@@ -1123,7 +1144,11 @@ export default function WikiPageInner({ user }: Props) {
         setSelectedDocId(match.id);
         setSelectedDocPath([]); // 루트
         setLoadingDoc(true);
-        void fetchDocById(match.id, { hideChrome: true });
+        void fetchDocById(match.id, {
+          hideChrome: true,
+          history: options?.history,
+          skipUrlSync: options?.skipUrlSync,
+        });
         return;
       }
     }
@@ -1146,7 +1171,11 @@ export default function WikiPageInner({ user }: Props) {
         setSelectedDocId(doc.id);
         setSelectedDocPath(isRoot ? [] : [...categoryPath]);
         setLoadingDoc(true);
-        void fetchDocById(doc.id, { hideChrome: isRoot });
+        void fetchDocById(doc.id, {
+          hideChrome: isRoot,
+          history: options?.history,
+          skipUrlSync: options?.skipUrlSync,
+        });
         return;
       }
     }
@@ -1210,15 +1239,16 @@ export default function WikiPageInner({ user }: Props) {
         setHideDocChrome(Number(data?.id) === ROOT_FEATURED_DOC_ID);
         ensureOpenForDocPath(nextPath);
 
-        syncUrlWithDoc(
-          Number(data?.id ?? docId ?? null),
-          data.title ?? docTitle,
-          nextPath,
-          {
-            history: isPopStateSyncRef.current ? 'replace' : 'push',
-          }
-        );
-        isPopStateSyncRef.current = false;
+        if (!options?.skipUrlSync) {
+          syncUrlWithDoc(
+            Number(data?.id ?? docId ?? null),
+            data.title ?? docTitle,
+            nextPath,
+            {
+              history: options?.history ?? 'push',
+            }
+          );
+        }
 
         setLoadingDoc(false);
       })
@@ -1235,10 +1265,10 @@ export default function WikiPageInner({ user }: Props) {
   }
 
   // 문서 fetch (id)
-  async function fetchDocById(
+  const fetchDocById = async (
     docId: number,
-    opts?: { hideChrome?: boolean },
-  ) {
+    options?: FetchDocOptions
+  ) => {
     const reqId = ++docReqIdRef.current;
     setLoadingDoc(true);
 
@@ -1301,16 +1331,17 @@ export default function WikiPageInner({ user }: Props) {
       setSelectedDocPath(nextPath);
       setHideDocChrome(Number(data?.id) === ROOT_FEATURED_DOC_ID);
 
-      syncUrlWithDoc(
-        Number(data?.id ?? docId),
-        data.title ?? null,
-        nextPath,
-        { history: 'replace' }
-      );
-      isPopStateSyncRef.current = false;
+      if (!options?.skipUrlSync) {
+        syncUrlWithDoc(
+          Number(data?.id ?? docId),
+          data.title ?? null,
+          nextPath,
+          { history: options?.history ?? 'push' }
+        );
+      }
 
       setHideDocChrome(
-        !!opts?.hideChrome || Number(data?.id) === ROOT_FEATURED_DOC_ID
+        !!options?.hideChrome || Number(data?.id) === ROOT_FEATURED_DOC_ID
       );
       setLoadingDoc(false);
     } catch (e: any) {
