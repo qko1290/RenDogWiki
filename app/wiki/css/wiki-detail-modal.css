@@ -478,7 +478,7 @@ body.rd-modal-open {
     padding: 4px !important;
     gap: 0px !important;
     overflow-y: auto !important;
-    background: linear-gradient(180deg, #fbfdff, #ffffff) !important;
+    background: linear-gradient(180deg, #fbfdff, #ffffff);
   }
 
   .npc-modal-close-btn {
