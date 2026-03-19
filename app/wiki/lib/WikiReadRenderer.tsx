@@ -1488,6 +1488,29 @@ export default function WikiReadRenderer({ content, readOnly = true, onWikiRefCl
   const headingOccRef = useRef<Map<string, number>>(new Map());
 
   const [isMobile, setIsMobile] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+
+    const apply = () => {
+      setIsDarkMode(mq.matches);
+    };
+
+    apply();
+
+    const onChange = () => apply();
+
+    if (typeof mq.addEventListener === "function") {
+      mq.addEventListener("change", onChange);
+      return () => mq.removeEventListener("change", onChange);
+    }
+
+    mq.addListener(onChange);
+    return () => mq.removeListener(onChange);
+  }, []);
 
   useEffect(() => {
     const apply = () => setIsMobile(window.innerWidth <= 768);
@@ -1574,8 +1597,8 @@ export default function WikiReadRenderer({ content, readOnly = true, onWikiRefCl
             alignItems: "stretch",
           }}
         >
-          {renderNode(a, i, ctx, handlers, { isMobile })}
-          {renderNode(b, i + 1, ctx, handlers, { isMobile })}
+          {renderNode(a, i, ctx, handlers, { isMobile, isDarkMode })}
+          {renderNode(b, i + 1, ctx, handlers, { isMobile, isDarkMode })}
         </div>
       );
 
@@ -1584,7 +1607,7 @@ export default function WikiReadRenderer({ content, readOnly = true, onWikiRefCl
     }
 
     // (2) 나머지는 기존처럼 단건 렌더
-    rendered.push(renderNode(node, i, ctx, handlers, { isMobile }));
+    rendered.push(renderNode(node, i, ctx, handlers, { isMobile, isDarkMode}));
   }
 
   return <>{rendered}</>;
@@ -2722,7 +2745,7 @@ function renderNode(
   key?: React.Key,
   ctx?: HeadingCopyCtx,
   handlers?: WikiRefHandlers,
-  env?: { isMobile?: boolean },
+  env?: { isMobile?: boolean; isDarkMode?: boolean },
 ): React.ReactNode {
   if (Text.isText(node)) {
     return renderLeaf(node, key);
@@ -3307,6 +3330,17 @@ function renderNode(
       const colSpan = Math.max(1, Number(node.colspan) || 1);
       const rowSpan = Math.max(1, Number(node.rowspan) || 1);
 
+      const customCellBg =
+        typeof node.backgroundColor === "string" && node.backgroundColor.trim()
+          ? node.backgroundColor
+          : typeof node.bgColor === "string" && node.bgColor.trim()
+          ? node.bgColor
+          : undefined;
+
+      const resolvedCellBg = env?.isDarkMode
+        ? "var(--surface-elevated)"
+        : customCellBg || "var(--surface-elevated)";
+
       return (
         <td
           key={key}
@@ -3316,7 +3350,7 @@ function renderNode(
             border: "1px solid var(--border)",
             padding: "6px 8px",
             verticalAlign: "top",
-            background: "var(--surface-elevated)",
+            background: resolvedCellBg,
             color: "var(--foreground)",
           }}
         >
