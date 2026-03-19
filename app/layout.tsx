@@ -3,10 +3,12 @@
 // (전체 코드)
 // - 기존 metadata / viewport / Analytics 유지
 // - 전역 AuthProvider 추가
+// - 다크모드 초기화 스크립트 추가
 // =============================================
 
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import "@/wiki/css/fonts-kor.css";
 import { Analytics } from "@vercel/analytics/react";
@@ -86,7 +88,7 @@ export const viewport: Viewport = {
   themeColor: "#0ea5e9",
   width: "device-width",
   initialScale: 1,
-  colorScheme: "light",
+  colorScheme: "light dark",
   viewportFit: "cover",
 };
 
@@ -96,8 +98,27 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ko">
+    <html lang="ko" suppressHydrationWarning>
       <body className={inter.className}>
+        <Script id="rdwiki-theme-init" strategy="beforeInteractive">
+          {`
+            (function () {
+              try {
+                var STORAGE_KEY = 'rdwiki-theme';
+                var saved = window.localStorage.getItem(STORAGE_KEY);
+                var theme =
+                  saved === 'light' || saved === 'dark'
+                    ? saved
+                    : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+
+                var root = document.documentElement;
+                root.dataset.theme = theme;
+                root.style.colorScheme = theme;
+              } catch (e) {}
+            })();
+          `}
+        </Script>
+
         <AuthProvider>{children}</AuthProvider>
         <Analytics />
       </body>

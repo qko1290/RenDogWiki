@@ -1,3 +1,4 @@
+/*C:\next\rdwiki\app\globals.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,19 +6,124 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  --surface: #ffffff;
+  --surface-elevated: #ffffff;
+  --surface-soft: #f8fafc;
+
+  --border: #d7dde7;
+  --border-soft: #eef2f7;
+  --border-strong: #c2cbd7;
+
+  --muted: #5b6472;
+  --muted-2: #8a93a3;
+
+  --accent: #6f4cff;
+  --accent-hover: #5c3df0;
+  --accent-soft: rgba(111, 76, 255, 0.10);
+
+  --header-bg: rgba(255, 255, 255, 0.88);
+  --header-fg: #1f2937;
+  --header-hover: #f3f4f6;
+
+  --input-bg: #ffffff;
+  --input-fg: #171717;
+  --input-border: #cfd6df;
+  --input-focus-ring: rgba(111, 76, 255, 0.18);
+
+  --tag-bg: #ecfdf3;
+  --tag-border: #d1fadf;
+  --tag-fg: #198544;
+
+  --faq-q-bg: #eaf2ff;
+  --faq-q-fg: #1d4ed8;
+  --faq-a-bg: #fff5f5;
+  --faq-a-border: #ffe2e2;
+  --faq-a-badge-bg: #ffe9e9;
+  --faq-a-badge-fg: #dc2626;
+
+  --danger-fg: #ef4444;
+
+  --overlay: rgba(0, 0, 0, 0.45);
+
+  --scrollbar-thumb: #94a3b8;
+  --scrollbar-thumb-soft: #cbd5e1;
+
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 10px 32px rgba(15, 23, 42, 0.14);
+  --shadow-xl: 0 24px 80px rgba(15, 23, 42, 0.28);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root[data-theme='dark'] {
+  --background: #0b1220;
+  --foreground: #e5edf7;
+
+  --surface: #0f172a;
+  --surface-elevated: #111827;
+  --surface-soft: #172033;
+
+  --border: #273449;
+  --border-soft: #1f2a3d;
+  --border-strong: #334155;
+
+  --muted: #b4c0d1;
+  --muted-2: #8ea0b8;
+
+  --accent: #9f86ff;
+  --accent-hover: #8c71ff;
+  --accent-soft: rgba(159, 134, 255, 0.18);
+
+  --header-bg: rgba(11, 18, 32, 0.82);
+  --header-fg: #e5edf7;
+  --header-hover: #172033;
+
+  --input-bg: #0f172a;
+  --input-fg: #e5edf7;
+  --input-border: #334155;
+  --input-focus-ring: rgba(159, 134, 255, 0.22);
+
+  --tag-bg: rgba(25, 133, 68, 0.16);
+  --tag-border: rgba(74, 222, 128, 0.24);
+  --tag-fg: #7ee2a8;
+
+  --faq-q-bg: rgba(59, 130, 246, 0.18);
+  --faq-q-fg: #93c5fd;
+  --faq-a-bg: rgba(220, 38, 38, 0.10);
+  --faq-a-border: rgba(248, 113, 113, 0.20);
+  --faq-a-badge-bg: rgba(220, 38, 38, 0.20);
+  --faq-a-badge-fg: #fca5a5;
+
+  --danger-fg: #f87171;
+
+  --overlay: rgba(2, 6, 23, 0.68);
+
+  --scrollbar-thumb: #64748b;
+  --scrollbar-thumb-soft: #475569;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.28);
+  --shadow-lg: 0 10px 32px rgba(0, 0, 0, 0.34);
+  --shadow-xl: 0 24px 80px rgba(0, 0, 0, 0.46);
+}
+
+html,
+body {
+  min-height: 100%;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: "Inter", "Inter Fallback", system-ui, arial;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+*,
+*::before,
+*::after {
+  border-color: var(--border);
 }
 
 @layer base {

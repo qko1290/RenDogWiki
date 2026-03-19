@@ -3,6 +3,7 @@
 // (문서/FAQ 동시 검색, 2열 반반 표시, IME 즉시 반응)
 // + 헤더 내 중앙/왼쪽 정렬 지원 (align prop)
 // + ✅ 문서 태그: 오른쪽에 표시, # 제거
+// + 다크모드 대응
 // =============================================
 'use client';
 
@@ -91,7 +92,7 @@ function highlight(text: string, keyword: string) {
   return (
     <>
       {start > 0 && <span>{text.slice(0, start)}</span>}
-      <mark style={{ background: 'none', color: '#1876f7', fontWeight: 700 }}>
+      <mark style={{ background: 'none', color: 'var(--accent)', fontWeight: 700 }}>
         {text.slice(start, end)}
       </mark>
       {end < text.length && <span>{text.slice(end)}</span>}
@@ -241,8 +242,6 @@ export default function SearchBox({
     });
   }, [docs]);
 
-  const docsCount = sortedDocs.length;
-
   const combinedDocItems = useMemo(() => {
     const docItems = sortedDocs.map((doc) => ({
       kind: 'doc' as const,
@@ -312,7 +311,6 @@ export default function SearchBox({
         setQuestNpcs([]);
         setLoadingQuestNpcs(false);
       }
-
 
       (async () => {
         try {
@@ -466,7 +464,6 @@ export default function SearchBox({
         <path d="M21.53 20.47l-3.66-3.66C19.195 15.24 20 13.214 20 11c0-4.97-4.03-9-9-9s-9 4.03-9 9 4.03 9 9 9c2.215 0 4.24-.804 5.808-2.13l3.66 3.66c.147.146.34.22.53.22s.385-.073.53-.22c.295-.293.295-.767.002-1.06zM3.5 11c0-4.135 3.365-7.5 7.5-7.5s7.5 3.365 7.5 7.5-3.365 7.5-7.5 7.5-7.5-3.365-7.5-7.5z" />
       </svg>
 
-      {/* onInput: IME 조합 중에도 즉시 반응 */}
       <input
         type="search"
         ref={inputRef}
@@ -490,24 +487,24 @@ export default function SearchBox({
         }
       />
 
-      {/* 드롭다운 */}
       {open && (
         <div
+          className="wiki-search-dropdown"
           style={{
             position: 'absolute',
             left: 0,
             right: 0,
             top: 58,
             zIndex: 9999,
-            background: 'white',
+            background: 'var(--surface-elevated)',
+            border: '1px solid var(--border)',
             borderRadius: 10,
-            boxShadow: '0 6px 32px rgba(0,0,0,0.14)',
+            boxShadow: 'var(--shadow-lg)',
             padding: '10px 12px',
             maxHeight: dropdownMaxH,
             overflow: 'auto',
           }}
         >
-
           <div
             style={{
               display: 'grid',
@@ -518,11 +515,15 @@ export default function SearchBox({
             }}
           >
             {/* 문서 컬럼 */}
-            <div style={{ borderRight: '1px solid #f0f2f5', paddingRight: 8 }}>
-              <div style={{ fontWeight: 800, fontSize: 13, color: '#556070', marginBottom: 6 }}>문서</div>
+            <div style={{ borderRight: '1px solid var(--border-soft)', paddingRight: 8 }}>
+              <div style={{ fontWeight: 800, fontSize: 13, color: 'var(--muted)', marginBottom: 6 }}>
+                문서
+              </div>
 
               {!loadingDocs && !loadingQuestNpcs && combinedDocItems.length === 0 && (
-                <div style={{ color: '#9aa1ac', fontSize: 14, padding: '6px 4px' }}>결과가 없습니다.</div>
+                <div style={{ color: 'var(--muted-2)', fontSize: 14, padding: '6px 4px' }}>
+                  결과가 없습니다.
+                </div>
               )}
 
               <ul
@@ -568,8 +569,9 @@ export default function SearchBox({
                           alignItems: 'flex-start',
                           padding: '11px 12px',
                           cursor: 'pointer',
-                          borderBottom: idx !== combinedDocItems.length - 1 ? '1px solid #f5f6fa' : undefined,
-                          background: selected ? 'rgba(24,118,247,0.06)' : 'transparent',
+                          borderBottom: idx !== combinedDocItems.length - 1 ? '1px solid var(--border-soft)' : undefined,
+                          background: selected ? 'var(--accent-soft)' : 'transparent',
+                          color: 'var(--foreground)',
                           fontSize: 15,
                           lineHeight: 1.3,
                           gap: 10,
@@ -608,7 +610,7 @@ export default function SearchBox({
                                 style={{
                                   marginTop: 4,
                                   fontSize: 12,
-                                  color: '#8a93a3',
+                                  color: 'var(--muted-2)',
                                   overflow: 'hidden',
                                   textOverflow: 'ellipsis',
                                   whiteSpace: 'nowrap',
@@ -622,7 +624,7 @@ export default function SearchBox({
                             {res.match_type === 'content' && contentSnippet && (
                               <div
                                 style={{
-                                  color: '#667085',
+                                  color: 'var(--muted)',
                                   fontSize: 13,
                                   marginTop: 6,
                                   overflow: 'hidden',
@@ -652,9 +654,9 @@ export default function SearchBox({
                                   key={`${t}-${i}`}
                                   style={{
                                     fontSize: 12,
-                                    color: '#198544',
-                                    background: '#ecfdf3',
-                                    border: '1px solid #d1fadf',
+                                    color: 'var(--tag-fg)',
+                                    background: 'var(--tag-bg)',
+                                    border: '1px solid var(--tag-border)',
                                     borderRadius: 999,
                                     padding: '2px 8px',
                                     lineHeight: 1.4,
@@ -689,8 +691,9 @@ export default function SearchBox({
                         alignItems: 'flex-start',
                         padding: '11px 12px',
                         cursor: 'pointer',
-                        borderBottom: idx !== combinedDocItems.length - 1 ? '1px solid #f5f6fa' : undefined,
-                        background: selected ? 'rgba(24,118,247,0.06)' : 'transparent',
+                        borderBottom: idx !== combinedDocItems.length - 1 ? '1px solid var(--border-soft)' : undefined,
+                        background: selected ? 'var(--accent-soft)' : 'transparent',
+                        color: 'var(--foreground)',
                         fontSize: 15,
                         lineHeight: 1.3,
                         gap: 10,
@@ -728,7 +731,7 @@ export default function SearchBox({
                             style={{
                               marginTop: 4,
                               fontSize: 12,
-                              color: '#8a93a3',
+                              color: 'var(--muted-2)',
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
                               whiteSpace: 'nowrap',
@@ -754,9 +757,9 @@ export default function SearchBox({
                             <span
                               style={{
                                 fontSize: 12,
-                                color: '#198544',
-                                background: '#ecfdf3',
-                                border: '1px solid #d1fadf',
+                                color: 'var(--tag-fg)',
+                                background: 'var(--tag-bg)',
+                                border: '1px solid var(--tag-border)',
                                 borderRadius: 999,
                                 padding: '2px 8px',
                                 lineHeight: 1.4,
@@ -780,12 +783,14 @@ export default function SearchBox({
 
             {/* FAQ 컬럼 */}
             <div style={{ paddingLeft: 8 }}>
-              <div style={{ fontWeight: 800, fontSize: 13, color: '#556070', marginBottom: 6 }}>
+              <div style={{ fontWeight: 800, fontSize: 13, color: 'var(--muted)', marginBottom: 6 }}>
                 자주 묻는 질문
               </div>
 
               {!loadingFaqs && faqs.length === 0 && (
-                <div style={{ color: '#9aa1ac', fontSize: 14, padding: '6px 4px' }}>결과가 없습니다.</div>
+                <div style={{ color: 'var(--muted-2)', fontSize: 14, padding: '6px 4px' }}>
+                  결과가 없습니다.
+                </div>
               )}
 
               <ul style={{ listStyle: 'none', margin: 0, padding: 0, maxHeight: 420, overflowY: 'auto' }}>
@@ -794,7 +799,7 @@ export default function SearchBox({
                     key={`faq-${f.id}`}
                     style={{
                       padding: '11px 12px',
-                      borderBottom: '1px solid #f5f6fa',
+                      borderBottom: '1px solid var(--border-soft)',
                       cursor: 'pointer',
                       borderRadius: 8,
                     }}
@@ -809,8 +814,8 @@ export default function SearchBox({
                           width: 20,
                           height: 20,
                           borderRadius: 999,
-                          background: '#eaf2ff',
-                          color: '#1d4ed8',
+                          background: 'var(--faq-q-bg)',
+                          color: 'var(--faq-q-fg)',
                           fontWeight: 900,
                           fontSize: 12.5,
                           flex: '0 0 20px',
@@ -819,12 +824,14 @@ export default function SearchBox({
                       >
                         Q
                       </span>
-                      <div style={{ fontWeight: 700, fontSize: 15, minWidth: 0 }}>{highlight(f.title, query)}</div>
+                      <div style={{ fontWeight: 700, fontSize: 15, minWidth: 0, color: 'var(--foreground)' }}>
+                        {highlight(f.title, query)}
+                      </div>
                     </div>
                     {f.tags?.length > 0 && (
                       <div
                         style={{
-                          color: '#198544',
+                          color: 'var(--tag-fg)',
                           fontSize: 12,
                           marginTop: 6,
                           display: 'flex',
@@ -852,7 +859,7 @@ export default function SearchBox({
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0,0,0,0.45)',
+            background: 'var(--overlay)',
             display: 'grid',
             placeItems: 'center',
             padding: 16,
@@ -863,10 +870,12 @@ export default function SearchBox({
             onClick={(e) => e.stopPropagation()}
             style={{
               width: 'min(760px, 100%)',
-              background: '#fff',
+              background: 'var(--surface-elevated)',
+              border: '1px solid var(--border)',
               borderRadius: 16,
               padding: 16,
-              boxShadow: '0 24px 80px rgba(0,0,0,0.28)',
+              boxShadow: 'var(--shadow-xl)',
+              color: 'var(--foreground)',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
@@ -879,8 +888,8 @@ export default function SearchBox({
                     width: 22,
                     height: 22,
                     borderRadius: 999,
-                    background: '#eaf2ff',
-                    color: '#1d4ed8',
+                    background: 'var(--faq-q-bg)',
+                    color: 'var(--faq-q-fg)',
                     fontWeight: 900,
                     fontSize: 13.5,
                     flex: '0 0 22px',
@@ -901,7 +910,7 @@ export default function SearchBox({
                   background: 'transparent',
                   border: 0,
                   cursor: 'pointer',
-                  color: '#ef4444',
+                  color: 'var(--danger-fg)',
                 }}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8">
@@ -915,8 +924,8 @@ export default function SearchBox({
                   display: 'flex',
                   alignItems: 'flex-start',
                   gap: 12,
-                  background: '#fff5f5',
-                  border: '1px solid #ffe2e2',
+                  background: 'var(--faq-a-bg)',
+                  border: '1px solid var(--faq-a-border)',
                   borderRadius: 12,
                   padding: '12px 14px',
                 }}
@@ -929,8 +938,8 @@ export default function SearchBox({
                     width: 22,
                     height: 22,
                     borderRadius: 999,
-                    background: '#ffe9e9',
-                    color: '#dc2626',
+                    background: 'var(--faq-a-badge-bg)',
+                    color: 'var(--faq-a-badge-fg)',
                     fontWeight: 900,
                     fontSize: 13.5,
                     flex: '0 0 22px',
@@ -938,12 +947,21 @@ export default function SearchBox({
                 >
                   A
                 </span>
-                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', font: 'inherit', color: '#111827' }}>
+                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', font: 'inherit', color: 'var(--foreground)' }}>
                   {faqView.content}
                 </pre>
               </div>
               {faqView.tags?.length > 0 && (
-                <div style={{ marginTop: 10, color: '#198544', fontSize: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <div
+                  style={{
+                    marginTop: 10,
+                    color: 'var(--tag-fg)',
+                    fontSize: 12,
+                    display: 'flex',
+                    gap: 8,
+                    flexWrap: 'wrap',
+                  }}
+                >
                   {faqView.tags.map((t, i) => (
                     <span key={t + i}>#{t}</span>
                   ))}
@@ -954,7 +972,6 @@ export default function SearchBox({
         </div>
       )}
 
-      {/* 컴포넌트 한정 스타일: 모바일에서 폭 확장 */}
       <style jsx>{`
         .search-wrapper {
           max-width: 100%;

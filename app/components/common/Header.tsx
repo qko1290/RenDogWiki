@@ -3,6 +3,7 @@
 // (전체 코드)
 // - 관리자 햄버거 메뉴는 열릴 때만 마운트
 // - 닫힌 상태에서 HamburgerMenu 내부 effect/auth 호출 방지
+// - 헤더 검색박스 오른쪽에 다크모드 토글 추가
 // =============================================
 'use client';
 
@@ -11,6 +12,7 @@ import { useEffect, useMemo, useState } from 'react';
 import HamburgerMenu from '@/components/common/HamburgerMenu';
 import '@/wiki/css/header.css';
 import SearchBox from '@/components/common/SearchBox';
+import ThemeToggle from '@/components/common/ThemeToggle';
 import logo from '../../image/logo.png';
 import Image from 'next/image';
 import { ModalCard } from '@/components/common/Modal';
@@ -176,7 +178,7 @@ export default function WikiHeader({
                       fontSize: 15,
                       fontWeight: active ? 800 : 600,
                       letterSpacing: 0.2,
-                      color: active ? '#6f4cff' : '#6b7280',
+                      color: active ? 'var(--accent)' : 'var(--muted)',
                       cursor: 'pointer',
                       whiteSpace: 'nowrap',
                       opacity: isBlocked ? 0.72 : 1,
@@ -191,6 +193,8 @@ export default function WikiHeader({
             <div className="wiki-search-container">
               <SearchBox onQuestNpcClick={onQuestNpcClick} />
             </div>
+
+            <ThemeToggle />
           </div>
 
           <button
