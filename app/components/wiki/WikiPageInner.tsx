@@ -2150,7 +2150,7 @@ export default function WikiPageInner({ user }: Props) {
 
       <div className="wiki-quick-badges-wrap">
         <DocQuickBadges
-          hidden={hold || loadingDoc}
+          hidden={hold}
           items={[
             {
               icon: 'quest',

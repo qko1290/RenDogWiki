@@ -72,7 +72,7 @@ const Breadcrumb: React.FC<Props> = ({
     const full = getCategoryPathItems(categories, selectedDocPath);
     if (full.length <= 1) return [];
 
-    return full.slice(1, -1); 
+    return full.slice(1);
     // 현재 요구사항:
     // "루트 카테고리를 제외한 소속/상위 카테고리"
     // => 루트 제외 + 현재 카테고리 제외 + 상위 카테고리들만 표시
