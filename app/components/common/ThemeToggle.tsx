@@ -12,7 +12,7 @@ function getPreferredTheme(): Theme {
   const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
   if (saved === 'light' || saved === 'dark') return saved;
 
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  return 'light';
 }
 
 function applyTheme(theme: Theme) {
@@ -28,25 +28,6 @@ export default function ThemeToggle() {
     const next = getPreferredTheme();
     setTheme(next);
     applyTheme(next);
-
-    const media = window.matchMedia('(prefers-color-scheme: dark)');
-
-    const handleSystemThemeChange = () => {
-      const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
-      if (saved === 'light' || saved === 'dark') return;
-
-      const systemTheme: Theme = media.matches ? 'dark' : 'light';
-      setTheme(systemTheme);
-      applyTheme(systemTheme);
-    };
-
-    if (typeof media.addEventListener === 'function') {
-      media.addEventListener('change', handleSystemThemeChange);
-      return () => media.removeEventListener('change', handleSystemThemeChange);
-    }
-
-    media.addListener(handleSystemThemeChange);
-    return () => media.removeListener(handleSystemThemeChange);
   }, []);
 
   const toggleTheme = () => {

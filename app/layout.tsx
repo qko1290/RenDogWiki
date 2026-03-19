@@ -109,7 +109,7 @@ export default function RootLayout({
                 var theme =
                   saved === 'light' || saved === 'dark'
                     ? saved
-                    : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                    : 'light';
 
                 var root = document.documentElement;
                 root.dataset.theme = theme;
