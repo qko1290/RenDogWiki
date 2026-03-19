@@ -25,9 +25,16 @@
 
 /* ===== 앱 공통 폭 ===== */
 .wiki-app {
+  width: 100%;
   max-width: var(--wiki-max-width);
+  min-height: 100vh;
   margin: 0 auto;
   padding: 0 var(--wiki-gutter);
+  background: var(--background);
+
+  /* max-width 바깥 좌우 거터도 같은 배경색으로 채움 */
+  box-shadow: 0 0 0 100vmax var(--background);
+  clip-path: inset(0 -100vmax);
 }
 
 /* ===== [1] 전체 컨테이너 / 레이아웃 ===== */
