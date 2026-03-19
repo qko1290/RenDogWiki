@@ -1481,6 +1481,20 @@ function compactReadContent(nodes: Descendant[]): Descendant[] {
   return out;
 }
 
+function getCurrentThemeIsDark() {
+  if (typeof document === "undefined") return false;
+
+  const html = document.documentElement;
+  const body = document.body;
+
+  return (
+    html.dataset.theme === "dark" ||
+    body?.dataset?.theme === "dark" ||
+    html.classList.contains("dark") ||
+    body?.classList?.contains("dark")
+  );
+}
+
 // 메인 렌더 컴포넌트
 export default function WikiReadRenderer({ content, readOnly = true, onWikiRefClick }: Props) {
   const [copiedHeadingId, setCopiedHeadingId] = useState<string | null>(null);
@@ -1517,6 +1531,37 @@ export default function WikiReadRenderer({ content, readOnly = true, onWikiRefCl
     apply();
     window.addEventListener("resize", apply);
     return () => window.removeEventListener("resize", apply);
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const apply = () => {
+      setIsDarkMode(getCurrentThemeIsDark());
+    };
+
+    apply();
+
+    const html = document.documentElement;
+    const body = document.body;
+
+    const observer = new MutationObserver(() => {
+      apply();
+    });
+
+    observer.observe(html, {
+      attributes: true,
+      attributeFilter: ["class", "data-theme"],
+    });
+
+    if (body) {
+      observer.observe(body, {
+        attributes: true,
+        attributeFilter: ["class", "data-theme"],
+      });
+    }
+
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -2641,7 +2686,11 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
 }
 
 // 텍스트 노드 처리
-function renderLeaf(node: any, key?: React.Key): React.ReactNode {
+function renderLeaf(
+  node: any,
+  key?: React.Key,
+  env?: { isMobile?: boolean; isDarkMode?: boolean; inDarkTableCell?: boolean }
+): React.ReactNode {
   let children = node.text;
   if (node.bold) children = <strong>{children}</strong>;
   if (node.italic) children = <em>{children}</em>;
@@ -2652,7 +2701,13 @@ function renderLeaf(node: any, key?: React.Key): React.ReactNode {
 
   // 색/배경
   if (node.color) style.color = node.color;
-  if (node.backgroundColor) style.backgroundColor = node.backgroundColor;
+
+  const shouldIgnoreBgInDarkTable =
+    env?.isDarkMode && env?.inDarkTableCell;
+
+  if (!shouldIgnoreBgInDarkTable && node.backgroundColor) {
+    style.backgroundColor = node.backgroundColor;
+  }
 
   // 🎯 폰트 패밀리 (boolean 방어 + 기본값 적용)
   const rawFamily = node.fontFamily;
@@ -2745,10 +2800,10 @@ function renderNode(
   key?: React.Key,
   ctx?: HeadingCopyCtx,
   handlers?: WikiRefHandlers,
-  env?: { isMobile?: boolean; isDarkMode?: boolean },
+  env?: { isMobile?: boolean; isDarkMode?: boolean; inDarkTableCell?: boolean },
 ): React.ReactNode {
   if (Text.isText(node)) {
-    return renderLeaf(node, key);
+    return renderLeaf(node, key, env);
   }
 
   const children = node.children?.map((n: any, i: number) =>
@@ -3337,9 +3392,23 @@ function renderNode(
           ? node.bgColor
           : undefined;
 
-      const resolvedCellBg = env?.isDarkMode
-        ? "var(--surface-elevated)"
-        : customCellBg || "var(--surface-elevated)";
+      const resolvedCellBg =
+        env?.isDarkMode
+          ? "var(--surface-elevated)"
+          : customCellBg || "var(--surface-elevated)";
+
+      const cellChildren = node.children?.map((n: any, i: number) =>
+        renderNode(
+          n,
+          key ? `${key}-${i}` : i,
+          ctx,
+          handlers,
+          {
+            ...env,
+            inDarkTableCell: !!env?.isDarkMode,
+          }
+        )
+      );
 
       return (
         <td
@@ -3354,7 +3423,7 @@ function renderNode(
             color: "var(--foreground)",
           }}
         >
-          {children}
+          {cellChildren}
         </td>
       );
     }
