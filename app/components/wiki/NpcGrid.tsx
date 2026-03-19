@@ -178,6 +178,43 @@ export default function NpcGrid({
         .npc-grid-wrap {
           width: 100%;
           container-type: inline-size;
+
+          --npc-card-bg: var(--surface-elevated);
+          --npc-card-border: var(--border);
+          --npc-card-shadow: var(--shadow-sm);
+          --npc-card-selected-bg: #e7f6ff;
+          --npc-card-selected-border: #93c5fd;
+
+          --npc-name-color: #111;
+          --npc-name-shadow:
+            0 1.2px 0 #fff,
+            1.2px 0 0 #fff,
+            0 -1.2px 0 #fff,
+            -1.2px 0 0 #fff;
+
+          --npc-badge-bg: #fff;
+          --npc-pager-fg: var(--foreground);
+        }
+
+        :global(:root[data-theme='dark']) .npc-grid-wrap,
+        :global(body[data-theme='dark']) .npc-grid-wrap,
+        :global(html.dark) .npc-grid-wrap,
+        :global(body.dark) .npc-grid-wrap {
+          --npc-card-bg: var(--surface-elevated);
+          --npc-card-border: var(--border-strong);
+          --npc-card-shadow: 0 12px 28px rgba(2, 6, 23, 0.32);
+          --npc-card-selected-bg: color-mix(in oklab, var(--surface-elevated) 82%, #38bdf8 18%);
+          --npc-card-selected-border: color-mix(in oklab, var(--border-strong) 55%, #60a5fa 45%);
+
+          --npc-name-color: var(--foreground);
+          --npc-name-shadow:
+            0 1.2px 0 rgba(2, 6, 23, 0.95),
+            1.2px 0 0 rgba(2, 6, 23, 0.95),
+            0 -1.2px 0 rgba(2, 6, 23, 0.95),
+            -1.2px 0 0 rgba(2, 6, 23, 0.95);
+
+          --npc-badge-bg: var(--surface);
+          --npc-pager-fg: var(--foreground);
         }
 
         .npc-grid {
@@ -223,10 +260,10 @@ export default function NpcGrid({
           width: 100%;
           aspect-ratio: 1 / 1;
           position: relative;
-          border: 1.5px solid #e5e7eb;
+          border: 1.5px solid var(--npc-card-border);
           border-radius: 12px;
-          background: #fff;
-          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+          background: var(--npc-card-bg);
+          box-shadow: var(--npc-card-shadow);
           cursor: pointer;
           overflow: visible;
           padding: 0;
@@ -234,7 +271,8 @@ export default function NpcGrid({
         }
 
         .npc-card.is-selected {
-          background: #e7f6ff;
+          background: var(--npc-card-selected-bg);
+          border-color: var(--npc-card-selected-border);
         }
 
         .npc-card-inner {
@@ -272,10 +310,9 @@ export default function NpcGrid({
           font-size: var(--name);
           font-weight: 900;
           text-align: center;
-          color: #111;
+          color: var(--npc-name-color);
           letter-spacing: 0.3px;
-          text-shadow: 0 1.2px 0 #fff, 1.2px 0 0 #fff, 0 -1.2px 0 #fff,
-            -1.2px 0 0 #fff;
+          text-shadow: var(--npc-name-shadow);
           font-family: var(--wiki-round-font, "Jua"), Pretendard,
             "Malgun Gothic", system-ui, sans-serif;
           overflow: hidden;
@@ -309,7 +346,7 @@ export default function NpcGrid({
           --c: #0f172a;
           --fg: color-mix(in oklab, var(--c) 88%, black 0%);
           --bd: color-mix(in oklab, var(--c) 55%, #ffffff);
-          --bg: #fff;
+          --bg: var(--npc-badge-bg);
 
           position: absolute;
           top: 0;
@@ -387,6 +424,11 @@ export default function NpcGrid({
 
         .npc-pg-text {
           font-size: 16px;
+        }
+        
+        .npc-pg-btn,
+        .npc-pg-text {
+          color: var(--npc-pager-fg);
         }
 
         @media (max-width: 768px) {

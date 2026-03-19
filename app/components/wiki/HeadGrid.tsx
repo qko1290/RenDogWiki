@@ -31,6 +31,7 @@ export default function HeadGrid({
 }: Props) {
   const [hoveredId, setHoveredId] = useState<number | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -52,6 +53,40 @@ export default function HeadGrid({
     return () => mq.removeListener(apply);
   }, []);
 
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const apply = () => {
+      const html = document.documentElement;
+      const body = document.body;
+
+      setIsDarkMode(
+        html.dataset.theme === "dark" ||
+        body?.dataset?.theme === "dark" ||
+        html.classList.contains("dark") ||
+        body?.classList.contains("dark")
+      );
+    };
+
+    apply();
+
+    const observer = new MutationObserver(apply);
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class", "data-theme"],
+    });
+
+    if (document.body) {
+      observer.observe(document.body, {
+        attributes: true,
+        attributeFilter: ["class", "data-theme"],
+      });
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div className="head-grid-wrap">
       <div className="head-grid" role="grid" aria-label="머리 목록">
@@ -69,10 +104,21 @@ export default function HeadGrid({
           const thumbSrc = villageIcon ?? headPicture;
           const coordText = `(${head.location_x}, ${head.location_y}, ${head.location_z})`;
 
-          const BORDER = hovered ? "1.5px solid #93c5fd" : "1.5px solid #d1d5db";
+          const BORDER = hovered
+            ? isDarkMode
+              ? "1.5px solid rgba(96, 165, 250, 0.95)"
+              : "1.5px solid #93c5fd"
+            : isDarkMode
+              ? "1.5px solid var(--border-strong)"
+              : "1.5px solid #d1d5db";
+
           const SHADOW = hovered
-            ? "0 12px 28px rgba(2, 132, 199, 0.16), 0 3px 8px rgba(15, 23, 42, 0.08)"
-            : "0 10px 24px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.05)";
+            ? isDarkMode
+              ? "0 14px 32px rgba(2, 6, 23, 0.44), 0 0 0 1px rgba(96, 165, 250, 0.18)"
+              : "0 12px 28px rgba(2, 132, 199, 0.16), 0 3px 8px rgba(15, 23, 42, 0.08)"
+            : isDarkMode
+              ? "0 12px 26px rgba(2, 6, 23, 0.34), 0 2px 6px rgba(2, 6, 23, 0.20)"
+              : "0 10px 24px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.05)";
 
           const selected = selectedHeadId === head.id;
 
@@ -127,6 +173,23 @@ export default function HeadGrid({
         .head-grid-wrap {
           width: 100%;
           container-type: inline-size;
+
+          --head-card-bg: var(--surface-elevated);
+          --head-card-selected-bg: #e7f6ff;
+          --head-title: #111;
+          --head-coord: #555;
+          --head-emoji: #bbb;
+        }
+
+        :global(:root[data-theme='dark']) .head-grid-wrap,
+        :global(body[data-theme='dark']) .head-grid-wrap,
+        :global(html.dark) .head-grid-wrap,
+        :global(body.dark) .head-grid-wrap {
+          --head-card-bg: var(--surface-elevated);
+          --head-card-selected-bg: color-mix(in oklab, var(--surface-elevated) 82%, #38bdf8 18%);
+          --head-title: var(--foreground);
+          --head-coord: var(--muted);
+          --head-emoji: var(--muted-2);
         }
 
         .head-grid {
@@ -143,7 +206,7 @@ export default function HeadGrid({
           justify-content: center;
           min-height: 125px;
           cursor: pointer;
-          background: #fff;
+          background: var(--head-card-bg);
           border-radius: 12px;
           padding: 8px 6px;
           text-align: center;
@@ -155,7 +218,7 @@ export default function HeadGrid({
         }
 
         .head-card.is-selected {
-          background: #e7f6ff;
+          background: var(--head-card-selected-bg);
         }
 
         .head-card-img {
@@ -163,20 +226,20 @@ export default function HeadGrid({
           height: 46px;
           border-radius: 10px;
           object-fit: cover;
-          background: #fff;
+          background: var(--surface);
           display: block;
         }
 
         .head-card-emoji {
           font-size: 38px;
-          color: #bbb;
+          color: var(--head-emoji);
           line-height: 1;
         }
 
         .head-card-order {
           font-size: 18px;
           font-weight: 900;
-          color: #111;
+          color: var(--head-title);
           margin-top: 6px;
           font-family: "Pretendard", "Malgun Gothic", sans-serif;
           line-height: 1.1;
@@ -184,7 +247,7 @@ export default function HeadGrid({
 
         .head-card-coord {
           font-size: 13px;
-          color: #555;
+          color: var(--head-coord);
           margin-top: 4px;
           line-height: 16px;
           word-break: keep-all;

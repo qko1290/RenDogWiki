@@ -2361,7 +2361,15 @@ function WeaponLevelSelector({
   );
 }
 
-function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
+function WeaponCardRead({
+  node,
+  keyProp,
+  isDarkMode = false,
+}: {
+  node: any;
+  keyProp: React.Key;
+  isDarkMode?: boolean;
+}) {
   const stats: any[] = Array.isArray(node.stats) ? node.stats : [];
   const enabledStats = stats.filter((s) => s && s.enabled);
 
@@ -2463,6 +2471,33 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
 
   const cardWidth = 260;
 
+  const cardBg = isDarkMode ? "var(--surface-elevated)" : "#020617";
+  const cardShadow = isDarkMode
+    ? "0 18px 45px rgba(2, 6, 23, 0.46)"
+    : "0 18px 45px rgba(0,0,0,.45)";
+
+  const titleBg = isDarkMode
+    ? "linear-gradient(180deg, rgba(15,23,42,.98), rgba(17,24,39,.96))"
+    : "#020617";
+  const titleColor = isDarkMode ? "var(--foreground)" : "#e5e7eb";
+  const titleBorder = isDarkMode ? "1px solid var(--border)" : "1px solid #111827";
+
+  const mediaBg = isDarkMode
+    ? "radial-gradient(circle at 20% 0%, rgba(56,189,248,0.12), transparent 55%), radial-gradient(circle at 100% 0%, rgba(129,140,248,0.14), transparent 55%), linear-gradient(180deg, rgba(15,23,42,.96), rgba(11,18,32,.98))"
+    : "radial-gradient(circle at 20% 0%, rgba(56,189,248,0.18), transparent 55%), radial-gradient(circle at 100% 0%, rgba(129,140,248,0.22), transparent 55%), #020617";
+
+  const emptyTextColor = isDarkMode ? "var(--muted-2)" : "#6b7280";
+  const statEmptyBg = isDarkMode ? "rgba(15,23,42,.82)" : "rgba(15,23,42,.75)";
+  const statRowBorder = isDarkMode ? "1px solid var(--border)" : "1px solid #111827";
+  const statRowBg = isDarkMode
+    ? "linear-gradient(90deg, rgba(15,23,42,.82), rgba(17,24,39,.96))"
+    : "linear-gradient(90deg, rgba(15,23,42,.95), rgba(15,23,42,.85))";
+  const statLabelColor = isDarkMode ? "var(--muted)" : "#9ca3af";
+  const statValueColor = isDarkMode ? "var(--foreground)" : "#e5e7eb";
+
+  const disabledButtonBg = isDarkMode ? "var(--surface)" : "#111827";
+  const disabledButtonColor = isDarkMode ? "var(--muted-2)" : "#6b7280";
+
   return (
     <div key={keyProp} style={{ margin: "14px 0" }}>
       {/* ✅ 카드 + 강수버튼을 "형제"로 두어서 오른쪽에 붙게 함 */}
@@ -2482,8 +2517,8 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
               width: cardWidth,
               borderRadius: 18,
               overflow: "hidden",
-              background: "#020617",
-              boxShadow: "0 18px 45px rgba(0,0,0,.45)",
+              background: cardBg,
+              boxShadow: cardShadow,
               fontFamily: "inherit",
               paddingTop: 8,
               ...(isTranscend ? transcendInnerGlowStyle : null),
@@ -2509,12 +2544,12 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
             <div
               style={{
                 padding: "10px 14px",
-                background: "#020617",
-                color: "#e5e7eb",
+                background: titleBg,
+                color: titleColor,
                 fontSize: 18,
                 fontWeight: 700,
                 textAlign: "center",
-                borderBottom: "1px solid #111827",
+                borderBottom: titleBorder,
               }}
             >
               {name}
@@ -2523,10 +2558,7 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
             {/* 이미지 영역 */}
             <div
               style={{
-                background:
-                  "radial-gradient(circle at 20% 0%, rgba(56,189,248,0.18), transparent 55%), " +
-                  "radial-gradient(circle at 100% 0%, rgba(129,140,248,0.22), transparent 55%), " +
-                  "#020617",
+                background: mediaBg,
                 height: 140,
                 display: "flex",
                 alignItems: "center",
@@ -2553,7 +2585,7 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
               ) : (
                 <span
                   style={{
-                    color: "#6b7280",
+                    color: emptyTextColor,
                     fontSize: 14,
                   }}
                 >
@@ -2575,10 +2607,10 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
                 <div
                   style={{
                     fontSize: 12,
-                    color: "#6b7280",
+                    color: emptyTextColor,
                     padding: "6px 8px",
                     borderRadius: 10,
-                    background: "rgba(15,23,42,.75)",
+                    background: statEmptyBg,
                   }}
                 >
                   표시할 정보가 없습니다.
@@ -2593,9 +2625,8 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
                     style={{
                       borderRadius: 10,
                       padding: "6px 8px",
-                      border: "1px solid #111827",
-                      background:
-                        "linear-gradient(90deg, rgba(15,23,42,.95), rgba(15,23,42,.85))",
+                      border: statRowBorder,
+                      background: statRowBg,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
@@ -2604,7 +2635,7 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
                     <span
                       style={{
                         fontSize: 12,
-                        color: "#9ca3af",
+                        color: statLabelColor,
                         fontWeight: 500,
                       }}
                     >
@@ -2613,7 +2644,7 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
                     <span
                       style={{
                         fontSize: 13,
-                        color: "#e5e7eb",
+                        color: statValueColor,
                         fontWeight: 600,
                       }}
                     >
@@ -2646,8 +2677,8 @@ function WeaponCardRead({ node, keyProp }: { node: any; keyProp: React.Key }) {
                     fontWeight: 600,
                     background: videoSrc
                       ? "linear-gradient(90deg,#1d4ed8,#3b82f6)"
-                      : "#111827",
-                    color: videoSrc ? "#f9fafb" : "#6b7280",
+                      : disabledButtonBg,
+                    color: videoSrc ? "#f9fafb" : disabledButtonColor,
                     cursor: videoSrc ? "pointer" : "default",
                     minWidth: 160,
                     textAlign: "center",
@@ -3338,7 +3369,13 @@ function renderNode(
 
     // 무기 카드 블록 (문서 보기용)
     case "weapon-card": {
-      return <WeaponCardRead node={node} keyProp={key ?? ""} />;
+      return (
+        <WeaponCardRead
+          node={node}
+          keyProp={key ?? ""}
+          isDarkMode={!!env?.isDarkMode}
+        />
+      );
     }
 
     case "table": {

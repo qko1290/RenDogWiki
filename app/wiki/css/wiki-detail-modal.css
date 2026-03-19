@@ -580,3 +580,114 @@ body.rd-modal-open {
     line-height: 1.25 !important;
   }
 }
+
+/* ===== 다크모드 오버라이드 ===== */
+:is(:root[data-theme='dark'], body[data-theme='dark'], html.dark, body.dark) .npc-modal-backdrop {
+  background: rgba(2, 6, 23, 0.68);
+}
+
+:is(:root[data-theme='dark'], body[data-theme='dark'], html.dark, body.dark) .npc-modal-main {
+  background: var(--surface-elevated);
+  border-color: var(--border-strong);
+  box-shadow:
+    0 28px 80px rgba(2, 6, 23, 0.58),
+    0 10px 24px rgba(2, 6, 23, 0.34);
+}
+
+:is(:root[data-theme='dark'], body[data-theme='dark'], html.dark, body.dark) .npc-modal-left {
+  background: linear-gradient(180deg, #0f172a, #111827);
+  border-right: 1px solid var(--border);
+}
+
+:is(:root[data-theme='dark'], body[data-theme='dark'], html.dark, body.dark) .npc-modal-profile {
+  background: rgba(15, 23, 42, 0.82);
+  border-color: var(--border);
+  box-shadow:
+    0 14px 30px rgba(2, 6, 23, 0.28),
+    0 2px 6px rgba(2, 6, 23, 0.18);
+}
+
+:is(:root[data-theme='dark'], body[data-theme='dark'], html.dark, body.dark) .npc-modal-icon {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+:is(:root[data-theme='dark'], body[data-theme='dark'], html.dark, body.dark) .npc-modal-name {
+  color: var(--foreground);
+}
+
+:is(:root[data-theme='dark'], body[data-theme='dark'], html.dark, body.dark) .npc-picture-slider,
+:is(:root[data-theme='dark'], body[data-theme='dark'], html.dark, body.dark) .npc-picture-slider-empty {
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow:
+    0 16px 36px rgba(2, 6, 23, 0.26),
+    0 4px 10px rgba(2, 6, 23, 0.16);
+}
+
+:is(:root[data-theme='dark'], body[data-theme='dark'], html.dark, body.dark) .npc-picture-slider-empty {
+  color: var(--muted-2);
+  background: linear-gradient(180deg, #0f172a, #111827);
+}
+
+:is(:root[data-theme='dark'], body[data-theme='dark'], html.dark, body.dark) .npc-modal-right {
+  background: linear-gradient(180deg, #0b1220, #0f172a);
+}
+
+:is(:root[data-theme='dark'], body[data-theme='dark'], html.dark, body.dark) .npc-modal-close-btn {
+  background: rgba(15, 23, 42, 0.95);
+  border-color: var(--border);
+  color: var(--muted);
+  box-shadow:
+    0 10px 22px rgba(2, 6, 23, 0.24),
+    0 2px 6px rgba(2, 6, 23, 0.16);
+}
+
+:is(:root[data-theme='dark'], body[data-theme='dark'], html.dark, body.dark) .npc-modal-close-btn:hover {
+  color: var(--foreground);
+}
+
+:is(:root[data-theme='dark'], body[data-theme='dark'], html.dark, body.dark) .npc-modal-right .mgr-pill-row {
+  background: var(--surface-elevated);
+  border-color: var(--border);
+  box-shadow:
+    0 10px 22px rgba(2, 6, 23, 0.18),
+    0 2px 6px rgba(2, 6, 23, 0.12);
+}
+
+:is(:root[data-theme='dark'], body[data-theme='dark'], html.dark, body.dark) .npc-modal-right .mgr-pill-label {
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.18), rgba(37, 99, 235, 0.12));
+  border-right: 1px solid rgba(96, 165, 250, 0.22);
+  color: #93c5fd;
+}
+
+:is(:root[data-theme='dark'], body[data-theme='dark'], html.dark, body.dark) .npc-modal-right .mgr-pill-value {
+  color: var(--foreground);
+}
+
+:is(:root[data-theme='dark'], body[data-theme='dark'], html.dark, body.dark) .npc-modal-right .mgr-placeholder {
+  color: var(--muted-2);
+}
+
+:is(:root[data-theme='dark'], body[data-theme='dark'], html.dark, body.dark) .npc-modal-right .mgr-chip {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(17, 24, 39, 0.96));
+  border-color: var(--border);
+  color: var(--foreground);
+  box-shadow:
+    0 10px 18px rgba(2, 6, 23, 0.16),
+    0 2px 6px rgba(2, 6, 23, 0.12);
+}
+
+:is(:root[data-theme='dark'], body[data-theme='dark'], html.dark, body.dark) .npc-modal-right .quest-detail-loc {
+  color: #93c5fd;
+}
+
+:is(:root[data-theme='dark'], body[data-theme='dark'], html.dark, body.dark) .npc-modal-right .mgr-pill-row--multi .mgr-pill-label {
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.18), rgba(37, 99, 235, 0.12));
+  border: 1px solid rgba(96, 165, 250, 0.22);
+  color: #93c5fd;
+}
+
+:is(:root[data-theme='dark'], body[data-theme='dark'], html.dark, body.dark) .npc-modal-right .mgr-pill-row--multi .mgr-pill-value {
+  color: var(--foreground);
+}
