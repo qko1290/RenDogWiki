@@ -23,11 +23,13 @@ function applyTheme(theme: Theme) {
 
 export default function ThemeToggle() {
   const [theme, setTheme] = useState<Theme>('light');
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     const next = getPreferredTheme();
     setTheme(next);
     applyTheme(next);
+    setMounted(true);
   }, []);
 
   const toggleTheme = () => {
@@ -38,29 +40,91 @@ export default function ThemeToggle() {
   };
 
   return (
-    <button
-      type="button"
-      className="wiki-theme-toggle-btn"
-      onClick={toggleTheme}
-      aria-label={theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
-      title={theme === 'dark' ? '라이트 모드' : '다크 모드'}
-    >
-      {theme === 'dark' ? (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path
-            d="M12 18.5A6.5 6.5 0 1 0 12 5.5a6.5 6.5 0 0 0 0 13Zm0-16a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 12 2.5Zm0 16a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5a.75.75 0 0 1 .75-.75Zm9-7.25a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1 0-1.5H21ZM5.25 12a.75.75 0 0 1-.75.75H3a.75.75 0 0 1 0-1.5h1.5a.75.75 0 0 1 .75.75Zm11.932-5.182a.75.75 0 0 1 1.06 0l1.06 1.06a.75.75 0 0 1-1.06 1.06l-1.06-1.06a.75.75 0 0 1 0-1.06Zm-12.424 0a.75.75 0 0 1 1.06 0 .75.75 0 0 1 0 1.06l-1.06 1.06a.75.75 0 1 1-1.06-1.06l1.06-1.06Zm14.544 12.424a.75.75 0 0 1 0 1.06.75.75 0 0 1-1.06 0l-1.06-1.06a.75.75 0 1 1 1.06-1.06l1.06 1.06Zm-12.424 0 1.06-1.06a.75.75 0 1 1 1.06 1.06l-1.06 1.06a.75.75 0 0 1-1.06-1.06Z"
-            fill="currentColor"
-          />
-        </svg>
-      ) : (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path
-            d="M14.53 2.47a.75.75 0 0 1 .79.18.75.75 0 0 1 .16.8 8.5 8.5 0 1 0 10.07 10.07.75.75 0 0 1 .98.95 10 10 0 1 1-12.05-12.05.75.75 0 0 1 .05.05Z"
-            fill="currentColor"
-            transform="translate(-3 -1)"
-          />
-        </svg>
-      )}
-    </button>
+    <>
+      <label
+        className="wiki-theme-switch"
+        aria-label={theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
+        title={theme === 'dark' ? '라이트 모드' : '다크 모드'}
+      >
+        <input
+          type="checkbox"
+          checked={theme === 'dark'}
+          onChange={toggleTheme}
+          disabled={!mounted}
+        />
+        <span className="wiki-theme-slider" />
+      </label>
+
+      <style jsx>{`
+        .wiki-theme-switch {
+          display: block;
+          --width-of-switch: 3.5em;
+          --height-of-switch: 2em;
+          --size-of-icon: 1.4em;
+          --slider-offset: 0.3em;
+          position: relative;
+          width: var(--width-of-switch);
+          height: var(--height-of-switch);
+          flex-shrink: 0;
+          user-select: none;
+        }
+
+        .wiki-theme-switch input {
+          opacity: 0;
+          width: 0;
+          height: 0;
+          position: absolute;
+        }
+
+        .wiki-theme-slider {
+          position: absolute;
+          cursor: pointer;
+          inset: 0;
+          background-color: #f4f4f5;
+          transition: 0.4s;
+          border-radius: 999px;
+          box-shadow:
+            inset 0 0 0 1px rgba(15, 23, 42, 0.06),
+            0 2px 8px rgba(15, 23, 42, 0.08);
+        }
+
+        .wiki-theme-slider::before {
+          position: absolute;
+          content: '';
+          height: var(--size-of-icon);
+          width: var(--size-of-icon);
+          border-radius: 999px;
+          left: var(--slider-offset);
+          top: 50%;
+          transform: translateY(-50%);
+          background: linear-gradient(40deg, #ff0080, #ff8c00 70%);
+          transition: 0.4s;
+        }
+
+        .wiki-theme-switch input:checked + .wiki-theme-slider {
+          background-color: #303136;
+        }
+
+        .wiki-theme-switch input:checked + .wiki-theme-slider::before {
+          left: calc(
+            100% - (var(--size-of-icon) + var(--slider-offset))
+          );
+          background: #303136;
+          box-shadow:
+            inset -3px -2px 5px -2px #8983f7,
+            inset -10px -4px 0 0 #a3dafb;
+        }
+
+        .wiki-theme-switch input:focus-visible + .wiki-theme-slider {
+          outline: 2px solid #6f4cff;
+          outline-offset: 2px;
+        }
+
+        .wiki-theme-switch input:disabled + .wiki-theme-slider {
+          cursor: default;
+          opacity: 0.9;
+        }
+      `}</style>
+    </>
   );
 }
