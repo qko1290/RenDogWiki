@@ -35,50 +35,59 @@ export default function TableOfContents({
   const rootRef = useRef<HTMLElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const [rootKey, setRootKey] = useState(0); // 루트 변경 트리거 키
-  const [isDark, setIsDark] = useState(false);
+  const [themeTick, setThemeTick] = useState(0);
+
+  const getIsDark = () => {
+    if (typeof document === 'undefined') return false;
+
+    const html = document.documentElement;
+    const body = document.body;
+
+    const darkByClass =
+      html.classList.contains('dark') ||
+      body.classList.contains('dark');
+
+    const darkByDataTheme =
+      html.getAttribute('data-theme') === 'dark' ||
+      body.getAttribute('data-theme') === 'dark';
+
+    const darkByMedia = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    return darkByClass || darkByDataTheme || darkByMedia;
+  };
+
+  const isDark = useMemo(() => getIsDark(), [themeTick, headings, title]);
 
   // 다크모드 감지
   useEffect(() => {
-    const detectDark = () => {
-      const html = document.documentElement;
-      const body = document.body;
+    const notifyThemeChanged = () => setThemeTick(v => v + 1);
 
-      const darkByClass =
-        html.classList.contains('dark') ||
-        body.classList.contains('dark');
+    notifyThemeChanged();
 
-      const darkByDataTheme =
-        html.getAttribute('data-theme') === 'dark' ||
-        body.getAttribute('data-theme') === 'dark';
-
-      const darkByMedia = window.matchMedia('(prefers-color-scheme: dark)').matches;
-
-      setIsDark(darkByClass || darkByDataTheme || darkByMedia);
-    };
-
-    detectDark();
-
-    const htmlObserver = new MutationObserver(detectDark);
-    const bodyObserver = new MutationObserver(detectDark);
+    const htmlObserver = new MutationObserver(notifyThemeChanged);
+    const bodyObserver = new MutationObserver(notifyThemeChanged);
 
     htmlObserver.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ['class', 'data-theme'],
+      attributeFilter: ['class', 'data-theme', 'style'],
     });
 
     bodyObserver.observe(document.body, {
       attributes: true,
-      attributeFilter: ['class', 'data-theme'],
+      attributeFilter: ['class', 'data-theme', 'style'],
     });
 
     const media = window.matchMedia('(prefers-color-scheme: dark)');
-    const onMediaChange = () => detectDark();
+    const onMediaChange = () => notifyThemeChanged();
 
     if (media.addEventListener) {
       media.addEventListener('change', onMediaChange);
     } else {
       media.addListener(onMediaChange);
     }
+
+    window.addEventListener('storage', notifyThemeChanged);
+    window.addEventListener('themechange', notifyThemeChanged as EventListener);
 
     return () => {
       htmlObserver.disconnect();
@@ -89,6 +98,9 @@ export default function TableOfContents({
       } else {
         media.removeListener(onMediaChange);
       }
+
+      window.removeEventListener('storage', notifyThemeChanged);
+      window.removeEventListener('themechange', notifyThemeChanged as EventListener);
     };
   }, []);
 
