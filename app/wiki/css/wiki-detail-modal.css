@@ -478,7 +478,7 @@ body.rd-modal-open {
     padding: 4px !important;
     gap: 0px !important;
     overflow-y: auto !important;
-    background: linear-gradient(180deg, #fbfdff, #ffffff);
+    background: linear-gradient(180deg, #fbfdff, #ffffff) !important;
   }
 
   .npc-modal-close-btn {
@@ -647,7 +647,8 @@ body.rd-modal-open {
   color: var(--foreground);
 }
 
-:is(:root[data-theme='dark'], body[data-theme='dark'], html.dark, body.dark) .npc-modal-right .mgr-pill-row {
+:is(:root[data-theme='dark'], body[data-theme='dark'], html.dark, body.dark)
+  .npc-modal-right .mgr-pill-row:not(.mgr-pill-row--multi) {
   background: var(--surface-elevated);
   border: 1px solid rgba(148, 163, 184, 0.16);
   box-shadow:
@@ -655,7 +656,8 @@ body.rd-modal-open {
     0 2px 6px rgba(2, 6, 23, 0.12);
 }
 
-:is(:root[data-theme='dark'], body[data-theme='dark'], html.dark, body.dark) .npc-modal-right .mgr-pill-row:hover {
+:is(:root[data-theme='dark'], body[data-theme='dark'], html.dark, body.dark)
+  .npc-modal-right .mgr-pill-row:not(.mgr-pill-row--multi):hover {
   border-color: rgba(96, 165, 250, 0.28);
 }
 
