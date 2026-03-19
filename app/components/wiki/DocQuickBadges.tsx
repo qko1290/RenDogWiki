@@ -7,7 +7,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faDollarSign, faScroll, faCube, faBoltLightning, faCalculator, faBookOpen } from '@fortawesome/free-solid-svg-icons';
 
 export type DocQuickBadgeItem = {
-  icon: 'price' | 'quest' | 'head' | 'collection' | 'calc' ;
+  icon: 'price' | 'quest' | 'head' | 'collection' | 'calc';
   title: string;
   href: string;
   external?: boolean;
@@ -41,7 +41,7 @@ function iconByKey(key: DocQuickBadgeItem['icon']) {
 export default function DocQuickBadges({
   items,
   mainTitle = '바로가기',
-  hidden,
+  hidden = false,
   expandWidth = 150,
   hoverBg = 'rgb(255, 69, 69)',
   hoverCooldownMs = 220,
@@ -59,6 +59,8 @@ export default function DocQuickBadges({
   const stack = useMemo(() => items.slice(0, 5), [items]);
 
   const go = (item: DocQuickBadgeItem) => {
+    if (hidden) return;
+
     if (item.external) {
       window.open(item.href, '_blank', 'noopener,noreferrer');
       return;
@@ -90,12 +92,27 @@ export default function DocQuickBadges({
     }
   }, [open, hoverCooldownMs]);
 
+  // hidden 상태가 되면 언마운트하지 않고 닫기만 한다.
+  useEffect(() => {
+    if (!hidden) return;
+
+    setOpen(false);
+    setHoverLock(false);
+
+    if (hoverLockTimerRef.current) {
+      window.clearTimeout(hoverLockTimerRef.current);
+      hoverLockTimerRef.current = null;
+    }
+  }, [hidden]);
+
   // 감지 영역
   // 왼쪽 100 / 오른쪽 50 / 위 50 / 아래 180
   useEffect(() => {
     let raf = 0;
 
     const onMove = (e: MouseEvent) => {
+      if (hidden) return;
+
       const el = rootRef.current;
       if (!el) return;
 
@@ -118,14 +135,13 @@ export default function DocQuickBadges({
       if (raf) cancelAnimationFrame(raf);
       window.removeEventListener('mousemove', onMove);
     };
-  }, []);
-
-  if (hidden) return null;
+  }, [hidden]);
 
   return (
     <div
       ref={rootRef}
-      className={`qbd-root ${hoverLock ? 'hover-lock' : ''}`}
+      className={`qbd-root ${hoverLock ? 'hover-lock' : ''} ${hidden ? 'is-hidden' : ''}`}
+      aria-hidden={hidden}
       style={
         {
           ['--qbd-expand' as any]: `${expandWidth}px`,
@@ -138,10 +154,14 @@ export default function DocQuickBadges({
       <button
         type="button"
         className={`qbd-btn qbd-main ${open ? 'is-hidden' : ''}`}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          if (hidden) return;
+          setOpen((v) => !v);
+        }}
         aria-label={mainTitle}
         title={mainTitle}
         data-label={mainTitle}
+        disabled={hidden}
       >
         <span className="qbd-ic" aria-hidden>
           <FontAwesomeIcon icon={faBoltLightning} />
@@ -149,12 +169,12 @@ export default function DocQuickBadges({
       </button>
 
       {/* 메인 아래 말풍선 */}
-      <div className={`qbd-bubble ${open ? 'is-hidden' : ''}`} aria-hidden={open}>
+      <div className={`qbd-bubble ${open ? 'is-hidden' : ''}`} aria-hidden={open || hidden}>
         바로가기
       </div>
 
       {/* 3개: 아래로 펼침 */}
-      <div className="qbd-stack" aria-hidden={!open}>
+      <div className="qbd-stack" aria-hidden={!open || hidden}>
         {stack.map((it, idx) => (
           <button
             key={`${it.href}-${idx}`}
@@ -168,6 +188,7 @@ export default function DocQuickBadges({
             aria-label={it.title}
             title={it.title}
             data-label={it.title}
+            disabled={hidden}
           >
             <span className="qbd-ic" aria-hidden>
               <FontAwesomeIcon icon={iconByKey(it.icon)} />
@@ -185,12 +206,26 @@ export default function DocQuickBadges({
           pointer-events: none;
           width: 110px;
           height: 300px;
+          transition:
+            opacity 0.18s ease,
+            visibility 0.18s ease;
+        }
+
+        .qbd-root.is-hidden {
+          opacity: 0;
+          visibility: hidden;
         }
 
         .qbd-btn,
         .qbd-stack,
         .qbd-bubble {
           pointer-events: auto;
+        }
+
+        .qbd-root.is-hidden .qbd-btn,
+        .qbd-root.is-hidden .qbd-stack,
+        .qbd-root.is-hidden .qbd-bubble {
+          pointer-events: none;
         }
 
         .qbd-stack {
@@ -256,16 +291,16 @@ export default function DocQuickBadges({
           font-size: 0 !important;
         }
 
-        .qbd-root:not(.hover-lock) .qbd-btn:not(.qbd-main):hover::before,
-        .qbd-root:not(.hover-lock) .qbd-btn:not(.qbd-main):focus-visible::before {
+        .qbd-root:not(.hover-lock):not(.is-hidden) .qbd-btn:not(.qbd-main):hover::before,
+        .qbd-root:not(.hover-lock):not(.is-hidden) .qbd-btn:not(.qbd-main):focus-visible::before {
           width: calc(46px + var(--qbd-expand));
           border-radius: 50px;
           background-color: var(--qbd-hover-bg);
           box-shadow: 0px 0px 22px rgba(0, 0, 0, 0.22);
         }
 
-        .qbd-root:not(.hover-lock) .qbd-btn:not(.qbd-main):hover::after,
-        .qbd-root:not(.hover-lock) .qbd-btn:not(.qbd-main):focus-visible::after {
+        .qbd-root:not(.hover-lock):not(.is-hidden) .qbd-btn:not(.qbd-main):hover::after,
+        .qbd-root:not(.hover-lock):not(.is-hidden) .qbd-btn:not(.qbd-main):focus-visible::after {
           opacity: 1;
           font-size: 20px;
           transform: translateY(-50%);
@@ -302,27 +337,20 @@ export default function DocQuickBadges({
 
         .qbd-bubble {
           position: absolute;
-
-          /* ✅ 뱃지(46px) 중앙 기준 정렬 */
           left: 23px;
           top: 58px;
           transform: translateX(-50%);
-
-          /* ✅ 뱃지 컬러와 맞춤 */
           background: rgb(20, 20, 20);
           color: #fff;
-
           font-size: 13px;
           font-weight: 700;
           line-height: 1;
           padding: 8px 12px;
           border-radius: 8px;
           white-space: nowrap;
-
           box-shadow: 0 10px 18px rgba(0, 0, 0, 0.16);
           opacity: 1;
           pointer-events: none;
-
           transition:
             opacity 220ms ease,
             transform 220ms ease;
@@ -333,10 +361,7 @@ export default function DocQuickBadges({
           content: '';
           width: 8px;
           height: 8px;
-
-          /* ✅ 말풍선 꼬리도 같은 컬러 */
           background: rgb(20, 20, 20);
-
           top: -4px;
           left: 50%;
           transform: translateX(-50%) rotate(45deg);

@@ -1,13 +1,12 @@
 // =============================================
 // File: app/components/wiki/Breadcrumb.tsx
 // (전체 코드)
-// - 현재 문서의 상위 카테고리 브레드크럼 표시
-// - 루트 카테고리는 표시하지 않음
-// - 각 브레드크럼 클릭 시 해당 카테고리의 대표 문서로 이동
-// - 대표 문서가 없으면 클릭 비활성화
+// - selectedDocPath가 존재하면 브레드크럼 렌더
+// - 클릭 시 해당 카테고리 대표 문서로 이동
+// - 대표 문서 없으면 비활성화
 // =============================================
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import { toProxyUrl } from '@lib/cdn';
 
 type CategoryNode = {
@@ -18,7 +17,7 @@ type CategoryNode = {
   children?: CategoryNode[];
 };
 
-type BreadcrumbItem = {
+type CrumbItem = {
   id: number;
   name: string;
   icon?: string;
@@ -32,86 +31,69 @@ type Props = {
   onNavigateCategoryDoc?: (path: number[], docId: number) => void;
 };
 
-function getCategoryPathItems(tree: CategoryNode[], path: number[]) {
-  const items: BreadcrumbItem[] = [];
-  let currentTree = tree;
+function isImageUrl(v?: string) {
+  return !!v && v.startsWith('http');
+}
+
+function buildCrumbs(categories: CategoryNode[], selectedDocPath: number[]) {
+  const result: CrumbItem[] = [];
+  let currentNodes = categories;
   let currentPath: number[] = [];
 
-  for (const id of path) {
-    const match = currentTree.find((n) => n.id === id);
-    if (!match) break;
+  for (const id of selectedDocPath) {
+    const found = currentNodes.find((node) => node.id === id);
+    if (!found) break;
 
-    currentPath = [...currentPath, match.id];
-
-    items.push({
-      id: match.id,
-      name: match.name,
-      icon: match.icon,
-      document_id: match.document_id,
+    currentPath = [...currentPath, found.id];
+    result.push({
+      id: found.id,
+      name: found.name,
+      icon: found.icon,
+      document_id: found.document_id,
       path: [...currentPath],
     });
 
-    currentTree = match.children || [];
+    currentNodes = found.children ?? [];
   }
 
-  return items;
+  return result;
 }
 
-const isImageUrl = (v?: string) => !!v && v.startsWith('http');
-
-const Breadcrumb: React.FC<Props> = ({
+export default function Breadcrumb({
   selectedDocPath,
   categories,
   onNavigateCategoryDoc,
-}) => {
-  const pathItems = useMemo(() => {
-    if (!selectedDocPath || selectedDocPath.length === 0) return [];
+}: Props) {
+  if (!selectedDocPath || selectedDocPath.length === 0) return null;
 
-    // selectedDocPath 전체는 [루트카테고리, ..., 현재카테고리] 구조라고 보고,
-    // 루트 카테고리는 브레드크럼에서 제외
-    const full = getCategoryPathItems(categories, selectedDocPath);
-    if (full.length <= 1) return [];
-
-    return full.slice(1);
-    // 현재 요구사항:
-    // "루트 카테고리를 제외한 소속/상위 카테고리"
-    // => 루트 제외 + 현재 카테고리 제외 + 상위 카테고리들만 표시
-    //
-    // 만약 "현재 카테고리도 포함"하고 싶으면 full.slice(1) 로 바꾸면 됨.
-  }, [categories, selectedDocPath]);
-
-  if (!selectedDocPath || pathItems.length === 0) return null;
+  const crumbs = buildCrumbs(categories, selectedDocPath);
+  if (crumbs.length === 0) return null;
 
   return (
-    <nav className="wiki-breadcrumb" aria-label="Breadcrumb">
-      <div className="wiki-breadcrumb-flex">
-        {pathItems.map((item, i) => {
-          const clickable =
-            !!onNavigateCategoryDoc &&
+    <nav className="wiki-breadcrumb" aria-label="breadcrumb">
+      <div className="wiki-breadcrumb-list">
+        {crumbs.map((item, idx) => {
+          const hasDoc =
             Number.isFinite(Number(item.document_id)) &&
             Number(item.document_id) > 0;
 
           return (
             <React.Fragment key={item.id}>
-              {i > 0 && <span className="wiki-breadcrumb-sep">{'>'}</span>}
+              {idx > 0 && <span className="wiki-breadcrumb-sep">/</span>}
 
               <button
                 type="button"
-                className={`wiki-breadcrumb-item${clickable ? '' : ' is-disabled'}`}
+                className={`wiki-breadcrumb-item${hasDoc ? '' : ' is-disabled'}`}
+                disabled={!hasDoc}
+                aria-disabled={!hasDoc}
+                title={hasDoc ? `${item.name} 대표 문서로 이동` : '대표 문서가 없습니다'}
                 onClick={() => {
-                  if (!clickable) return;
-                  onNavigateCategoryDoc?.(item.path, Number(item.document_id));
+                  if (!hasDoc || !onNavigateCategoryDoc) return;
+                  onNavigateCategoryDoc(item.path, Number(item.document_id));
                 }}
-                disabled={!clickable}
-                aria-disabled={!clickable}
-                title={
-                  clickable
-                    ? `${item.name} 대표 문서로 이동`
-                    : '대표 문서가 없습니다'
-                }
               >
-                {item.icon &&
-                  (isImageUrl(item.icon) ? (
+                {item.icon ? (
+                  isImageUrl(item.icon) ? (
                     <img
                       src={toProxyUrl(item.icon)}
                       alt=""
@@ -119,24 +101,16 @@ const Breadcrumb: React.FC<Props> = ({
                       loading="lazy"
                       decoding="async"
                       draggable={false}
-                      style={{
-                        width: 20,
-                        height: 20,
-                        marginRight: 5,
-                        verticalAlign: 'middle',
-                        objectFit: 'contain',
-                      }}
+                      className="wiki-breadcrumb-icon-img"
                     />
                   ) : (
-                    <span
-                      style={{ marginRight: 4, fontSize: 20 }}
-                      aria-hidden="true"
-                    >
+                    <span className="wiki-breadcrumb-icon-emoji" aria-hidden="true">
                       {item.icon}
                     </span>
-                  ))}
+                  )
+                ) : null}
 
-                {item.name}
+                <span>{item.name}</span>
               </button>
             </React.Fragment>
           );
@@ -144,7 +118,11 @@ const Breadcrumb: React.FC<Props> = ({
       </div>
 
       <style jsx>{`
-        .wiki-breadcrumb-flex {
+        .wiki-breadcrumb {
+          margin-bottom: 8px;
+        }
+
+        .wiki-breadcrumb-list {
           display: flex;
           align-items: center;
           flex-wrap: wrap;
@@ -154,19 +132,22 @@ const Breadcrumb: React.FC<Props> = ({
         .wiki-breadcrumb-sep {
           color: #9ca3af;
           font-size: 13px;
+          line-height: 1;
           user-select: none;
         }
 
         .wiki-breadcrumb-item {
           display: inline-flex;
           align-items: center;
+          gap: 5px;
           border: none;
           background: transparent;
           padding: 0;
-          color: #4b5563;
-          cursor: pointer;
+          color: #6b7280;
           font-size: 14px;
           line-height: 1.4;
+          cursor: pointer;
+          transition: color 0.15s ease;
         }
 
         .wiki-breadcrumb-item:hover {
@@ -179,9 +160,19 @@ const Breadcrumb: React.FC<Props> = ({
           cursor: default;
           pointer-events: none;
         }
+
+        .wiki-breadcrumb-icon-img {
+          width: 16px;
+          height: 16px;
+          object-fit: contain;
+          border-radius: 4px;
+        }
+
+        .wiki-breadcrumb-icon-emoji {
+          font-size: 14px;
+          line-height: 1;
+        }
       `}</style>
     </nav>
   );
-};
-
-export default Breadcrumb;
+}

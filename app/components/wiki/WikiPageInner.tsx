@@ -1888,11 +1888,8 @@ export default function WikiPageInner({ user }: Props) {
                     selectedDocPath={selectedDocPath}
                     categories={categories}
                     onNavigateCategoryDoc={(path, docId) => {
-                      const targetCategoryId = path[path.length - 1];
-                      const targetCategory = categoryIdMap[targetCategoryId];
                       const meta = findDocumentMetaById(docId);
-
-                      if (!targetCategory || !meta?.title) return;
+                      if (!meta?.title) return;
 
                       void fetchDoc(path, meta.title, docId, {
                         clearCategoryPath: false,
