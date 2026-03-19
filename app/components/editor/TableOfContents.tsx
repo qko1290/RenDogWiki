@@ -35,74 +35,6 @@ export default function TableOfContents({
   const rootRef = useRef<HTMLElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const [rootKey, setRootKey] = useState(0); // 루트 변경 트리거 키
-  const [themeTick, setThemeTick] = useState(0);
-
-  const getIsDark = () => {
-    if (typeof document === 'undefined') return false;
-
-    const html = document.documentElement;
-    const body = document.body;
-
-    const darkByClass =
-      html.classList.contains('dark') ||
-      body.classList.contains('dark');
-
-    const darkByDataTheme =
-      html.getAttribute('data-theme') === 'dark' ||
-      body.getAttribute('data-theme') === 'dark';
-
-    const darkByMedia = window.matchMedia('(prefers-color-scheme: dark)').matches;
-
-    return darkByClass || darkByDataTheme || darkByMedia;
-  };
-
-  const isDark = useMemo(() => getIsDark(), [themeTick, headings, title]);
-
-  // 다크모드 감지
-  useEffect(() => {
-    const notifyThemeChanged = () => setThemeTick(v => v + 1);
-
-    notifyThemeChanged();
-
-    const htmlObserver = new MutationObserver(notifyThemeChanged);
-    const bodyObserver = new MutationObserver(notifyThemeChanged);
-
-    htmlObserver.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class', 'data-theme', 'style'],
-    });
-
-    bodyObserver.observe(document.body, {
-      attributes: true,
-      attributeFilter: ['class', 'data-theme', 'style'],
-    });
-
-    const media = window.matchMedia('(prefers-color-scheme: dark)');
-    const onMediaChange = () => notifyThemeChanged();
-
-    if (media.addEventListener) {
-      media.addEventListener('change', onMediaChange);
-    } else {
-      media.addListener(onMediaChange);
-    }
-
-    window.addEventListener('storage', notifyThemeChanged);
-    window.addEventListener('themechange', notifyThemeChanged as EventListener);
-
-    return () => {
-      htmlObserver.disconnect();
-      bodyObserver.disconnect();
-
-      if (media.removeEventListener) {
-        media.removeEventListener('change', onMediaChange);
-      } else {
-        media.removeListener(onMediaChange);
-      }
-
-      window.removeEventListener('storage', notifyThemeChanged);
-      window.removeEventListener('themechange', notifyThemeChanged as EventListener);
-    };
-  }, []);
 
   // 동일 id에 발생 순번 부여
   const indexed = useMemo(() => {
@@ -230,9 +162,12 @@ export default function TableOfContents({
 
   // ----- UI -----
   const boxStyle: React.CSSProperties = {
-    position: 'fixed', right, top, width,
-    background: '#fff',
-    border: '1px solid #eef1f5',
+    position: 'fixed',
+    right,
+    top,
+    width,
+    background: 'var(--toc-bg, #fff)',
+    border: '1px solid var(--toc-border, #eef1f5)',
     borderRadius: 12,
     boxShadow: '0 2px 14px rgba(0,0,0,.05)',
     padding: '12px 10px',
@@ -240,65 +175,163 @@ export default function TableOfContents({
     maxHeight: `calc(100vh - ${top + 20}px)`,
     overflowY: 'auto',
   };
-  const listStyle: React.CSSProperties = { listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 2 };
-  const iconBox: React.CSSProperties = { width: 24, height: 24, display: 'grid', placeItems: 'center', flex: '0 0 auto', marginRight: 8 };
+
+  const listStyle: React.CSSProperties = {
+    listStyle: 'none',
+    padding: 0,
+    margin: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2,
+  };
+
+  const iconBox: React.CSSProperties = {
+    width: 24,
+    height: 24,
+    display: 'grid',
+    placeItems: 'center',
+    flex: '0 0 auto',
+    marginRight: 8,
+  };
+
   const titleStyle: React.CSSProperties = {
     fontSize: 14,
     fontWeight: 800,
-    color: isDark ? '#e5e7eb' : '#0f172a',
+    color: 'var(--toc-title-color, #0f172a)',
     margin: '0 0 10px 8px',
   };
-  const textStyle: React.CSSProperties = { fontSize: 13.5, fontWeight: 600, letterSpacing: '-0.15px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
+
+  const textStyle: React.CSSProperties = {
+    fontSize: 13.5,
+    fontWeight: 600,
+    letterSpacing: '-0.15px',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  };
 
   if (!indexed.length) {
-    return <aside role="navigation" aria-label="Table of contents" style={{ ...boxStyle, display: 'grid', placeItems: 'center', color: '#9aa1ad' }}>목차 없음</aside>;
+    return (
+      <>
+        <style jsx global>{`
+          :root {
+            --toc-bg: #ffffff;
+            --toc-border: #eef1f5;
+            --toc-title-color: #0f172a;
+          }
+
+          html.dark,
+          body.dark,
+          html[data-theme='dark'],
+          body[data-theme='dark'] {
+            --toc-bg: #111827;
+            --toc-border: #374151;
+            --toc-title-color: #e5e7eb;
+          }
+        `}</style>
+
+        <aside
+          role="navigation"
+          aria-label="Table of contents"
+          style={{
+            ...boxStyle,
+            display: 'grid',
+            placeItems: 'center',
+            color: '#9aa1ad',
+          }}
+        >
+          목차 없음
+        </aside>
+      </>
+    );
   }
 
   return (
-    <aside role="navigation" aria-label="Table of contents" style={boxStyle}>
-      <p style={titleStyle}><FontAwesomeIcon icon={faAlignLeft} />&nbsp;&nbsp;{title}</p>
-      <ul style={listStyle}>
-        {indexed.map((h, i) => {
-          const active = h.id === activeId;
-          const padLeft = h.level === 1 ? 8 : h.level === 2 ? 26 : 44;
-          return (
-            <li key={`${h.id}-${h.__occ}-${i}`}>
-              <button
-                type="button"
-                onClick={() => scrollToId(h.id, h.__occ)}
-                title={h.text}
-                aria-current={active ? 'true' : undefined}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-                  cursor: 'pointer', border: 0, background: active ? '#eff6ff' : 'transparent',
-                  borderLeft: `3px solid ${active ? '#2563eb' : 'transparent'}`,
-                  color: active ? '#2563eb' : '#4b5563',
-                  padding: '6px 8px', paddingLeft: padLeft, borderRadius: 8,
-                  textAlign: 'left', transition: 'background .12s, color .12s, border-color .12s',
-                }}
-              >
-                <span style={iconBox} aria-hidden>
-                  {h.icon?.startsWith('http') ? (
-                    <img
-                      src={toProxyUrl(h.icon)}
-                      alt=""
-                      width={24}
-                      height={24}
-                      loading="lazy"
-                      decoding="async"
-                      draggable={false}
-                      style={{ width: 24, height: 24, objectFit: 'contain', display: 'block' }}
-                    />
-                  ) : h.icon ? (
-                    <span style={{ fontSize: 14, lineHeight: 1, display: 'block' }}>{h.icon}</span>
-                  ) : null}
-                </span>
-                <span style={textStyle}>{h.text}</span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </aside>
+    <>
+      <style jsx global>{`
+        :root {
+          --toc-bg: #ffffff;
+          --toc-border: #eef1f5;
+          --toc-title-color: #0f172a;
+        }
+
+        html.dark,
+        body.dark,
+        html[data-theme='dark'],
+        body[data-theme='dark'] {
+          --toc-bg: #111827;
+          --toc-border: #374151;
+          --toc-title-color: #e5e7eb;
+        }
+      `}</style>
+
+      <aside role="navigation" aria-label="Table of contents" style={boxStyle}>
+        <p style={titleStyle}>
+          <FontAwesomeIcon icon={faAlignLeft} />
+          &nbsp;&nbsp;
+          {title}
+        </p>
+
+        <ul style={listStyle}>
+          {indexed.map((h, i) => {
+            const active = h.id === activeId;
+            const padLeft = h.level === 1 ? 8 : h.level === 2 ? 26 : 44;
+
+            return (
+              <li key={`${h.id}-${h.__occ}-${i}`}>
+                <button
+                  type="button"
+                  onClick={() => scrollToId(h.id, h.__occ)}
+                  title={h.text}
+                  aria-current={active ? 'true' : undefined}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    width: '100%',
+                    cursor: 'pointer',
+                    border: 0,
+                    background: active ? '#eff6ff' : 'transparent',
+                    borderLeft: `3px solid ${active ? '#2563eb' : 'transparent'}`,
+                    color: active ? '#2563eb' : '#4b5563',
+                    padding: '6px 8px',
+                    paddingLeft: padLeft,
+                    borderRadius: 8,
+                    textAlign: 'left',
+                    transition: 'background .12s, color .12s, border-color .12s',
+                  }}
+                >
+                  <span style={iconBox} aria-hidden>
+                    {h.icon?.startsWith('http') ? (
+                      <img
+                        src={toProxyUrl(h.icon)}
+                        alt=""
+                        width={24}
+                        height={24}
+                        loading="lazy"
+                        decoding="async"
+                        draggable={false}
+                        style={{
+                          width: 24,
+                          height: 24,
+                          objectFit: 'contain',
+                          display: 'block',
+                        }}
+                      />
+                    ) : h.icon ? (
+                      <span style={{ fontSize: 14, lineHeight: 1, display: 'block' }}>
+                        {h.icon}
+                      </span>
+                    ) : null}
+                  </span>
+
+                  <span style={textStyle}>{h.text}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </aside>
+    </>
   );
 }
