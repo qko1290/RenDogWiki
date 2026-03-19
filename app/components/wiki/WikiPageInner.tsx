@@ -1887,9 +1887,18 @@ export default function WikiPageInner({ user }: Props) {
                   <Breadcrumb
                     selectedDocPath={selectedDocPath}
                     categories={categories}
-                    setSelectedDocPath={setSelectedDocPath}
-                    setSelectedDocTitle={setSelectedDocTitle}
-                    setDocContent={setDocContent}
+                    onNavigateCategoryDoc={(path, docId) => {
+                      const targetCategoryId = path[path.length - 1];
+                      const targetCategory = categoryIdMap[targetCategoryId];
+                      const meta = findDocumentMetaById(docId);
+
+                      if (!targetCategory || !meta?.title) return;
+
+                      void fetchDoc(path, meta.title, docId, {
+                        clearCategoryPath: false,
+                        history: 'push',
+                      });
+                    }}
                   />
                 )}
 
