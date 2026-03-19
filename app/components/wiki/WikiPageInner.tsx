@@ -1883,7 +1883,7 @@ export default function WikiPageInner({ user }: Props) {
           <main className={`wiki-content ${contentClass}`}>
             {!hideDocChrome && (
               <>
-                {!hold && (
+                <div className={`wiki-breadcrumb-wrap ${hold ? 'is-loading' : ''}`}>
                   <Breadcrumb
                     selectedDocPath={selectedDocPath}
                     categories={categories}
@@ -1897,7 +1897,7 @@ export default function WikiPageInner({ user }: Props) {
                       });
                     }}
                   />
-                )}
+                </div>
 
                 <div
                   style={{
@@ -2481,6 +2481,14 @@ export default function WikiPageInner({ user }: Props) {
           justify-content: center;
           pointer-events: none;
         }
+        .wiki-breadcrumb-wrap {
+          transition: opacity 0.12s ease;
+        }
+
+        .wiki-breadcrumb-wrap.is-loading {
+          opacity: 0.72;
+        }
+
       `}</style>
     </div>
   );
