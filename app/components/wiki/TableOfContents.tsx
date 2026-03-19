@@ -587,6 +587,7 @@ export default function TableOfContents({
     display: '-webkit-box',
     WebkitLineClamp: 2,
     WebkitBoxOrient: 'vertical',
+    color: 'var(--foreground)',
   };
 
   // ===== 목차 없음 =====
@@ -628,6 +629,7 @@ export default function TableOfContents({
               borderRadius: 10,
               textAlign: 'left',
               padding: '8px 8px',
+              color: 'var(--foreground)',
             }}
           >
             <span style={docTitleIconBox} aria-hidden>
