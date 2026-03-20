@@ -1499,9 +1499,7 @@ function getCurrentThemeIsDark() {
 export default function WikiReadRenderer({ content, readOnly = true, onWikiRefClick }: Props) {
   const [copiedHeadingId, setCopiedHeadingId] = useState<string | null>(null);
 
-  const headingOccRef = useMemo<React.MutableRefObject<Map<string, number>>>(() => {
-    return { current: new Map<string, number>() };
-  }, [content]);
+  const headingOccRef = useRef<Map<string, number>>(new Map());
 
   const [isMobile, setIsMobile] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -1565,6 +1563,11 @@ export default function WikiReadRenderer({ content, readOnly = true, onWikiRefCl
 
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    // 문서(콘텐츠) 바뀌면 카운터 초기화
+    headingOccRef.current = new Map();
+  }, [content]);
 
   const handlers: WikiRefHandlers = { readOnly, onWikiRefClick };
 
