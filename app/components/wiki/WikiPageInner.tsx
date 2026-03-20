@@ -961,136 +961,6 @@ export default function WikiPageInner({ user }: Props) {
     }
   };
 
-  function BookLoader() {
-    return (
-      <div className="wiki-loader-wrap" style={{ color: 'var(--surface)' }}>
-        <div className="loader">
-          <div className="book-wrapper">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="var(--surface)"
-              viewBox="0 0 126 75"
-              className="book"
-            >
-              <rect
-                strokeWidth={5}
-                stroke="#9EC6F3"
-                rx="7.5"
-                height={70}
-                width={121}
-                y="2.5"
-                x="2.5"
-              />
-              <line
-                strokeWidth={5}
-                stroke="#9EC6F3"
-                y2={75}
-                x2="63.5"
-                x1="63.5"
-              />
-              <path
-                strokeLinecap="round"
-                strokeWidth={4}
-                stroke="#c18949"
-                d="M25 20H50"
-              />
-              <path
-                strokeLinecap="round"
-                strokeWidth={4}
-                stroke="#c18949"
-                d="M101 20H76"
-              />
-              <path
-                strokeLinecap="round"
-                strokeWidth={4}
-                stroke="#c18949"
-                d="M16 30L50 30"
-              />
-              <path
-                strokeLinecap="round"
-                strokeWidth={4}
-                stroke="#c18949"
-                d="M110 30L76 30"
-              />
-            </svg>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="#ffffff74"
-              viewBox="0 0 65 75"
-              className="book-page"
-            >
-              <path
-                strokeLinecap="round"
-                strokeWidth={4}
-                stroke="#c18949"
-                d="M40 20H15"
-              />
-              <path
-                strokeLinecap="round"
-                strokeWidth={4}
-                stroke="#c18949"
-                d="M49 30L15 30"
-              />
-              <path
-                strokeWidth={5}
-                stroke="#9EC6F3"
-                d="M2.5 2.5H55C59.1421 2.5 62.5 5.85786 62.5 10V65C62.5 69.1421 59.1421 72.5 55 72.5H2.5V2.5Z"
-              />
-            </svg>
-          </div>
-        </div>
-
-        <style jsx>{`
-          .wiki-loader-wrap {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 40px 0;
-          }
-          .loader {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-          .book-wrapper {
-            top: 100px;
-            width: 350px;
-            height: fit-content;
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            position: relative;
-          }
-          .book {
-            width: 100%;
-            height: auto;
-            filter: drop-shadow(
-              10px 10px 5px rgba(0, 0, 0, 0.137)
-            );
-          }
-          .book-wrapper .book-page {
-            width: 50%;
-            height: auto;
-            position: absolute;
-            transform-origin: left;
-            animation: paging 0.4s linear infinite;
-          }
-          @keyframes paging {
-            0% {
-              transform: rotateY(0deg) skewY(0deg);
-            }
-            50% {
-              transform: rotateY(90deg) skewY(-20deg);
-            }
-            100% {
-              transform: rotateY(180deg) skewY(0deg);
-            }
-          }
-        `}</style>
-      </div>
-    );
-  }
-
   type DocOpenHistory = 'push' | 'replace';
 
   type FetchDocOptions = {
@@ -1970,7 +1840,7 @@ export default function WikiPageInner({ user }: Props) {
                   <div className="wiki-paged-section wiki-paged-section--head">
                     <div className="wiki-paged-body">
                       {headLoading ? (
-                        <BookLoader />
+                        <div className="wiki-loading-placeholder">불러오는 중...</div>
                       ) : headList.length > 0 ? (
                         <HeadGrid
                           heads={headList.slice(
@@ -2026,7 +1896,7 @@ export default function WikiPageInner({ user }: Props) {
                   <div className="wiki-paged-section wiki-paged-section--npc">
                     <div className="wiki-paged-body">
                       {npcLoading ? (
-                        <BookLoader />
+                        <div className="wiki-loading-placeholder">불러오는 중...</div>
                       ) : npcList.length > 0 ? (
                         <NpcGrid
                           npcs={npcList.slice(
@@ -2088,13 +1958,13 @@ export default function WikiPageInner({ user }: Props) {
                     />
                   </div>
                 ) : (
-                  <BookLoader />
+                  <div className="wiki-loading-placeholder">불러오는 중...</div>
                 )}
               </div>
 
               {hold && (
                 <div className="doc-loading-overlay" aria-hidden="true">
-                  <BookLoader />
+                  <div className="wiki-loading-placeholder">불러오는 중...</div>
                 </div>
               )}
 
@@ -2488,7 +2358,15 @@ export default function WikiPageInner({ user }: Props) {
         .wiki-breadcrumb-wrap.is-loading {
           opacity: 0.72;
         }
-
+        .wiki-loading-placeholder {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 120px;
+          color: var(--muted);
+          font-size: 14px;
+          font-weight: 600;
+        }
       `}</style>
     </div>
   );
