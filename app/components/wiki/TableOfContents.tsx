@@ -5,6 +5,8 @@
 // - 문서 제목/아이콘(docTitle/docIcon) 목차 맨 위에 표시
 // - 활성 목차 슬라이딩 하이라이트 + TOC 자동 스크롤
 // - 목차 클릭 직후 대상 heading DOM이 아직 준비되지 않은 경우 짧게 재시도
+// - 목차 클릭으로 smooth scroll 중일 때 스크롤 기반 active 재계산 잠금
+//   → 강조 표시가 원래 위치로 잠깐 튀는 현상 방지
 // =============================================
 'use client';
 
@@ -66,6 +68,11 @@ export default function TableOfContents({
   // 클릭 재시도 타이머 관리
   const retryTimeoutsRef = useRef<number[]>([]);
 
+  // 프로그램적 스크롤(목차 클릭 이동) 잠금
+  const isProgrammaticScrollingRef = useRef(false);
+  const programmaticTargetDomIdRef = useRef<string | null>(null);
+  const programmaticUnlockTimerRef = useRef<number | null>(null);
+
   // 동일 id에 발생 순번 부여
   const indexed = useMemo(() => {
     const seen: Record<string, number> = {};
@@ -91,29 +98,49 @@ export default function TableOfContents({
     retryTimeoutsRef.current = [];
   };
 
+  const clearProgrammaticUnlockTimer = () => {
+    if (programmaticUnlockTimerRef.current != null) {
+      window.clearTimeout(programmaticUnlockTimerRef.current);
+      programmaticUnlockTimerRef.current = null;
+    }
+  };
+
+  const releaseProgrammaticScrollLock = () => {
+    isProgrammaticScrollingRef.current = false;
+    programmaticTargetDomIdRef.current = null;
+    clearProgrammaticUnlockTimer();
+  };
+
+  const startProgrammaticScrollLock = (targetDomId: string) => {
+    isProgrammaticScrollingRef.current = true;
+    programmaticTargetDomIdRef.current = targetDomId;
+    clearProgrammaticUnlockTimer();
+
+    // smooth scroll이 끝나지 않더라도 영구 잠금되지 않도록 fallback 해제
+    programmaticUnlockTimerRef.current = window.setTimeout(() => {
+      releaseProgrammaticScrollLock();
+    }, 1400);
+  };
+
   const pickClosestDomId = (): { domId: string; index: number } | null => {
     if (!indexed.length) return null;
 
-    const root = getScrollRootEl(); // HTMLElement | null (scroll-root면 HTMLElement)
+    const root = getScrollRootEl();
     const baseScrollTop = root ? root.scrollTop : window.scrollY;
-
-    // ✅ "컨테이너 기준" 헤더 라인 (scrollTop 좌표계)
     const baseLine = baseScrollTop + headerOffset + 8;
 
-    // 각 heading의 "컨테이너 기준 Y" 계산
     const items = indexed
       .map((h, i) => {
         const el = document.getElementById(h.domId!);
         if (!el) return null;
 
-        const y = getYInScrollRoot(el, root); // ✅ 컨테이너 기준
+        const y = getYInScrollRoot(el, root);
         return { domId: h.domId!, index: i, delta: y - baseLine };
       })
       .filter(Boolean) as { domId: string; index: number; delta: number }[];
 
     if (!items.length) return null;
 
-    // 1) baseLine "위(지나온)" 중 가장 가까운 것(0에 가장 가까운 음수)
     let bestAbove: typeof items[number] | null = null;
     for (const it of items) {
       if (it.delta <= 0) {
@@ -122,7 +149,6 @@ export default function TableOfContents({
     }
     if (bestAbove) return { domId: bestAbove.domId, index: bestAbove.index };
 
-    // 2) 위에 없으면(맨 위) 아래 중 가장 가까운 것(가장 작은 양수)
     let bestBelow = items[0];
     for (const it of items) {
       if (it.delta < bestBelow.delta) bestBelow = it;
@@ -162,6 +188,7 @@ export default function TableOfContents({
 
     if (bestDomId) {
       setActiveDomId(bestDomId);
+      setActiveId(bestDomId);
       if (bestIndex !== -1) setActiveIndex(bestIndex);
       return true;
     }
@@ -173,22 +200,23 @@ export default function TableOfContents({
   const docTitleAnchor = indexed[0] ?? null;
   const resolvedDocIcon = docIcon ?? docTitleAnchor?.icon ?? undefined;
 
-  // ===== 유틸 =====
-
   useEffect(() => {
     return () => {
       clearRetryTimeouts();
+      releaseProgrammaticScrollLock();
+      observerRef.current?.disconnect();
     };
   }, []);
 
   useEffect(() => {
     clearRetryTimeouts();
+    releaseProgrammaticScrollLock();
   }, [indexed]);
 
   useEffect(() => {
-    // headings가 없으면 이전 문서에서 남은 highlight가 "빈 공간"에 표시될 수 있음
     if (!headings || headings.length === 0) {
       setActiveId('');
+      setActiveDomId('');
       setActiveIndex(-1);
 
       prevTopRef.current = null;
@@ -198,6 +226,7 @@ export default function TableOfContents({
 
       observerRef.current?.disconnect();
       clearRetryTimeouts();
+      releaseProgrammaticScrollLock();
     }
   }, [headings]);
 
@@ -221,7 +250,7 @@ export default function TableOfContents({
   };
 
   const getScrollRootEl = () => {
-    return rootRef.current; // selector로 잡힌 #wiki-scroll-root를 그대로 사용
+    return rootRef.current;
   };
 
   const getScrollRoot = (target: HTMLElement | null): HTMLElement | null => {
@@ -254,7 +283,7 @@ export default function TableOfContents({
     }
 
     try {
-      const st = window.history.state; // ✅ Next가 넣은 state 유지
+      const st = window.history.state;
       const url = new URL(window.location.href);
       url.hash = `#${domId}`;
       window.history.replaceState(st, '', url.toString());
@@ -262,19 +291,18 @@ export default function TableOfContents({
 
     const idx = indexed.findIndex((h) => h.domId === domId);
     setActiveDomId(domId);
+    setActiveId(domId);
     if (idx !== -1) setActiveIndex(idx);
 
     return true;
   };
 
-  // ✅ 항상 최신 DOM에서 root를 다시 찾는다 (캐싱 X)
   function resolveRootEl(): HTMLElement | null {
     if (scrollRootSelector) {
       const el = document.querySelector(scrollRootSelector) as HTMLElement | null;
       if (el) return el;
     }
 
-    // fallback: 첫 heading 기준으로 scroll ancestor 찾기
     if (indexed.length) {
       const first = document.getElementById(indexed[0].domId!);
       if (first) return findScrollableAncestor(first);
@@ -292,10 +320,18 @@ export default function TableOfContents({
       }
 
       const ok = scrollToDomId(candidate, behavior);
-      if (ok) return true;
+      if (ok) {
+        startProgrammaticScrollLock(candidate);
+        return true;
+      }
 
       if (!candidate.includes('--')) {
-        return scrollToDomId(`${candidate}--0`, behavior);
+        const fallback = `${candidate}--0`;
+        const fallbackOk = scrollToDomId(fallback, behavior);
+        if (fallbackOk) {
+          startProgrammaticScrollLock(fallback);
+          return true;
+        }
       }
 
       return false;
@@ -312,7 +348,6 @@ export default function TableOfContents({
           return;
         }
 
-        // 끝까지 못 찾은 경우라도 현재 스크롤 기준 active 표시만 최대한 복구
         if (delay === delays[delays.length - 1]) {
           setActiveByClosest();
         }
@@ -322,16 +357,14 @@ export default function TableOfContents({
     }
   };
 
-  // ✅ root 결정: 첫 domId 기준으로 찾기
   useEffect(() => {
     let raf = 0;
     let tries = 0;
-    const maxTries = 60; // ~1초 내외
+    const maxTries = 60;
 
     const resolve = () => {
       tries += 1;
 
-      // 1) selector 우선
       if (scrollRootSelector) {
         const sel = document.querySelector(scrollRootSelector) as HTMLElement | null;
         if (sel) {
@@ -339,12 +372,10 @@ export default function TableOfContents({
           setRootKey((k) => k + 1);
           return;
         }
-        // selector가 아직 DOM에 없으면 재시도
         if (tries < maxTries) raf = requestAnimationFrame(resolve);
         return;
       }
 
-      // 2) 첫 heading DOM 기준
       if (indexed.length) {
         const firstDomId = indexed[0].domId!;
         const first = document.getElementById(firstDomId);
@@ -355,12 +386,10 @@ export default function TableOfContents({
           return;
         }
 
-        // heading DOM이 아직 없으면 재시도
         if (tries < maxTries) raf = requestAnimationFrame(resolve);
         return;
       }
 
-      // 3) headings가 아예 없으면 초기화
       rootRef.current = null;
       setRootKey((k) => k + 1);
     };
@@ -377,15 +406,54 @@ export default function TableOfContents({
 
     const apply = () => {
       const root = resolveRootEl();
+      if (root !== rootRef.current) {
+        rootRef.current = root;
+      }
+
+      // ✅ 목차 클릭으로 이동 중이면, 스크롤 기반 active 계산이
+      // 클릭 target을 잠깐 이전 위치로 되돌리지 못하게 막는다.
+      if (isProgrammaticScrollingRef.current) {
+        const targetDomId = programmaticTargetDomIdRef.current;
+
+        if (targetDomId) {
+          const targetEl = document.getElementById(targetDomId);
+
+          if (targetEl) {
+            const rootRectTop = root ? root.getBoundingClientRect().top : 0;
+            const headerLine = rootRectTop + headerOffset + 8;
+            const targetTop = targetEl.getBoundingClientRect().top;
+            const distance = Math.abs(targetTop - headerLine);
+
+            const targetIndex = indexed.findIndex((h) => h.domId === targetDomId);
+
+            // 이동 중에는 target active 유지
+            if (activeDomId !== targetDomId) {
+              setActiveDomId(targetDomId);
+              setActiveId(targetDomId);
+            }
+            if (targetIndex !== -1 && activeIndex !== targetIndex) {
+              setActiveIndex(targetIndex);
+            }
+
+            // target이 header line 근처에 도달하면 잠금 해제
+            if (distance <= 28) {
+              releaseProgrammaticScrollLock();
+            }
+
+            return;
+          }
+
+          // target DOM을 못 찾으면 잠금 해제하고 일반 계산으로 복귀
+          releaseProgrammaticScrollLock();
+        } else {
+          releaseProgrammaticScrollLock();
+        }
+      }
+
       const baseScrollTop = root ? root.scrollTop : window.scrollY;
 
-      // ✅ root가 "내부 스크롤 컨테이너"면 headerOffset을 빼면 오히려 틀어질 확률이 큼
-      // - 내부 스크롤일 땐 보통 header가 root 바깥(고정)이어서 root 좌표계에서 offset=0이 더 정확함
       const ACTIVE_BIAS_PX = 80;
-
-      // root가 있든 없든, 기준선을 조금 더 아래로 내린다
       const effectiveOffset = (root ? 0 : headerOffset) + ACTIVE_BIAS_PX;
-
       const baseLine = baseScrollTop + effectiveOffset + 8;
 
       let bestDomId = '';
@@ -402,14 +470,12 @@ export default function TableOfContents({
         const delta = y - baseLine;
 
         if (delta <= 0) {
-          // 지나온 헤딩 중 가장 가까운 것(0에 가장 가까운 음수)
           if (delta > bestAboveDelta) {
             bestAboveDelta = delta;
             bestDomId = domId;
             bestIndex = i;
           }
         } else {
-          // 아직 안 지난 헤딩 중 가장 가까운 것(가장 작은 양수) - above가 없을 때만 사용
           if (bestDomId === '' && delta < bestBelowDelta) {
             bestBelowDelta = delta;
             bestDomId = domId;
@@ -420,6 +486,7 @@ export default function TableOfContents({
 
       if (bestDomId) {
         setActiveDomId(bestDomId);
+        setActiveId(bestDomId);
         setActiveIndex(bestIndex);
       }
     };
@@ -429,14 +496,10 @@ export default function TableOfContents({
       raf = requestAnimationFrame(apply);
     };
 
-    // ✅ 1) 문서 전체에서 scroll 이벤트를 "캡처"로 잡는다 (어느 컨테이너든 잡힘)
     document.addEventListener('scroll', onAnyScroll, { passive: true, capture: true });
-
-    // ✅ 2) 혹시 wheel/touch로만 움직이고 scroll 이벤트 타이밍이 꼬이는 환경 대비
     window.addEventListener('wheel', onAnyScroll, { passive: true });
     window.addEventListener('touchmove', onAnyScroll, { passive: true });
 
-    // ✅ 3) 최초 2프레임 뒤 1회 계산
     const r1 = requestAnimationFrame(() => requestAnimationFrame(apply));
 
     return () => {
@@ -446,9 +509,8 @@ export default function TableOfContents({
       window.removeEventListener('wheel', onAnyScroll);
       window.removeEventListener('touchmove', onAnyScroll);
     };
-  }, [indexed, headerOffset, scrollRootSelector]);
+  }, [indexed, headerOffset, scrollRootSelector, activeDomId, activeIndex]);
 
-  // ✅ 해시 초기 스크롤: 구형(#heading-xxx)도 호환
   useEffect(() => {
     if (!indexed.length) return;
 
@@ -461,8 +523,8 @@ export default function TableOfContents({
     const tryScroll = (h: string) => {
       const ok = scrollToDomId(h, 'auto');
       if (ok) {
-        // ✅ 스크롤 성공한 domId를 바로 active로 맞춰준다 (IO 기다리지 않음)
         setActiveDomId(h);
+        setActiveId(h);
         const idx = indexed.findIndex((x) => x.domId === h);
         if (idx !== -1) setActiveIndex(idx);
       }
@@ -470,13 +532,10 @@ export default function TableOfContents({
     };
 
     const raf = requestAnimationFrame(() => {
-      // 1) 정확 매칭 (#heading-xxx--n)
       if (tryScroll(hash)) return;
 
-      // 2) 구형 링크 (#heading-xxx) → --0로 보정
       if (!hash.includes('--') && tryScroll(`${hash}--0`)) return;
 
-      // 기존 재시도 패턴 유지
       setTimeout(() => {
         if (tryScroll(hash)) return;
         if (!hash.includes('--') && tryScroll(`${hash}--0`)) return;
@@ -490,7 +549,6 @@ export default function TableOfContents({
     return () => cancelAnimationFrame(raf);
   }, [indexed, rootKey]);
 
-  // ===== 하이라이트 + TOC 자동 스크롤 =====
   useEffect(() => {
     if (!indexed.length) return;
     if (activeIndex < 0) return;
@@ -556,7 +614,6 @@ export default function TableOfContents({
     return el.getBoundingClientRect().top - rootRect.top + root.scrollTop;
   }
 
-  // ===== 스타일 =====
   const boxStyle: React.CSSProperties = {
     position: 'fixed',
     right,
@@ -571,6 +628,7 @@ export default function TableOfContents({
     maxHeight: `calc(100vh - ${top + 20}px)`,
     overflowY: 'auto',
   };
+
   const listStyle: React.CSSProperties = {
     listStyle: 'none',
     padding: 0,
@@ -579,6 +637,7 @@ export default function TableOfContents({
     flexDirection: 'column',
     gap: 2,
   };
+
   const iconBox: React.CSSProperties = {
     width: 24,
     height: 24,
@@ -587,12 +646,14 @@ export default function TableOfContents({
     flex: '0 0 auto',
     marginRight: 8,
   };
+
   const titleStyle: React.CSSProperties = {
     fontSize: 14,
     fontWeight: 800,
     color: 'var(--foreground)',
     margin: '0 0 10px 8px',
   };
+
   const textStyle: React.CSSProperties = {
     fontSize: 13.5,
     fontWeight: 600,
@@ -624,7 +685,6 @@ export default function TableOfContents({
     color: 'var(--foreground)',
   };
 
-  // ===== 목차 없음 =====
   if (!indexed.length) {
     return (
       <aside
@@ -707,7 +767,6 @@ export default function TableOfContents({
     );
   }
 
-  // ===== 렌더 =====
   return (
     <aside
       ref={tocRef}
@@ -720,14 +779,12 @@ export default function TableOfContents({
         &nbsp;&nbsp;{title}
       </p>
 
-      {/* 문서 제목 블록 (항상 고정 스타일, 활성화 없음) */}
       <ul style={listStyle}>
         {hasDocTitle && (
           <li key="__doc-title" style={{ marginBottom: 6 }}>
             <button
               type="button"
               onClick={() => {
-                // ✅ 무조건 문서 맨 위로 스크롤
                 const root = rootRef.current;
                 if (!root) {
                   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -788,7 +845,6 @@ export default function TableOfContents({
         )}
       </ul>
 
-      {/* 실제 목차 항목들 + 슬라이딩 하이라이트 */}
       <ul
         ref={headingsListRef}
         style={{
