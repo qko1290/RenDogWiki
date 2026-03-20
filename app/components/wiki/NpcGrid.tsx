@@ -193,7 +193,14 @@ export default function NpcGrid({
             -1.2px 0 0 #fff;
 
           --npc-badge-bg: #fff;
+
           --npc-pager-fg: var(--foreground);
+          --npc-pager-bg: #ffffff;
+          --npc-pager-border: #d1d5db;
+          --npc-pager-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+          --npc-pager-hover-bg: #f8fafc;
+          --npc-pager-disabled-bg: #f3f4f6;
+          --npc-pager-disabled-fg: #9ca3af;
         }
 
         :global(:root[data-theme='dark']) .npc-grid-wrap,
@@ -215,6 +222,12 @@ export default function NpcGrid({
 
           --npc-badge-bg: var(--surface);
           --npc-pager-fg: var(--foreground);
+          --npc-pager-bg: var(--surface-elevated);
+          --npc-pager-border: var(--border-strong);
+          --npc-pager-shadow: 0 8px 20px rgba(2, 6, 23, 0.28);
+          --npc-pager-hover-bg: color-mix(in oklab, var(--surface-elevated) 84%, white 6%);
+          --npc-pager-disabled-bg: color-mix(in oklab, var(--surface-elevated) 92%, black 4%);
+          --npc-pager-disabled-fg: var(--muted);
         }
 
         .npc-grid {
@@ -411,23 +424,46 @@ export default function NpcGrid({
         }
 
         .npc-pg-btn {
+          min-width: 40px;
+          height: 40px;
+          padding: 0 12px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
           font-size: 20px;
-          background: none;
-          border: none;
+          font-weight: 700;
+          background: var(--npc-pager-bg);
+          border: 1px solid var(--npc-pager-border);
+          border-radius: 10px;
+          box-shadow: var(--npc-pager-shadow);
+          color: var(--npc-pager-fg);
           cursor: pointer;
+          transition:
+            background 140ms ease,
+            border-color 140ms ease,
+            color 140ms ease,
+            box-shadow 140ms ease,
+            transform 140ms ease;
+        }
+
+        .npc-pg-btn:hover:not(:disabled) {
+          background: var(--npc-pager-hover-bg);
+          transform: translateY(-1px);
         }
 
         .npc-pg-btn:disabled {
-          opacity: 0.5;
+          background: var(--npc-pager-disabled-bg);
+          color: var(--npc-pager-disabled-fg);
+          border-color: var(--npc-pager-border);
+          box-shadow: none;
+          opacity: 1;
           cursor: default;
+          transform: none;
         }
 
         .npc-pg-text {
           font-size: 16px;
-        }
-        
-        .npc-pg-btn,
-        .npc-pg-text {
+          font-weight: 700;
           color: var(--npc-pager-fg);
         }
 
@@ -478,7 +514,11 @@ export default function NpcGrid({
           }
 
           .npc-pg-btn {
+            min-width: 34px;
+            height: 34px;
+            padding: 0 10px;
             font-size: 17px;
+            border-radius: 8px;
           }
 
           .npc-pg-text {
