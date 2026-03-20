@@ -7,8 +7,9 @@
 // - 목차 클릭 직후 대상 heading DOM이 아직 준비되지 않은 경우 짧게 재시도
 // - 목차 클릭으로 smooth scroll 중일 때 스크롤 기반 active 재계산 잠금
 //   → 강조 표시가 원래 위치로 잠깐 튀는 현상 방지
-// - 긴 문서/늦게 커지는 레이아웃에서도 목표 heading까지 끝까지 도달하도록
+// - 긴 문서/늦게 커지는 레이아웃에서도 목표 heading까지 도달하도록
 //   초기 스크롤 이후 여러 번 위치를 재측정해서 보정
+// - 내부 TOC 클릭은 "부드러운 이동"을 우선으로, 보정 횟수를 줄이고 늦게 개입
 // =============================================
 'use client';
 
@@ -36,6 +37,12 @@ type Props = {
   docTitle?: string;
   docIcon?: string;
   scrollRootSelector?: string;
+};
+
+type StableStep = {
+  delay: number;
+  threshold: number;
+  behavior: ScrollBehavior;
 };
 
 export default function TableOfContents({
@@ -91,7 +98,6 @@ export default function TableOfContents({
 
   const [activeDomId, setActiveDomId] = useState('');
 
-  // ✅ DOM target 찾기: domId로 단일 조회
   const getTargetByDomId = (domId: string) => {
     return document.getElementById(domId);
   };
@@ -128,47 +134,12 @@ export default function TableOfContents({
     programmaticTargetDomIdRef.current = targetDomId;
     clearProgrammaticUnlockTimer();
 
-    // smooth scroll + 보정 스크롤 중 영구 잠금되지 않도록 fallback 해제
+    // 긴 문서 보정까지 포함해서 조금 더 길게 유지
     programmaticUnlockTimerRef.current = window.setTimeout(() => {
       releaseProgrammaticScrollLock();
-    }, 2600);
+    }, 3200);
   };
 
-  const pickClosestDomId = (): { domId: string; index: number } | null => {
-    if (!indexed.length) return null;
-
-    const root = getScrollRootEl();
-    const baseScrollTop = root ? root.scrollTop : window.scrollY;
-    const baseLine = baseScrollTop + headerOffset + 8;
-
-    const items = indexed
-      .map((h, i) => {
-        const el = document.getElementById(h.domId!);
-        if (!el) return null;
-
-        const y = getYInScrollRoot(el, root);
-        return { domId: h.domId!, index: i, delta: y - baseLine };
-      })
-      .filter(Boolean) as { domId: string; index: number; delta: number }[];
-
-    if (!items.length) return null;
-
-    let bestAbove: (typeof items)[number] | null = null;
-    for (const it of items) {
-      if (it.delta <= 0) {
-        if (!bestAbove || it.delta > bestAbove.delta) bestAbove = it;
-      }
-    }
-    if (bestAbove) return { domId: bestAbove.domId, index: bestAbove.index };
-
-    let bestBelow = items[0];
-    for (const it of items) {
-      if (it.delta < bestBelow.delta) bestBelow = it;
-    }
-    return { domId: bestBelow.domId, index: bestBelow.index };
-  };
-
-  // ✅ intersect가 없어도(로드 직후/최상단) "가장 가까운 heading"을 강제로 계산해서 active 세팅
   const setActiveByClosest = () => {
     if (!indexed.length) return false;
 
@@ -327,6 +298,26 @@ export default function TableOfContents({
     root.scrollTo({ top: nextTop, behavior });
   };
 
+  const getStableCorrectionSteps = (initialBehavior: ScrollBehavior): StableStep[] => {
+    if (initialBehavior === 'smooth') {
+      // 내부 클릭은 부드러움을 우선
+      return [
+        { delay: 720, threshold: 56, behavior: 'smooth' },
+        { delay: 1450, threshold: 18, behavior: 'smooth' },
+        { delay: 2350, threshold: 8, behavior: 'auto' },
+      ];
+    }
+
+    // 해시 진입은 체감보다 정확도 우선
+    return [
+      { delay: 120, threshold: 28, behavior: 'auto' },
+      { delay: 320, threshold: 18, behavior: 'auto' },
+      { delay: 760, threshold: 10, behavior: 'auto' },
+      { delay: 1450, threshold: 6, behavior: 'auto' },
+      { delay: 2200, threshold: 4, behavior: 'auto' },
+    ];
+  };
+
   const scheduleStableScrollCorrection = (
     domId: string,
     root: HTMLElement | null,
@@ -334,12 +325,9 @@ export default function TableOfContents({
   ) => {
     clearStableScrollTimeouts();
 
-    const correctionDelays =
-      initialBehavior === 'auto'
-        ? [80, 180, 320, 520, 760, 1080, 1480, 2000]
-        : [140, 260, 420, 620, 860, 1180, 1580, 2100];
+    const steps = getStableCorrectionSteps(initialBehavior);
 
-    for (const delay of correctionDelays) {
+    for (const step of steps) {
       const timerId = window.setTimeout(() => {
         const metrics = getScrollMetricsForDomId(domId, root ?? resolveRootEl());
         if (!metrics) return;
@@ -347,10 +335,10 @@ export default function TableOfContents({
         const currentTop = metrics.root ? metrics.root.scrollTop : window.scrollY;
         const delta = metrics.top - currentTop;
 
-        if (Math.abs(delta) > 2) {
-          applyScrollTop(metrics.root, metrics.top, 'auto');
-        }
-      }, delay);
+        if (Math.abs(delta) <= step.threshold) return;
+
+        applyScrollTop(metrics.root, metrics.top, step.behavior);
+      }, step.delay);
 
       stableScrollTimeoutsRef.current.push(timerId);
     }
@@ -413,9 +401,7 @@ export default function TableOfContents({
         updateHash: true,
         lockProgrammatic: behavior === 'smooth',
       });
-      if (ok) {
-        return true;
-      }
+      if (ok) return true;
 
       if (!candidate.includes('--')) {
         const fallback = `${candidate}--0`;
@@ -424,9 +410,7 @@ export default function TableOfContents({
           updateHash: true,
           lockProgrammatic: behavior === 'smooth',
         });
-        if (fallbackOk) {
-          return true;
-        }
+        if (fallbackOk) return true;
       }
 
       return false;
@@ -505,8 +489,7 @@ export default function TableOfContents({
         rootRef.current = root;
       }
 
-      // ✅ 목차 클릭으로 이동 중이면, 스크롤 기반 active 계산이
-      // 클릭 target을 잠깐 이전 위치로 되돌리지 못하게 막는다.
+      // 목차 클릭으로 이동 중이면 스크롤 기반 active가 중간에 target을 덮어쓰지 못하게 막는다.
       if (isProgrammaticScrollingRef.current) {
         const targetDomId = programmaticTargetDomIdRef.current;
 
@@ -521,7 +504,6 @@ export default function TableOfContents({
 
             const targetIndex = indexed.findIndex((h) => h.domId === targetDomId);
 
-            // 이동 중에는 target active 유지
             if (activeDomId !== targetDomId) {
               setActiveDomId(targetDomId);
               setActiveId(targetDomId);
@@ -530,15 +512,13 @@ export default function TableOfContents({
               setActiveIndex(targetIndex);
             }
 
-            // target이 header line 근처에 도달하면 잠금 해제
-            if (distance <= 28) {
+            if (distance <= 20) {
               releaseProgrammaticScrollLock();
             }
 
             return;
           }
 
-          // target DOM을 못 찾으면 잠금 해제하고 일반 계산으로 복귀
           releaseProgrammaticScrollLock();
         } else {
           releaseProgrammaticScrollLock();

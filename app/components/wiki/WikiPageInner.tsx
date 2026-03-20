@@ -532,45 +532,42 @@ export default function WikiPageInner({ user }: Props) {
       stable?: boolean;
     },
   ) {
-    const target = document.getElementById(domId);
-    if (!target) return false;
-
     const stable = options?.stable ?? true;
 
-    const scrollOnce = () => {
-      const latestTarget = document.getElementById(domId);
-      if (!latestTarget) return false;
+    const scrollOnce = (behavior: ScrollBehavior = 'auto') => {
+      const target = document.getElementById(domId);
+      if (!target) return false;
 
-      const latestScrollParent = findScrollableContainer(latestTarget) || null;
+      const scrollParent = findScrollableContainer(target) || null;
 
-      if (!latestScrollParent) {
-        const y = latestTarget.getBoundingClientRect().top + window.scrollY - headerOffset;
-        window.scrollTo({ top: Math.max(0, y), behavior: 'auto' });
+      if (!scrollParent) {
+        const y = target.getBoundingClientRect().top + window.scrollY - headerOffset;
+        window.scrollTo({ top: Math.max(0, y), behavior });
         return true;
       }
 
-      const parentRect = latestScrollParent.getBoundingClientRect();
+      const parentRect = scrollParent.getBoundingClientRect();
       const y =
-        latestTarget.getBoundingClientRect().top -
+        target.getBoundingClientRect().top -
         parentRect.top +
-        latestScrollParent.scrollTop -
+        scrollParent.scrollTop -
         headerOffset;
 
-      latestScrollParent.scrollTo({ top: Math.max(0, y), behavior: 'auto' });
+      scrollParent.scrollTo({ top: Math.max(0, y), behavior });
       return true;
     };
 
-    const ok = scrollOnce();
+    const ok = scrollOnce('auto');
     if (!ok) return false;
 
     if (stable) {
       clearStableHeadingScrollTimeouts();
 
-      const correctionDelays = [80, 180, 320, 520, 760, 1080, 1480, 2000];
+      const correctionDelays = [120, 320, 760, 1450, 2200];
 
       for (const delay of correctionDelays) {
         const timerId = window.setTimeout(() => {
-          scrollOnce();
+          scrollOnce('auto');
         }, delay);
 
         stableHeadingScrollTimeoutsRef.current.push(timerId);
@@ -1676,6 +1673,7 @@ export default function WikiPageInner({ user }: Props) {
       tries += 1;
 
       // ✅ 여기서 "진짜 스크롤 컨테이너"를 찾아 스크롤
+      clearStableHeadingScrollTimeouts();
       const ok = scrollToHeadingDomId(pending, 72, { stable: true });
       if (ok) {
         pendingScrollDomIdRef.current = '';
