@@ -4,6 +4,7 @@
 // - 사이드바(목차 영역)에서는 링크 복사 버튼 제거
 // - 문서 제목/아이콘(docTitle/docIcon) 목차 맨 위에 표시
 // - 활성 목차 슬라이딩 하이라이트 + TOC 자동 스크롤
+// - 목차 클릭 직후 대상 heading DOM이 아직 준비되지 않은 경우 짧게 재시도
 // =============================================
 'use client';
 
@@ -62,6 +63,9 @@ export default function TableOfContents({
   const [indicatorHeight, setIndicatorHeight] = useState(0);
   const [indicatorDuration, setIndicatorDuration] = useState('140ms');
 
+  // 클릭 재시도 타이머 관리
+  const retryTimeoutsRef = useRef<number[]>([]);
+
   // 동일 id에 발생 순번 부여
   const indexed = useMemo(() => {
     const seen: Record<string, number> = {};
@@ -73,11 +77,18 @@ export default function TableOfContents({
     });
   }, [headings]);
 
-  const [activeDomId, setActiveDomId] = useState("");
+  const [activeDomId, setActiveDomId] = useState('');
 
   // ✅ DOM target 찾기: domId로 단일 조회
   const getTargetByDomId = (domId: string) => {
     return document.getElementById(domId);
+  };
+
+  const clearRetryTimeouts = () => {
+    for (const id of retryTimeoutsRef.current) {
+      window.clearTimeout(id);
+    }
+    retryTimeoutsRef.current = [];
   };
 
   const pickClosestDomId = (): { domId: string; index: number } | null => {
@@ -127,7 +138,7 @@ export default function TableOfContents({
     const rootRectTop = root ? root.getBoundingClientRect().top : 0;
     const headerLine = rootRectTop + headerOffset + 8;
 
-    let bestDomId = "";
+    let bestDomId = '';
     let bestScore = Number.POSITIVE_INFINITY;
     let bestIndex = -1;
 
@@ -165,6 +176,16 @@ export default function TableOfContents({
   // ===== 유틸 =====
 
   useEffect(() => {
+    return () => {
+      clearRetryTimeouts();
+    };
+  }, []);
+
+  useEffect(() => {
+    clearRetryTimeouts();
+  }, [indexed]);
+
+  useEffect(() => {
     // headings가 없으면 이전 문서에서 남은 highlight가 "빈 공간"에 표시될 수 있음
     if (!headings || headings.length === 0) {
       setActiveId('');
@@ -176,6 +197,7 @@ export default function TableOfContents({
       setIndicatorDuration('140ms');
 
       observerRef.current?.disconnect();
+      clearRetryTimeouts();
     }
   }, [headings]);
 
@@ -209,15 +231,14 @@ export default function TableOfContents({
       const { overflowY } = getComputedStyle(rootRef.current);
       const canScroll =
         /(auto|scroll)/.test(overflowY) &&
-        rootRef.current.scrollHeight >
-          rootRef.current.clientHeight + 1;
+        rootRef.current.scrollHeight > rootRef.current.clientHeight + 1;
       if (canScroll) return rootRef.current;
     }
 
     return findScrollableAncestor(target);
   };
 
-  const scrollToDomId = (domId: string, behavior: ScrollBehavior = "smooth"): boolean => {
+  const scrollToDomId = (domId: string, behavior: ScrollBehavior = 'smooth'): boolean => {
     const target = getTargetByDomId(domId);
     if (!target) return false;
 
@@ -227,7 +248,8 @@ export default function TableOfContents({
       window.scrollTo({ top: y, behavior });
     } else {
       const rootRect = root.getBoundingClientRect();
-      const y = target.getBoundingClientRect().top - rootRect.top + root.scrollTop - headerOffset;
+      const y =
+        target.getBoundingClientRect().top - rootRect.top + root.scrollTop - headerOffset;
       root.scrollTo({ top: y, behavior });
     }
 
@@ -235,7 +257,7 @@ export default function TableOfContents({
       const st = window.history.state; // ✅ Next가 넣은 state 유지
       const url = new URL(window.location.href);
       url.hash = `#${domId}`;
-      window.history.replaceState(st, "", url.toString());
+      window.history.replaceState(st, '', url.toString());
     } catch {}
 
     const idx = indexed.findIndex((h) => h.domId === domId);
@@ -243,6 +265,61 @@ export default function TableOfContents({
     if (idx !== -1) setActiveIndex(idx);
 
     return true;
+  };
+
+  // ✅ 항상 최신 DOM에서 root를 다시 찾는다 (캐싱 X)
+  function resolveRootEl(): HTMLElement | null {
+    if (scrollRootSelector) {
+      const el = document.querySelector(scrollRootSelector) as HTMLElement | null;
+      if (el) return el;
+    }
+
+    // fallback: 첫 heading 기준으로 scroll ancestor 찾기
+    if (indexed.length) {
+      const first = document.getElementById(indexed[0].domId!);
+      if (first) return findScrollableAncestor(first);
+    }
+    return null;
+  }
+
+  const scrollToDomIdWithRetry = (domId: string, behavior: ScrollBehavior = 'smooth') => {
+    clearRetryTimeouts();
+
+    const tryScroll = (candidate: string) => {
+      const latestRoot = resolveRootEl();
+      if (latestRoot !== rootRef.current) {
+        rootRef.current = latestRoot;
+      }
+
+      const ok = scrollToDomId(candidate, behavior);
+      if (ok) return true;
+
+      if (!candidate.includes('--')) {
+        return scrollToDomId(`${candidate}--0`, behavior);
+      }
+
+      return false;
+    };
+
+    if (tryScroll(domId)) return;
+
+    const delays = [80, 180, 320];
+
+    for (const delay of delays) {
+      const timerId = window.setTimeout(() => {
+        if (tryScroll(domId)) {
+          clearRetryTimeouts();
+          return;
+        }
+
+        // 끝까지 못 찾은 경우라도 현재 스크롤 기준 active 표시만 최대한 복구
+        if (delay === delays[delays.length - 1]) {
+          setActiveByClosest();
+        }
+      }, delay);
+
+      retryTimeoutsRef.current.push(timerId);
+    }
   };
 
   // ✅ root 결정: 첫 domId 기준으로 찾기
@@ -292,21 +369,6 @@ export default function TableOfContents({
 
     return () => cancelAnimationFrame(raf);
   }, [scrollRootSelector, indexed]);
-
-  // ✅ 항상 최신 DOM에서 root를 다시 찾는다 (캐싱 X)
-  function resolveRootEl(): HTMLElement | null {
-    if (scrollRootSelector) {
-      const el = document.querySelector(scrollRootSelector) as HTMLElement | null;
-      if (el) return el;
-    }
-
-    // fallback: 첫 heading 기준으로 scroll ancestor 찾기
-    if (indexed.length) {
-      const first = document.getElementById(indexed[0].domId!);
-      if (first) return findScrollableAncestor(first);
-    }
-    return null;
-  }
 
   useEffect(() => {
     if (!indexed.length) return;
@@ -390,14 +452,14 @@ export default function TableOfContents({
   useEffect(() => {
     if (!indexed.length) return;
 
-    const rawHash = window.location.hash || "";
+    const rawHash = window.location.hash || '';
     if (!rawHash) return;
 
-    const hash = decodeURIComponent(rawHash).replace(/^#/, "");
+    const hash = decodeURIComponent(rawHash).replace(/^#/, '');
     if (!hash) return;
 
     const tryScroll = (h: string) => {
-    const ok = scrollToDomId(h, "auto");
+      const ok = scrollToDomId(h, 'auto');
       if (ok) {
         // ✅ 스크롤 성공한 domId를 바로 active로 맞춰준다 (IO 기다리지 않음)
         setActiveDomId(h);
@@ -412,47 +474,21 @@ export default function TableOfContents({
       if (tryScroll(hash)) return;
 
       // 2) 구형 링크 (#heading-xxx) → --0로 보정
-      if (!hash.includes("--") && tryScroll(`${hash}--0`)) return;
+      if (!hash.includes('--') && tryScroll(`${hash}--0`)) return;
 
       // 기존 재시도 패턴 유지
       setTimeout(() => {
         if (tryScroll(hash)) return;
-        if (!hash.includes("--") && tryScroll(`${hash}--0`)) return;
+        if (!hash.includes('--') && tryScroll(`${hash}--0`)) return;
         setTimeout(() => {
           tryScroll(hash);
-          if (!hash.includes("--")) tryScroll(`${hash}--0`);
+          if (!hash.includes('--')) tryScroll(`${hash}--0`);
         }, 180);
       }, 120);
     });
 
     return () => cancelAnimationFrame(raf);
   }, [indexed, rootKey]);
-
-  // ✅ 렌더 부분: active 비교 + 클릭은 domId로
-  // (map 부분의 active / onClick만 수정)
-  {indexed.map((h, i) => {
-    const active = h.domId === activeDomId;
-    const padLeft = h.level === 1 ? 8 : h.level === 2 ? 26 : 44;
-
-    return (
-      <li key={h.domId}>
-        <button
-          data-toc-index={i}
-          onClick={() => scrollToDomId(h.domId!)}
-          aria-current={active ? "true" : undefined}
-          style={{
-            // ... 기존 스타일 유지
-            paddingLeft: padLeft,
-            color: active ? "#2563eb" : "#4b5563",
-          }}
-          title={h.text}
-        >
-          {/* 기존 아이콘/텍스트 유지 */}
-          {h.text}
-        </button>
-      </li>
-    );  
-  })}
 
   // ===== 하이라이트 + TOC 자동 스크롤 =====
   useEffect(() => {
@@ -490,10 +526,8 @@ export default function TableOfContents({
 
     const containerRect = container.getBoundingClientRect();
 
-    const elementTop =
-      itemRect.top - containerRect.top + container.scrollTop;
-    const elementBottom =
-      itemRect.bottom - containerRect.top + container.scrollTop;
+    const elementTop = itemRect.top - containerRect.top + container.scrollTop;
+    const elementBottom = itemRect.bottom - containerRect.top + container.scrollTop;
 
     const viewTop = container.scrollTop;
     const viewBottom = viewTop + container.clientHeight;
@@ -505,8 +539,7 @@ export default function TableOfContents({
         behavior: 'smooth',
       });
     } else if (elementBottom > viewBottom - padding) {
-      const nextTop =
-        elementBottom - container.clientHeight + padding;
+      const nextTop = elementBottom - container.clientHeight + padding;
       container.scrollTo({
         top: Math.max(0, nextTop),
         behavior: 'smooth',
@@ -518,6 +551,7 @@ export default function TableOfContents({
     if (!root) {
       return el.getBoundingClientRect().top + window.scrollY;
     }
+
     const rootRect = root.getBoundingClientRect();
     return el.getBoundingClientRect().top - rootRect.top + root.scrollTop;
   }
@@ -795,7 +829,7 @@ export default function TableOfContents({
               <button
                 type="button"
                 data-toc-index={i}
-                onClick={() => scrollToDomId(h.domId!)}
+                onClick={() => scrollToDomIdWithRetry(h.domId!)}
                 title={h.text}
                 aria-current={active ? 'true' : undefined}
                 style={{
