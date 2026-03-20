@@ -1840,7 +1840,7 @@ export default function WikiPageInner({ user }: Props) {
                   <div className="wiki-paged-section wiki-paged-section--head">
                     <div className="wiki-paged-body">
                       {headLoading ? (
-                        <div className="wiki-loading-placeholder">불러오는 중...</div>
+                        <div className="wiki-loading-placeholder"></div>
                       ) : headList.length > 0 ? (
                         <HeadGrid
                           heads={headList.slice(
@@ -1896,7 +1896,7 @@ export default function WikiPageInner({ user }: Props) {
                   <div className="wiki-paged-section wiki-paged-section--npc">
                     <div className="wiki-paged-body">
                       {npcLoading ? (
-                        <div className="wiki-loading-placeholder">불러오는 중...</div>
+                        <div className="wiki-loading-placeholder"></div>
                       ) : npcList.length > 0 ? (
                         <NpcGrid
                           npcs={npcList.slice(
@@ -1958,13 +1958,13 @@ export default function WikiPageInner({ user }: Props) {
                     />
                   </div>
                 ) : (
-                  <div className="wiki-loading-placeholder">불러오는 중...</div>
+                  <div className="wiki-loading-placeholder"></div>
                 )}
               </div>
 
               {hold && (
                 <div className="doc-loading-overlay" aria-hidden="true">
-                  <div className="wiki-loading-placeholder">불러오는 중...</div>
+                  <div className="wiki-loading-placeholder"></div>
                 </div>
               )}
 
