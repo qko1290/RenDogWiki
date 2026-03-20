@@ -2268,14 +2268,17 @@ export default function WikiPageInner({ user }: Props) {
           }
         }
 
+        /* 기존 구조 유지:
+          아래 중복 블록은 남겨두되, 흰색 하드코딩만 제거하고
+          변수 기반으로 바꿔서 다크모드에서도 정상 동작하게 수정 */
         .wiki-paging-seg {
           display: inline-flex;
           align-items: stretch;
-          background: #fff;
-          border: 1px solid #e5e7eb;
+          background: var(--surface-elevated);
+          border: 1px solid var(--border);
           border-radius: 12px;
           overflow: hidden;
-          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+          box-shadow: var(--shadow-sm);
         }
 
         .wiki-paging-btn,
@@ -2291,7 +2294,7 @@ export default function WikiPageInner({ user }: Props) {
           background: transparent;
           font-weight: 600;
           font-size: 0.95rem;
-          color: #4b5563;
+          color: var(--foreground);
           line-height: 1;
         }
 
@@ -2301,7 +2304,7 @@ export default function WikiPageInner({ user }: Props) {
         }
 
         .wiki-paging-btn:hover {
-          background: #f3f4f6;
+          background: var(--surface-soft);
         }
 
         .wiki-paging-btn:disabled {
@@ -2316,11 +2319,11 @@ export default function WikiPageInner({ user }: Props) {
         }
 
         .wiki-paging-btn:first-child {
-          border-right: 1px solid #e5e7eb;
+          border-right: 1px solid var(--border);
         }
 
         .wiki-paging-btn.next {
-          border-left: 1px solid #e5e7eb;
+          border-left: 1px solid var(--border);
         }
 
         .wiki-paging-text {
@@ -2351,6 +2354,7 @@ export default function WikiPageInner({ user }: Props) {
           justify-content: center;
           pointer-events: none;
         }
+
         .wiki-breadcrumb-wrap {
           transition: opacity 0.12s ease;
         }
@@ -2358,6 +2362,7 @@ export default function WikiPageInner({ user }: Props) {
         .wiki-breadcrumb-wrap.is-loading {
           opacity: 0.72;
         }
+
         .wiki-loading-placeholder {
           display: flex;
           align-items: center;
