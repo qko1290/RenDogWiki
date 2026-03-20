@@ -473,7 +473,15 @@ export default function WikiPageInner({ user }: Props) {
   const searchParams = useSearchParams();
   const contentRef = useRef<HTMLDivElement>(null);
   const pendingScrollDomIdRef = useRef<string>('');
+  const stableHeadingScrollTimeoutsRef = useRef<number[]>([]);
   const docAbortRef = useRef<AbortController | null>(null);
+
+  const clearStableHeadingScrollTimeouts = () => {
+    for (const id of stableHeadingScrollTimeoutsRef.current) {
+      window.clearTimeout(id);
+    }
+    stableHeadingScrollTimeoutsRef.current = [];
+  };
 
   function normalizeHashToDomId(hashLike: string | null | undefined) {
     let h = String(hashLike ?? '').trim();
@@ -517,25 +525,66 @@ export default function WikiPageInner({ user }: Props) {
     return null;
   }
 
-  function scrollToHeadingDomId(domId: string, headerOffset = 72) {
+  function scrollToHeadingDomId(
+    domId: string,
+    headerOffset = 72,
+    options?: {
+      stable?: boolean;
+    },
+  ) {
     const target = document.getElementById(domId);
     if (!target) return false;
 
-    // ✅ 가장 확실한 방법: "타겟이 속한 실제 스크롤 컨테이너"를 찾아서 거기를 스크롤
-    const scrollParent = findScrollableContainer(target) || null;
+    const stable = options?.stable ?? true;
 
-    if (!scrollParent) {
-      // fallback: window
-      const y = target.getBoundingClientRect().top + window.scrollY - headerOffset;
-      window.scrollTo({ top: y, behavior: 'auto' });
+    const scrollOnce = () => {
+      const latestTarget = document.getElementById(domId);
+      if (!latestTarget) return false;
+
+      const latestScrollParent = findScrollableContainer(latestTarget) || null;
+
+      if (!latestScrollParent) {
+        const y = latestTarget.getBoundingClientRect().top + window.scrollY - headerOffset;
+        window.scrollTo({ top: Math.max(0, y), behavior: 'auto' });
+        return true;
+      }
+
+      const parentRect = latestScrollParent.getBoundingClientRect();
+      const y =
+        latestTarget.getBoundingClientRect().top -
+        parentRect.top +
+        latestScrollParent.scrollTop -
+        headerOffset;
+
+      latestScrollParent.scrollTo({ top: Math.max(0, y), behavior: 'auto' });
       return true;
+    };
+
+    const ok = scrollOnce();
+    if (!ok) return false;
+
+    if (stable) {
+      clearStableHeadingScrollTimeouts();
+
+      const correctionDelays = [80, 180, 320, 520, 760, 1080, 1480, 2000];
+
+      for (const delay of correctionDelays) {
+        const timerId = window.setTimeout(() => {
+          scrollOnce();
+        }, delay);
+
+        stableHeadingScrollTimeoutsRef.current.push(timerId);
+      }
     }
 
-    const parentRect = scrollParent.getBoundingClientRect();
-    const y = target.getBoundingClientRect().top - parentRect.top + scrollParent.scrollTop - headerOffset;
-    scrollParent.scrollTo({ top: y, behavior: 'auto' });
     return true;
   }
+
+  useEffect(() => {
+    return () => {
+      clearStableHeadingScrollTimeouts();
+    };
+  }, []);
 
   // ✅ 문서가 열리면 해당 문서의 카테고리 경로를 전부 펼치기
   const ensureOpenForDocPath = (docPath: number[] | null | undefined) => {
@@ -1615,6 +1664,8 @@ export default function WikiPageInner({ user }: Props) {
   useEffect(() => {
     if (hold) return;
 
+    clearStableHeadingScrollTimeouts();
+
     const pending = pendingScrollDomIdRef.current;
     if (!pending) return;
 
@@ -1625,7 +1676,7 @@ export default function WikiPageInner({ user }: Props) {
       tries += 1;
 
       // ✅ 여기서 "진짜 스크롤 컨테이너"를 찾아 스크롤
-      const ok = scrollToHeadingDomId(pending, 72);
+      const ok = scrollToHeadingDomId(pending, 72, { stable: true });
       if (ok) {
         pendingScrollDomIdRef.current = '';
         return;

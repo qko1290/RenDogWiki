@@ -7,6 +7,8 @@
 // - 목차 클릭 직후 대상 heading DOM이 아직 준비되지 않은 경우 짧게 재시도
 // - 목차 클릭으로 smooth scroll 중일 때 스크롤 기반 active 재계산 잠금
 //   → 강조 표시가 원래 위치로 잠깐 튀는 현상 방지
+// - 긴 문서/늦게 커지는 레이아웃에서도 목표 heading까지 끝까지 도달하도록
+//   초기 스크롤 이후 여러 번 위치를 재측정해서 보정
 // =============================================
 'use client';
 
@@ -68,6 +70,9 @@ export default function TableOfContents({
   // 클릭 재시도 타이머 관리
   const retryTimeoutsRef = useRef<number[]>([]);
 
+  // 긴 문서/레이아웃 지연용 스크롤 보정 타이머 관리
+  const stableScrollTimeoutsRef = useRef<number[]>([]);
+
   // 프로그램적 스크롤(목차 클릭 이동) 잠금
   const isProgrammaticScrollingRef = useRef(false);
   const programmaticTargetDomIdRef = useRef<string | null>(null);
@@ -98,6 +103,13 @@ export default function TableOfContents({
     retryTimeoutsRef.current = [];
   };
 
+  const clearStableScrollTimeouts = () => {
+    for (const id of stableScrollTimeoutsRef.current) {
+      window.clearTimeout(id);
+    }
+    stableScrollTimeoutsRef.current = [];
+  };
+
   const clearProgrammaticUnlockTimer = () => {
     if (programmaticUnlockTimerRef.current != null) {
       window.clearTimeout(programmaticUnlockTimerRef.current);
@@ -116,10 +128,10 @@ export default function TableOfContents({
     programmaticTargetDomIdRef.current = targetDomId;
     clearProgrammaticUnlockTimer();
 
-    // smooth scroll이 끝나지 않더라도 영구 잠금되지 않도록 fallback 해제
+    // smooth scroll + 보정 스크롤 중 영구 잠금되지 않도록 fallback 해제
     programmaticUnlockTimerRef.current = window.setTimeout(() => {
       releaseProgrammaticScrollLock();
-    }, 1400);
+    }, 2600);
   };
 
   const pickClosestDomId = (): { domId: string; index: number } | null => {
@@ -141,7 +153,7 @@ export default function TableOfContents({
 
     if (!items.length) return null;
 
-    let bestAbove: typeof items[number] | null = null;
+    let bestAbove: (typeof items)[number] | null = null;
     for (const it of items) {
       if (it.delta <= 0) {
         if (!bestAbove || it.delta > bestAbove.delta) bestAbove = it;
@@ -174,7 +186,6 @@ export default function TableOfContents({
       if (!el) continue;
 
       const top = el.getBoundingClientRect().top;
-
       const dist = top - headerLine;
       const priority = dist >= 0 ? 0 : 1;
       const score = priority * 1_000_000 + Math.abs(dist);
@@ -203,6 +214,7 @@ export default function TableOfContents({
   useEffect(() => {
     return () => {
       clearRetryTimeouts();
+      clearStableScrollTimeouts();
       releaseProgrammaticScrollLock();
       observerRef.current?.disconnect();
     };
@@ -210,6 +222,7 @@ export default function TableOfContents({
 
   useEffect(() => {
     clearRetryTimeouts();
+    clearStableScrollTimeouts();
     releaseProgrammaticScrollLock();
   }, [indexed]);
 
@@ -226,6 +239,7 @@ export default function TableOfContents({
 
       observerRef.current?.disconnect();
       clearRetryTimeouts();
+      clearStableScrollTimeouts();
       releaseProgrammaticScrollLock();
     }
   }, [headings]);
@@ -267,36 +281,6 @@ export default function TableOfContents({
     return findScrollableAncestor(target);
   };
 
-  const scrollToDomId = (domId: string, behavior: ScrollBehavior = 'smooth'): boolean => {
-    const target = getTargetByDomId(domId);
-    if (!target) return false;
-
-    const root = getScrollRoot(target);
-    if (!root) {
-      const y = target.getBoundingClientRect().top + window.scrollY - headerOffset;
-      window.scrollTo({ top: y, behavior });
-    } else {
-      const rootRect = root.getBoundingClientRect();
-      const y =
-        target.getBoundingClientRect().top - rootRect.top + root.scrollTop - headerOffset;
-      root.scrollTo({ top: y, behavior });
-    }
-
-    try {
-      const st = window.history.state;
-      const url = new URL(window.location.href);
-      url.hash = `#${domId}`;
-      window.history.replaceState(st, '', url.toString());
-    } catch {}
-
-    const idx = indexed.findIndex((h) => h.domId === domId);
-    setActiveDomId(domId);
-    setActiveId(domId);
-    if (idx !== -1) setActiveIndex(idx);
-
-    return true;
-  };
-
   function resolveRootEl(): HTMLElement | null {
     if (scrollRootSelector) {
       const el = document.querySelector(scrollRootSelector) as HTMLElement | null;
@@ -310,6 +294,111 @@ export default function TableOfContents({
     return null;
   }
 
+  const getScrollMetricsForDomId = (domId: string, forcedRoot?: HTMLElement | null) => {
+    const target = getTargetByDomId(domId);
+    if (!target) return null;
+
+    const root = forcedRoot !== undefined ? forcedRoot : getScrollRoot(target);
+
+    if (!root) {
+      const top = target.getBoundingClientRect().top + window.scrollY - headerOffset;
+      return { target, root: null as HTMLElement | null, top };
+    }
+
+    const rootRect = root.getBoundingClientRect();
+    const top =
+      target.getBoundingClientRect().top - rootRect.top + root.scrollTop - headerOffset;
+
+    return { target, root, top };
+  };
+
+  const applyScrollTop = (
+    root: HTMLElement | null,
+    topValue: number,
+    behavior: ScrollBehavior = 'smooth',
+  ) => {
+    const nextTop = Math.max(0, topValue);
+
+    if (!root) {
+      window.scrollTo({ top: nextTop, behavior });
+      return;
+    }
+
+    root.scrollTo({ top: nextTop, behavior });
+  };
+
+  const scheduleStableScrollCorrection = (
+    domId: string,
+    root: HTMLElement | null,
+    initialBehavior: ScrollBehavior,
+  ) => {
+    clearStableScrollTimeouts();
+
+    const correctionDelays =
+      initialBehavior === 'auto'
+        ? [80, 180, 320, 520, 760, 1080, 1480, 2000]
+        : [140, 260, 420, 620, 860, 1180, 1580, 2100];
+
+    for (const delay of correctionDelays) {
+      const timerId = window.setTimeout(() => {
+        const metrics = getScrollMetricsForDomId(domId, root ?? resolveRootEl());
+        if (!metrics) return;
+
+        const currentTop = metrics.root ? metrics.root.scrollTop : window.scrollY;
+        const delta = metrics.top - currentTop;
+
+        if (Math.abs(delta) > 2) {
+          applyScrollTop(metrics.root, metrics.top, 'auto');
+        }
+      }, delay);
+
+      stableScrollTimeoutsRef.current.push(timerId);
+    }
+  };
+
+  const scrollToDomId = (
+    domId: string,
+    behavior: ScrollBehavior = 'smooth',
+    options?: {
+      stable?: boolean;
+      updateHash?: boolean;
+      lockProgrammatic?: boolean;
+    },
+  ): boolean => {
+    const stable = options?.stable ?? true;
+    const updateHash = options?.updateHash ?? true;
+    const lockProgrammatic = options?.lockProgrammatic ?? (behavior === 'smooth');
+
+    const metrics = getScrollMetricsForDomId(domId);
+    if (!metrics) return false;
+
+    applyScrollTop(metrics.root, metrics.top, behavior);
+
+    if (stable) {
+      scheduleStableScrollCorrection(domId, metrics.root, behavior);
+    }
+
+    if (updateHash) {
+      try {
+        const st = window.history.state;
+        const url = new URL(window.location.href);
+        url.hash = `#${domId}`;
+        window.history.replaceState(st, '', url.toString());
+      } catch {}
+    }
+
+    const idx = indexed.findIndex((h) => h.domId === domId);
+    setActiveDomId(domId);
+    setActiveId(domId);
+    if (idx !== -1) setActiveIndex(idx);
+
+    if (lockProgrammatic) {
+      startProgrammaticScrollLock(domId);
+    }
+
+    return true;
+  };
+
   const scrollToDomIdWithRetry = (domId: string, behavior: ScrollBehavior = 'smooth') => {
     clearRetryTimeouts();
 
@@ -319,17 +408,23 @@ export default function TableOfContents({
         rootRef.current = latestRoot;
       }
 
-      const ok = scrollToDomId(candidate, behavior);
+      const ok = scrollToDomId(candidate, behavior, {
+        stable: true,
+        updateHash: true,
+        lockProgrammatic: behavior === 'smooth',
+      });
       if (ok) {
-        startProgrammaticScrollLock(candidate);
         return true;
       }
 
       if (!candidate.includes('--')) {
         const fallback = `${candidate}--0`;
-        const fallbackOk = scrollToDomId(fallback, behavior);
+        const fallbackOk = scrollToDomId(fallback, behavior, {
+          stable: true,
+          updateHash: true,
+          lockProgrammatic: behavior === 'smooth',
+        });
         if (fallbackOk) {
-          startProgrammaticScrollLock(fallback);
           return true;
         }
       }
@@ -521,7 +616,11 @@ export default function TableOfContents({
     if (!hash) return;
 
     const tryScroll = (h: string) => {
-      const ok = scrollToDomId(h, 'auto');
+      const ok = scrollToDomId(h, 'auto', {
+        stable: true,
+        updateHash: false,
+        lockProgrammatic: false,
+      });
       if (ok) {
         setActiveDomId(h);
         setActiveId(h);
