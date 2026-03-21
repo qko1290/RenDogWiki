@@ -498,6 +498,19 @@ export default function WikiPageInner({ user }: Props) {
   const stableHeadingScrollTimeoutsRef = useRef<number[]>([]);
   const docAbortRef = useRef<AbortController | null>(null);
 
+  const popNavigationRef = useRef(false);
+
+  const scrollDocumentToTop = () => {
+    const root = document.getElementById('wiki-scroll-root') as HTMLElement | null;
+
+    if (root) {
+      root.scrollTo({ top: 0, behavior: 'auto' });
+      return;
+    }
+
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  };
+
   const clearStableHeadingScrollTimeouts = () => {
     for (const id of stableHeadingScrollTimeoutsRef.current) {
       window.clearTimeout(id);
@@ -636,6 +649,15 @@ export default function WikiPageInner({ user }: Props) {
     return () => {
       clearStableHeadingScrollTimeouts();
     };
+  }, []);
+
+  useEffect(() => {
+    const onPopState = () => {
+      popNavigationRef.current = true;
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
   // ✅ 문서가 열리면 해당 문서의 카테고리 경로를 전부 펼치기
@@ -1821,36 +1843,47 @@ export default function WikiPageInner({ user }: Props) {
   useEffect(() => {
     if (hold) return;
 
+    const cameFromPopNavigation = popNavigationRef.current;
+    popNavigationRef.current = false;
+
     const pending = pendingScrollDomIdRef.current;
-    if (!pending) return;
 
-    clearStableHeadingScrollTimeouts();
+    // 1) 해시가 있으면 기존처럼 해당 heading으로 이동
+    if (pending) {
+      clearStableHeadingScrollTimeouts();
 
-    // 1차: 문서가 보이자마자 한 번 이동 + 장기 보정 예약
-    scrollToHeadingDomId(pending, 72, { stable: true });
+      let tries = 0;
+      const maxTries = 90;
 
-    let tries = 0;
-    const maxTries = 90;
+      const tick = () => {
+        tries += 1;
 
-    const tick = () => {
-      tries += 1;
+        clearStableHeadingScrollTimeouts();
+        const ok = scrollToHeadingDomId(pending, 72, { stable: true });
+        if (ok) {
+          pendingScrollDomIdRef.current = '';
+          return;
+        }
 
-      // ✅ "scroll 호출 성공"이 아니라 "실제로 원하는 줄에 도착했는지"로 종료 판정
-      if (isHeadingAligned(pending, 72, 24)) {
-        pendingScrollDomIdRef.current = '';
-        return;
-      }
+        if (tries < maxTries) requestAnimationFrame(tick);
+      };
 
-      // 아직 덜 맞았으면 짧게 한 번 더 맞춘다
-      scrollToHeadingDomId(pending, 72, { stable: false });
+      requestAnimationFrame(() => requestAnimationFrame(tick));
+      return;
+    }
 
-      if (tries < maxTries) {
-        requestAnimationFrame(tick);
-      }
-    };
+    // 2) 뒤로가기/앞으로가기로 들어온 문서는 기존 스크롤 복원 흐름을 건드리지 않음
+    if (cameFromPopNavigation) {
+      return;
+    }
 
-    requestAnimationFrame(() => requestAnimationFrame(tick));
-  }, [hold, docContent, tableOfContents]);
+    // 3) 해시가 없는 일반 문서 오픈은 항상 맨 위로
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        scrollDocumentToTop();
+      });
+    });
+  }, [hold, docContent, tableOfContents, selectedDocId]);
 
   // ---------- (선택) 콘텐츠 페이드: 딜레이 중엔 숨기고, 준비되면 페이드-인 ----------
   const contentClass = hold ? 'is-hold' : 'is-ready';
