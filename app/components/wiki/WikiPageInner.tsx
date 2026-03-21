@@ -102,7 +102,7 @@ function formatDocUpdatedTooltip(value?: string | null) {
   const hh = String(date.getHours()).padStart(2, '0');
   const mm = String(date.getMinutes()).padStart(2, '0');
 
-  return `${y}년 ${m}월 ${d}일 ${hh}:${mm}`;
+  return `${y}년 ${m}월 ${d}일 ${hh}:${mm} 수정됨`;
 }
 
 function getInitialMode(): string | null {
@@ -2017,18 +2017,23 @@ export default function WikiPageInner({ user }: Props) {
                       ) : null}
 
                       <span
-                        className="wiki-title-color"
-                        title={selectedDocUpdatedTooltip || undefined}
+                        className="wiki-doc-title-tooltip-anchor"
+                        tabIndex={selectedDocUpdatedTooltip ? 0 : undefined}
                         aria-label={
                           selectedDocUpdatedTooltip
                             ? `마지막 수정: ${selectedDocUpdatedTooltip}`
                             : undefined
                         }
-                        style={{
-                          cursor: selectedDocUpdatedTooltip ? 'help' : undefined,
-                        }}
                       >
-                        {selectedDocTitle || '렌독 위키'}
+                        <span className="wiki-title-color">
+                          {selectedDocTitle || '렌독 위키'}
+                        </span>
+
+                        {selectedDocUpdatedTooltip ? (
+                          <span className="wiki-doc-updated-tooltip" role="tooltip">
+                            {selectedDocUpdatedTooltip}
+                          </span>
+                        ) : null}
                       </span>
 
                       <button
@@ -2323,6 +2328,61 @@ export default function WikiPageInner({ user }: Props) {
           margin: 0;
           line-height: 1.1;
           padding: 2px 0;
+        }
+
+        .wiki-doc-title-tooltip-anchor {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          min-width: 0;
+          cursor: help;
+        }
+
+        .wiki-doc-title-tooltip-anchor:focus {
+          outline: none;
+        }
+
+        .wiki-doc-updated-tooltip {
+          position: absolute;
+          left: 50%;
+          bottom: calc(100% + 10px);
+          transform: translate(-50%, 6px);
+          padding: 8px 11px;
+          border-radius: 12px;
+          background: rgba(17, 24, 39, 0.96);
+          color: #fff;
+          font-size: 12px;
+          font-weight: 700;
+          line-height: 1.25;
+          white-space: nowrap;
+          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          opacity: 0;
+          visibility: hidden;
+          pointer-events: none;
+          z-index: 30;
+          transition:
+            opacity 0.16s ease,
+            transform 0.16s ease,
+            visibility 0.16s ease;
+        }
+
+        .wiki-doc-updated-tooltip::after {
+          content: '';
+          position: absolute;
+          top: 100%;
+          left: 50%;
+          transform: translateX(-50%);
+          border-width: 6px 6px 0 6px;
+          border-style: solid;
+          border-color: rgba(17, 24, 39, 0.96) transparent transparent transparent;
+        }
+
+        .wiki-doc-title-tooltip-anchor:hover .wiki-doc-updated-tooltip,
+        .wiki-doc-title-tooltip-anchor:focus-visible .wiki-doc-updated-tooltip {
+          opacity: 1;
+          visibility: visible;
+          transform: translate(-50%, 0);
         }
 
         .wiki-doc-icon-img {
