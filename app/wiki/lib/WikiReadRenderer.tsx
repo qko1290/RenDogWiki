@@ -2898,6 +2898,7 @@ function renderNode(
     isDarkMode?: boolean;
     inDarkTableCell?: boolean;
     inTableCell?: boolean;
+    inLinkBlockRow?: boolean;
   },
 ): React.ReactNode {
   if (Text.isText(node)) {
@@ -3233,8 +3234,14 @@ function renderNode(
     }
 
     case "link-block": {
+      const isHalfSized = node?.size === "small" || node?.size === "half";
+
       return (
-        <LinkBlockView key={key} node={node}>
+        <LinkBlockView
+          key={key}
+          node={node}
+          compactMobile={!!env?.isMobile && !!env?.inLinkBlockRow && isHalfSized}
+        >
           {children}
         </LinkBlockView>
       );
@@ -3253,7 +3260,18 @@ function renderNode(
             alignItems: "stretch",
           }}
         >
-          {children}
+          {node.children?.map((child: any, i: number) =>
+            renderNode(
+              child,
+              key ? `${key}-${i}` : i,
+              ctx,
+              handlers,
+              {
+                ...env,
+                inLinkBlockRow: true,
+              }
+            )
+          )}
         </div>
       );
     }
