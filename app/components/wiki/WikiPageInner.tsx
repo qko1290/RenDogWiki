@@ -623,7 +623,7 @@ export default function WikiPageInner({ user }: Props) {
   };
 
   const scheduleTopScrollCorrection = () => {
-    const delays = [0, 80, 220, 480, 900];
+    const delays = [0, 60, 140, 260, 420];
 
     for (const delay of delays) {
       const id = window.setTimeout(() => {
