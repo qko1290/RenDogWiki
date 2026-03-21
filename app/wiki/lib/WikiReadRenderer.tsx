@@ -2551,13 +2551,25 @@ function WeaponCardRead({
             >
               {meta.label}
 
-              {levelLabels.length > 1 && !isMobile && (
-          <WeaponLevelSelector
-            levelLabels={levelLabels}
-            selectedIndex={selectedLevelIndex}
-            onChange={(idx) => setSelectedLevelIndex(idx)}
-          />
-        )}
+              {levelLabels.length > 1 && isMobile && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "50%",
+                    right: 8,
+                    transform: "translateY(-50%)",
+                    zIndex: 8,
+                  }}
+                >
+                  <WeaponLevelSelector
+                    levelLabels={levelLabels}
+                    selectedIndex={selectedLevelIndex}
+                    onChange={(idx) => setSelectedLevelIndex(idx)}
+                    compact
+                    overlay
+                  />
+                </div>
+              )}
             </div>
 
             {/* 무기 이름 */}
@@ -2719,32 +2731,13 @@ function WeaponCardRead({
         </div>
 
         {/* ✅ 오른쪽 강수 선택 버튼 (카드의 형제) */}
-        {levelLabels.length > 1 &&
-          (isMobile ? (
-            <div
-              style={{
-                position: "absolute",
-                top: "50%",
-                right: 8,
-                transform: "translateY(-50%)",
-                zIndex: 8,
-              }}
-            >
-              <WeaponLevelSelector
-                levelLabels={levelLabels}
-                selectedIndex={selectedLevelIndex}
-                onChange={(idx) => setSelectedLevelIndex(idx)}
-                compact
-                overlay
-              />
-            </div>
-          ) : (
-            <WeaponLevelSelector
-              levelLabels={levelLabels}
-              selectedIndex={selectedLevelIndex}
-              onChange={(idx) => setSelectedLevelIndex(idx)}
-            />
-          ))}
+        {levelLabels.length > 1 && !isMobile && (
+          <WeaponLevelSelector
+            levelLabels={levelLabels}
+            selectedIndex={selectedLevelIndex}
+            onChange={(idx) => setSelectedLevelIndex(idx)}
+          />
+        )}
       </div>
 
       {/* 영상 모달 */}
