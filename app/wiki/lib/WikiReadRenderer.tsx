@@ -2541,7 +2541,7 @@ function WeaponCardRead({
                 width: "100%",
                 background: meta.headerBg,
                 color: "#f9fafb",
-                padding: hasLevelSelector ? "10px 12px 10px 46px" : "10px 12px",
+                padding: "10px 12px",
                 fontSize: 16,
                 fontWeight: 700,
                 letterSpacing: 1.5,
