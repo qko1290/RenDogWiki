@@ -2541,7 +2541,7 @@ function WeaponCardRead({
                 width: "100%",
                 background: meta.headerBg,
                 color: "#f9fafb",
-                padding: "10px 12px",
+                padding: isMobile ? "5px 12px" : "10px 12px",
                 fontSize: 16,
                 fontWeight: 700,
                 letterSpacing: 1.5,
