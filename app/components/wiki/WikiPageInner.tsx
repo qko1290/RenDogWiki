@@ -497,45 +497,6 @@ export default function WikiPageInner({ user }: Props) {
   const pendingScrollDomIdRef = useRef<string>('');
   const pendingTopScrollRef = useRef(false);
   const popNavigationRef = useRef(false);
-  const stableHeadingScrollTimeoutsRef = useRef<number[]>([]);
-  const docAbortRef = useRef<AbortController | null>(null);
-
-  const clearStableHeadingScrollTimeouts = () => {
-    for (const id of stableHeadingScrollTimeoutsRef.current) {
-      window.clearTimeout(id);
-    }
-    stableHeadingScrollTimeoutsRef.current = [];
-  };
-
-  const scrollDocumentToTop = () => {
-    const root = document.getElementById('wiki-scroll-root') as HTMLElement | null;
-
-    if (root) {
-      root.scrollTo({ top: 0, behavior: 'auto' });
-      return;
-    }
-
-    window.scrollTo({ top: 0, behavior: 'auto' });
-  };
-
-  const preparePendingScrollForOpen = (
-    hashLike?: string | null,
-    isPopNavigation = false,
-  ) => {
-    const normalizedHash = normalizeHashToDomId(hashLike);
-    pendingScrollDomIdRef.current = normalizedHash;
-
-    // 뒤로가기/앞으로가기는 강제 top scroll 제외
-    if (isPopNavigation) {
-      pendingTopScrollRef.current = false;
-      return;
-    }
-
-    // 해시가 없으면 이번 문서 오픈은 맨 위로 보내야 함
-    pendingTopScrollRef.current = !normalizedHash;
-  };
-
-  const popNavigationRef = useRef(false);
 
   const scrollDocumentToTop = () => {
     const root = document.getElementById('wiki-scroll-root') as HTMLElement | null;
