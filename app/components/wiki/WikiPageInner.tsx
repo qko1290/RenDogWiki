@@ -535,6 +535,17 @@ export default function WikiPageInner({ user }: Props) {
     pendingTopScrollRef.current = !normalizedHash;
   };
 
+  const scheduleTopScrollCorrection = () => {
+    const delays = [0, 80, 220, 480, 900];
+
+    for (const delay of delays) {
+      const id = window.setTimeout(() => {
+        scrollDocumentToTop();
+      }, delay);
+      stableHeadingScrollTimeoutsRef.current.push(id);
+    }
+  };
+
   useEffect(() => {
     const onPopState = () => {
       popNavigationRef.current = true;
@@ -678,15 +689,6 @@ export default function WikiPageInner({ user }: Props) {
     };
   }, []);
 
-  useEffect(() => {
-    const onPopState = () => {
-      popNavigationRef.current = true;
-    };
-
-    window.addEventListener('popstate', onPopState);
-    return () => window.removeEventListener('popstate', onPopState);
-  }, []);
-
   // ✅ 문서가 열리면 해당 문서의 카테고리 경로를 전부 펼치기
   const ensureOpenForDocPath = (docPath: number[] | null | undefined) => {
     if (!Array.isArray(docPath)) return;
@@ -747,10 +749,13 @@ export default function WikiPageInner({ user }: Props) {
 
     search.delete('_t');
 
-    // ✅ hash는 건드리지 않음
-    const currentHash = window.location.hash || '';
-    const nextUrl = window.location.pathname + '?' + search.toString() + currentHash;
-    const currentUrl = window.location.pathname + window.location.search + currentHash;
+    // ✅ 문서 오픈 시 명시적으로 요청된 heading hash만 유지하고,
+    //    그렇지 않으면 이전 문서 hash는 제거해서 새 문서는 맨 위에서 시작하게 함
+    const nextHash = pendingScrollDomIdRef.current
+      ? `#${encodeURIComponent(pendingScrollDomIdRef.current)}`
+      : '';
+    const nextUrl = window.location.pathname + '?' + search.toString() + nextHash;
+    const currentUrl = window.location.pathname + window.location.search + window.location.hash;
 
     if (currentUrl === nextUrl) return;
 
@@ -1012,6 +1017,8 @@ export default function WikiPageInner({ user }: Props) {
         skipUrlSync: true,
         clearCategoryPath: true,
         presetPath: isRoot ? [] : fullPath,
+        requestedHash: window.location.hash,
+        isPopNavigation: popNavigationRef.current,
       });
       return;
     }
@@ -1030,6 +1037,8 @@ export default function WikiPageInner({ user }: Props) {
           skipUrlSync: true,
           deferVisibleState: true,
           presetPath: isRoot ? [] : (presetPath ?? []),
+          requestedHash: window.location.hash,
+          isPopNavigation: popNavigationRef.current,
         });
         return true;
       }
@@ -1055,6 +1064,8 @@ export default function WikiPageInner({ user }: Props) {
         skipUrlSync: true,
         deferVisibleState: true,
         presetPath: [],
+        requestedHash: window.location.hash,
+        isPopNavigation: popNavigationRef.current,
       });
     } else {
       const pathId = Number(pathParam);
@@ -1066,6 +1077,8 @@ export default function WikiPageInner({ user }: Props) {
           skipUrlSync: true,
           deferVisibleState: true,
           presetPath: fullPath,
+          requestedHash: window.location.hash,
+          isPopNavigation: popNavigationRef.current,
         });
       }
     }
@@ -1166,6 +1179,12 @@ export default function WikiPageInner({ user }: Props) {
 
     // ✅ id 조회 시 목록 메타가 없거나 늦을 때 사용할 경로 힌트
     presetPath?: number[] | null;
+
+    // ✅ 이번 문서 오픈에서 명시적으로 요청된 hash
+    requestedHash?: string | null;
+
+    // ✅ popstate(뒤로가기/앞으로가기)로 들어온 오픈인지 여부
+    isPopNavigation?: boolean;
   };
 
   // 문서 fetch (path/title)
@@ -1177,8 +1196,15 @@ export default function WikiPageInner({ user }: Props) {
   ) => {
     const isRoot = options?.forceRoot || categoryPath.length === 0;
 
-    if (!popNavigationRef.current && !pendingScrollDomIdRef.current) {
-      pendingTopScrollRef.current = true;
+    const isPopNavigation = options?.isPopNavigation ?? popNavigationRef.current;
+
+    if (Object.prototype.hasOwnProperty.call(options ?? {}, 'requestedHash')) {
+      preparePendingScrollForOpen(options?.requestedHash ?? '', isPopNavigation);
+    } else if (!isPopNavigation) {
+      preparePendingScrollForOpen('', false);
+    } else {
+      pendingScrollDomIdRef.current = '';
+      pendingTopScrollRef.current = false;
     }
 
     if (options?.clearCategoryPath) setSelectedCategoryPath(null);
@@ -1387,8 +1413,15 @@ export default function WikiPageInner({ user }: Props) {
     docId: number,
     options?: FetchDocOptions
   ) => {
-    if (!popNavigationRef.current && !pendingScrollDomIdRef.current) {
-      pendingTopScrollRef.current = true;
+    const isPopNavigation = options?.isPopNavigation ?? popNavigationRef.current;
+
+    if (Object.prototype.hasOwnProperty.call(options ?? {}, 'requestedHash')) {
+      preparePendingScrollForOpen(options?.requestedHash ?? '', isPopNavigation);
+    } else if (!isPopNavigation) {
+      preparePendingScrollForOpen('', false);
+    } else {
+      pendingScrollDomIdRef.current = '';
+      pendingTopScrollRef.current = false;
     }
 
     const reqId = ++docReqIdRef.current;
@@ -1536,6 +1569,8 @@ export default function WikiPageInner({ user }: Props) {
         fetchDoc([], title, undefined, {
           clearCategoryPath: true,
           forceRoot: true,
+          requestedHash: url.hash,
+          isPopNavigation: false,
         });
         return;
       }
@@ -1557,6 +1592,8 @@ export default function WikiPageInner({ user }: Props) {
       // ✅ 실제 문서 로드
       fetchDoc(fullPath, title, undefined, {
         clearCategoryPath: true,
+        requestedHash: url.hash,
+        isPopNavigation: false,
       });
     };
 
@@ -1909,10 +1946,16 @@ export default function WikiPageInner({ user }: Props) {
         }
 
         clearStableHeadingScrollTimeouts();
-        scrollToHeadingDomId(pendingHeading, 72, { stable: true });
+        const ok = scrollToHeadingDomId(pendingHeading, 72, { stable: true });
 
-        if (tries < maxTries) {
+        if (ok && tries < maxTries) {
           requestAnimationFrame(tick);
+          return;
+        }
+
+        if (!ok || tries >= maxTries) {
+          // 다음 문서 오픈에 stale heading이 남지 않게 정리
+          pendingScrollDomIdRef.current = '';
         }
       };
 
@@ -1929,12 +1972,8 @@ export default function WikiPageInner({ user }: Props) {
     // 3) 해시 없는 새 문서 오픈은 항상 맨 위
     if (shouldScrollTop) {
       pendingTopScrollRef.current = false;
-
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          scrollDocumentToTop();
-        });
-      });
+      clearStableHeadingScrollTimeouts();
+      scheduleTopScrollCorrection();
     }
   }, [hold, docContent, tableOfContents, selectedDocId]);
 
