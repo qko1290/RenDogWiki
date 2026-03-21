@@ -2164,6 +2164,8 @@ type WeaponLevelSelectorProps = {
   levelLabels: string[];
   selectedIndex: number | null;
   onChange: (idx: number) => void;
+  compact?: boolean;
+  overlay?: boolean;
 };
 
 /** 카드 오른쪽 바깥에 붙는 강수 선택 버튼 (단색 뱃지 + MAX만 다른 색) */
@@ -2171,6 +2173,8 @@ function WeaponLevelSelector({
   levelLabels,
   selectedIndex,
   onChange,
+  compact = false,
+  overlay = false,
 }: WeaponLevelSelectorProps) {
   const [open, setOpen] = useState(false);
 
@@ -2205,17 +2209,18 @@ function WeaponLevelSelector({
   const MAX_BORDER = "1px solid #fbbf24";
 
   // ✅ 하얀 배경에서 또렷하게: 크기/그림자만 업그레이드
-  const DOT = 30; // 기존 22 → 30
-  const DOT_FONT = 13; // 기존 11 → 13
-  const TOP_FONT = 14; // 기존 13 → 14
+  const DOT = compact ? 26 : 30;
+  const DOT_FONT = compact ? 12 : 13;
+  const TOP_FONT = compact ? 13 : 14;
   const DOT_SHADOW = "0 10px 24px rgba(15,23,42,0.22), 0 2px 6px rgba(15,23,42,0.12)";
   const DOT_SHADOW_ACTIVE = "0 12px 28px rgba(37,99,235,0.18), 0 2px 8px rgba(15,23,42,0.12)";
 
   return (
     <div
+      data-wiki-part="weapon-level-selector"
       style={{
         position: "relative",
-        marginLeft: 10,
+        marginLeft: overlay ? 0 : 10,
         alignSelf: "flex-start",
       }}
     >
@@ -2275,7 +2280,7 @@ function WeaponLevelSelector({
         style={{
           position: "absolute",
           top: "100%",
-          right: 17,
+          right: overlay ? 0 : 17,
           marginTop: 8,
           zIndex: 40,
           pointerEvents: open ? "auto" : "none",
@@ -2362,10 +2367,12 @@ function WeaponCardRead({
   node,
   keyProp,
   isDarkMode = false,
+  isMobile = false,
 }: {
   node: any;
   keyProp: React.Key;
   isDarkMode?: boolean;
+  isMobile?: boolean;
 }) {
   const stats: any[] = Array.isArray(node.stats) ? node.stats : [];
   const enabledStats = stats.filter((s) => s && s.enabled);
@@ -2379,6 +2386,7 @@ function WeaponCardRead({
         .map((lv: any) => String(lv.levelLabel ?? "").trim())
         .filter(Boolean)
     : [];
+  const hasLevelSelector = levelLabels.length > 1;
 
   // 기본 선택: MAX 있으면 MAX, 없으면 마지막 단계
   const [selectedLevelIndex, setSelectedLevelIndex] = useState<number | null>(
@@ -2466,7 +2474,7 @@ function WeaponCardRead({
     return { value: v, unit };
   };
 
-  const cardWidth = 260;
+  const cardWidth = isMobile ? 220 : 260;
 
   const cardBg = isDarkMode ? "var(--surface-elevated)" : "#020617";
   const cardShadow = isDarkMode
@@ -2499,17 +2507,22 @@ function WeaponCardRead({
     <div key={keyProp} style={{ margin: "14px 0" }}>
       {/* ✅ 카드 + 강수버튼을 "형제"로 두어서 오른쪽에 붙게 함 */}
       <div
+        data-wiki-card-wrap="weapon-read"
         style={{
           display: "flex",
           justifyContent: "center",
           alignItems: "flex-start",
-          gap: 10,
+          gap: isMobile ? 0 : 10,
           flexWrap: "nowrap",
+          position: isMobile ? "relative" : undefined,
+          width: isMobile ? `${cardWidth}px` : undefined,
+          margin: isMobile ? "0 auto" : undefined,
         }}
       >
         {/* 카드 본체 – Element 와 거의 동일한 스타일 */}
         <div style={isTranscend ? transcendFrameStyle : undefined}>
           <div
+            data-wiki-card="weapon-read"
             style={{
               width: cardWidth,
               borderRadius: 18,
@@ -2523,11 +2536,12 @@ function WeaponCardRead({
           >
             {/* 상단 타입 바 */}
             <div
+              data-wiki-part="weapon-type-bar"
               style={{
                 width: "100%",
                 background: meta.headerBg,
                 color: "#f9fafb",
-                padding: "6px 0",
+                padding: hasLevelSelector ? "10px 12px 10px 46px" : "10px 12px",
                 fontSize: 16,
                 fontWeight: 700,
                 letterSpacing: 1.5,
@@ -2539,6 +2553,7 @@ function WeaponCardRead({
 
             {/* 무기 이름 */}
             <div
+              data-wiki-part="weapon-name"
               style={{
                 padding: "10px 14px",
                 background: titleBg,
@@ -2554,6 +2569,7 @@ function WeaponCardRead({
 
             {/* 이미지 영역 */}
             <div
+              data-wiki-part="weapon-media"
               style={{
                 background: mediaBg,
                 height: 140,
@@ -2568,7 +2584,7 @@ function WeaponCardRead({
                   alt={name}
                   width={160}
                   height={96}
-                  sizes="(max-width: 768px) 80vw, 260px"
+                  sizes="(max-width: 768px) 220px, 260px"
                   rounded={10}
                   style={{
                     maxWidth: "80%",
@@ -2618,6 +2634,7 @@ function WeaponCardRead({
                 const { value, unit } = getStatDisplay(stat);
                 return (
                   <div
+                    data-wiki-part="weapon-stat-row"
                     key={stat.key || stat.label}
                     style={{
                       borderRadius: 10,
@@ -2663,6 +2680,7 @@ function WeaponCardRead({
                 }}
               >
                 <button
+                  data-wiki-part="weapon-video-button"
                   type="button"
                   disabled={!videoSrc}
                   onClick={() => videoSrc && setShowVideo(true)}
@@ -2692,13 +2710,31 @@ function WeaponCardRead({
         </div>
 
         {/* ✅ 오른쪽 강수 선택 버튼 (카드의 형제) */}
-        {levelLabels.length > 1 && (
-          <WeaponLevelSelector
-            levelLabels={levelLabels}
-            selectedIndex={selectedLevelIndex}
-            onChange={(idx) => setSelectedLevelIndex(idx)}
-          />
-        )}
+        {levelLabels.length > 1 &&
+          (isMobile ? (
+            <div
+              style={{
+                position: "absolute",
+                top: 8,
+                left: 8,
+                zIndex: 8,
+              }}
+            >
+              <WeaponLevelSelector
+                levelLabels={levelLabels}
+                selectedIndex={selectedLevelIndex}
+                onChange={(idx) => setSelectedLevelIndex(idx)}
+                compact
+                overlay
+              />
+            </div>
+          ) : (
+            <WeaponLevelSelector
+              levelLabels={levelLabels}
+              selectedIndex={selectedLevelIndex}
+              onChange={(idx) => setSelectedLevelIndex(idx)}
+            />
+          ))}
       </div>
 
       {/* 영상 모달 */}
@@ -3381,6 +3417,7 @@ function renderNode(
           node={node}
           keyProp={key ?? ""}
           isDarkMode={!!env?.isDarkMode}
+          isMobile={!!env?.isMobile}
         />
       );
     }
