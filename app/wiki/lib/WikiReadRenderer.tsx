@@ -2717,7 +2717,12 @@ function WeaponCardRead({
 function renderLeaf(
   node: any,
   key?: React.Key,
-  env?: { isMobile?: boolean; isDarkMode?: boolean; inDarkTableCell?: boolean }
+  env?: {
+    isMobile?: boolean;
+    isDarkMode?: boolean;
+    inDarkTableCell?: boolean;
+    inTableCell?: boolean;
+  }
 ): React.ReactNode {
   let children = node.text;
   if (node.bold) children = <strong>{children}</strong>;
@@ -2828,7 +2833,12 @@ function renderNode(
   key?: React.Key,
   ctx?: HeadingCopyCtx,
   handlers?: WikiRefHandlers,
-  env?: { isMobile?: boolean; isDarkMode?: boolean; inDarkTableCell?: boolean },
+  env?: {
+    isMobile?: boolean;
+    isDarkMode?: boolean;
+    inDarkTableCell?: boolean;
+    inTableCell?: boolean;
+  },
 ): React.ReactNode {
   if (Text.isText(node)) {
     return renderLeaf(node, key, env);
@@ -2842,14 +2852,14 @@ function renderNode(
     case "paragraph": {
       const indentLine = node.indentLine;
 
-      // 에디터와 동일한 라인 높이 & 빈 단락 최소 높이 보장
       const plainText = stripReact(children).replace(/\u200B/g, "").trim();
       const isEmpty = plainText.length === 0;
 
-      const baseFont = 19;
+      const baseFont = env?.inTableCell ? 13 : 19;
 
-      // 문단 길이에 따른 폰트 자동 축소(원하면 rules 조절 가능)
-      const paragraphFontPx = isEmpty
+      const paragraphFontPx = env?.inTableCell
+        ? 13
+        : isEmpty
         ? baseFont
         : autoFont(baseFont, plainText, [
             [40, baseFont],
@@ -2864,10 +2874,10 @@ function renderNode(
       const style: React.CSSProperties = {
         textAlign: node.textAlign || "left",
         margin: 0,
-        lineHeight: 1.6,
+        lineHeight: env?.inTableCell ? 1.45 : 1.6,
         fontSize: `${paragraphFontPx}px`,
         whiteSpace: "pre-wrap",
-        minHeight: isEmpty ? "1.6em" : undefined,
+        minHeight: isEmpty ? (env?.inTableCell ? "1.45em" : "1.6em") : undefined,
         color: "var(--foreground)",
       };
 
@@ -2877,11 +2887,7 @@ function renderNode(
       }
 
       return (
-        <p
-          key={key}
-          data-wiki-text="body"
-          style={style}
-        >
+        <p key={key} style={style}>
           {children}
         </p>
       );
@@ -3426,10 +3432,9 @@ function renderNode(
           ? node.bgColor
           : undefined;
 
-      const resolvedCellBg =
-        env?.isDarkMode
-          ? "var(--surface-elevated)"
-          : customCellBg || "var(--surface-elevated)";
+      const resolvedCellBg = env?.isDarkMode
+        ? "var(--surface-elevated)"
+        : customCellBg || "var(--surface-elevated)";
 
       const cellChildren = node.children?.map((n: any, i: number) =>
         renderNode(
@@ -3440,6 +3445,7 @@ function renderNode(
           {
             ...env,
             inDarkTableCell: !!env?.isDarkMode,
+            inTableCell: true,
           }
         )
       );
