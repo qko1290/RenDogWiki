@@ -299,6 +299,11 @@ export default function WikiPageInner({ user }: Props) {
   const [openPaths, setOpenPaths] = useState<number[][]>([]);
   const [closingMap, setClosingMap] = useState<Record<string, boolean>>({});
 
+  const collapseAllCategories = () => {
+    setClosingMap({});
+    setOpenPaths([]);
+  };
+
   const [specialMeta, setSpecialMeta] = useState<SpecialMeta>(null);
   const [npcList, setNpcList] = useState<NpcRow[]>([]);
   const [npcLoading, setNpcLoading] = useState(false);
@@ -1867,7 +1872,13 @@ export default function WikiPageInner({ user }: Props) {
         aria-hidden={!mobileCategoryOpen}
       >
         <div className="wiki-mobile-drawer-header">
-          <strong>카테고리</strong>
+          <button
+            type="button"
+            className="mobile-category-title"
+            onClick={collapseAllCategories}
+          >
+            카테고리
+          </button>
           <button
             type="button"
             className="wiki-mobile-drawer-close"
