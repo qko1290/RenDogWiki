@@ -769,19 +769,23 @@
   }
 
   .wiki-read-mobile-scope [data-wiki-card-row="price-table"] {
-    gap: 12px !important;
+    gap: 8px !important;
     flex-wrap: wrap !important;
-    justify-content: center !important;
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+    width: 100% !important;
     max-width: 100% !important;
   }
 
   .wiki-read-mobile-scope [data-wiki-card="price-table"] {
-    min-width: 118px !important;
-    max-width: 118px !important;
-    min-height: 146px !important;
-    padding: 7px !important;
-    margin: 0 4px !important;
+    flex: 0 0 calc((100% - 16px) / 3) !important;
+    min-width: calc((100% - 16px) / 3) !important;
+    max-width: calc((100% - 16px) / 3) !important;
+    min-height: 136px !important;
+    padding: 6px !important;
+    margin: 0 !important;
     border-radius: 12px !important;
+    box-sizing: border-box !important;
   }
 
   .wiki-read-mobile-scope [data-wiki-card="price-table"] [data-wiki-part="price-badge-wrap"] {
@@ -796,23 +800,22 @@
   }
 
   .wiki-read-mobile-scope [data-wiki-card="price-table"] [data-wiki-part="price-image-wrap"] {
-    margin-top: 30px !important;
-    margin-bottom: 8px !important;
-    width: 56px !important;
-    height: 56px !important;
+    margin-top: 28px !important;
+    margin-bottom: 6px !important;
+    width: 52px !important;
+    height: 52px !important;
   }
 
   .wiki-read-mobile-scope [data-wiki-card="price-table"] [data-wiki-part="price-title"] {
-    font-size: 14px !important;
-    min-height: 34px !important;
+    font-size: 13px !important;
+    min-height: 32px !important;
     line-height: 1.1 !important;
   }
 
   .wiki-read-mobile-scope [data-wiki-card="price-table"] [data-wiki-part="price-row"] {
-    font-size: 15px !important;
-    padding: 2px 6px !important;
-    min-height: 24px !important;
-    letter-spacing: 0 !important;
+    font-size: 14px !important;
+    padding: 2px 4px !important;
+    min-height: 22px !important;
   }
 
   .wiki-read-mobile-scope [data-wiki-card="price-table"] [data-wiki-part="price-arrow-left"],
