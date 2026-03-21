@@ -1103,11 +1103,14 @@ export default function WikiPageInner({ user }: Props) {
   ) => {
     const isRoot = options?.forceRoot || categoryPath.length === 0;
     const deferVisibleState = !!options?.deferVisibleState;
-    const presetPath = Array.isArray(options?.presetPath)
-      ? [...options!.presetPath!]
-      : isRoot
-      ? []
-      : [...categoryPath];
+    const presetPathSource = options?.presetPath;
+
+    const presetPath =
+      Array.isArray(presetPathSource)
+        ? [...presetPathSource]
+        : isRoot
+        ? []
+        : [...categoryPath];
 
     if (options?.clearCategoryPath) {
       setSelectedCategoryPath(null);
@@ -1226,17 +1229,23 @@ export default function WikiPageInner({ user }: Props) {
         const special = data.special ?? docInList?.special ?? null;
         const meta = parseSpecial(special);
 
+        const presetPath = options?.presetPath;
+
         let nextPath: number[] = [];
-        if (Array.isArray(data.fullPath)) {
-          nextPath = [...data.fullPath];
-        } else if (docInList?.fullPath) {
+        if (docInList?.fullPath) {
           nextPath = [...docInList.fullPath];
-        } else if (Array.isArray(options?.presetPath)) {
-          nextPath = [...options.presetPath];
-        } else if (isRoot) {
-          nextPath = [];
+        } else if (Array.isArray(presetPath)) {
+          nextPath = [...presetPath];
         } else {
-          nextPath = [...categoryPath];
+          const rawPath = data.path;
+          if (Number(rawPath) === 0) {
+            nextPath = [];
+          } else if (/^\d+$/.test(String(rawPath))) {
+            const cid = Number(rawPath);
+            nextPath =
+              categoryIdToPathMap[cid] ??
+              (Number.isFinite(cid) ? [cid] : []);
+          }
         }
 
         setDocContent(content);
