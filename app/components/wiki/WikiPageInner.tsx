@@ -511,11 +511,15 @@ export default function WikiPageInner({ user }: Props) {
     const root = document.getElementById('wiki-scroll-root') as HTMLElement | null;
 
     if (root) {
+      // scrollTo만으로 안 먹는 경우가 있어서 직접 값도 같이 박는다
+      root.scrollTop = 0;
       root.scrollTo({ top: 0, behavior: 'auto' });
-      return;
     }
 
+    // fallback
     window.scrollTo({ top: 0, behavior: 'auto' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
   };
 
   const preparePendingScrollForOpen = (
@@ -533,6 +537,21 @@ export default function WikiPageInner({ user }: Props) {
 
     // 해시가 없으면 이번 문서 오픈은 맨 위로 보내야 함
     pendingTopScrollRef.current = !normalizedHash;
+  };
+
+  const resetTopScrollImmediatelyIfNeeded = () => {
+    if (popNavigationRef.current) return;
+    if (pendingScrollDomIdRef.current) return;
+
+    pendingTopScrollRef.current = true;
+
+    // 문서 요청 시작 직후 즉시 1차 리셋
+    scrollDocumentToTop();
+
+    // DOM 반영 타이밍 차이 보정
+    requestAnimationFrame(() => {
+      scrollDocumentToTop();
+    });
   };
 
   const scheduleTopScrollCorrection = () => {
@@ -749,13 +768,13 @@ export default function WikiPageInner({ user }: Props) {
 
     search.delete('_t');
 
-    // ✅ 문서 오픈 시 명시적으로 요청된 heading hash만 유지하고,
-    //    그렇지 않으면 이전 문서 hash는 제거해서 새 문서는 맨 위에서 시작하게 함
     const nextHash = pendingScrollDomIdRef.current
       ? `#${encodeURIComponent(pendingScrollDomIdRef.current)}`
       : '';
+
+    const currentHash = window.location.hash || '';
     const nextUrl = window.location.pathname + '?' + search.toString() + nextHash;
-    const currentUrl = window.location.pathname + window.location.search + window.location.hash;
+    const currentUrl = window.location.pathname + window.location.search + currentHash;
 
     if (currentUrl === nextUrl) return;
 
@@ -1196,6 +1215,8 @@ export default function WikiPageInner({ user }: Props) {
   ) => {
     const isRoot = options?.forceRoot || categoryPath.length === 0;
 
+    resetTopScrollImmediatelyIfNeeded();
+
     const isPopNavigation = options?.isPopNavigation ?? popNavigationRef.current;
 
     if (Object.prototype.hasOwnProperty.call(options ?? {}, 'requestedHash')) {
@@ -1413,6 +1434,8 @@ export default function WikiPageInner({ user }: Props) {
     docId: number,
     options?: FetchDocOptions
   ) => {
+    resetTopScrollImmediatelyIfNeeded()
+    
     const isPopNavigation = options?.isPopNavigation ?? popNavigationRef.current;
 
     if (Object.prototype.hasOwnProperty.call(options ?? {}, 'requestedHash')) {
@@ -1972,8 +1995,14 @@ export default function WikiPageInner({ user }: Props) {
     // 3) 해시 없는 새 문서 오픈은 항상 맨 위
     if (shouldScrollTop) {
       pendingTopScrollRef.current = false;
-      clearStableHeadingScrollTimeouts();
-      scheduleTopScrollCorrection();
+
+      const delays = [0, 60, 140, 260];
+
+      for (const delay of delays) {
+        window.setTimeout(() => {
+          scrollDocumentToTop();
+        }, delay);
+      }
     }
   }, [hold, docContent, tableOfContents, selectedDocId]);
 
