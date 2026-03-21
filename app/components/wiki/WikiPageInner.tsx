@@ -846,10 +846,26 @@ export default function WikiPageInner({ user }: Props) {
         });
         if (cancelled || !mountedRef.current) return;
         setAllDocuments(mapped);
-        setBootstrapReady(true);
+
+        // 새로고침/직접 진입 시 URL에 특정 문서가 명시되어 있으면
+        // bootstrap featured(루트 문서)를 먼저 본문에 꽂지 않는다.
+        // 그렇지 않으면 실제 문서를 열기 전에 루트 문서(id 73)가 잠깐 보인다.
+        const initialSearch =
+          typeof window !== 'undefined'
+            ? new URLSearchParams(window.location.search)
+            : null;
+
+        const initialId = initialSearch ? Number(initialSearch.get('id')) : NaN;
+        const initialPath = initialSearch?.get('path');
+        const initialTitle = initialSearch?.get('title');
+
+        const hasExplicitInitialTarget =
+          (Number.isFinite(initialId) && initialId > 0) ||
+          (!!initialPath && !!initialTitle);
 
         // 최초 뷰를 bootstrap 응답 하나로 바로 렌더
-        if (featured?.id) {
+        // 단, URL로 특정 문서에 직접 들어온 경우에는 featured 선렌더 금지
+        if (!hasExplicitInitialTarget && featured?.id) {
           setHideDocChrome(true);
           setSelectedDocId(featured.id);
           setSelectedDocTitle(featured.title ?? null);
@@ -862,7 +878,13 @@ export default function WikiPageInner({ user }: Props) {
 
           setDocContent(initialContent);
           setTableOfContents(extractHeadings(initialContent));
+        } else {
+          // deep link 진입 시 이전/기본 featured 흔적이 보이지 않도록 비워둠
+          setDocContent(null);
+          setTableOfContents([]);
         }
+
+        setBootstrapReady(true);
       } catch (e) {
         console.error('[bootstrap init] failed', e);
         if (!cancelled && mountedRef.current) {
