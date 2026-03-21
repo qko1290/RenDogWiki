@@ -3,7 +3,8 @@
 // (전체 코드)
 // - 관리자 햄버거 메뉴는 열릴 때만 마운트
 // - 닫힌 상태에서 HamburgerMenu 내부 effect/auth 호출 방지
-// - 햄버거 메뉴 구조는 유지하고, 다크모드 토글만 검색창 오른쪽에 추가
+// - 데스크탑 구조는 유지
+// - 모바일에서는 다크모드 스위치를 카테고리 햄버거 버튼 왼쪽에 배치
 // =============================================
 'use client';
 
@@ -197,16 +198,6 @@ export default function WikiHeader({
             <ThemeToggle />
           </div>
 
-          <button
-            type="button"
-            className="wiki-mobile-category-btn"
-            onClick={onToggleMobileCategory}
-            aria-label={mobileCategoryOpen ? '카테고리 닫기' : '카테고리 열기'}
-            aria-expanded={mobileCategoryOpen}
-          >
-            ☰
-          </button>
-
           <div className="wiki-mobile-right-tools">
             <div className="wiki-mobile-theme-toggle">
               <ThemeToggle />
@@ -236,6 +227,16 @@ export default function WikiHeader({
               </>
             )}
           </div>
+
+          <button
+            type="button"
+            className="wiki-mobile-category-btn"
+            onClick={onToggleMobileCategory}
+            aria-label={mobileCategoryOpen ? '카테고리 닫기' : '카테고리 열기'}
+            aria-expanded={mobileCategoryOpen}
+          >
+            ☰
+          </button>
         </div>
       </header>
 
@@ -260,28 +261,39 @@ export default function WikiHeader({
           준비중입니다!
         </p>
       </ModalCard>
+
       <style jsx>{`
-      .wiki-mobile-right-tools {
-        display: none;
-      }
-
-      .wiki-mobile-theme-toggle :global(.wiki-theme-switch) {
-        --width-of-switch: 3.05em;
-        --height-of-switch: 1.72em;
-        --size-of-icon: 1.16em;
-        --slider-offset: 0.28em;
-        margin: 0;
-      }
-
-      @media (max-width: 768px) {
         .wiki-mobile-right-tools {
+          display: none;
+        }
+
+        .wiki-mobile-theme-toggle {
           display: flex;
           align-items: center;
-          gap: 10px;
-          flex-shrink: 0;
         }
-      }
-    `}</style>
+
+        .wiki-mobile-theme-toggle :global(.wiki-theme-switch) {
+          --width-of-switch: 3.05em;
+          --height-of-switch: 1.72em;
+          --size-of-icon: 1.16em;
+          --slider-offset: 0.28em;
+          margin: 0;
+        }
+
+        @media (max-width: 768px) {
+          .wiki-mobile-right-tools {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+            order: 1;
+          }
+
+          .wiki-mobile-category-btn {
+            order: 2;
+          }
+        }
+      `}</style>
     </>
   );
 }
