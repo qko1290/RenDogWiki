@@ -10,6 +10,8 @@
 // - 긴 문서/늦게 커지는 레이아웃에서도 목표 heading까지 도달하도록
 //   초기 스크롤 이후 여러 번 위치를 재측정해서 보정
 // - 내부 TOC 클릭은 "부드러운 이동"을 우선으로, 보정 횟수를 줄이고 늦게 개입
+// - 목적지 도착 후 사용자가 직접 스크롤하면 남아 있던 programmatic scroll 세션을 즉시 종료
+//   → 다시 해당 위치로 끌어당기는 현상 방지
 // =============================================
 'use client';
 
@@ -84,6 +86,7 @@ export default function TableOfContents({
   const isProgrammaticScrollingRef = useRef(false);
   const programmaticTargetDomIdRef = useRef<string | null>(null);
   const programmaticUnlockTimerRef = useRef<number | null>(null);
+  const programmaticStartedAtRef = useRef(0);
 
   // 동일 id에 발생 순번 부여
   const indexed = useMemo(() => {
@@ -129,15 +132,22 @@ export default function TableOfContents({
     clearProgrammaticUnlockTimer();
   };
 
+  const stopProgrammaticScrollSession = () => {
+    clearStableScrollTimeouts();
+    releaseProgrammaticScrollLock();
+  };
+
   const startProgrammaticScrollLock = (targetDomId: string) => {
     isProgrammaticScrollingRef.current = true;
     programmaticTargetDomIdRef.current = targetDomId;
+    programmaticStartedAtRef.current = performance.now();
     clearProgrammaticUnlockTimer();
 
-    // 긴 문서 보정까지 포함해서 조금 더 길게 유지
+    // 너무 오래 붙잡고 있지 않도록 줄이고,
+    // 끝날 때는 보정 타이머도 같이 정리
     programmaticUnlockTimerRef.current = window.setTimeout(() => {
-      releaseProgrammaticScrollLock();
-    }, 3200);
+      stopProgrammaticScrollSession();
+    }, 1800);
   };
 
   const setActiveByClosest = () => {
@@ -185,16 +195,14 @@ export default function TableOfContents({
   useEffect(() => {
     return () => {
       clearRetryTimeouts();
-      clearStableScrollTimeouts();
-      releaseProgrammaticScrollLock();
+      stopProgrammaticScrollSession();
       observerRef.current?.disconnect();
     };
   }, []);
 
   useEffect(() => {
     clearRetryTimeouts();
-    clearStableScrollTimeouts();
-    releaseProgrammaticScrollLock();
+    stopProgrammaticScrollSession();
   }, [indexed]);
 
   useEffect(() => {
@@ -210,10 +218,63 @@ export default function TableOfContents({
 
       observerRef.current?.disconnect();
       clearRetryTimeouts();
-      clearStableScrollTimeouts();
-      releaseProgrammaticScrollLock();
+      stopProgrammaticScrollSession();
     }
   }, [headings]);
+
+  useEffect(() => {
+    const shouldIgnoreVeryEarlyInput = () => {
+      if (!isProgrammaticScrollingRef.current) return true;
+      const elapsed = performance.now() - programmaticStartedAtRef.current;
+      return elapsed < 160;
+    };
+
+    const cancelIfUserInteracted = () => {
+      if (!isProgrammaticScrollingRef.current) return;
+      if (shouldIgnoreVeryEarlyInput()) return;
+      stopProgrammaticScrollSession();
+    };
+
+    const onWheel = () => {
+      cancelIfUserInteracted();
+    };
+
+    const onTouchMove = () => {
+      cancelIfUserInteracted();
+    };
+
+    const onPointerDown = () => {
+      cancelIfUserInteracted();
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      const k = e.key;
+      if (
+        k === 'ArrowDown' ||
+        k === 'ArrowUp' ||
+        k === 'PageDown' ||
+        k === 'PageUp' ||
+        k === 'Home' ||
+        k === 'End' ||
+        k === ' ' ||
+        k === 'Spacebar'
+      ) {
+        cancelIfUserInteracted();
+      }
+    };
+
+    window.addEventListener('wheel', onWheel, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    window.addEventListener('pointerdown', onPointerDown, { passive: true });
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      window.removeEventListener('wheel', onWheel);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, []);
 
   const findScrollableAncestor = (el: HTMLElement | null): HTMLElement | null => {
     let cur: HTMLElement | null = el?.parentElement ?? null;
@@ -513,15 +574,15 @@ export default function TableOfContents({
             }
 
             if (distance <= 20) {
-              releaseProgrammaticScrollLock();
+              stopProgrammaticScrollSession();
             }
 
             return;
           }
 
-          releaseProgrammaticScrollLock();
+          stopProgrammaticScrollSession();
         } else {
-          releaseProgrammaticScrollLock();
+          stopProgrammaticScrollSession();
         }
       }
 
