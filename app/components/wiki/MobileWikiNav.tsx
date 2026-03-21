@@ -74,9 +74,9 @@ export default function MobileWikiNav({
   }, [isOpen]);
 
   const panelWidth = useMemo(() => {
-    if (!viewportWidth) return 320;
-    return Math.max(280, Math.min(360, viewportWidth - 24));
-  }, [viewportWidth]);
+    if (!viewportWidth) return 280;
+    return Math.max(250, Math.min(300, viewportWidth - 96));
+    }, [viewportWidth]);
 
   const getScrollRoot = (): HTMLElement | null => {
     if (typeof window === 'undefined') return null;
@@ -157,18 +157,18 @@ export default function MobileWikiNav({
 
       {isOpen && (
         <TableOfContents
-          headings={headings}
-          headerOffset={headerOffset}
-          right={12}
-          top={92}
-          width={panelWidth}
-          title="목차"
-          docTitle={docTitle ?? undefined}
-          docIcon={docIcon ?? undefined}
-          scrollRootSelector={scrollRootSelector}
-          onNavigate={() => setIsOpen(false)}
+            headings={headings}
+            headerOffset={headerOffset}
+            right={78}
+            top={92}
+            width={panelWidth}
+            title="목차"
+            docTitle={docTitle ?? undefined}
+            docIcon={docIcon ?? undefined}
+            scrollRootSelector={scrollRootSelector}
+            onNavigate={() => setIsOpen(false)}
         />
-      )}
+        )}
 
       <style jsx>{`
         .mobile-wiki-nav-backdrop {
@@ -182,14 +182,14 @@ export default function MobileWikiNav({
         }
 
         .mobile-wiki-nav {
-          position: fixed;
-          right: 12px;
-          bottom: calc(env(safe-area-inset-bottom, 0px) + 84px);
-          z-index: 48;
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
+            position: fixed;
+            right: 12px;
+            bottom: calc(env(safe-area-inset-bottom, 0px) + 84px);
+            z-index: 52;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            }
 
         .mobile-wiki-nav-btn {
           width: 52px;
