@@ -207,29 +207,35 @@ export default function WikiHeader({
             ☰
           </button>
 
-          {!hideAdminMenu && (
-            <>
-              <button
-                type="button"
-                onClick={() => setIsMenuOpen(true)}
-                className="wiki-admin-menu-btn"
-                aria-label="사이드 메뉴 열기"
-              >
-                ☰
-              </button>
+          <div className="wiki-mobile-right-tools">
+            <div className="wiki-mobile-theme-toggle">
+              <ThemeToggle />
+            </div>
 
-              {isMenuOpen && (
-                <HamburgerMenu
-                  isOpen={isMenuOpen}
-                  onClose={() => setIsMenuOpen(false)}
-                  isLoggedIn={!!user}
-                  username={user?.minecraft_name || ''}
-                  uuid={undefined}
-                  onLogout={handleLogout}
-                />
-              )}
-            </>
-          )}
+            {!hideAdminMenu && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setIsMenuOpen(true)}
+                  className="wiki-admin-menu-btn"
+                  aria-label="사이드 메뉴 열기"
+                >
+                  ☰
+                </button>
+
+                {isMenuOpen && (
+                  <HamburgerMenu
+                    isOpen={isMenuOpen}
+                    onClose={() => setIsMenuOpen(false)}
+                    isLoggedIn={!!user}
+                    username={user?.minecraft_name || ''}
+                    uuid={undefined}
+                    onLogout={handleLogout}
+                  />
+                )}
+              </>
+            )}
+          </div>
         </div>
       </header>
 
@@ -254,6 +260,28 @@ export default function WikiHeader({
           준비중입니다!
         </p>
       </ModalCard>
+      <style jsx>{`
+      .wiki-mobile-right-tools {
+        display: none;
+      }
+
+      .wiki-mobile-theme-toggle :global(.wiki-theme-switch) {
+        --width-of-switch: 3.05em;
+        --height-of-switch: 1.72em;
+        --size-of-icon: 1.16em;
+        --slider-offset: 0.28em;
+        margin: 0;
+      }
+
+      @media (max-width: 768px) {
+        .wiki-mobile-right-tools {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-shrink: 0;
+        }
+      }
+    `}</style>
     </>
   );
 }
