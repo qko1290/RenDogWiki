@@ -1337,11 +1337,13 @@ export default function WikiPageInner({ user }: Props) {
       const special = data.special ?? docInList?.special ?? null;
       const meta = parseSpecial(special);
 
+      const presetPath = options?.presetPath;
+
       let nextPath: number[] = [];
       if (docInList?.fullPath) {
         nextPath = [...docInList.fullPath];
-      } else if (Array.isArray(options?.presetPath)) {
-        nextPath = [...options.presetPath];
+      } else if (Array.isArray(presetPath)) {
+        nextPath = [...presetPath];
       } else {
         const rawPath = data.path;
         if (Number(rawPath) === 0) {
