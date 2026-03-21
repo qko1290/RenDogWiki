@@ -494,6 +494,7 @@ export default function WikiPageInner({ user }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const contentRef = useRef<HTMLDivElement>(null);
+  const mainScrollRef = useRef<HTMLDivElement>(null);
   const pendingScrollDomIdRef = useRef<string>('');
   const pendingTopScrollRef = useRef(false);
   const popNavigationRef = useRef(false);
@@ -507,16 +508,83 @@ export default function WikiPageInner({ user }: Props) {
     stableHeadingScrollTimeoutsRef.current = [];
   };
 
-  const scrollDocumentToTop = () => {
-    const root = document.getElementById('wiki-scroll-root') as HTMLElement | null;
+  function isVerticallyScrollable(el: HTMLElement | null): boolean {
+    if (!el) return false;
 
-    if (root) {
-      // scrollTo만으로 안 먹는 경우가 있어서 직접 값도 같이 박는다
-      root.scrollTop = 0;
-      root.scrollTo({ top: 0, behavior: 'auto' });
+    const style = window.getComputedStyle(el);
+    const overflowY = style.overflowY;
+
+    return (
+      (overflowY === 'auto' ||
+        overflowY === 'scroll' ||
+        overflowY === 'overlay') &&
+      el.scrollHeight > el.clientHeight + 1
+    );
+  }
+
+  function findScrollableContainer(startEl: HTMLElement | null): HTMLElement | null {
+    let el: HTMLElement | null = startEl;
+
+    while (el) {
+      if (isVerticallyScrollable(el)) return el;
+      el = el.parentElement as HTMLElement | null;
     }
 
-    // fallback
+    return null;
+  }
+
+  function getPreferredScrollContainer(target: HTMLElement | null): HTMLElement | null {
+    const byTarget = findScrollableContainer(target);
+    if (byTarget) return byTarget;
+
+    if (isVerticallyScrollable(mainScrollRef.current)) {
+      return mainScrollRef.current;
+    }
+
+    const wikiRoot = document.getElementById('wiki-scroll-root') as HTMLElement | null;
+    if (isVerticallyScrollable(wikiRoot)) {
+      return wikiRoot;
+    }
+
+    return null;
+  }
+
+  function getScrollResetTargets(): HTMLElement[] {
+    const contentEl = contentRef.current;
+    const contentMain = contentEl?.closest('.wiki-content') as HTMLElement | null;
+    const wikiRoot =
+      mainScrollRef.current ??
+      (document.getElementById('wiki-scroll-root') as HTMLElement | null);
+
+    const candidates: Array<HTMLElement | null> = [
+      getPreferredScrollContainer(contentEl),
+      findScrollableContainer(contentEl),
+      findScrollableContainer(contentMain),
+      contentMain,
+      wikiRoot,
+    ];
+
+    const seen = new Set<HTMLElement>();
+    const result: HTMLElement[] = [];
+
+    for (const el of candidates) {
+      if (!el) continue;
+      if (seen.has(el)) continue;
+      seen.add(el);
+      result.push(el);
+    }
+
+    return result;
+  }
+
+  const scrollDocumentToTop = () => {
+    const targets = getScrollResetTargets();
+
+    for (const target of targets) {
+      target.scrollTop = 0;
+      target.scrollTo({ top: 0, behavior: 'auto' });
+    }
+
     window.scrollTo({ top: 0, behavior: 'auto' });
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
@@ -596,35 +664,6 @@ export default function WikiPageInner({ user }: Props) {
     }
 
     return h;
-  }
-
-  function findScrollableContainer(startEl: HTMLElement | null): HTMLElement | null {
-    let el: HTMLElement | null = startEl;
-
-    while (el) {
-      const style = window.getComputedStyle(el);
-      const overflowY = style.overflowY;
-
-      const scrollable =
-        (overflowY === 'auto' || overflowY === 'scroll') &&
-        el.scrollHeight > el.clientHeight + 1;
-
-      if (scrollable) return el;
-
-      el = el.parentElement;
-    }
-
-    return null;
-  }
-
-  function getPreferredScrollContainer(target: HTMLElement | null): HTMLElement | null {
-    const wikiRoot = document.getElementById('wiki-scroll-root') as HTMLElement | null;
-
-    if (wikiRoot && target && wikiRoot.contains(target)) {
-      return wikiRoot;
-    }
-
-    return findScrollableContainer(target);
   }
 
   function isHeadingAligned(
@@ -1214,9 +1253,6 @@ export default function WikiPageInner({ user }: Props) {
     options?: FetchDocOptions
   ) => {
     const isRoot = options?.forceRoot || categoryPath.length === 0;
-
-    resetTopScrollImmediatelyIfNeeded();
-
     const isPopNavigation = options?.isPopNavigation ?? popNavigationRef.current;
 
     if (Object.prototype.hasOwnProperty.call(options ?? {}, 'requestedHash')) {
@@ -1227,6 +1263,8 @@ export default function WikiPageInner({ user }: Props) {
       pendingScrollDomIdRef.current = '';
       pendingTopScrollRef.current = false;
     }
+
+    resetTopScrollImmediatelyIfNeeded();
 
     if (options?.clearCategoryPath) setSelectedCategoryPath(null);
     setSelectedDocTitle(docTitle);
@@ -1434,8 +1472,6 @@ export default function WikiPageInner({ user }: Props) {
     docId: number,
     options?: FetchDocOptions
   ) => {
-    resetTopScrollImmediatelyIfNeeded()
-    
     const isPopNavigation = options?.isPopNavigation ?? popNavigationRef.current;
 
     if (Object.prototype.hasOwnProperty.call(options ?? {}, 'requestedHash')) {
@@ -1446,6 +1482,8 @@ export default function WikiPageInner({ user }: Props) {
       pendingScrollDomIdRef.current = '';
       pendingTopScrollRef.current = false;
     }
+
+    resetTopScrollImmediatelyIfNeeded();
 
     const reqId = ++docReqIdRef.current;
     setLoadingDoc(true);
@@ -1995,14 +2033,14 @@ export default function WikiPageInner({ user }: Props) {
     // 3) 해시 없는 새 문서 오픈은 항상 맨 위
     if (shouldScrollTop) {
       pendingTopScrollRef.current = false;
+      clearStableHeadingScrollTimeouts();
 
-      const delays = [0, 60, 140, 260];
+      scrollDocumentToTop();
 
-      for (const delay of delays) {
-        window.setTimeout(() => {
-          scrollDocumentToTop();
-        }, delay);
-      }
+      requestAnimationFrame(() => {
+        scrollDocumentToTop();
+        scheduleTopScrollCorrection();
+      });
     }
   }, [hold, docContent, tableOfContents, selectedDocId]);
 
@@ -2093,7 +2131,11 @@ export default function WikiPageInner({ user }: Props) {
       </aside>
 
       <div className="wiki-layout">
-        <div className="wiki-main-scrollable" id="wiki-scroll-root">
+        <div
+          className="wiki-main-scrollable"
+          id="wiki-scroll-root"
+          ref={mainScrollRef}
+        >
           {/* ✅ 데스크톱 전용 사이드바 */}
           <aside className="wiki-sidebar wiki-sidebar-desktop">
             <div className="wiki-sidebar-inner">
