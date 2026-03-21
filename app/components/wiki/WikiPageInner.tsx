@@ -453,12 +453,6 @@ export default function WikiPageInner({ user }: Props) {
   const [loadingDoc, setLoadingDoc] = useState(false);
   const [bootstrapReady, setBootstrapReady] = useState(false);
 
-  const shouldShowDocChrome =
-    !hideDocChrome &&
-    !!selectedDocTitle &&
-    Array.isArray(docContent) &&
-    !loadingDoc;
-
   // ---------- 전환 지연(딜레이) 상태 ----------
   const [delaying, setDelaying] = useState(false);
   const SWAP_DELAY_MS = 120; // 체감 120~220ms 권장
@@ -885,9 +879,18 @@ export default function WikiPageInner({ user }: Props) {
           setDocContent(initialContent);
           setTableOfContents(extractHeadings(initialContent));
         } else {
-          // deep link 진입 시 이전/기본 featured 흔적이 보이지 않도록 비워둠
+          // ✅ 직접 진입이면 featured / 이전 문서 흔적을 아예 비움
+          setSelectedDocId(null);
+          setSelectedDocTitle(null);
+          setSelectedDocPath(null);
+          setSelectedCategoryPath(null);
+          setHideDocChrome(false);
+
           setDocContent(null);
           setTableOfContents([]);
+          setSpecialMeta(null);
+          setFaqQuery('');
+          setFaqTags([]);
         }
 
         setBootstrapReady(true);
@@ -923,19 +926,18 @@ export default function WikiPageInner({ user }: Props) {
       const meta = allDocuments.find((d) => d.id === idParam) ?? null;
       const metaFullPath = meta?.fullPath;
       const fullPath: number[] | null = Array.isArray(metaFullPath) ? metaFullPath : null;
+
       const isRoot =
         Number(meta?.path) === 0 ||
         (fullPath !== null && fullPath.length === 0);
 
-      setSelectedCategoryPath(null);
-      setSelectedDocId(idParam);
-      setSelectedDocTitle(meta?.title ?? titleParam ?? null);
-      setSelectedDocPath(isRoot ? [] : fullPath);
       void fetchDocById(idParam, {
         hideChrome: isRoot,
         history: 'replace',
         skipUrlSync: true,
-      }); 
+        clearCategoryPath: true,
+        presetPath: isRoot ? [] : fullPath,
+      });
       return;
     }
     if (!pathParam || !titleParam) return;
@@ -945,13 +947,15 @@ export default function WikiPageInner({ user }: Props) {
       pendingScrollDomIdRef.current = normalizeHashToDomId(window.location.hash);
     }
 
-    const openByIdIfFound = (isRoot: boolean, id?: number) => {
+    const openByIdIfFound = (isRoot: boolean, id?: number, presetPath?: number[] | null) => {
       if (id != null) {
-        fetchDoc(isRoot ? [] : [/*unused*/], titleParam, id, {
+        fetchDoc(isRoot ? [] : (presetPath ?? []), titleParam, id, {
           clearCategoryPath: true,
           forceRoot: isRoot,
           history: 'replace',
           skipUrlSync: true,
+          deferVisibleState: true,
+          presetPath: isRoot ? [] : (presetPath ?? []),
         });
         return true;
       }
@@ -959,21 +963,24 @@ export default function WikiPageInner({ user }: Props) {
     };
 
     if (pathParam === '0') {
-      if (allDocuments.length === 0) return; // 문서 목록 먼저
+      if (allDocuments.length === 0) return;
+
       const match = allDocuments.find(
         d =>
-          ((Array.isArray(d.fullPath) &&
-            d.fullPath.length === 0) ||
+          ((Array.isArray(d.fullPath) && d.fullPath.length === 0) ||
             Number(d.path) === 0) &&
           d.title === titleParam,
       );
-      if (openByIdIfFound(true, match?.id)) return;
-      // 🔁 목록에 없으면 Fallback: 서버 path=0+title 조회 시도
+
+      if (openByIdIfFound(true, match?.id, [])) return;
+
       fetchDoc([], titleParam, undefined, {
         clearCategoryPath: true,
         forceRoot: true,
         history: 'replace',
         skipUrlSync: true,
+        deferVisibleState: true,
+        presetPath: [],
       });
     } else {
       const pathId = Number(pathParam);
@@ -983,6 +990,8 @@ export default function WikiPageInner({ user }: Props) {
           clearCategoryPath: true,
           history: 'replace',
           skipUrlSync: true,
+          deferVisibleState: true,
+          presetPath: fullPath,
         });
       }
     }
@@ -1076,6 +1085,13 @@ export default function WikiPageInner({ user }: Props) {
     hideChrome?: boolean;
     history?: DocOpenHistory;
     skipUrlSync?: boolean;
+
+    // ✅ 새로고침/직접 진입 시에는
+    // 응답 성공 전까지 visible state를 미리 바꾸지 않음
+    deferVisibleState?: boolean;
+
+    // ✅ id 조회 시 목록 메타가 없거나 늦을 때 사용할 경로 힌트
+    presetPath?: number[] | null;
   };
 
   // 문서 fetch (path/title)
@@ -1085,82 +1101,101 @@ export default function WikiPageInner({ user }: Props) {
     docId?: number,
     options?: FetchDocOptions
   ) => {
+    const isRoot = options?.forceRoot || categoryPath.length === 0;
+    const deferVisibleState = !!options?.deferVisibleState;
+    const presetPath = Array.isArray(options?.presetPath)
+      ? [...options!.presetPath!]
+      : isRoot
+      ? []
+      : [...categoryPath];
+
+    if (options?.clearCategoryPath) {
+      setSelectedCategoryPath(null);
+    }
 
     if (docId != null) {
-      const isRoot = options?.forceRoot || categoryPath.length === 0;
-
-      setSelectedDocId(docId);
-      setSelectedDocPath(isRoot ? [] : [...categoryPath]);
-      setSelectedDocTitle(docTitle);
-      if (options?.clearCategoryPath) setSelectedCategoryPath(null);
+      if (!deferVisibleState) {
+        setSelectedDocId(docId);
+        setSelectedDocPath(presetPath);
+        setSelectedDocTitle(docTitle);
+        setHideDocChrome(isRoot);
+      }
 
       setLoadingDoc(true);
+
       void fetchDocById(docId, {
         hideChrome: isRoot,
         history: options?.history,
         skipUrlSync: options?.skipUrlSync,
+        clearCategoryPath: options?.clearCategoryPath,
+        presetPath,
       });
       return;
     }
-    
-    const isRoot = options?.forceRoot || categoryPath.length === 0; // ✅ 루트 문서 여부
-    if (options?.clearCategoryPath) setSelectedCategoryPath(null);
-    setSelectedDocTitle(docTitle);
-    setHideDocChrome(isRoot); // ✅ 루트는 카테고리 스타일(크롬 숨김)
 
-    // 루트 + id 미지정 → 목록에서 id로 로딩
-    if (isRoot && docId == null) {
+    if (!deferVisibleState) {
+      setSelectedDocTitle(docTitle);
+      setHideDocChrome(isRoot);
+    }
+
+    // 루트 + id 미지정 → 목록에서 id 찾기
+    if (isRoot) {
       const match = allDocuments.find(
         d =>
-          ((Array.isArray(d.fullPath) &&
-            d.fullPath.length === 0) ||
+          ((Array.isArray(d.fullPath) && d.fullPath.length === 0) ||
             Number(d.path) === 0) &&
           d.title === docTitle,
       );
+
       if (match?.id != null) {
-        setSelectedDocId(match.id);
-        setSelectedDocPath([]); // 루트
+        if (!deferVisibleState) {
+          setSelectedDocId(match.id);
+          setSelectedDocPath([]);
+        }
+
         setLoadingDoc(true);
+
         void fetchDocById(match.id, {
           hideChrome: true,
           history: options?.history,
           skipUrlSync: options?.skipUrlSync,
+          clearCategoryPath: options?.clearCategoryPath,
+          presetPath: [],
         });
         return;
       }
     }
 
-    if (docId != null) {
-      setSelectedDocId(docId);
-      setSelectedDocPath(isRoot ? [] : [...categoryPath]);
-    } else {
-      const doc = allDocuments.find(
-        d =>
-          d.title === docTitle &&
-          ((isRoot &&
-            ((Array.isArray(d.fullPath) &&
-              d.fullPath.length === 0) ||
-              Number(d.path) === 0)) ||
-            JSON.stringify(d.fullPath) === JSON.stringify(categoryPath)),
-      );
+    const doc = allDocuments.find(
+      d =>
+        d.title === docTitle &&
+        ((isRoot &&
+          ((Array.isArray(d.fullPath) && d.fullPath.length === 0) ||
+            Number(d.path) === 0)) ||
+          JSON.stringify(d.fullPath) === JSON.stringify(categoryPath)),
+    );
 
-      if (doc) {
+    if (doc) {
+      if (!deferVisibleState) {
         setSelectedDocId(doc.id);
         setSelectedDocPath(isRoot ? [] : [...categoryPath]);
-        setLoadingDoc(true);
-        void fetchDocById(doc.id, {
-          hideChrome: isRoot,
-          history: options?.history,
-          skipUrlSync: options?.skipUrlSync,
-        });
-        return;
       }
+
+      setLoadingDoc(true);
+
+      void fetchDocById(doc.id, {
+        hideChrome: isRoot,
+        history: options?.history,
+        skipUrlSync: options?.skipUrlSync,
+        clearCategoryPath: options?.clearCategoryPath,
+        presetPath: isRoot ? [] : [...categoryPath],
+      });
+      return;
     }
 
     const reqId = ++docReqIdRef.current;
     setLoadingDoc(true);
 
-    // ✅ path/title 조회도 이전 요청 취소
     docAbortRef.current?.abort();
     const controller = new AbortController();
     docAbortRef.current = controller;
@@ -1179,7 +1214,7 @@ export default function WikiPageInner({ user }: Props) {
           setFaqTags([]);
           setLoadingDoc(false);
           return;
-        } 
+        }
         if (!mountedRef.current || reqId !== docReqIdRef.current) return;
 
         const content: Descendant[] =
@@ -1187,12 +1222,34 @@ export default function WikiPageInner({ user }: Props) {
             ? JSON.parse(data.content)
             : data.content;
 
-        setDocContent(content);
-        setTableOfContents(extractHeadings(content));
-
         const docInList = allDocuments.find(d => d.id === data.id);
         const special = data.special ?? docInList?.special ?? null;
         const meta = parseSpecial(special);
+
+        let nextPath: number[] = [];
+        if (Array.isArray(data.fullPath)) {
+          nextPath = [...data.fullPath];
+        } else if (docInList?.fullPath) {
+          nextPath = [...docInList.fullPath];
+        } else if (Array.isArray(options?.presetPath)) {
+          nextPath = [...options.presetPath];
+        } else if (isRoot) {
+          nextPath = [];
+        } else {
+          nextPath = [...categoryPath];
+        }
+
+        setDocContent(content);
+        setTableOfContents(extractHeadings(content));
+
+        setSelectedDocId(Number(data?.id ?? null));
+        setSelectedDocTitle(data.title ?? docTitle ?? null);
+        setSelectedDocPath(nextPath);
+
+        if (options?.clearCategoryPath) {
+          setSelectedCategoryPath(null);
+        }
+
         setSpecialMeta(meta);
 
         if (meta?.kind === 'faq') {
@@ -1203,22 +1260,15 @@ export default function WikiPageInner({ user }: Props) {
           setFaqTags([]);
         }
 
-        let nextPath: number[] = [];
-        if (Array.isArray(data.fullPath)) {
-          nextPath = [...data.fullPath];
-        } else if (isRoot) {
-          nextPath = [];
-        } else {
-          nextPath = [...categoryPath];
-        }
+        setHideDocChrome(
+          !!options?.hideChrome || Number(data?.id) === ROOT_FEATURED_DOC_ID
+        );
 
-        setSelectedDocPath(nextPath);
-        setHideDocChrome(Number(data?.id) === ROOT_FEATURED_DOC_ID);
         ensureOpenForDocPath(nextPath);
 
         if (!options?.skipUrlSync) {
           syncUrlWithDoc(
-            Number(data?.id ?? docId ?? null),
+            Number(data?.id ?? null),
             data.title ?? docTitle,
             nextPath,
             {
@@ -1239,7 +1289,7 @@ export default function WikiPageInner({ user }: Props) {
         setFaqTags([]);
         setLoadingDoc(false);
       });
-  }
+  };
 
   // 문서 fetch (id)
   const fetchDocById = async (
@@ -1273,12 +1323,39 @@ export default function WikiPageInner({ user }: Props) {
         typeof data.content === 'string'
           ? JSON.parse(data.content)
           : data.content;
-      setDocContent(content);
-      setTableOfContents(extractHeadings(content));
 
       const docInList = allDocuments.find(d => d.id === data.id);
       const special = data.special ?? docInList?.special ?? null;
       const meta = parseSpecial(special);
+
+      let nextPath: number[] = [];
+      if (docInList?.fullPath) {
+        nextPath = [...docInList.fullPath];
+      } else if (Array.isArray(options?.presetPath)) {
+        nextPath = [...options.presetPath];
+      } else {
+        const rawPath = data.path;
+        if (Number(rawPath) === 0) {
+          nextPath = [];
+        } else if (/^\d+$/.test(String(rawPath))) {
+          const cid = Number(rawPath);
+          nextPath =
+            categoryIdToPathMap[cid] ??
+            (Number.isFinite(cid) ? [cid] : []);
+        }
+      }
+
+      setDocContent(content);
+      setTableOfContents(extractHeadings(content));
+
+      setSelectedDocId(Number(data?.id ?? docId));
+      setSelectedDocTitle(data.title ?? null);
+      setSelectedDocPath(nextPath);
+
+      if (options?.clearCategoryPath) {
+        setSelectedCategoryPath(null);
+      }
+
       setSpecialMeta(meta);
 
       if (meta?.kind === 'faq') {
@@ -1289,24 +1366,11 @@ export default function WikiPageInner({ user }: Props) {
         setFaqTags([]);
       }
 
-      setSelectedDocTitle(data.title ?? null);
+      setHideDocChrome(
+        !!options?.hideChrome || Number(data?.id) === ROOT_FEATURED_DOC_ID
+      );
 
-      let nextPath: number[] = [];
-      if (docInList?.fullPath) {
-        nextPath = docInList.fullPath;
-      } else {
-        const rawPath = data.path;
-        if (Number(rawPath) === 0) nextPath = [];
-        else if (/^\d+$/.test(String(rawPath))) {
-          const cid = Number(rawPath);
-          nextPath =
-            categoryIdToPathMap[cid] ??
-            (Number.isFinite(cid) ? [cid] : []);
-        }
-      }
-
-      setSelectedDocPath(nextPath);
-      setHideDocChrome(Number(data?.id) === ROOT_FEATURED_DOC_ID);
+      ensureOpenForDocPath(nextPath);
 
       if (!options?.skipUrlSync) {
         syncUrlWithDoc(
@@ -1317,9 +1381,6 @@ export default function WikiPageInner({ user }: Props) {
         );
       }
 
-      setHideDocChrome(
-        !!options?.hideChrome || Number(data?.id) === ROOT_FEATURED_DOC_ID
-      );
       setLoadingDoc(false);
     } catch (e: any) {
       if (e?.name === 'AbortError') return;
@@ -1331,7 +1392,7 @@ export default function WikiPageInner({ user }: Props) {
       setFaqTags([]);
       setLoadingDoc(false);
     }
-  }
+  };
 
   // 본문 내부 링크 라우팅
   useEffect(() => {
@@ -1639,6 +1700,7 @@ export default function WikiPageInner({ user }: Props) {
     if (!ready) return;
 
     const hasUrl =
+      !!searchParams.get('id') ||
       !!(searchParams.get('path') && searchParams.get('title'));
     if (hasUrl) return; // 딥링크 우선
 
@@ -1867,7 +1929,7 @@ export default function WikiPageInner({ user }: Props) {
           </aside>
 
           <main className={`wiki-content ${contentClass}`}>
-            {shouldShowDocChrome && (
+            {!hideDocChrome && !!selectedDocTitle && (
               <>
                 <div className={`wiki-breadcrumb-wrap ${hold ? 'is-loading' : ''}`}>
                   <Breadcrumb
