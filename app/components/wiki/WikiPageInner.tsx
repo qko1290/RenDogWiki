@@ -23,6 +23,7 @@ import { toProxyUrl } from '@lib/cdn';
 import DocQuickBadges from './DocQuickBadges';
 import { Descendant } from 'slate';
 import { useRouter, useSearchParams } from 'next/navigation';
+import MobileWikiNav from './MobileWikiNav';
 
 type CategoryNode = {
   id: number;
@@ -2195,6 +2196,17 @@ export default function WikiPageInner({ user }: Props) {
             docIcon={currentDoc?.icon}
           />
         </aside>
+
+        {/* ✅ 모바일 우하단 탐색 버튼 */}
+        {!hideDocChrome && (
+          <MobileWikiNav
+            headings={tableOfContents}
+            docTitle={selectedDocTitle}
+            docIcon={findDocumentMetaById(selectedDocId)?.icon ?? null}
+            headerOffset={72}
+            scrollRootSelector="#wiki-scroll-root"
+          />
+        )}
       </div>
 
       {showNewFaq && (

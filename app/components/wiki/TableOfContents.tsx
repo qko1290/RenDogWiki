@@ -39,6 +39,7 @@ type Props = {
   docTitle?: string;
   docIcon?: string;
   scrollRootSelector?: string;
+  onNavigate?: () => void;
 };
 
 type StableStep = {
@@ -57,6 +58,7 @@ export default function TableOfContents({
   docTitle,
   docIcon,
   scrollRootSelector,
+  onNavigate,
 }: Props) {
   const [activeId, setActiveId] = useState<string>('');
   const [activeIndex, setActiveIndex] = useState<number>(-1);
@@ -850,6 +852,7 @@ export default function TableOfContents({
               const root = rootRef.current;
               if (!root) window.scrollTo({ top: 0, behavior: 'smooth' });
               else root.scrollTo({ top: 0, behavior: 'smooth' });
+              onNavigate?.();
             }}
             title={docTitle}
             style={{
@@ -931,6 +934,7 @@ export default function TableOfContents({
                 } else {
                   root.scrollTo({ top: 0, behavior: 'smooth' });
                 }
+                onNavigate?.();
               }}
               title={docTitle}
               style={{
@@ -1025,7 +1029,10 @@ export default function TableOfContents({
               <button
                 type="button"
                 data-toc-index={i}
-                onClick={() => scrollToDomIdWithRetry(h.domId!)}
+                onClick={() => {
+                  scrollToDomIdWithRetry(h.domId!);
+                  onNavigate?.();
+                }}
                 title={h.text}
                 aria-current={active ? 'true' : undefined}
                 style={{
