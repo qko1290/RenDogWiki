@@ -418,9 +418,14 @@ function nodeToPlainText(node: any): string {
 type LinkBlockViewProps = {
   node: LinkBlockNode;
   children?: React.ReactNode;
+  compactMobile?: boolean;
 };
 
-const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
+const LinkBlockView: React.FC<LinkBlockViewProps> = ({
+  node,
+  children,
+  compactMobile = false,
+}) => {
   const el = node;
   const router = useRouter();
 
@@ -592,6 +597,7 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
     !isWikiLink && parsedUrl ? `${parsedUrl.origin}/favicon.ico` : null;
 
   const isSmall = el.size === "small" || el.size === "half";
+  const isCompactTwoColMobile = compactMobile && isSmall;
   const wrapperStyle: React.CSSProperties = isSmall
     ? {
         flex: "1 1 calc(50% - 6px)",
@@ -625,13 +631,15 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
     : "1.5px solid var(--border)";
   const SHADOW = hovered ? "var(--shadow-lg)" : "var(--shadow-sm)";
 
-  const titleFontPx = autoFont(16, labelText, [
-    [18, 16],
-    [26, 15],
-    [34, 14],
-    [42, 13],
-    [60, 12],
-  ]);
+  const titleFontPx = isCompactTwoColMobile
+    ? 13
+    : autoFont(16, labelText, [
+        [18, 16],
+        [26, 15],
+        [34, 14],
+        [42, 13],
+        [60, 12],
+      ]);
 
   // ✅ 내부 링크는 router.push로 통일(뒤로가기 안정화)
   const handleClick = (e: React.MouseEvent) => {
@@ -727,7 +735,7 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
                 minWidth: 0,
                 display: "flex",
                 flexDirection: "column",
-                gap: 3,
+                gap: isCompactTwoColMobile ? 0 : 3,
               }}
             >
               <div
@@ -744,19 +752,21 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
                 {labelText}
               </div>
 
-              <div
-                style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: "var(--muted)",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-                title={subText}
-              >
-                {subText}
-              </div>
+              {!isCompactTwoColMobile && (
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--muted)",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                  title={subText}
+                >
+                  {subText}
+                </div>
+              )}
             </div>
 
             {/* 오른쪽 이동 표시 */}
@@ -856,7 +866,7 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
                 minWidth: 0,
                 display: "flex",
                 flexDirection: "column",
-                gap: 3,
+                gap: isCompactTwoColMobile ? 0 : 3,
               }}
             >
               <div
@@ -873,19 +883,21 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({ node, children }) => {
                 {labelText}
               </div>
 
-              <div
-                style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: "var(--muted)",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-                title={subText}
-              >
-                {subText}
-              </div>
+              {!isCompactTwoColMobile && (
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--muted)",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                  title={subText}
+                >
+                  {subText}
+                </div>
+              )}
             </div>
 
             {/* 오른쪽 이동 표시 */}
@@ -1639,8 +1651,17 @@ export default function WikiReadRenderer({ content, readOnly = true, onWikiRefCl
             alignItems: "stretch",
           }}
         >
-          {renderNode(a, i, ctx, handlers, { isMobile, isDarkMode })}
-          {renderNode(b, i + 1, ctx, handlers, { isMobile, isDarkMode })}
+          <LinkBlockView
+            key={`link-block-row-${i}-a`}
+            node={a}
+            compactMobile={isMobile}
+          />
+
+          <LinkBlockView
+            key={`link-block-row-${i}-b`}
+            node={b}
+            compactMobile={isMobile}
+          />
         </div>
       );
 
