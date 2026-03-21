@@ -38,6 +38,7 @@ type Document = {
   title: string;
   path: string | number; // ⭐ 루트는 0
   icon?: string;
+  updated_at?: string | null;
   fullPath?: number[];
   is_featured?: boolean;
   special?: string | null;
@@ -87,6 +88,21 @@ function decodeTitleFromUrlParam(v: string | null | undefined) {
 
 function encodeTitleForUrlParam(v: string | null | undefined) {
   return String(v ?? '').trim().replace(/\s+/g, '_');
+}
+
+function formatDocUpdatedTooltip(value?: string | null) {
+  if (!value) return '';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+
+  return `${y}년 ${m}월 ${d}일 ${hh}:${mm}`;
 }
 
 function getInitialMode(): string | null {
@@ -1597,6 +1613,10 @@ export default function WikiPageInner({ user }: Props) {
     [allDocuments, selectedDocId],
   );
 
+  const selectedDocUpdatedTooltip = useMemo(() => {
+    return formatDocUpdatedTooltip(currentDoc?.updated_at);
+  }, [currentDoc?.updated_at]);
+
   const isFaq = specialMeta?.kind === 'faq';
 
   type WikiRefKind = 'quest' | 'npc' | 'qna';
@@ -1996,7 +2016,18 @@ export default function WikiPageInner({ user }: Props) {
                         )
                       ) : null}
 
-                      <span className="wiki-title-color">
+                      <span
+                        className="wiki-title-color"
+                        title={selectedDocUpdatedTooltip || undefined}
+                        aria-label={
+                          selectedDocUpdatedTooltip
+                            ? `마지막 수정: ${selectedDocUpdatedTooltip}`
+                            : undefined
+                        }
+                        style={{
+                          cursor: selectedDocUpdatedTooltip ? 'help' : undefined,
+                        }}
+                      >
                         {selectedDocTitle || '렌독 위키'}
                       </span>
 
