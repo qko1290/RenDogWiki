@@ -62,6 +62,7 @@ export default function TableOfContents({
 }: Props) {
   const [activeId, setActiveId] = useState<string>('');
   const [activeIndex, setActiveIndex] = useState<number>(-1);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
 
   const rootRef = useRef<HTMLElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -193,6 +194,24 @@ export default function TableOfContents({
   const hasDocTitle = !!(docTitle && docTitle.trim());
   const docTitleAnchor = indexed[0] ?? null;
   const resolvedDocIcon = docIcon ?? docTitleAnchor?.icon ?? undefined;
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 1023px)');
+
+    const sync = () => {
+      setIsMobileViewport(media.matches);
+    };
+
+    sync();
+
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', sync);
+      return () => media.removeEventListener('change', sync);
+    }
+
+    media.addListener(sync);
+    return () => media.removeListener(sync);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -767,7 +786,9 @@ export default function TableOfContents({
     boxShadow: 'var(--shadow-lg)',
     padding: '12px 10px',
     zIndex: 50,
-    maxHeight: `calc(100vh - ${top + 20}px)`,
+    maxHeight: isMobileViewport
+      ? `calc(100vh - ${top + 110}px)`
+      : `calc(100vh - ${top + 20}px)`,
     overflowY: 'auto',
   };
 

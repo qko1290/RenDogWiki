@@ -2892,9 +2892,11 @@ function renderNode(
       const plainText = stripReact(children).replace(/\u200B/g, "").trim();
       const isEmpty = plainText.length === 0;
 
-      const baseFont = env?.inTableCell ? 13 : 19;
+      const isMobileTableText = !!env?.isMobile && !!env?.inTableCell;
 
-      const paragraphFontPx = env?.inTableCell
+      const baseFont = isMobileTableText ? 13 : 19;
+
+      const paragraphFontPx = isMobileTableText
         ? 13
         : isEmpty
         ? baseFont
