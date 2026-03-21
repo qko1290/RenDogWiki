@@ -525,6 +525,37 @@ export default function WikiPageInner({ user }: Props) {
     return null;
   }
 
+  function getPreferredScrollContainer(target: HTMLElement | null): HTMLElement | null {
+    const wikiRoot = document.getElementById('wiki-scroll-root') as HTMLElement | null;
+
+    if (wikiRoot && target && wikiRoot.contains(target)) {
+      return wikiRoot;
+    }
+
+    return findScrollableContainer(target);
+  }
+
+  function isHeadingAligned(
+    domId: string,
+    headerOffset = 72,
+    tolerance = 24,
+  ) {
+    const target = document.getElementById(domId);
+    if (!target) return false;
+
+    const scrollParent = getPreferredScrollContainer(target) || null;
+
+    if (!scrollParent) {
+      const targetTop = target.getBoundingClientRect().top;
+      return Math.abs(targetTop - headerOffset) <= tolerance;
+    }
+
+    const line = scrollParent.getBoundingClientRect().top + headerOffset;
+    const targetTop = target.getBoundingClientRect().top;
+
+    return Math.abs(targetTop - line) <= tolerance;
+  }
+
   function scrollToHeadingDomId(
     domId: string,
     headerOffset = 72,
@@ -567,7 +598,9 @@ export default function WikiPageInner({ user }: Props) {
 
       for (const delay of correctionDelays) {
         const timerId = window.setTimeout(() => {
-          scrollOnce('auto');
+          if (!isHeadingAligned(domId, headerOffset, 24)) {
+            scrollOnce('auto');
+          }
         }, delay);
 
         stableHeadingScrollTimeoutsRef.current.push(timerId);
@@ -1661,26 +1694,32 @@ export default function WikiPageInner({ user }: Props) {
   useEffect(() => {
     if (hold) return;
 
-    clearStableHeadingScrollTimeouts();
-
     const pending = pendingScrollDomIdRef.current;
     if (!pending) return;
 
+    clearStableHeadingScrollTimeouts();
+
+    // 1차: 문서가 보이자마자 한 번 이동 + 장기 보정 예약
+    scrollToHeadingDomId(pending, 72, { stable: true });
+
     let tries = 0;
-    const maxTries = 90; // ✅ 좀 더 여유 (렌더/이미지/폰트 영향)
+    const maxTries = 90;
 
     const tick = () => {
       tries += 1;
 
-      // ✅ 여기서 "진짜 스크롤 컨테이너"를 찾아 스크롤
-      clearStableHeadingScrollTimeouts();
-      const ok = scrollToHeadingDomId(pending, 72, { stable: true });
-      if (ok) {
+      // ✅ "scroll 호출 성공"이 아니라 "실제로 원하는 줄에 도착했는지"로 종료 판정
+      if (isHeadingAligned(pending, 72, 24)) {
         pendingScrollDomIdRef.current = '';
         return;
       }
 
-      if (tries < maxTries) requestAnimationFrame(tick);
+      // 아직 덜 맞았으면 짧게 한 번 더 맞춘다
+      scrollToHeadingDomId(pending, 72, { stable: false });
+
+      if (tries < maxTries) {
+        requestAnimationFrame(tick);
+      }
     };
 
     requestAnimationFrame(() => requestAnimationFrame(tick));
