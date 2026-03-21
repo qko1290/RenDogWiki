@@ -453,6 +453,12 @@ export default function WikiPageInner({ user }: Props) {
   const [loadingDoc, setLoadingDoc] = useState(false);
   const [bootstrapReady, setBootstrapReady] = useState(false);
 
+  const shouldShowDocChrome =
+    !hideDocChrome &&
+    !!selectedDocTitle &&
+    Array.isArray(docContent) &&
+    !loadingDoc;
+
   // ---------- 전환 지연(딜레이) 상태 ----------
   const [delaying, setDelaying] = useState(false);
   const SWAP_DELAY_MS = 120; // 체감 120~220ms 권장
@@ -1861,7 +1867,7 @@ export default function WikiPageInner({ user }: Props) {
           </aside>
 
           <main className={`wiki-content ${contentClass}`}>
-            {!hideDocChrome && (
+            {shouldShowDocChrome && (
               <>
                 <div className={`wiki-breadcrumb-wrap ${hold ? 'is-loading' : ''}`}>
                   <Breadcrumb
