@@ -2546,9 +2546,18 @@ function WeaponCardRead({
                 fontWeight: 700,
                 letterSpacing: 1.5,
                 textAlign: "center",
+                position: "relative",
               }}
             >
               {meta.label}
+
+              {levelLabels.length > 1 && !isMobile && (
+          <WeaponLevelSelector
+            levelLabels={levelLabels}
+            selectedIndex={selectedLevelIndex}
+            onChange={(idx) => setSelectedLevelIndex(idx)}
+          />
+        )}
             </div>
 
             {/* 무기 이름 */}
@@ -2913,10 +2922,10 @@ function renderNode(
       const style: React.CSSProperties = {
         textAlign: node.textAlign || "left",
         margin: 0,
-        lineHeight: env?.inTableCell ? 1.45 : 1.6,
+        lineHeight: isMobileTableText ? 1.45 : 1.6,
+        minHeight: isEmpty ? (isMobileTableText ? "1.45em" : "1.6em") : undefined,
         fontSize: `${paragraphFontPx}px`,
         whiteSpace: "pre-wrap",
-        minHeight: isEmpty ? (env?.inTableCell ? "1.45em" : "1.6em") : undefined,
         color: "var(--foreground)",
       };
 
