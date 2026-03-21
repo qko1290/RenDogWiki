@@ -1,10 +1,9 @@
 // =============================================
 // File: app/components/common/Header.tsx
 // (전체 코드)
-// - 관리자 햄버거 메뉴는 열릴 때만 마운트
-// - 닫힌 상태에서 HamburgerMenu 내부 effect/auth 호출 방지
-// - 데스크탑 구조는 유지
-// - 모바일에서는 다크모드 스위치를 카테고리 햄버거 버튼 왼쪽에 배치
+// - 데스크탑 관리자 햄버거 메뉴 복원
+// - 모바일에서는 다크모드 스위치를 카테고리 버튼 왼쪽에 배치
+// - HamburgerMenu는 실제로 열릴 때만 마운트
 // =============================================
 'use client';
 
@@ -198,45 +197,43 @@ export default function WikiHeader({
             <ThemeToggle />
           </div>
 
+          {!hideAdminMenu && (
+            <button
+              type="button"
+              onClick={() => setIsMenuOpen(true)}
+              className="wiki-admin-menu-btn wiki-admin-menu-btn--desktop"
+              aria-label="사이드 메뉴 열기"
+            >
+              ☰
+            </button>
+          )}
+
           <div className="wiki-mobile-right-tools">
             <div className="wiki-mobile-theme-toggle">
               <ThemeToggle />
             </div>
 
-            {!hideAdminMenu && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setIsMenuOpen(true)}
-                  className="wiki-admin-menu-btn"
-                  aria-label="사이드 메뉴 열기"
-                >
-                  ☰
-                </button>
-
-                {isMenuOpen && (
-                  <HamburgerMenu
-                    isOpen={isMenuOpen}
-                    onClose={() => setIsMenuOpen(false)}
-                    isLoggedIn={!!user}
-                    username={user?.minecraft_name || ''}
-                    uuid={undefined}
-                    onLogout={handleLogout}
-                  />
-                )}
-              </>
-            )}
+            <button
+              type="button"
+              className="wiki-mobile-category-btn"
+              onClick={onToggleMobileCategory}
+              aria-label={mobileCategoryOpen ? '카테고리 닫기' : '카테고리 열기'}
+              aria-expanded={mobileCategoryOpen}
+            >
+              ☰
+            </button>
           </div>
 
-          <button
-            type="button"
-            className="wiki-mobile-category-btn"
-            onClick={onToggleMobileCategory}
-            aria-label={mobileCategoryOpen ? '카테고리 닫기' : '카테고리 열기'}
-            aria-expanded={mobileCategoryOpen}
-          >
-            ☰
-          </button>
+          {isMenuOpen && !hideAdminMenu && (
+            <HamburgerMenu
+              isOpen={isMenuOpen}
+              onClose={() => setIsMenuOpen(false)}
+              isLoggedIn={!!user}
+              username={user?.minecraft_name || ''}
+              uuid={undefined}
+              onLogout={handleLogout}
+            />
+          )}
         </div>
       </header>
 
@@ -263,6 +260,13 @@ export default function WikiHeader({
       </ModalCard>
 
       <style jsx>{`
+        .wiki-admin-menu-btn--desktop {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
         .wiki-mobile-right-tools {
           display: none;
         }
@@ -281,16 +285,16 @@ export default function WikiHeader({
         }
 
         @media (max-width: 768px) {
+          .wiki-admin-menu-btn--desktop {
+            display: none !important;
+          }
+
           .wiki-mobile-right-tools {
             display: flex;
             align-items: center;
             gap: 10px;
+            margin-left: auto;
             flex-shrink: 0;
-            order: 1;
-          }
-
-          .wiki-mobile-category-btn {
-            order: 2;
           }
         }
       `}</style>
