@@ -2716,7 +2716,7 @@ function WeaponCardRead({
               style={{
                 position: "absolute",
                 top: "50%",
-                left: 8,
+                right: 8,
                 transform: "translateY(-50%)",
                 zIndex: 8,
               }}
