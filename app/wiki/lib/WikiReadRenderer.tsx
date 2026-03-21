@@ -2887,7 +2887,11 @@ function renderNode(
       }
 
       return (
-        <p key={key} style={style}>
+        <p
+          key={key}
+          data-wiki-text="body"
+          style={style}
+        >
           {children}
         </p>
       );
