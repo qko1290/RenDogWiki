@@ -608,11 +608,20 @@ export default function WikiPageInner({ user }: Props) {
     const normalizedHash = normalizeHashToDomId(hashLike);
     pendingScrollDomIdRef.current = normalizedHash;
 
-    // heading 이동이 있으면 top 이동/보정 예약을 즉시 끊음
+    // ✅ 이번 문서 이동에 명시적인 heading hash가 있으면
+    // top 이동은 끄고 heading 이동만 사용
     if (normalizedHash) {
       pendingTopScrollRef.current = false;
       clearStableHeadingScrollTimeouts();
       return;
+    }
+
+    // ✅ 이번 문서 이동에는 heading 요청이 없는데
+    // 이전 문서에서 남은 hash가 주소창에 있다면 지금 바로 제거
+    // 그래야 다음 resetTopScrollImmediatelyIfNeeded / hasPendingHeadingNavigation /
+    // 문서 오픈 후 effect가 stale hash를 현재 이동으로 오인하지 않음
+    if (!isPopNavigation) {
+      clearUrlHashIfPresent();
     }
 
     if (isPopNavigation) {
@@ -674,6 +683,14 @@ export default function WikiPageInner({ user }: Props) {
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
+
+  function clearUrlHashIfPresent() {
+    if (typeof window === 'undefined') return;
+    if (!window.location.hash) return;
+
+    const nextUrl = window.location.pathname + window.location.search;
+    window.history.replaceState(window.history.state, '', nextUrl);
+  }
 
   function normalizeHashToDomId(hashLike: string | null | undefined) {
     let h = String(hashLike ?? '').trim();
