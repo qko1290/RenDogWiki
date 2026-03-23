@@ -1514,7 +1514,7 @@ function getCurrentThemeIsDark() {
 export default function WikiReadRenderer({
   content,
   readOnly = true,
-  onWikiRefClick, 
+  onWikiRefClick,
   onWikiNavigate,
 }: Props) {
   const [copiedHeadingId, setCopiedHeadingId] = useState<string | null>(null);
