@@ -419,12 +419,14 @@ type LinkBlockViewProps = {
   node: LinkBlockNode;
   children?: React.ReactNode;
   compactMobile?: boolean;
+  onWikiNavigate?: (href: string) => void;
 };
 
 const LinkBlockView: React.FC<LinkBlockViewProps> = ({
   node,
   children,
   compactMobile = false,
+  onWikiNavigate,
 }) => {
   const el = node;
   const router = useRouter();
@@ -1663,12 +1665,14 @@ export default function WikiReadRenderer({
             key={`link-block-row-${i}-a`}
             node={a}
             compactMobile={isMobile}
+            onWikiNavigate={onWikiNavigate}
           />
 
           <LinkBlockView
             key={`link-block-row-${i}-b`}
             node={b}
             compactMobile={isMobile}
+            onWikiNavigate={onWikiNavigate}
           />
         </div>
       );
@@ -1678,7 +1682,13 @@ export default function WikiReadRenderer({
     }
 
     // (2) 나머지는 기존처럼 단건 렌더
-    rendered.push(renderNode(node, i, ctx, handlers, { isMobile, isDarkMode}));
+    rendered.push(
+      renderNode(node, i, ctx, handlers, {
+        isMobile,
+        isDarkMode,
+        onWikiNavigate,
+      })
+    );
   }
 
   return <>{rendered}</>;
@@ -2907,6 +2917,7 @@ function renderNode(
     inDarkTableCell?: boolean;
     inTableCell?: boolean;
     inLinkBlockRow?: boolean;
+    onWikiNavigate?: (href: string) => void;
   },
 ): React.ReactNode {
   if (Text.isText(node)) {
@@ -3249,6 +3260,7 @@ function renderNode(
           key={key}
           node={node}
           compactMobile={!!env?.isMobile && !!env?.inLinkBlockRow && isHalfSized}
+          onWikiNavigate={env?.onWikiNavigate}
         >
           {children}
         </LinkBlockView>
