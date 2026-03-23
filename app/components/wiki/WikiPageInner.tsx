@@ -1464,6 +1464,8 @@ export default function WikiPageInner({ user }: Props) {
         skipUrlSync: options?.skipUrlSync,
         clearCategoryPath: options?.clearCategoryPath,
         presetPath,
+        requestedHash: options?.requestedHash,
+        isPopNavigation,
       });
       return;
     }
@@ -1496,6 +1498,8 @@ export default function WikiPageInner({ user }: Props) {
           skipUrlSync: options?.skipUrlSync,
           clearCategoryPath: options?.clearCategoryPath,
           presetPath: [],
+          requestedHash: options?.requestedHash,
+          isPopNavigation,
         });
         return;
       }
@@ -1524,6 +1528,8 @@ export default function WikiPageInner({ user }: Props) {
         skipUrlSync: options?.skipUrlSync,
         clearCategoryPath: options?.clearCategoryPath,
         presetPath: isRoot ? [] : [...categoryPath],
+        requestedHash: options?.requestedHash,
+        isPopNavigation,
       });
       return;
     }
