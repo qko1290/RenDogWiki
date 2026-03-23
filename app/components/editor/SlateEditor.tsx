@@ -52,6 +52,15 @@ type PriceTableEditState = {
   item: any | null;
 };
 
+type DraftSlot = {
+  slot: number;
+  savedAt: number;
+  snapshot: DocState;
+};
+
+const DRAFT_SLOT_COUNT = 3;
+const AUTO_DRAFT_DELAY_MS = 2500;
+
 // 커서 진입 불가 블럭
 const VOID_BLOCK_TYPES = new Set([
   'image',
@@ -83,8 +92,8 @@ function withWeaponBlocks(editor: Editor): Editor {
         SlateElement.isElement(n) &&
         ((n as any).type === 'weapon-card' ||
           (n as any).type === 'price-table-card' ||
-          (n as any).type === 'quest-embed' ||   // ✅
-          (n as any).type === 'npc-embed' ||     // ✅
+          (n as any).type === 'quest-embed' ||
+          (n as any).type === 'npc-embed' ||
           (n as any).type === 'qna-embed'),
     });
 
@@ -178,7 +187,6 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
   };
 
   const editor = useMemo(() => {
-    // ✅ 커스텀 플러그인 묶는 순서: React → History → inline/void → weapon-card 플러그인
     const e = withWeaponBlocks(
       withCustomInline(withHistory(withReact(createEditor())))
     );
@@ -186,18 +194,15 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     const { normalizeNode } = e;
     e.normalizeNode = ([node, path]) => {
       if (SlateElement.isElement(node) && node.type === 'info-box') {
-        // 1) children이 비어있으면 최소 텍스트 1개 보장
         if (!node.children || node.children.length === 0) {
           Transforms.insertNodes(e, { text: '' } as any, { at: [...path, 0] });
           return;
         }
 
-        // 2) ✅ info-box 안에 element(예: inline-image)가 있으면 "합치기(merge)" 금지
         const hasElementChild = node.children.some((ch: any) =>
           SlateElement.isElement(ch)
         );
 
-        // 3) 텍스트만 있을 때에만 기존처럼 여러 텍스트를 1개로 합침
         if (!hasElementChild) {
           const text = Node.string(node);
           if (text === '') return;
@@ -238,8 +243,8 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
   }, [editor]);
 
   // 상태
-  const selectionRef = useRef<Range | null>(null);    // 최근 커서(에디터 onChange에서 갱신)
-  const savedSelectionRef = useRef<Range | null>(null); // 모달 열기 시점 커서 저장
+  const selectionRef = useRef<Range | null>(null);
+  const savedSelectionRef = useRef<Range | null>(null);
   const [editorKey] = useState(0);
   const [isIconModalOpen, setIsIconModalOpen] = useState(false);
   const [iconEditTarget, setIconEditTarget] = useState<CustomElement | null>(null);
@@ -261,23 +266,19 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
   const [iconImgError, setIconImgError] = useState(false);
 
   useEffect(() => {
-    // 아이콘 URL이 바뀌면 에러 상태 리셋
     setIconImgError(false);
   }, [doc.icon]);
 
   const isImageUrl = (v: string) => {
     const s = (v ?? '').trim();
     if (!s) return false;
-    // http/https 뿐 아니라 / (내부 경로), data: 도 이미지로 취급
     return /^https?:\/\//i.test(s) || s.startsWith('/') || s.startsWith('data:');
   };
 
   const getIconSrc = (v: string) => {
     const s = (v ?? '').trim();
     if (!s) return '';
-    // ✅ 외부 URL은 프록시 적용 (네 원칙)
     if (/^https?:\/\//i.test(s)) return toProxyUrl(s);
-    // 내부 경로(/...)나 data:는 그대로
     return s;
   };
 
@@ -286,6 +287,213 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
   });
 
   const [tagInput, setTagInput] = useState(doc.tags.join(', '));
+
+  const normalizeDocForDraft = useCallback((value: Partial<DocState> | null | undefined): DocState => ({
+    id: typeof value?.id === 'number' ? value.id : undefined,
+    title: String(value?.title ?? ''),
+    path: String(value?.path ?? ''),
+    icon: String(value?.icon ?? ''),
+    tags: Array.isArray(value?.tags) ? value.tags.map(v => String(v)) : [],
+    content:
+      Array.isArray(value?.content) && value.content.length > 0
+        ? (value.content as Descendant[])
+        : EMPTY_INITIAL_VALUE,
+  }), []);
+
+  const serializeDocForDraft = useCallback(
+    (value: Partial<DocState> | null | undefined) => JSON.stringify(normalizeDocForDraft(value)),
+    [normalizeDocForDraft]
+  );
+
+  const formatDraftSavedAt = useCallback((savedAt: number) => {
+    const d = new Date(savedAt);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mi = String(d.getMinutes()).padStart(2, '0');
+    const ss = String(d.getSeconds()).padStart(2, '0');
+    return `${yyyy}.${mm}.${dd} ${hh}:${mi}:${ss}`;
+  }, []);
+
+  const draftSessionKey = useMemo(() => {
+    if (typeof window === 'undefined') return '';
+    return `rdwiki:auto-draft:session:${window.location.pathname}${window.location.search}`;
+  }, []);
+
+  const draftDocKey = useMemo(() => {
+    if (typeof window === 'undefined') return '';
+    const resolvedId = doc.id ?? initialDoc?.id;
+    if (resolvedId == null) return '';
+    return `rdwiki:auto-draft:doc:${resolvedId}`;
+  }, [doc.id, initialDoc?.id]);
+
+  const draftStorageKey = draftDocKey || draftSessionKey;
+
+  const [draftSlots, setDraftSlots] = useState<DraftSlot[]>([]);
+  const draftSlotsRef = useRef<DraftSlot[]>([]);
+  const autoDraftTimeoutRef = useRef<number | null>(null);
+  const draftBaselineReadyRef = useRef(false);
+  const serverDocJsonRef = useRef('');
+
+  useEffect(() => {
+    draftSlotsRef.current = draftSlots;
+  }, [draftSlots]);
+
+  const writeDraftSlots = useCallback((next: DraftSlot[]) => {
+    setDraftSlots(next);
+
+    if (typeof window === 'undefined') return;
+
+    const keys = new Set<string>();
+    if (draftStorageKey) keys.add(draftStorageKey);
+    if (draftSessionKey) keys.add(draftSessionKey);
+    if (draftDocKey) keys.add(draftDocKey);
+
+    if (next.length === 0) {
+      keys.forEach((key) => window.localStorage.removeItem(key));
+      return;
+    }
+
+    const raw = JSON.stringify(next);
+    keys.forEach((key) => window.localStorage.setItem(key, raw));
+  }, [draftStorageKey, draftSessionKey, draftDocKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const keysToRead = [draftDocKey, draftSessionKey, draftStorageKey]
+      .filter((key, index, arr): key is string => !!key && arr.indexOf(key) === index);
+
+    if (keysToRead.length === 0) {
+      setDraftSlots([]);
+      return;
+    }
+
+    let raw = '';
+    let sourceKey = '';
+
+    for (const key of keysToRead) {
+      const value = window.localStorage.getItem(key);
+      if (value) {
+        raw = value;
+        sourceKey = key;
+        break;
+      }
+    }
+
+    if (!raw) {
+      setDraftSlots([]);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+
+      if (!Array.isArray(parsed)) {
+        setDraftSlots([]);
+        return;
+      }
+
+      const next: DraftSlot[] = parsed
+        .map((item: any) => {
+          const slot = Number(item?.slot);
+          const savedAt = Number(item?.savedAt);
+
+          if (!Number.isFinite(slot) || slot < 1 || slot > DRAFT_SLOT_COUNT) return null;
+          if (!Number.isFinite(savedAt) || savedAt <= 0) return null;
+
+          return {
+            slot,
+            savedAt,
+            snapshot: normalizeDocForDraft(item?.snapshot),
+          };
+        })
+        .filter((item): item is DraftSlot => item !== null)
+        .sort((a, b) => a.slot - b.slot)
+        .slice(0, DRAFT_SLOT_COUNT);
+
+      setDraftSlots(next);
+
+      if (sourceKey && next.length > 0) {
+        const normalizedRaw = JSON.stringify(next);
+
+        if (draftSessionKey && sourceKey !== draftSessionKey) {
+          window.localStorage.setItem(draftSessionKey, normalizedRaw);
+        }
+        if (draftDocKey && sourceKey !== draftDocKey) {
+          window.localStorage.setItem(draftDocKey, normalizedRaw);
+        }
+      }
+    } catch {
+      setDraftSlots([]);
+    }
+  }, [draftDocKey, draftSessionKey, draftStorageKey, normalizeDocForDraft]);
+
+  useEffect(() => {
+    if (!draftBaselineReadyRef.current) return;
+    if (typeof window === 'undefined' || !draftStorageKey) return;
+
+    const currentJson = serializeDocForDraft(doc);
+
+    if (currentJson === serverDocJsonRef.current) return;
+
+    const latestSlot = draftSlotsRef.current.find(item => item.slot === 1);
+    if (latestSlot && serializeDocForDraft(latestSlot.snapshot) === currentJson) return;
+
+    if (autoDraftTimeoutRef.current != null) {
+      window.clearTimeout(autoDraftTimeoutRef.current);
+    }
+
+    autoDraftTimeoutRef.current = window.setTimeout(() => {
+      const snapshot = normalizeDocForDraft(doc);
+      const snapshotJson = serializeDocForDraft(snapshot);
+
+      const deduped = draftSlotsRef.current
+        .filter(item => serializeDocForDraft(item.snapshot) !== snapshotJson)
+        .slice(0, DRAFT_SLOT_COUNT - 1);
+
+      const next: DraftSlot[] = [
+        { slot: 1, savedAt: Date.now(), snapshot },
+        ...deduped,
+      ]
+        .slice(0, DRAFT_SLOT_COUNT)
+        .map((item, idx) => ({
+          ...item,
+          slot: idx + 1,
+        }));
+
+      writeDraftSlots(next);
+    }, AUTO_DRAFT_DELAY_MS);
+
+    return () => {
+      if (autoDraftTimeoutRef.current != null) {
+        window.clearTimeout(autoDraftTimeoutRef.current);
+        autoDraftTimeoutRef.current = null;
+      }
+    };
+  }, [doc, draftStorageKey, normalizeDocForDraft, serializeDocForDraft, writeDraftSlots]);
+
+  useEffect(() => {
+    return () => {
+      if (autoDraftTimeoutRef.current != null) {
+        window.clearTimeout(autoDraftTimeoutRef.current);
+        autoDraftTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  const handleRestoreDraftSlot = useCallback((slotNumber: number) => {
+    const target = draftSlots.find(item => item.slot === slotNumber);
+    if (!target) return;
+
+    const recovered = normalizeDocForDraft(target.snapshot);
+
+    setDoc(recovered);
+    setTagInput(recovered.tags.join(', '));
+
+    alert(`${slotNumber}번 임시 저장 슬롯을 불러왔습니다.`);
+  }, [draftSlots, normalizeDocForDraft]);
 
   // ✳️ 에디터 스크롤 타겟(정확히 가운데 편집 영역)
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -309,7 +517,6 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
   const freezeCleanupRef = useRef<(() => void) | null>(null);
   const freezeActiveRef = useRef(false);
 
-  // (선택) 모달 열기 직전 명시적으로 Y 저장하고 싶을 때 사용
   const captureScrollPrice = useCallback(() => {
     const el = getScrollEl();
     lastYRef.current = el?.scrollTop ?? 0;
@@ -325,10 +532,8 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     const el = getScrollEl();
     if (!el) return;
 
-    // 프리즈 시작 플래그
     freezeActiveRef.current = true;
 
-    // 커서 스냅샷 저장
     try {
       if (editor.selection) {
         savedSelectionRef.current = Editor.unhangRange(editor, editor.selection);
@@ -339,7 +544,6 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       savedSelectionRef.current = editor.selection ?? null;
     }
 
-    // 기준 Y 고정
     lastYRef.current = el.scrollTop;
     const y = lastYRef.current;
 
@@ -371,7 +575,6 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     freezeActiveRef.current = false;
   }, []);
 
-  // 가격 모달이 열렸을 때만 프리즈, 닫힐 때 해제
   useLayoutEffect(() => {
     if (!priceTableEdit.blockPath) return;
     startFreeze();
@@ -394,7 +597,6 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     const sel = savedSelectionRef.current;
     let restored = false;
 
-    // ✅ 외부 인풋 진입 중에는 selection 복원하지 않고 바로 deselect
     const active = document.activeElement as HTMLElement | null;
     if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
       try { Transforms.deselect(editor); } catch {}
@@ -405,7 +607,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     if (sel) {
       try {
         Transforms.select(editor, sel);
-        focusNoScroll();   // ← preventScroll로 포커스
+        focusNoScroll();
         restored = true;
       } catch {
         restored = false;
@@ -415,7 +617,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     if (!restored) {
       const point = Editor.end(editor, []);
       Transforms.select(editor, point);
-      focusNoScroll();     // ← preventScroll로 포커스
+      focusNoScroll();
     }
 
     savedSelectionRef.current = null;
@@ -435,7 +637,6 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
   const handlePriceModalSave = (data: { stages: string[]; prices: Array<string | number> }) => {
     const { blockPath, idx } = priceTableEdit;
 
-    // 가격 값 정규화
     const normalizePrices = (arr: Array<string | number>) =>
       arr.map((v) => {
         if (typeof v === 'number' && Number.isFinite(v)) return v;
@@ -473,17 +674,14 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
 
   // 문서 초기값 반영
   useEffect(() => {
-    setDoc({
-      id: initialDoc?.id ?? undefined,
-      title: initialDoc?.title ?? '',
-      path: initialDoc?.path ?? '',
-      icon: initialDoc?.icon ?? '',
-      tags: Array.isArray(initialDoc?.tags) ? initialDoc.tags : [],
-      content: Array.isArray(initialDoc?.content) && initialDoc.content.length > 0
-        ? initialDoc.content
-        : EMPTY_INITIAL_VALUE,
-    });
-  }, [initialDoc]);
+    const nextDoc = normalizeDocForDraft(initialDoc);
+
+    setDoc(nextDoc);
+    setTagInput(nextDoc.tags.join(', '));
+
+    serverDocJsonRef.current = serializeDocForDraft(nextDoc);
+    draftBaselineReadyRef.current = true;
+  }, [initialDoc, normalizeDocForDraft, serializeDocForDraft]);
 
   // Backspace 뒤로가기 방지
   useEffect(() => {
@@ -496,10 +694,8 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     return () => window.removeEventListener('keydown', preventBackspaceNavigation);
   }, []);
 
-  // (기존) 링크 포커스 복원은 유지
   useEffect(() => {
     if (moveCursorPending && lastLinkPath) {
-      // ✅ FIX: 드래그 삭제로 lastLinkPath가 사라졌을 수 있음 → hasPath + try/catch 방어
       if (!safeHasPath(lastLinkPath)) {
         setMoveCursorPending(false);
         setLastLinkPath(null);
@@ -512,7 +708,6 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
           safeSelectPoint(after);
         }
       } catch {
-        // path/point 계산 중 예외 → 상태 정리
       } finally {
         setMoveCursorPending(false);
         setLastLinkPath(null);
@@ -592,7 +787,32 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
 
       let saved: any = null;
       try { saved = await res.json(); } catch {}
-      const documentId = saved?.id ?? doc.id;
+
+      const resolvedSavedId =
+        saved?.id != null && Number.isFinite(Number(saved.id))
+          ? Number(saved.id)
+          : doc.id;
+
+      const documentId = resolvedSavedId;
+
+      const nextSavedDoc = normalizeDocForDraft({
+        ...doc,
+        id: resolvedSavedId,
+        title: titleTrim,
+      });
+
+      setDoc(nextSavedDoc);
+      setTagInput(nextSavedDoc.tags.join(', '));
+      serverDocJsonRef.current = serializeDocForDraft(nextSavedDoc);
+
+      if (typeof window !== 'undefined' && resolvedSavedId != null && draftSlotsRef.current.length > 0) {
+        const nextDraftKey = `rdwiki:auto-draft:doc:${resolvedSavedId}`;
+        const rawSlots = JSON.stringify(draftSlotsRef.current);
+        window.localStorage.setItem(nextDraftKey, rawSlots);
+        if (draftSessionKey) {
+          window.localStorage.setItem(draftSessionKey, rawSlots);
+        }
+      }
 
       if (isMain && doc.path != null) {
         try {
@@ -648,7 +868,6 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
         for (let c = c0; c <= c1; c++) {
           const cellPath = [...tablePath, r, c];
           const cellNode = Node.get(editor, cellPath);
-          // table-cell 안의 텍스트만
           cols.push(Node.string(cellNode).replace(/\r?\n/g, '\n'));
         }
         rows.push(cols.join('\t'));
@@ -660,17 +879,14 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
   }, [editor]);
 
   const onCopyTableSafe = useCallback((e: React.ClipboardEvent) => {
-    // 1) 엑셀식 드래그(rect)가 남아있다면: 그 영역을 TSV로 복사
     const tsv = buildTSVFromRect();
     if (tsv != null) {
       e.preventDefault();
       e.stopPropagation();
       e.clipboardData.setData('text/plain', tsv);
-      // ✅ html은 일부러 안 넣음 (td 복사 방지)
       return;
     }
 
-    // 2) 일반 텍스트 드래그 선택인데 table-cell 내부라면: text/plain만
     if (!isSelectionInsideTable()) return;
 
     const { selection } = editor;
@@ -694,7 +910,6 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
 
     const text = e.clipboardData.getData('text/plain') || '';
 
-    // ✅ 0) 우리 컨텍스트메뉴 복사 토큰이면: 직접 fragment 삽입 (inline-image 포함)
     if (text.startsWith(SLATE_FRAG_PREFIX)) {
       e.preventDefault();
       e.stopPropagation();
@@ -705,17 +920,14 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
 
       try {
         const fragment = decodeSlateFragment(encoded);
-        // fragment는 "셀 내부 children 배열"이므로 그대로 insertFragment 가능
         Transforms.insertFragment(editor, fragment);
       } catch {
-        // 디코딩 실패면 그냥 남은 텍스트라도 넣기
         const fallback = firstLineEnd >= 0 ? text.slice(firstLineEnd + 1) : '';
         if (fallback) Transforms.insertText(editor, fallback);
       }
       return;
     }
 
-    // ✅ 1) 외부 표 HTML만 차단 (기존 로직 유지)
     const html = e.clipboardData.getData('text/html') || '';
     const hasTableHtml = /<(table|tbody|tr|td|th)\b/i.test(html);
     if (hasTableHtml) {
@@ -750,7 +962,6 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       }
     }
 
-    // heading에서 Enter → 아래에 paragraph (기존)
     if (event.key === 'Enter') {
       const [matchH] = Editor.nodes(editor, {
         match: n =>
@@ -767,9 +978,6 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       }
     }
 
-    // info-box 안에서는 Enter → 같은 박스 안에서 줄바꿈(개행) 처리
-    // - 기본 Enter: \n 삽입 (박스 내부 여러 줄)
-    // - (선택) Ctrl/Cmd+Enter: 박스 바깥으로 빠져나와 새 paragraph 생성
     if (event.key === 'Enter') {
       const ibEntry = Editor.above(editor, {
         match: n => SlateElement.isElement(n) && (n as any).type === 'info-box',
@@ -778,7 +986,6 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       if (ibEntry) {
         event.preventDefault();
 
-        // Ctrl/Cmd+Enter: 박스 밖으로 나가기 (원하면 유지)
         if (event.ctrlKey || event.metaKey) {
           const [, ibPath] = ibEntry;
           const insertPath = Path.next(ibPath);
@@ -794,14 +1001,11 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
           return;
         }
 
-        // 기본 Enter: 박스 내부에서 줄바꿈
         Transforms.insertText(editor, '\n');
         return;
       }
     }
 
-    // ⭐ 무기 카드 / 시세표 카드 뒤 "빈 단락"에서 Enter 처리
-    //    → 카드 복사하지 않고, 그 아래에 새 paragraph 하나 추가
     if (event.key === 'Enter' && !event.shiftKey) {
       const { selection } = editor;
       if (selection && Range.isCollapsed(selection)) {
@@ -847,7 +1051,6 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
             }
           }
         } catch {
-          // 실패 시엔 그냥 기본 동작으로 넘어가도록 둠
         }
       }
     }
@@ -1058,7 +1261,6 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
                 {doc.icon?.trim() && (
                   isImageUrl(doc.icon) ? (
                     iconImgError ? (
-                      // 이미지 로딩 실패 시: 텍스트로 fallback (깨진 아이콘 방지)
                       <span style={{ fontSize: 34, lineHeight: 1 }}>🖼️</span>
                     ) : (
                       <img
@@ -1110,6 +1312,59 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
 
             {/* 저장 */}
             <button className="meta-save" onClick={handleSave}>저장</button>
+
+            {/* 자동 임시 저장 슬롯 */}
+            <div
+              style={{
+                marginTop: 14,
+                padding: '10px 12px',
+                borderRadius: 14,
+                border: '1px solid #e5e7eb',
+                background: '#ffffff',
+              }}
+            >
+              <div
+                style={{
+                  marginBottom: 8,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: '#6b7280',
+                }}
+              >
+                자동 임시 저장
+              </div>
+
+              <div style={{ display: 'flex', gap: 8 }}>
+                {[1, 2, 3].map((slotNumber) => {
+                  const slot = draftSlots.find(item => item.slot === slotNumber);
+                  const enabled = !!slot;
+
+                  return (
+                    <button
+                      key={slotNumber}
+                      type="button"
+                      onClick={() => handleRestoreDraftSlot(slotNumber)}
+                      disabled={!enabled}
+                      title={slot ? formatDraftSavedAt(slot.savedAt) : ''}
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 10,
+                        border: enabled ? '1px solid #86efac' : '1px solid #e5e7eb',
+                        background: enabled ? '#ecfdf5' : '#f9fafb',
+                        color: enabled ? '#047857' : '#cbd5e1',
+                        fontSize: 14,
+                        fontWeight: 800,
+                        cursor: enabled ? 'pointer' : 'default',
+                        transition: 'background 0.15s ease, border-color 0.15s ease, color 0.15s ease',
+                      }}
+                    >
+                      {slotNumber}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1120,7 +1375,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
             style={{
               position: 'relative',
               overscrollBehavior: 'contain' as any,
-              overflowAnchor: 'none' as any, // ✅ 앵커링 끔
+              overflowAnchor: 'none' as any,
             }}
           >
             <Slate
@@ -1130,7 +1385,6 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
               onChange={newValue => {
                 setDoc(prev => ({ ...prev, content: newValue }));
 
-                // ✅ (미세 방어) selection이 존재해도 예외 케이스에서 깨지는 라이브러리 버전이 있어서 방어
                 try {
                   if (editor.selection) selectionRef.current = editor.selection;
                   else selectionRef.current = null;
@@ -1159,7 +1413,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
                 className="editor-slate-content"
                 onBlur={() => { selectionRef.current = editor.selection; }}
                 onCopy={onCopyTableSafe}
-                onCut={onCopyTableSafe}   // 잘라내기도 동일하게 처리 (원하면 분리 가능)
+                onCut={onCopyTableSafe}
                 onPaste={onPasteTableSafe}
               />
             </Slate>
@@ -1171,7 +1425,6 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
         </div>
       </div>
 
-      {/* ✅ 모달은 스크롤 컨테이너 밖에서 렌더 */}
       {priceTableEdit.blockPath && typeof priceTableEdit.idx === 'number' && priceTableEdit.item && (
         <PriceTableEditModal
           open={true}
