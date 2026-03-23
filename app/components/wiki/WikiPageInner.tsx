@@ -496,7 +496,6 @@ export default function WikiPageInner({ user }: Props) {
   const contentRef = useRef<HTMLDivElement>(null);
   const mainScrollRef = useRef<HTMLDivElement>(null);
   const pendingScrollDomIdRef = useRef<string>('');
-  const requestedHeadingDomIdRef = useRef<string>('');
   const pendingTopScrollRef = useRef(false);
   const popNavigationRef = useRef(false);
   const stableHeadingScrollTimeoutsRef = useRef<number[]>([]);
@@ -508,7 +507,6 @@ export default function WikiPageInner({ user }: Props) {
     headingCorrectionInterruptedRef.current = true;
     clearStableHeadingScrollTimeouts();
     pendingScrollDomIdRef.current = '';
-    requestedHeadingDomIdRef.current = '';
     pendingTopScrollRef.current = false;
   };
 
@@ -608,9 +606,9 @@ export default function WikiPageInner({ user }: Props) {
     headingCorrectionInterruptedRef.current = false;
 
     const normalizedHash = normalizeHashToDomId(hashLike);
-    requestedHeadingDomIdRef.current = normalizedHash;
     pendingScrollDomIdRef.current = normalizedHash;
 
+    // heading 이동이 있으면 top 이동/보정 예약을 즉시 끊음
     if (normalizedHash) {
       pendingTopScrollRef.current = false;
       clearStableHeadingScrollTimeouts();
@@ -705,7 +703,10 @@ export default function WikiPageInner({ user }: Props) {
     if (direct) return true;
 
     if (pendingScrollDomIdRef.current) return true;
-    if (requestedHeadingDomIdRef.current) return true;
+
+    if (typeof window !== 'undefined') {
+      return !!normalizeHashToDomId(window.location.hash);
+    }
 
     return false;
   }
@@ -793,7 +794,7 @@ export default function WikiPageInner({ user }: Props) {
     if (!selectedDocId) return;
 
     const baseTarget =
-      pendingScrollDomIdRef.current || requestedHeadingDomIdRef.current;
+      pendingScrollDomIdRef.current || normalizeHashToDomId(window.location.hash);
 
     // heading 이동이 있으면 top 보정은 절대 사용하지 않음
     if (baseTarget) {
@@ -824,7 +825,6 @@ export default function WikiPageInner({ user }: Props) {
       for (const target of targets) {
         if (scrollToHeadingDomId(target, 72, { stable: true })) {
           pendingScrollDomIdRef.current = target;
-          requestedHeadingDomIdRef.current = target;
           pendingTopScrollRef.current = false;
           return true;
         }
@@ -1414,6 +1414,9 @@ export default function WikiPageInner({ user }: Props) {
   ) => {
     const isRoot = options?.forceRoot || categoryPath.length === 0;
     const isPopNavigation = options?.isPopNavigation ?? popNavigationRef.current;
+    const hasExplicitRequestedHeading =
+      Object.prototype.hasOwnProperty.call(options ?? {}, 'requestedHash') &&
+      !!normalizeHashToDomId(options?.requestedHash ?? '');
 
     if (Object.prototype.hasOwnProperty.call(options ?? {}, 'requestedHash')) {
       preparePendingScrollForOpen(options?.requestedHash ?? '', isPopNavigation);
@@ -1421,11 +1424,12 @@ export default function WikiPageInner({ user }: Props) {
       preparePendingScrollForOpen('', false);
     } else {
       pendingScrollDomIdRef.current = '';
-      requestedHeadingDomIdRef.current = '';
       pendingTopScrollRef.current = false;
     }
 
-    resetTopScrollImmediatelyIfNeeded();
+    if (!hasExplicitRequestedHeading) {
+      resetTopScrollImmediatelyIfNeeded();
+    }
 
     if (options?.clearCategoryPath) setSelectedCategoryPath(null);
     setSelectedDocTitle(docTitle);
@@ -1634,6 +1638,9 @@ export default function WikiPageInner({ user }: Props) {
     options?: FetchDocOptions
   ) => {
     const isPopNavigation = options?.isPopNavigation ?? popNavigationRef.current;
+    const hasExplicitRequestedHeading =
+      Object.prototype.hasOwnProperty.call(options ?? {}, 'requestedHash') &&
+      !!normalizeHashToDomId(options?.requestedHash ?? '');
 
     if (Object.prototype.hasOwnProperty.call(options ?? {}, 'requestedHash')) {
       preparePendingScrollForOpen(options?.requestedHash ?? '', isPopNavigation);
@@ -1641,11 +1648,12 @@ export default function WikiPageInner({ user }: Props) {
       preparePendingScrollForOpen('', false);
     } else {
       pendingScrollDomIdRef.current = '';
-      requestedHeadingDomIdRef.current = '';
       pendingTopScrollRef.current = false;
     }
 
-    resetTopScrollImmediatelyIfNeeded();
+    if (!hasExplicitRequestedHeading) {
+      resetTopScrollImmediatelyIfNeeded();
+    }
 
     const reqId = ++docReqIdRef.current;
     setLoadingDoc(true);
@@ -2146,7 +2154,7 @@ export default function WikiPageInner({ user }: Props) {
     if (hold) return;
 
     const pendingHeading =
-      pendingScrollDomIdRef.current || requestedHeadingDomIdRef.current;
+      pendingScrollDomIdRef.current || normalizeHashToDomId(window.location.hash);
     const shouldScrollTop = pendingTopScrollRef.current;
     const cameFromPopNavigation = popNavigationRef.current;
 
@@ -2167,7 +2175,6 @@ export default function WikiPageInner({ user }: Props) {
 
         if (isHeadingAligned(pendingHeading, 72, 24)) {
           pendingScrollDomIdRef.current = '';
-          requestedHeadingDomIdRef.current = '';
           pendingTopScrollRef.current = false;
           return;
         }
@@ -2183,7 +2190,6 @@ export default function WikiPageInner({ user }: Props) {
         if (!ok || tries >= maxTries) {
           // 다음 문서 오픈에 stale heading이 남지 않게 정리
           pendingScrollDomIdRef.current = '';
-          requestedHeadingDomIdRef.current = '';
           pendingTopScrollRef.current = false;
         }
       };
