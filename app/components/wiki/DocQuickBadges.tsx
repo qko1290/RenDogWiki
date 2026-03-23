@@ -487,6 +487,16 @@ export default function DocQuickBadges({
             display: none;
           }
         }
+        .qbd-main .qbd-ic {
+          font-size: ${isDarkMode ? '25px' : '24px'};
+          font-weight: ${isDarkMode ? 800 : 700};
+        }
+
+        .qbd-main .qbd-ic :global(svg) {
+          filter: ${isDarkMode
+            ? 'drop-shadow(0 0 0.45px currentColor) drop-shadow(0 0 0.45px currentColor)'
+            : 'none'};
+        }
       `}</style>
     </div>
   );
