@@ -249,7 +249,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
   // 상태
   const selectionRef = useRef<Range | null>(null);    // 최근 커서(에디터 onChange에서 갱신)
   const savedSelectionRef = useRef<Range | null>(null); // 모달 열기 시점 커서 저장
-  const [editorKey] = useState(0);
+  const [editorKey, setEditorKey] = useState(0);
   const [isIconModalOpen, setIsIconModalOpen] = useState(false);
   const [iconEditTarget, setIconEditTarget] = useState<CustomElement | null>(null);
   const [moveCursorPending, setMoveCursorPending] = useState(false);
@@ -500,9 +500,18 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       ...prev,
       content: recoveredContent,
     }));
+    setEditorKey(prev => prev + 1);
+
+    requestAnimationFrame(() => {
+      try {
+        ReactEditor.focus(editor);
+      } catch {
+        /* ignore */
+      }
+    });
 
     alert(`${slotNumber}번 임시 저장 슬롯의 본문을 불러왔습니다.`);
-  }, [draftSlots, normalizeContentForDraft]);
+  }, [draftSlots, normalizeContentForDraft, editor]);
 
   // ✳️ 에디터 스크롤 타겟(정확히 가운데 편집 영역)
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -702,6 +711,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     });
 
     setTagInput(Array.isArray(initialDoc?.tags) ? initialDoc.tags.join(', ') : '');
+    setEditorKey(prev => prev + 1);
 
     serverContentJsonRef.current = serializeContentForDraft(initialDoc?.content);
     draftBaselineReadyRef.current = true;
