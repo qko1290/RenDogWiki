@@ -264,7 +264,7 @@ export default function DocQuickBadges({
 
       {/* 메인 아래 말풍선 */}
       <div className={`qbd-bubble ${open ? 'is-hidden' : ''}`} aria-hidden={open || hidden}>
-        바로가기
+        <span className="qbd-bubble-text">바로가기</span>
       </div>
 
       {/* 5개: 아래로 펼침 */}
@@ -448,7 +448,6 @@ export default function DocQuickBadges({
           color: var(--qbd-bubble-fg);
           border: var(--qbd-bubble-border);
           font-size: 13px;
-          font-weight: ${isDarkMode ? 900 : 700};
           line-height: 1;
           padding: 8px 12px;
           border-radius: 8px;
@@ -462,6 +461,14 @@ export default function DocQuickBadges({
             background-color 240ms ease,
             color 240ms ease,
             border-color 240ms ease;
+        }
+
+        .qbd-bubble-text {
+          display: inline-block;
+          font-size: ${isDarkMode ? '14px' : '13px'};
+          font-weight: ${isDarkMode ? 800 : 700};
+          letter-spacing: ${isDarkMode ? '-0.15px' : '0'};
+          text-shadow: ${isDarkMode ? '0 0 0.35px currentColor' : 'none'};
         }
 
         .qbd-bubble::before {
@@ -487,6 +494,7 @@ export default function DocQuickBadges({
             display: none;
           }
         }
+
         .qbd-main .qbd-ic {
           font-size: ${isDarkMode ? '25px' : '24px'};
           font-weight: ${isDarkMode ? 800 : 700};
