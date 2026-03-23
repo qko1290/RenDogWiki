@@ -645,7 +645,6 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({
   const handleClick = (e: React.MouseEvent) => {
     if (!isWikiLink) return;
 
-    // 새 탭/특수 클릭은 브라우저 기본 동작 유지
     const any = e as any;
     if (any.metaKey || any.ctrlKey || any.shiftKey || any.altKey) return;
     if (e.button !== 0) return;
@@ -653,7 +652,11 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({
     e.preventDefault();
     e.stopPropagation();
 
-    // ✅ (2) 실제 라우팅은 Next router로
+    if (onWikiNavigate) {
+      onWikiNavigate(normalizedHref);
+      return;
+    }
+
     router.push(normalizedHref);
   };
 
@@ -1508,7 +1511,12 @@ function getCurrentThemeIsDark() {
 }
 
 // 메인 렌더 컴포넌트
-export default function WikiReadRenderer({ content, readOnly = true, onWikiRefClick }: Props) {
+export default function WikiReadRenderer({
+  content,
+  readOnly = true,
+  onWikiRefClick, 
+  onWikiNavigate,
+}: Props) {
   const [copiedHeadingId, setCopiedHeadingId] = useState<string | null>(null);
 
   const headingOccRef = useRef<Map<string, number>>(new Map());

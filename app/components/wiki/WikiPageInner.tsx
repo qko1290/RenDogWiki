@@ -1755,6 +1755,58 @@ export default function WikiPageInner({ user }: Props) {
     }
   };
 
+  const handleInternalWikiNavigate = (rawHref: string) => {
+    if (typeof window === 'undefined') return;
+
+    let url: URL;
+    try {
+      url = new URL(rawHref, window.location.origin);
+    } catch {
+      return;
+    }
+
+    const isSameOrigin = url.origin === window.location.origin;
+    const isWikiDocLink = isSameOrigin && url.pathname === '/wiki';
+    if (!isWikiDocLink) return;
+
+    const path = url.searchParams.get('path');
+    const titleRaw = url.searchParams.get('title');
+    const title = titleRaw ? decodeTitleFromUrlParam(titleRaw) : null;
+
+    if (!path || !title) return;
+
+    setLoadingDoc(true);
+
+    preparePendingScrollForOpen(url.hash, false);
+
+    if (path === '0') {
+      fetchDoc([], title, undefined, {
+        clearCategoryPath: true,
+        forceRoot: true,
+        requestedHash: url.hash,
+        isPopNavigation: false,
+      });
+      return;
+    }
+
+    const pathId = Number(path);
+    if (!Number.isFinite(pathId)) {
+      setLoadingDoc(false);
+      return;
+    }
+
+    const fullPath = categoryIdToPathMap[pathId] ?? [pathId];
+
+    ensureOpenForDocPath(fullPath);
+    setSelectedCategoryPath(fullPath);
+
+    fetchDoc(fullPath, title, undefined, {
+      clearCategoryPath: true,
+      requestedHash: url.hash,
+      isPopNavigation: false,
+    });
+  };
+
   // 본문 내부 링크 라우팅
   useEffect(() => {
     const el = contentRef.current;
@@ -1775,7 +1827,6 @@ export default function WikiPageInner({ user }: Props) {
         return;
       }
 
-      // ✅ 내부 위키 링크만 가로채기
       const isSameOrigin = url.origin === window.location.origin;
       const isWikiDocLink = isSameOrigin && url.pathname === '/wiki';
       if (!isWikiDocLink) return;
@@ -1784,48 +1835,12 @@ export default function WikiPageInner({ user }: Props) {
       const titleRaw = url.searchParams.get('title');
       const title = titleRaw ? decodeTitleFromUrlParam(titleRaw) : null;
 
-      // path/title 없는 /wiki 메인 이동은 기존 로고 동작 등 다른 흐름에 맡김
       if (!path || !title) return;
 
       e.preventDefault();
       e.stopPropagation();
 
-      // ✅ 링크 클릭 즉시 로딩 느낌 먼저 주기
-      setLoadingDoc(true);
-
-      preparePendingScrollForOpen(url.hash, false);
-
-      // ✅ 루트 문서
-      if (path === '0') {
-        fetchDoc([], title, undefined, {
-          clearCategoryPath: true,
-          forceRoot: true,
-          requestedHash: url.hash,
-          isPopNavigation: false,
-        });
-        return;
-      }
-
-      const pathId = Number(path);
-      if (!Number.isFinite(pathId)) {
-        setLoadingDoc(false);
-        return;
-      }
-
-      const fullPath = categoryIdToPathMap[pathId] ?? [pathId];
-
-      // ✅ 사이드바 상호작용 먼저 반영 (깜빡임 완화)
-      ensureOpenForDocPath(fullPath);
-
-      // ✅ 클릭한 문서가 속한 카테고리 경로를 미리 선택 상태로 잡아줌
-      setSelectedCategoryPath(fullPath);
-
-      // ✅ 실제 문서 로드
-      fetchDoc(fullPath, title, undefined, {
-        clearCategoryPath: true,
-        requestedHash: url.hash,
-        isPopNavigation: false,
-      });
+      handleInternalWikiNavigate(rawHref);
     };
 
     el.addEventListener('click', handler);
@@ -2563,6 +2578,7 @@ export default function WikiPageInner({ user }: Props) {
                       content={docContent}
                       readOnly
                       onWikiRefClick={handleWikiRefClick}
+                      onWikiNavigate={handleInternalWikiNavigate}
                     />
                   </div>
                 ) : (
