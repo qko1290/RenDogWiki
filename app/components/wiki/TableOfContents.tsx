@@ -242,15 +242,10 @@ export default function TableOfContents({
   }, [headings]);
 
   useEffect(() => {
-    const shouldIgnoreVeryEarlyInput = () => {
-      if (!isProgrammaticScrollingRef.current) return true;
-      const elapsed = performance.now() - programmaticStartedAtRef.current;
-      return elapsed < 160;
-    };
-
     const cancelIfUserInteracted = () => {
       if (!isProgrammaticScrollingRef.current) return;
-      if (shouldIgnoreVeryEarlyInput()) return;
+
+      clearRetryTimeouts();
       stopProgrammaticScrollSession();
     };
 

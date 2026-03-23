@@ -501,6 +501,14 @@ export default function WikiPageInner({ user }: Props) {
   const stableHeadingScrollTimeoutsRef = useRef<number[]>([]);
   const docAbortRef = useRef<AbortController | null>(null);
 
+  const headingCorrectionInterruptedRef = useRef(false);
+
+  const cancelHeadingScrollCorrection = () => {
+    headingCorrectionInterruptedRef.current = true;
+    clearStableHeadingScrollTimeouts();
+    pendingTopScrollRef.current = false;
+  };
+
   const clearStableHeadingScrollTimeouts = () => {
     for (const id of stableHeadingScrollTimeoutsRef.current) {
       window.clearTimeout(id);
@@ -594,16 +602,16 @@ export default function WikiPageInner({ user }: Props) {
     hashLike?: string | null,
     isPopNavigation = false,
   ) => {
+    headingCorrectionInterruptedRef.current = false;
+
     const normalizedHash = normalizeHashToDomId(hashLike);
     pendingScrollDomIdRef.current = normalizedHash;
 
-    // 뒤로가기/앞으로가기는 강제 top scroll 제외
     if (isPopNavigation) {
       pendingTopScrollRef.current = false;
       return;
     }
 
-    // 해시가 없으면 이번 문서 오픈은 맨 위로 보내야 함
     pendingTopScrollRef.current = !normalizedHash;
   };
 
@@ -623,12 +631,15 @@ export default function WikiPageInner({ user }: Props) {
   };
 
   const scheduleTopScrollCorrection = () => {
-    const delays = [0, 60, 140, 260, 420];
+    headingCorrectionInterruptedRef.current = false;
 
+    const delays = [0, 60, 140, 260, 420];
     for (const delay of delays) {
       const id = window.setTimeout(() => {
+        if (headingCorrectionInterruptedRef.current) return;
         scrollDocumentToTop();
       }, delay);
+
       stableHeadingScrollTimeoutsRef.current.push(id);
     }
   };
@@ -692,7 +703,7 @@ export default function WikiPageInner({ user }: Props) {
     headerOffset = 72,
     options?: {
       stable?: boolean;
-    },
+    },  
   ) {
     const stable = options?.stable ?? true;
 
@@ -723,12 +734,15 @@ export default function WikiPageInner({ user }: Props) {
     if (!ok) return false;
 
     if (stable) {
+      headingCorrectionInterruptedRef.current = false;
       clearStableHeadingScrollTimeouts();
 
-      const correctionDelays = [80, 180, 320, 520, 820, 1200, 1800, 2600, 3600];
+      const correctionDelays = [120, 320, 760, 1450, 2200];
 
       for (const delay of correctionDelays) {
         const timerId = window.setTimeout(() => {
+          if (headingCorrectionInterruptedRef.current) return;
+
           if (!isHeadingAligned(domId, headerOffset, 24)) {
             scrollOnce('auto');
           }
@@ -803,6 +817,53 @@ export default function WikiPageInner({ user }: Props) {
   useEffect(() => {
     return () => {
       clearStableHeadingScrollTimeouts();
+    };
+  }, []);
+
+  useEffect(() => {
+    const cancelIfUserInteracted = () => {
+      if (stableHeadingScrollTimeoutsRef.current.length === 0) return;
+      cancelHeadingScrollCorrection();
+    };
+
+    const onWheel = () => {
+      cancelIfUserInteracted();
+    };
+
+    const onTouchMove = () => {
+      cancelIfUserInteracted();
+    };
+
+    const onPointerDown = () => {
+      cancelIfUserInteracted();
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      const k = e.key;
+      if (
+        k === 'ArrowDown' ||
+        k === 'ArrowUp' ||
+        k === 'PageDown' ||
+        k === 'PageUp' ||
+        k === 'Home' ||
+        k === 'End' ||
+        k === ' ' ||
+        k === 'Spacebar'
+      ) {
+        cancelIfUserInteracted();
+      }
+    };
+
+    window.addEventListener('wheel', onWheel, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    window.addEventListener('pointerdown', onPointerDown, { passive: true });
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      window.removeEventListener('wheel', onWheel);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
     };
   }, []);
 
