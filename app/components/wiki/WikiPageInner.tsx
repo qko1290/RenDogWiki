@@ -496,6 +496,7 @@ export default function WikiPageInner({ user }: Props) {
   const contentRef = useRef<HTMLDivElement>(null);
   const mainScrollRef = useRef<HTMLDivElement>(null);
   const pendingScrollDomIdRef = useRef<string>('');
+  const requestedHeadingDomIdRef = useRef<string>('');
   const pendingTopScrollRef = useRef(false);
   const popNavigationRef = useRef(false);
   const stableHeadingScrollTimeoutsRef = useRef<number[]>([]);
@@ -507,6 +508,7 @@ export default function WikiPageInner({ user }: Props) {
     headingCorrectionInterruptedRef.current = true;
     clearStableHeadingScrollTimeouts();
     pendingScrollDomIdRef.current = '';
+    requestedHeadingDomIdRef.current = '';
     pendingTopScrollRef.current = false;
   };
 
@@ -606,22 +608,13 @@ export default function WikiPageInner({ user }: Props) {
     headingCorrectionInterruptedRef.current = false;
 
     const normalizedHash = normalizeHashToDomId(hashLike);
+    requestedHeadingDomIdRef.current = normalizedHash;
     pendingScrollDomIdRef.current = normalizedHash;
 
-    // ✅ 이번 문서 이동에 명시적인 heading hash가 있으면
-    // top 이동은 끄고 heading 이동만 사용
     if (normalizedHash) {
       pendingTopScrollRef.current = false;
       clearStableHeadingScrollTimeouts();
       return;
-    }
-
-    // ✅ 이번 문서 이동에는 heading 요청이 없는데
-    // 이전 문서에서 남은 hash가 주소창에 있다면 지금 바로 제거
-    // 그래야 다음 resetTopScrollImmediatelyIfNeeded / hasPendingHeadingNavigation /
-    // 문서 오픈 후 effect가 stale hash를 현재 이동으로 오인하지 않음
-    if (!isPopNavigation) {
-      clearUrlHashIfPresent();
     }
 
     if (isPopNavigation) {
@@ -684,14 +677,6 @@ export default function WikiPageInner({ user }: Props) {
   }, []);
 
 
-  function clearUrlHashIfPresent() {
-    if (typeof window === 'undefined') return;
-    if (!window.location.hash) return;
-
-    const nextUrl = window.location.pathname + window.location.search;
-    window.history.replaceState(window.history.state, '', nextUrl);
-  }
-
   function normalizeHashToDomId(hashLike: string | null | undefined) {
     let h = String(hashLike ?? '').trim();
 
@@ -720,10 +705,7 @@ export default function WikiPageInner({ user }: Props) {
     if (direct) return true;
 
     if (pendingScrollDomIdRef.current) return true;
-
-    if (typeof window !== 'undefined') {
-      return !!normalizeHashToDomId(window.location.hash);
-    }
+    if (requestedHeadingDomIdRef.current) return true;
 
     return false;
   }
@@ -811,7 +793,7 @@ export default function WikiPageInner({ user }: Props) {
     if (!selectedDocId) return;
 
     const baseTarget =
-      pendingScrollDomIdRef.current || normalizeHashToDomId(window.location.hash);
+      pendingScrollDomIdRef.current || requestedHeadingDomIdRef.current;
 
     // heading 이동이 있으면 top 보정은 절대 사용하지 않음
     if (baseTarget) {
@@ -842,6 +824,7 @@ export default function WikiPageInner({ user }: Props) {
       for (const target of targets) {
         if (scrollToHeadingDomId(target, 72, { stable: true })) {
           pendingScrollDomIdRef.current = target;
+          requestedHeadingDomIdRef.current = target;
           pendingTopScrollRef.current = false;
           return true;
         }
@@ -1438,6 +1421,7 @@ export default function WikiPageInner({ user }: Props) {
       preparePendingScrollForOpen('', false);
     } else {
       pendingScrollDomIdRef.current = '';
+      requestedHeadingDomIdRef.current = '';
       pendingTopScrollRef.current = false;
     }
 
@@ -1657,6 +1641,7 @@ export default function WikiPageInner({ user }: Props) {
       preparePendingScrollForOpen('', false);
     } else {
       pendingScrollDomIdRef.current = '';
+      requestedHeadingDomIdRef.current = '';
       pendingTopScrollRef.current = false;
     }
 
@@ -2161,7 +2146,7 @@ export default function WikiPageInner({ user }: Props) {
     if (hold) return;
 
     const pendingHeading =
-      pendingScrollDomIdRef.current || normalizeHashToDomId(window.location.hash);
+      pendingScrollDomIdRef.current || requestedHeadingDomIdRef.current;
     const shouldScrollTop = pendingTopScrollRef.current;
     const cameFromPopNavigation = popNavigationRef.current;
 
@@ -2182,6 +2167,7 @@ export default function WikiPageInner({ user }: Props) {
 
         if (isHeadingAligned(pendingHeading, 72, 24)) {
           pendingScrollDomIdRef.current = '';
+          requestedHeadingDomIdRef.current = '';
           pendingTopScrollRef.current = false;
           return;
         }
@@ -2197,6 +2183,7 @@ export default function WikiPageInner({ user }: Props) {
         if (!ok || tries >= maxTries) {
           // 다음 문서 오픈에 stale heading이 남지 않게 정리
           pendingScrollDomIdRef.current = '';
+          requestedHeadingDomIdRef.current = '';
           pendingTopScrollRef.current = false;
         }
       };
