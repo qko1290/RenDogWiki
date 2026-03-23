@@ -4,7 +4,14 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faDollarSign, faScroll, faCube, faBoltLightning, faCalculator, faBookOpen } from '@fortawesome/free-solid-svg-icons';
+import {
+  faDollarSign,
+  faScroll,
+  faCube,
+  faBoltLightning,
+  faCalculator,
+  faBookOpen,
+} from '@fortawesome/free-solid-svg-icons';
 
 export type DocQuickBadgeItem = {
   icon: 'price' | 'quest' | 'head' | 'collection' | 'calc';
@@ -38,6 +45,35 @@ function iconByKey(key: DocQuickBadgeItem['icon']) {
   }
 }
 
+function detectDarkMode() {
+  if (typeof window === 'undefined') return false;
+
+  const html = document.documentElement;
+  const body = document.body;
+
+  const hasExplicitDark =
+    html.classList.contains('dark') ||
+    body?.classList.contains('dark') ||
+    html.getAttribute('data-theme') === 'dark' ||
+    body?.getAttribute('data-theme') === 'dark' ||
+    html.getAttribute('data-color-mode') === 'dark' ||
+    body?.getAttribute('data-color-mode') === 'dark';
+
+  if (hasExplicitDark) return true;
+
+  const hasExplicitLight =
+    html.classList.contains('light') ||
+    body?.classList.contains('light') ||
+    html.getAttribute('data-theme') === 'light' ||
+    body?.getAttribute('data-theme') === 'light' ||
+    html.getAttribute('data-color-mode') === 'light' ||
+    body?.getAttribute('data-color-mode') === 'light';
+
+  if (hasExplicitLight) return false;
+
+  return window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
 export default function DocQuickBadges({
   items,
   mainTitle = '바로가기',
@@ -51,6 +87,7 @@ export default function DocQuickBadges({
   const rootRef = useRef<HTMLDivElement | null>(null);
 
   const [open, setOpen] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   const [hoverLock, setHoverLock] = useState(false);
   const hoverLockTimerRef = useRef<number | null>(null);
@@ -68,6 +105,47 @@ export default function DocQuickBadges({
 
     router.push(item.href, { scroll: false });
   };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const apply = () => setIsDarkMode(detectDarkMode());
+    apply();
+
+    const html = document.documentElement;
+    const body = document.body;
+
+    const observer = new MutationObserver(() => apply());
+    observer.observe(html, {
+      attributes: true,
+      attributeFilter: ['class', 'data-theme', 'data-color-mode', 'style'],
+    });
+
+    if (body) {
+      observer.observe(body, {
+        attributes: true,
+        attributeFilter: ['class', 'data-theme', 'data-color-mode', 'style'],
+      });
+    }
+
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const onMediaChange = () => apply();
+
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', onMediaChange);
+    } else {
+      media.addListener(onMediaChange);
+    }
+
+    return () => {
+      observer.disconnect();
+      if (typeof media.removeEventListener === 'function') {
+        media.removeEventListener('change', onMediaChange);
+      } else {
+        media.removeListener(onMediaChange);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const wasOpen = prevOpenRef.current;
@@ -92,7 +170,6 @@ export default function DocQuickBadges({
     }
   }, [open, hoverCooldownMs]);
 
-  // hidden 상태가 되면 언마운트하지 않고 닫기만 한다.
   useEffect(() => {
     if (!hidden) return;
 
@@ -137,6 +214,16 @@ export default function DocQuickBadges({
     };
   }, [hidden]);
 
+  const badgeBaseBg = isDarkMode ? 'rgba(255, 255, 255, 0.96)' : 'rgb(20, 20, 20)';
+  const badgeBaseFg = isDarkMode ? '#111827' : '#ffffff';
+  const badgeBorder = isDarkMode ? '1px solid rgba(255, 255, 255, 0.55)' : '1px solid rgba(255, 255, 255, 0.08)';
+  const badgeShadow = isDarkMode
+    ? '0px 0px 24px rgba(0, 0, 0, 0.28)'
+    : '0px 0px 20px rgba(0, 0, 0, 0.164)';
+  const bubbleBg = isDarkMode ? 'rgba(255, 255, 255, 0.98)' : 'rgb(20, 20, 20)';
+  const bubbleFg = isDarkMode ? '#111827' : '#ffffff';
+  const bubbleBorder = isDarkMode ? '1px solid rgba(255, 255, 255, 0.55)' : '1px solid rgba(255, 255, 255, 0.08)';
+
   return (
     <div
       ref={rootRef}
@@ -147,6 +234,13 @@ export default function DocQuickBadges({
           ['--qbd-expand' as any]: `${expandWidth}px`,
           ['--qbd-hover-bg' as any]: hoverBg,
           ['--qbd-top' as any]: `${topOffset}px`,
+          ['--qbd-base-bg' as any]: badgeBaseBg,
+          ['--qbd-base-fg' as any]: badgeBaseFg,
+          ['--qbd-base-border' as any]: badgeBorder,
+          ['--qbd-base-shadow' as any]: badgeShadow,
+          ['--qbd-bubble-bg' as any]: bubbleBg,
+          ['--qbd-bubble-fg' as any]: bubbleFg,
+          ['--qbd-bubble-border' as any]: bubbleBorder,
         } as React.CSSProperties
       }
     >
@@ -173,7 +267,7 @@ export default function DocQuickBadges({
         바로가기
       </div>
 
-      {/* 3개: 아래로 펼침 */}
+      {/* 5개: 아래로 펼침 */}
       <div className="qbd-stack" aria-hidden={!open || hidden}>
         {stack.map((it, idx) => (
           <button
@@ -261,12 +355,15 @@ export default function DocQuickBadges({
           width: 46px;
           height: 46px;
           border-radius: 999px;
-          background-color: rgb(20, 20, 20);
-          box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.164);
-          transition: width 320ms cubic-bezier(0.22, 1, 0.36, 1),
+          background-color: var(--qbd-base-bg);
+          border: var(--qbd-base-border);
+          box-shadow: var(--qbd-base-shadow);
+          transition:
+            width 320ms cubic-bezier(0.22, 1, 0.36, 1),
             border-radius 320ms cubic-bezier(0.22, 1, 0.36, 1),
             background-color 240ms ease,
-            box-shadow 240ms ease;
+            box-shadow 240ms ease,
+            border-color 240ms ease;
         }
 
         .qbd-btn::after {
@@ -296,6 +393,7 @@ export default function DocQuickBadges({
           width: calc(46px + var(--qbd-expand));
           border-radius: 50px;
           background-color: var(--qbd-hover-bg);
+          border-color: transparent;
           box-shadow: 0px 0px 22px rgba(0, 0, 0, 0.22);
         }
 
@@ -315,9 +413,15 @@ export default function DocQuickBadges({
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          color: white;
+          color: var(--qbd-base-fg);
           font-size: 24px;
           z-index: 2;
+          transition: color 240ms ease;
+        }
+
+        .qbd-root:not(.hover-lock):not(.is-hidden) .qbd-btn:not(.qbd-main):hover .qbd-ic,
+        .qbd-root:not(.hover-lock):not(.is-hidden) .qbd-btn:not(.qbd-main):focus-visible .qbd-ic {
+          color: #fff;
         }
 
         .qbd-main.is-hidden {
@@ -340,8 +444,9 @@ export default function DocQuickBadges({
           left: 23px;
           top: 58px;
           transform: translateX(-50%);
-          background: rgb(20, 20, 20);
-          color: #fff;
+          background: var(--qbd-bubble-bg);
+          color: var(--qbd-bubble-fg);
+          border: var(--qbd-bubble-border);
           font-size: 13px;
           font-weight: 700;
           line-height: 1;
@@ -353,7 +458,10 @@ export default function DocQuickBadges({
           pointer-events: none;
           transition:
             opacity 220ms ease,
-            transform 220ms ease;
+            transform 220ms ease,
+            background-color 240ms ease,
+            color 240ms ease,
+            border-color 240ms ease;
         }
 
         .qbd-bubble::before {
@@ -361,8 +469,10 @@ export default function DocQuickBadges({
           content: '';
           width: 8px;
           height: 8px;
-          background: rgb(20, 20, 20);
-          top: -4px;
+          background: var(--qbd-bubble-bg);
+          border-left: var(--qbd-bubble-border);
+          border-top: var(--qbd-bubble-border);
+          top: -5px;
           left: 50%;
           transform: translateX(-50%) rotate(45deg);
         }
