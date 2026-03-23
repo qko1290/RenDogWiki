@@ -448,7 +448,7 @@ export default function DocQuickBadges({
           color: var(--qbd-bubble-fg);
           border: var(--qbd-bubble-border);
           font-size: 13px;
-          font-weight: 700;
+          font-weight: ${isDarkMode ? 900 : 700};
           line-height: 1;
           padding: 8px 12px;
           border-radius: 8px;
