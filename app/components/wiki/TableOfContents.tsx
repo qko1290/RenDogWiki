@@ -91,6 +91,26 @@ export default function TableOfContents({
   const programmaticUnlockTimerRef = useRef<number | null>(null);
   const programmaticStartedAtRef = useRef(0);
 
+  const tocAutoScrollCancelledRef = useRef(false);
+
+  const cancelTocAutoScroll = () => {
+    tocAutoScrollCancelledRef.current = true;
+    clearRetryTimeouts();
+    stopProgrammaticScrollSession();
+  };
+
+  const resetTocAutoScrollCancel = () => {
+    tocAutoScrollCancelledRef.current = false;
+  };
+
+  const hasActiveTocAutoScroll = () => {
+    return (
+      isProgrammaticScrollingRef.current ||
+      retryTimeoutsRef.current.length > 0 ||
+      stableScrollTimeoutsRef.current.length > 0
+    );
+  };
+
   // 동일 id에 발생 순번 부여
   const indexed = useMemo(() => {
     const seen: Record<string, number> = {};
@@ -243,23 +263,15 @@ export default function TableOfContents({
 
   useEffect(() => {
     const cancelIfUserInteracted = () => {
-      if (!isProgrammaticScrollingRef.current) return;
-
-      clearRetryTimeouts();
-      stopProgrammaticScrollSession();
+      if (!hasActiveTocAutoScroll()) return;
+      cancelTocAutoScroll();
     };
 
-    const onWheel = () => {
-      cancelIfUserInteracted();
-    };
-
-    const onTouchMove = () => {
-      cancelIfUserInteracted();
-    };
-
-    const onPointerDown = () => {
-      cancelIfUserInteracted();
-    };
+    const onWheel = () => cancelIfUserInteracted();
+    const onTouchMove = () => cancelIfUserInteracted();
+    const onTouchStart = () => cancelIfUserInteracted();
+    const onPointerDown = () => cancelIfUserInteracted();
+    const onMouseDown = () => cancelIfUserInteracted();
 
     const onKeyDown = (e: KeyboardEvent) => {
       const k = e.key;
@@ -279,13 +291,17 @@ export default function TableOfContents({
 
     window.addEventListener('wheel', onWheel, { passive: true });
     window.addEventListener('touchmove', onTouchMove, { passive: true });
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
     window.addEventListener('pointerdown', onPointerDown, { passive: true });
+    window.addEventListener('mousedown', onMouseDown, { passive: true });
     window.addEventListener('keydown', onKeyDown);
 
     return () => {
       window.removeEventListener('wheel', onWheel);
       window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchstart', onTouchStart);
       window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('mousedown', onMouseDown);
       window.removeEventListener('keydown', onKeyDown);
     };
   }, []);
@@ -413,6 +429,8 @@ export default function TableOfContents({
 
     for (const step of steps) {
       const timerId = window.setTimeout(() => {
+        if (tocAutoScrollCancelledRef.current) return;
+
         const metrics = getScrollMetricsForDomId(domId, root ?? resolveRootEl());
         if (!metrics) return;
 
@@ -437,6 +455,7 @@ export default function TableOfContents({
     const updateHash = options?.updateHash ?? true;
     const lockProgrammatic = options?.lockProgrammatic ?? (behavior === 'smooth');
 
+    resetTocAutoScrollCancel();
     const metrics = getScrollMetricsForDomId(domId);
     if (!metrics) return false;
 
@@ -467,7 +486,7 @@ export default function TableOfContents({
     setActiveId(domId);
     if (idx !== -1) setActiveIndex(idx);
 
-    const shouldLockProgrammatic = lockProgrammatic && actualBehavior === 'smooth';
+    const shouldLockProgrammatic = lockProgrammatic;
     if (shouldLockProgrammatic) {
       startProgrammaticScrollLock(domId);
     }
@@ -481,8 +500,11 @@ export default function TableOfContents({
     options?: { stable?: boolean; updateHash?: boolean; lockProgrammatic?: boolean },
   ) => {
     clearRetryTimeouts();
+    resetTocAutoScrollCancel();
 
     const tryScroll = (candidate: string) => {
+      if (tocAutoScrollCancelledRef.current) return false;
+
       const latestRoot = resolveRootEl();
       if (latestRoot !== rootRef.current) {
         rootRef.current = latestRoot;
@@ -511,8 +533,11 @@ export default function TableOfContents({
     if (tryScroll(domId)) return;
 
     const delays = getRetryDelays(behavior);
+
     for (const delay of delays) {
       const timerId = window.setTimeout(() => {
+        if (tocAutoScrollCancelledRef.current) return;
+
         if (tryScroll(domId)) {
           clearRetryTimeouts();
           return;

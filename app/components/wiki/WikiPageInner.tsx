@@ -506,6 +506,7 @@ export default function WikiPageInner({ user }: Props) {
   const cancelHeadingScrollCorrection = () => {
     headingCorrectionInterruptedRef.current = true;
     clearStableHeadingScrollTimeouts();
+    pendingScrollDomIdRef.current = '';
     pendingTopScrollRef.current = false;
   };
 
@@ -514,6 +515,14 @@ export default function WikiPageInner({ user }: Props) {
       window.clearTimeout(id);
     }
     stableHeadingScrollTimeoutsRef.current = [];
+  };
+
+  const hasActiveHeadingAutoScroll = () => {
+    return (
+      stableHeadingScrollTimeoutsRef.current.length > 0 ||
+      !!pendingScrollDomIdRef.current ||
+      pendingTopScrollRef.current
+    );
   };
 
   function isVerticallyScrollable(el: HTMLElement | null): boolean {
@@ -734,7 +743,6 @@ export default function WikiPageInner({ user }: Props) {
     if (!ok) return false;
 
     if (stable) {
-      headingCorrectionInterruptedRef.current = false;
       clearStableHeadingScrollTimeouts();
 
       const correctionDelays = [120, 320, 760, 1450, 2200];
@@ -756,65 +764,6 @@ export default function WikiPageInner({ user }: Props) {
   }
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!selectedDocId) return;
-
-    const baseTarget =
-      pendingScrollDomIdRef.current || normalizeHashToDomId(window.location.hash);
-
-    if (!baseTarget) {
-      if (pendingTopScrollRef.current) {
-        clearStableHeadingScrollTimeouts();
-        scheduleTopScrollCorrection();
-        pendingTopScrollRef.current = false;
-      }
-      return;
-    }
-
-    let cancelled = false;
-    const timerIds: number[] = [];
-    const targets = baseTarget.includes('--')
-      ? [baseTarget]
-      : [baseTarget, `${baseTarget}--0`];
-
-    const delays = [0, 80, 180, 320, 520, 820, 1200, 1800, 2600, 3600];
-
-    const tryScroll = () => {
-      if (cancelled) return false;
-
-      for (const target of targets) {
-        if (scrollToHeadingDomId(target, 72, { stable: true })) {
-          pendingScrollDomIdRef.current = target;
-          pendingTopScrollRef.current = false;
-          return true;
-        }
-      }
-
-      return false;
-    };
-
-    if (tryScroll()) {
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    for (const delay of delays) {
-      const id = window.setTimeout(() => {
-        if (tryScroll()) {
-          for (const tid of timerIds) window.clearTimeout(tid);
-        }
-      }, delay);
-      timerIds.push(id);
-    }
-
-    return () => {
-      cancelled = true;
-      for (const id of timerIds) window.clearTimeout(id);
-    };
-  }, [selectedDocId, docContent, tableOfContents.length]);
-
-  useEffect(() => {
     return () => {
       clearStableHeadingScrollTimeouts();
     };
@@ -822,21 +771,15 @@ export default function WikiPageInner({ user }: Props) {
 
   useEffect(() => {
     const cancelIfUserInteracted = () => {
-      if (stableHeadingScrollTimeoutsRef.current.length === 0) return;
+      if (!hasActiveHeadingAutoScroll()) return;
       cancelHeadingScrollCorrection();
     };
 
-    const onWheel = () => {
-      cancelIfUserInteracted();
-    };
-
-    const onTouchMove = () => {
-      cancelIfUserInteracted();
-    };
-
-    const onPointerDown = () => {
-      cancelIfUserInteracted();
-    };
+    const onWheel = () => cancelIfUserInteracted();
+    const onTouchMove = () => cancelIfUserInteracted();
+    const onTouchStart = () => cancelIfUserInteracted();
+    const onPointerDown = () => cancelIfUserInteracted();
+    const onMouseDown = () => cancelIfUserInteracted();
 
     const onKeyDown = (e: KeyboardEvent) => {
       const k = e.key;
@@ -856,13 +799,17 @@ export default function WikiPageInner({ user }: Props) {
 
     window.addEventListener('wheel', onWheel, { passive: true });
     window.addEventListener('touchmove', onTouchMove, { passive: true });
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
     window.addEventListener('pointerdown', onPointerDown, { passive: true });
+    window.addEventListener('mousedown', onMouseDown, { passive: true });
     window.addEventListener('keydown', onKeyDown);
 
     return () => {
       window.removeEventListener('wheel', onWheel);
       window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchstart', onTouchStart);
       window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('mousedown', onMouseDown);
       window.removeEventListener('keydown', onKeyDown);
     };
   }, []);
@@ -2118,6 +2065,12 @@ export default function WikiPageInner({ user }: Props) {
       const maxTries = 90;
 
       const tick = () => {
+        if (headingCorrectionInterruptedRef.current) {
+          pendingScrollDomIdRef.current = '';
+          pendingTopScrollRef.current = false;
+          return;
+        }
+
         tries += 1;
 
         if (isHeadingAligned(pendingHeading, 72, 24)) {
@@ -2129,15 +2082,19 @@ export default function WikiPageInner({ user }: Props) {
         clearStableHeadingScrollTimeouts();
         const ok = scrollToHeadingDomId(pendingHeading, 72, { stable: true });
 
+        if (headingCorrectionInterruptedRef.current) {
+          pendingScrollDomIdRef.current = '';
+          pendingTopScrollRef.current = false;
+          return;
+        }
+
         if (ok && tries < maxTries) {
           requestAnimationFrame(tick);
           return;
         }
 
-        if (!ok || tries >= maxTries) {
-          // 다음 문서 오픈에 stale heading이 남지 않게 정리
-          pendingScrollDomIdRef.current = '';
-        }
+        pendingScrollDomIdRef.current = '';
+        pendingTopScrollRef.current = false;
       };
 
       requestAnimationFrame(() => requestAnimationFrame(tick));
@@ -2158,6 +2115,7 @@ export default function WikiPageInner({ user }: Props) {
       scrollDocumentToTop();
 
       requestAnimationFrame(() => {
+        if (headingCorrectionInterruptedRef.current) return;
         scrollDocumentToTop();
         scheduleTopScrollCorrection();
       });
