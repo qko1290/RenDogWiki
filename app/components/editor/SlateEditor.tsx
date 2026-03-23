@@ -186,6 +186,8 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     return editor;
   };
 
+  const [editorKey, setEditorKey] = useState(0);
+
   const editor = useMemo(() => {
     // ✅ 커스텀 플러그인 묶는 순서: React → History → inline/void → weapon-card 플러그인
     const e = withWeaponBlocks(
@@ -224,7 +226,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     };
 
     return e;
-  }, []);
+  }, [editorKey]);
 
   // ✅ FIX: 안전한 Path 체크/셀렉트 헬퍼 (드래그 삭제로 path가 날아가면 여기서 방어)
   const safeHasPath = useCallback((p: Path | null) => {
@@ -249,7 +251,6 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
   // 상태
   const selectionRef = useRef<Range | null>(null);    // 최근 커서(에디터 onChange에서 갱신)
   const savedSelectionRef = useRef<Range | null>(null); // 모달 열기 시점 커서 저장
-  const [editorKey, setEditorKey] = useState(0);
   const [isIconModalOpen, setIsIconModalOpen] = useState(false);
   const [iconEditTarget, setIconEditTarget] = useState<CustomElement | null>(null);
   const [moveCursorPending, setMoveCursorPending] = useState(false);
@@ -496,19 +497,28 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
 
     const recoveredContent = normalizeContentForDraft(target.snapshot);
 
+    try {
+      Transforms.deselect(editor);
+    } catch {
+      /* ignore */
+    }
+
+    try {
+      (editor as any).selection = null;
+    } catch {
+      /* ignore */
+    }
+
+    selectionRef.current = null;
+    savedSelectionRef.current = null;
+    setMoveCursorPending(false);
+    setLastLinkPath(null);
+
     setDoc(prev => ({
       ...prev,
       content: recoveredContent,
     }));
     setEditorKey(prev => prev + 1);
-
-    requestAnimationFrame(() => {
-      try {
-        ReactEditor.focus(editor);
-      } catch {
-        /* ignore */
-      }
-    });
 
     alert(`${slotNumber}번 임시 저장 슬롯의 본문을 불러왔습니다.`);
   }, [draftSlots, normalizeContentForDraft, editor]);
@@ -699,6 +709,23 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
 
   // 문서 초기값 반영
   useEffect(() => {
+    try {
+      Transforms.deselect(editor);
+    } catch {
+      /* ignore */
+    }
+
+    try {
+      (editor as any).selection = null;
+    } catch {
+      /* ignore */
+    }
+
+    selectionRef.current = null;
+    savedSelectionRef.current = null;
+    setMoveCursorPending(false);
+    setLastLinkPath(null);
+
     setDoc({
       id: initialDoc?.id ?? undefined,
       title: initialDoc?.title ?? '',
@@ -715,7 +742,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
 
     serverContentJsonRef.current = serializeContentForDraft(initialDoc?.content);
     draftBaselineReadyRef.current = true;
-  }, [initialDoc, serializeContentForDraft]);
+  }, [initialDoc, serializeContentForDraft, editor]);
 
   // Backspace 뒤로가기 방지
   useEffect(() => {
