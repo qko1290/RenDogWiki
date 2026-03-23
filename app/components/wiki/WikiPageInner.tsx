@@ -725,7 +725,7 @@ export default function WikiPageInner({ user }: Props) {
     if (stable) {
       clearStableHeadingScrollTimeouts();
 
-      const correctionDelays = [120, 320, 760, 1450, 2200];
+      const correctionDelays = [80, 180, 320, 520, 820, 1200, 1800, 2600, 3600];
 
       for (const delay of correctionDelays) {
         const timerId = window.setTimeout(() => {
@@ -740,6 +740,65 @@ export default function WikiPageInner({ user }: Props) {
 
     return true;
   }
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!selectedDocId) return;
+
+    const baseTarget =
+      pendingScrollDomIdRef.current || normalizeHashToDomId(window.location.hash);
+
+    if (!baseTarget) {
+      if (pendingTopScrollRef.current) {
+        clearStableHeadingScrollTimeouts();
+        scheduleTopScrollCorrection();
+        pendingTopScrollRef.current = false;
+      }
+      return;
+    }
+
+    let cancelled = false;
+    const timerIds: number[] = [];
+    const targets = baseTarget.includes('--')
+      ? [baseTarget]
+      : [baseTarget, `${baseTarget}--0`];
+
+    const delays = [0, 80, 180, 320, 520, 820, 1200, 1800, 2600, 3600];
+
+    const tryScroll = () => {
+      if (cancelled) return false;
+
+      for (const target of targets) {
+        if (scrollToHeadingDomId(target, 72, { stable: true })) {
+          pendingScrollDomIdRef.current = target;
+          pendingTopScrollRef.current = false;
+          return true;
+        }
+      }
+
+      return false;
+    };
+
+    if (tryScroll()) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    for (const delay of delays) {
+      const id = window.setTimeout(() => {
+        if (tryScroll()) {
+          for (const tid of timerIds) window.clearTimeout(tid);
+        }
+      }, delay);
+      timerIds.push(id);
+    }
+
+    return () => {
+      cancelled = true;
+      for (const id of timerIds) window.clearTimeout(id);
+    };
+  }, [selectedDocId, docContent, tableOfContents.length]);
 
   useEffect(() => {
     return () => {

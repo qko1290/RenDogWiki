@@ -146,11 +146,9 @@ export default function TableOfContents({
     programmaticStartedAtRef.current = performance.now();
     clearProgrammaticUnlockTimer();
 
-    // 너무 오래 붙잡고 있지 않도록 줄이고,
-    // 끝날 때는 보정 타이머도 같이 정리
     programmaticUnlockTimerRef.current = window.setTimeout(() => {
       stopProgrammaticScrollSession();
-    }, 1800);
+    }, 4200);
   };
 
   const setActiveByClosest = () => {
@@ -382,23 +380,32 @@ export default function TableOfContents({
 
   const getStableCorrectionSteps = (initialBehavior: ScrollBehavior): StableStep[] => {
     if (initialBehavior === 'smooth') {
-      // 내부 클릭은 부드러움을 우선
       return [
-        { delay: 720, threshold: 56, behavior: 'smooth' },
-        { delay: 1450, threshold: 18, behavior: 'smooth' },
-        { delay: 2350, threshold: 8, behavior: 'auto' },
+        { delay: 90, threshold: 160, behavior: 'auto' },
+        { delay: 260, threshold: 112, behavior: 'auto' },
+        { delay: 620, threshold: 64, behavior: 'smooth' },
+        { delay: 1100, threshold: 28, behavior: 'smooth' },
+        { delay: 1800, threshold: 14, behavior: 'auto' },
+        { delay: 2800, threshold: 8, behavior: 'auto' },
+        { delay: 3800, threshold: 4, behavior: 'auto' },
       ];
     }
 
-    // 해시 진입은 체감보다 정확도 우선
     return [
-      { delay: 120, threshold: 28, behavior: 'auto' },
-      { delay: 320, threshold: 18, behavior: 'auto' },
-      { delay: 760, threshold: 10, behavior: 'auto' },
-      { delay: 1450, threshold: 6, behavior: 'auto' },
+      { delay: 80, threshold: 80, behavior: 'auto' },
+      { delay: 180, threshold: 40, behavior: 'auto' },
+      { delay: 360, threshold: 24, behavior: 'auto' },
+      { delay: 700, threshold: 14, behavior: 'auto' },
+      { delay: 1200, threshold: 8, behavior: 'auto' },
       { delay: 2200, threshold: 4, behavior: 'auto' },
+      { delay: 3200, threshold: 2, behavior: 'auto' },
     ];
   };
+
+  const getRetryDelays = (behavior: ScrollBehavior) =>
+  behavior === 'smooth'
+    ? [80, 180, 320, 520, 820, 1200, 1800, 2600, 3600]
+    : [50, 120, 220, 360, 560, 860, 1200, 1800, 2600, 3600];
 
   const scheduleStableScrollCorrection = (
     domId: string,
@@ -429,11 +436,7 @@ export default function TableOfContents({
   const scrollToDomId = (
     domId: string,
     behavior: ScrollBehavior = 'smooth',
-    options?: {
-      stable?: boolean;
-      updateHash?: boolean;
-      lockProgrammatic?: boolean;
-    },
+    options?: { stable?: boolean; updateHash?: boolean; lockProgrammatic?: boolean },
   ): boolean => {
     const stable = options?.stable ?? true;
     const updateHash = options?.updateHash ?? true;
@@ -442,10 +445,17 @@ export default function TableOfContents({
     const metrics = getScrollMetricsForDomId(domId);
     if (!metrics) return false;
 
-    applyScrollTop(metrics.root, metrics.top, behavior);
+    const currentTop = metrics.root ? metrics.root.scrollTop : window.scrollY;
+    const delta = Math.abs(metrics.top - currentTop);
+
+    // 긴 거리에서는 브라우저 smooth 한 번에만 맡기지 말고 즉시 점프 + 보정으로 처리
+    const actualBehavior: ScrollBehavior =
+      behavior === 'smooth' && delta > 2400 ? 'auto' : behavior;
+
+    applyScrollTop(metrics.root, metrics.top, actualBehavior);
 
     if (stable) {
-      scheduleStableScrollCorrection(domId, metrics.root, behavior);
+      scheduleStableScrollCorrection(domId, metrics.root, actualBehavior);
     }
 
     if (updateHash) {
@@ -462,14 +472,19 @@ export default function TableOfContents({
     setActiveId(domId);
     if (idx !== -1) setActiveIndex(idx);
 
-    if (lockProgrammatic) {
+    const shouldLockProgrammatic = lockProgrammatic && actualBehavior === 'smooth';
+    if (shouldLockProgrammatic) {
       startProgrammaticScrollLock(domId);
     }
 
     return true;
   };
 
-  const scrollToDomIdWithRetry = (domId: string, behavior: ScrollBehavior = 'smooth') => {
+  const scrollToDomIdWithRetry = (
+    domId: string,
+    behavior: ScrollBehavior = 'smooth',
+    options?: { stable?: boolean; updateHash?: boolean; lockProgrammatic?: boolean },
+  ) => {
     clearRetryTimeouts();
 
     const tryScroll = (candidate: string) => {
@@ -479,18 +494,18 @@ export default function TableOfContents({
       }
 
       const ok = scrollToDomId(candidate, behavior, {
-        stable: true,
-        updateHash: true,
-        lockProgrammatic: behavior === 'smooth',
+        stable: options?.stable ?? true,
+        updateHash: options?.updateHash ?? true,
+        lockProgrammatic: options?.lockProgrammatic ?? (behavior === 'smooth'),
       });
       if (ok) return true;
 
       if (!candidate.includes('--')) {
         const fallback = `${candidate}--0`;
         const fallbackOk = scrollToDomId(fallback, behavior, {
-          stable: true,
-          updateHash: true,
-          lockProgrammatic: behavior === 'smooth',
+          stable: options?.stable ?? true,
+          updateHash: options?.updateHash ?? true,
+          lockProgrammatic: options?.lockProgrammatic ?? (behavior === 'smooth'),
         });
         if (fallbackOk) return true;
       }
@@ -500,8 +515,7 @@ export default function TableOfContents({
 
     if (tryScroll(domId)) return;
 
-    const delays = [80, 180, 320];
-
+    const delays = getRetryDelays(behavior);
     for (const delay of delays) {
       const timerId = window.setTimeout(() => {
         if (tryScroll(domId)) {
@@ -677,37 +691,15 @@ export default function TableOfContents({
     const hash = decodeURIComponent(rawHash).replace(/^#/, '');
     if (!hash) return;
 
-    const tryScroll = (h: string) => {
-      const ok = scrollToDomId(h, 'auto', {
-        stable: true,
-        updateHash: false,
-        lockProgrammatic: false,
-      });
-      if (ok) {
-        setActiveDomId(h);
-        setActiveId(h);
-        const idx = indexed.findIndex((x) => x.domId === h);
-        if (idx !== -1) setActiveIndex(idx);
-      }
-      return ok;
-    };
-
-    const raf = requestAnimationFrame(() => {
-      if (tryScroll(hash)) return;
-
-      if (!hash.includes('--') && tryScroll(`${hash}--0`)) return;
-
-      setTimeout(() => {
-        if (tryScroll(hash)) return;
-        if (!hash.includes('--') && tryScroll(`${hash}--0`)) return;
-        setTimeout(() => {
-          tryScroll(hash);
-          if (!hash.includes('--')) tryScroll(`${hash}--0`);
-        }, 180);
-      }, 120);
+    scrollToDomIdWithRetry(hash, 'auto', {
+      stable: true,
+      updateHash: false,
+      lockProgrammatic: false,
     });
 
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      clearRetryTimeouts();
+    };
   }, [indexed, rootKey]);
 
   useEffect(() => {
