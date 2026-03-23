@@ -288,17 +288,25 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
 
   const [tagInput, setTagInput] = useState(doc.tags.join(', '));
 
-  const normalizeDocForDraft = useCallback((value: Partial<DocState> | null | undefined): DocState => ({
-    id: typeof value?.id === 'number' ? value.id : undefined,
-    title: String(value?.title ?? ''),
-    path: String(value?.path ?? ''),
-    icon: String(value?.icon ?? ''),
-    tags: Array.isArray(value?.tags) ? value.tags.map(v => String(v)) : [],
-    content:
-      Array.isArray(value?.content) && value.content.length > 0
-        ? (value.content as Descendant[])
-        : EMPTY_INITIAL_VALUE,
-  }), []);
+  const normalizeDocForDraft = useCallback(
+    (value: Partial<DocState> | null | undefined): DocState => {
+      const rawTags = value?.tags;
+      const rawContent = value?.content;
+
+      return {
+        id: typeof value?.id === 'number' ? value.id : undefined,
+        title: String(value?.title ?? ''),
+        path: String(value?.path ?? ''),
+        icon: String(value?.icon ?? ''),
+        tags: Array.isArray(rawTags) ? rawTags.map((v) => String(v)) : [],
+        content:
+          Array.isArray(rawContent) && rawContent.length > 0
+            ? (rawContent as Descendant[])
+            : EMPTY_INITIAL_VALUE,
+      };
+    },
+    []
+  );
 
   const serializeDocForDraft = useCallback(
     (value: Partial<DocState> | null | undefined) => JSON.stringify(normalizeDocForDraft(value)),
