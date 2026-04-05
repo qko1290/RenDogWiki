@@ -127,6 +127,112 @@ const ExternalLinkIcon: React.FC<{ size?: number }> = ({ size = 18 }) => (
   </svg>
 );
 
+type FootnoteInlineProps = {
+  label: string;
+  content: string;
+};
+
+const FootnoteInline: React.FC<FootnoteInlineProps> = ({ label, content }) => {
+  const [open, setOpen] = useState(false);
+
+  const safeLabel = String(label ?? '').trim() || '각주';
+  const safeContent = String(content ?? '').trim();
+  const hasContent = safeContent.length > 0;
+
+  return (
+    <span
+      onMouseEnter={() => {
+        if (hasContent) setOpen(true);
+      }}
+      onMouseLeave={() => setOpen(false)}
+      onFocus={() => {
+        if (hasContent) setOpen(true);
+      }}
+      onBlur={() => setOpen(false)}
+      tabIndex={hasContent ? 0 : -1}
+      aria-label={hasContent ? `각주: ${safeContent}` : `각주 ${safeLabel}`}
+      style={{
+        position: 'relative',
+        display: 'inline-block',
+        verticalAlign: 'super',
+        top: '-0.05em',
+        marginLeft: 1,
+        marginRight: 1,
+        padding: 0,
+        background: 'transparent',
+        color: '#2676ff',
+        fontSize: '12px',
+        fontWeight: 500,
+        lineHeight: 1,
+        letterSpacing: 0,
+        whiteSpace: 'nowrap',
+        cursor: hasContent ? 'help' : 'default',
+      }}
+    >
+      [{safeLabel}]
+
+      {hasContent && (
+        <span
+          role="tooltip"
+          aria-hidden={!open}
+          style={{
+            pointerEvents: 'none',
+            position: 'absolute',
+            left: '50%',
+            bottom: 'calc(100% + 10px)',
+            transform: open
+              ? 'translate(-50%, 0)'
+              : 'translate(-50%, 4px)',
+            opacity: open ? 1 : 0,
+            visibility: open ? 'visible' : 'hidden',
+            zIndex: 80,
+
+            width: 'max-content',
+            minWidth: 120,
+            maxWidth: 340,
+            whiteSpace: 'normal',
+            wordBreak: 'keep-all',
+            overflowWrap: 'break-word',
+
+            padding: '10px 12px',
+            borderRadius: 12,
+            border: '1px solid var(--border)',
+            background: 'var(--surface-elevated)',
+            color: 'var(--foreground)',
+            boxShadow: 'var(--shadow-lg)',
+
+            fontSize: 13,
+            fontWeight: 500,
+            lineHeight: 1.55,
+            letterSpacing: '-0.1px',
+            textAlign: 'left',
+
+            transition:
+              'opacity .15s ease, transform .15s ease, visibility .15s ease',
+          }}
+        >
+          {safeContent}
+
+          <span
+            aria-hidden
+            style={{
+              position: 'absolute',
+              left: '50%',
+              bottom: -7,
+              width: 12,
+              height: 12,
+              transform: 'translateX(-50%) rotate(45deg)',
+              background: 'var(--surface-elevated)',
+              borderRight: '1px solid var(--border)',
+              borderBottom: '1px solid var(--border)',
+            }}
+          />
+        </span>
+      )}
+    </span>
+  );
+};
+
 type HeadingAnchorButtonProps = {
   anchorId: string;
 };
@@ -3468,6 +3574,13 @@ function renderNode(
           {node.icon}
         </span>
       );
+    
+    case "footnote": {
+      const label = String((node as any).label ?? "").trim() || "각주";
+      const content = String((node as any).content ?? "").trim();
+
+      return <FootnoteInline label={label} content={content} />;
+    }
 
     case "price-table-card": {
       if (!Array.isArray(node.items)) return <div key={key}></div>;
