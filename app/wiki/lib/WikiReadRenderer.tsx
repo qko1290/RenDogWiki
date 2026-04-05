@@ -133,40 +133,169 @@ type FootnoteInlineProps = {
 };
 
 const FootnoteInline: React.FC<FootnoteInlineProps> = ({ label, content }) => {
+  const rootRef = useRef<HTMLSpanElement | null>(null);
   const [open, setOpen] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
 
-  const safeLabel = String(label ?? '').trim() || '각주';
-  const safeContent = String(content ?? '').trim();
+  const safeLabel = String(label ?? "").trim() || "각주";
+  const safeContent = String(content ?? "").trim();
   const hasContent = safeContent.length > 0;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mq = window.matchMedia("(max-width: 768px)");
+
+    const apply = () => setIsMobileViewport(mq.matches);
+    apply();
+
+    if (typeof mq.addEventListener === "function") {
+      mq.addEventListener("change", apply);
+      return () => mq.removeEventListener("change", apply);
+    }
+
+    mq.addListener(apply);
+    return () => mq.removeListener(apply);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const handlePointerDown = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as Node | null;
+      if (!rootRef.current || !target) return;
+      if (!rootRef.current.contains(target)) {
+        setOpen(false);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown, { passive: true });
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  const openDesktop = () => {
+    if (!hasContent || isMobileViewport) return;
+    setOpen(true);
+  };
+
+  const closeDesktop = () => {
+    if (isMobileViewport) return;
+    setOpen(false);
+  };
+
+  const toggleMobile = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!hasContent || !isMobileViewport) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setOpen((prev) => !prev);
+  };
+
+  const desktopTooltipStyle: React.CSSProperties = {
+    pointerEvents: "none",
+    position: "absolute",
+    left: "50%",
+    bottom: "calc(100% + 10px)",
+    transform: open ? "translate(-50%, 0)" : "translate(-50%, 4px)",
+    opacity: open ? 1 : 0,
+    visibility: open ? "visible" : "hidden",
+    zIndex: 80,
+
+    width: "max-content",
+    minWidth: 120,
+    maxWidth: 340,
+    whiteSpace: "normal",
+    wordBreak: "keep-all",
+    overflowWrap: "break-word",
+
+    padding: "10px 12px",
+    borderRadius: 12,
+    border: "1px solid var(--border)",
+    background: "var(--surface-elevated)",
+    color: "var(--foreground)",
+    boxShadow: "var(--shadow-lg)",
+
+    fontSize: 13,
+    fontWeight: 500,
+    lineHeight: 1.55,
+    letterSpacing: "-0.1px",
+    textAlign: "left",
+
+    transition: "opacity .15s ease, transform .15s ease, visibility .15s ease",
+  };
+
+  const mobileTooltipStyle: React.CSSProperties = {
+    pointerEvents: "none",
+    position: "fixed",
+    left: "50%",
+    bottom: 88,
+    transform: open ? "translate(-50%, 0)" : "translate(-50%, 8px)",
+    opacity: open ? 1 : 0,
+    visibility: open ? "visible" : "hidden",
+    zIndex: 9999,
+
+    width: "calc(100vw - 32px)",
+    maxWidth: 360,
+    whiteSpace: "normal",
+    wordBreak: "keep-all",
+    overflowWrap: "break-word",
+
+    padding: "12px 14px",
+    borderRadius: 14,
+    border: "1px solid var(--border)",
+    background: "var(--surface-elevated)",
+    color: "var(--foreground)",
+    boxShadow: "var(--shadow-lg)",
+
+    fontSize: 13,
+    fontWeight: 500,
+    lineHeight: 1.6,
+    letterSpacing: "-0.1px",
+    textAlign: "left",
+
+    transition: "opacity .16s ease, transform .16s ease, visibility .16s ease",
+  };
 
   return (
     <span
-      onMouseEnter={() => {
-        if (hasContent) setOpen(true);
-      }}
-      onMouseLeave={() => setOpen(false)}
-      onFocus={() => {
-        if (hasContent) setOpen(true);
-      }}
-      onBlur={() => setOpen(false)}
+      ref={rootRef}
+      onMouseEnter={openDesktop}
+      onMouseLeave={closeDesktop}
+      onFocus={openDesktop}
+      onBlur={closeDesktop}
+      onClick={toggleMobile}
+      onTouchStart={toggleMobile}
       tabIndex={hasContent ? 0 : -1}
       aria-label={hasContent ? `각주: ${safeContent}` : `각주 ${safeLabel}`}
       style={{
-        position: 'relative',
-        display: 'inline-block',
-        verticalAlign: 'super',
-        top: '-0.05em',
+        position: "relative",
+        display: "inline-block",
+        verticalAlign: "super",
+        top: "-0.05em",
         marginLeft: 1,
         marginRight: 1,
         padding: 0,
-        background: 'transparent',
-        color: '#2676ff',
-        fontSize: '12px',
+        background: "transparent",
+        color: "#2676ff",
+        fontSize: "12px",
         fontWeight: 500,
         lineHeight: 1,
         letterSpacing: 0,
-        whiteSpace: 'nowrap',
-        cursor: hasContent ? 'help' : 'default',
+        whiteSpace: "nowrap",
+        cursor: hasContent ? (isMobileViewport ? "pointer" : "help") : "default",
+        WebkitTapHighlightColor: "transparent",
       }}
     >
       [{safeLabel}]
@@ -175,58 +304,26 @@ const FootnoteInline: React.FC<FootnoteInlineProps> = ({ label, content }) => {
         <span
           role="tooltip"
           aria-hidden={!open}
-          style={{
-            pointerEvents: 'none',
-            position: 'absolute',
-            left: '50%',
-            bottom: 'calc(100% + 10px)',
-            transform: open
-              ? 'translate(-50%, 0)'
-              : 'translate(-50%, 4px)',
-            opacity: open ? 1 : 0,
-            visibility: open ? 'visible' : 'hidden',
-            zIndex: 80,
-
-            width: 'max-content',
-            minWidth: 120,
-            maxWidth: 340,
-            whiteSpace: 'normal',
-            wordBreak: 'keep-all',
-            overflowWrap: 'break-word',
-
-            padding: '10px 12px',
-            borderRadius: 12,
-            border: '1px solid var(--border)',
-            background: 'var(--surface-elevated)',
-            color: 'var(--foreground)',
-            boxShadow: 'var(--shadow-lg)',
-
-            fontSize: 13,
-            fontWeight: 500,
-            lineHeight: 1.55,
-            letterSpacing: '-0.1px',
-            textAlign: 'left',
-
-            transition:
-              'opacity .15s ease, transform .15s ease, visibility .15s ease',
-          }}
+          style={isMobileViewport ? mobileTooltipStyle : desktopTooltipStyle}
         >
           {safeContent}
 
-          <span
-            aria-hidden
-            style={{
-              position: 'absolute',
-              left: '50%',
-              bottom: -7,
-              width: 12,
-              height: 12,
-              transform: 'translateX(-50%) rotate(45deg)',
-              background: 'var(--surface-elevated)',
-              borderRight: '1px solid var(--border)',
-              borderBottom: '1px solid var(--border)',
-            }}
-          />
+          {!isMobileViewport && (
+            <span
+              aria-hidden
+              style={{
+                position: "absolute",
+                left: "50%",
+                bottom: -7,
+                width: 12,
+                height: 12,
+                transform: "translateX(-50%) rotate(45deg)",
+                background: "var(--surface-elevated)",
+                borderRight: "1px solid var(--border)",
+                borderBottom: "1px solid var(--border)",
+              }}
+            />
+          )}
         </span>
       )}
     </span>
