@@ -19,6 +19,7 @@ import { extractHeadings } from '@/wiki/lib/extractHeadings';
 import type {
   InlineMarkElement,
   InlineImageElement,
+  FootnoteElement,
   PriceTableCardElement,
   CustomElement,
   LinkBlockElement,
@@ -866,6 +867,7 @@ const Element: React.FC<ElementRenderProps> = ({
   onIconClick,
   priceTableEdit,
   setPriceTableEdit,
+  openFootnoteEditor,
   readOnly,
   onWikiRefClick,
   onOpenWikiRef,
@@ -1309,6 +1311,52 @@ const Element: React.FC<ElementRenderProps> = ({
           className="inline-mark"
         >
           {el.icon}
+          {children}
+        </span>
+      );
+    }
+
+    // -------------------- 각주 (inline void) --------------------
+    case 'footnote': {
+      const el = element as FootnoteElement;
+
+      return (
+        <span
+          {...attributes}
+          contentEditable={false}
+          suppressContentEditableWarning
+          data-footnote="true"
+          title="우클릭하여 각주 수정"
+          onContextMenu={(e) => {
+            if (!openFootnoteEditor) return;
+            e.preventDefault();
+            e.stopPropagation();
+
+            try {
+              const path = ReactEditor.findPath(slateEditor, element);
+              openFootnoteEditor(path, el);
+            } catch {
+              // path 찾기 실패 시 조용히 무시
+            }
+          }}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            verticalAlign: 'middle',
+            padding: '0 4px',
+            margin: '0 1px',
+            borderRadius: 4,
+            background: 'rgba(15, 23, 42, 0.06)',
+            color: '#d97706',
+            fontSize: '0.92em',
+            fontWeight: 700,
+            lineHeight: 1.5,
+            userSelect: 'none',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          [{(el.label ?? '').trim() || '각주'}]
           {children}
         </span>
       );

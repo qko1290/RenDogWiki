@@ -132,6 +132,13 @@ export type InlineMarkElement = {
   children: [{ text: '' }];
 };
 
+export type FootnoteElement = {
+  type: 'footnote';
+  label: string;
+  content: string;
+  children: [{ text: '' }];
+};
+
 // 인라인 이미지
 export type InlineImageElement = {
   type: 'inline-image';
@@ -321,6 +328,7 @@ export type CustomElement =
   | HeadingTwoElement
   | HeadingThreeElement
   | InlineMarkElement
+  | FootnoteElement
   | InlineImageElement
   | PriceTableCardElement
   | ImageElement

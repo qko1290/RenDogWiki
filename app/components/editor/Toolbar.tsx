@@ -44,6 +44,7 @@ import {
   faGripLinesVertical,
   faIcons,
   faPhotoFilm,
+  faCommentDots,
 } from '@fortawesome/free-solid-svg-icons';
 import HeadingIconSelectModal from './HeadingIconSelectModal';
 import { insertInlineImage } from './helpers/insertInlineImage';
@@ -61,6 +62,7 @@ import {
   type WikiEmbedKind,
 } from './helpers/insertWikiDbEmbed';
 import { wrapSelectionWithWikiRef, type WikiRefType } from './helpers/wrapWikiRef';
+import { insertFootnote } from './helpers/insertFootnote';
 
 type ToolbarProps = {
   selectionRef: React.MutableRefObject<Range | null>;
@@ -668,6 +670,18 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef, openInlineImageM
           if (mark) insertInlineMark(editor, mark);
         }}
       />
+
+      {/* 각주 삽입 */}
+      <button
+        className="editor-toolbar-btn"
+        title="각주 삽입"
+        onMouseDown={(e) => {
+          e.preventDefault();
+          insertFootnote(editor);
+        }}
+      >
+        <FontAwesomeIcon icon={faCommentDots} />
+      </button>
 
       {/* Heading 아이콘 선택 모달 */}
       <HeadingIconSelectModal

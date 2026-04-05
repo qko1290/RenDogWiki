@@ -2,7 +2,7 @@
 import type React from 'react';
 import type { RenderElementProps } from 'slate-react';
 import type { Path } from 'slate';
-import type { CustomElement } from '@/types/slate';
+import type { CustomElement, FootnoteElement } from '@/types/slate';
 
 export type PriceTableEditState = {
   blockPath: Path | null;
@@ -22,6 +22,7 @@ export type CustomElementProps = {
   onIconClick: (element: CustomElement) => void;
   priceTableEdit: PriceTableEditState;
   setPriceTableEdit: React.Dispatch<React.SetStateAction<PriceTableEditState>>;
+  openFootnoteEditor?: (path: Path, element: FootnoteElement) => void;
 
   // ✅ 문서(읽기) 전용 클릭 → 모달 오픈
   readOnly?: boolean;

@@ -29,6 +29,8 @@ import TableContextMenu from './TableContextMenu';
 import type { WikiRefKind } from './render/types';
 import { toProxyUrl } from '@lib/cdn';
 import { getDragRect } from './helpers/tableDrag';
+import FootnoteEditModal from './FootnoteEditModal';
+import type { FootnoteElement } from '@/types/slate';
 
 type DocState = {
   id?: number;
@@ -50,6 +52,11 @@ type PriceTableEditState = {
   blockPath: Path | null;
   idx: number | null;
   item: any | null;
+};
+
+type FootnoteEditState = {
+  path: Path | null;
+  item: FootnoteElement | null;
 };
 
 type DraftSlot = {
@@ -174,15 +181,23 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
 
   const withCustomInline = (editor: Editor) => {
     const { isInline, isVoid } = editor;
+
     editor.isInline = el =>
-      el.type === 'link' || el.type === 'inline-mark' || el.type === 'inline-image' ||
+      el.type === 'link' ||
+      el.type === 'inline-mark' ||
+      el.type === 'inline-image' ||
+      el.type === 'footnote' ||
       (el as any).type === 'wiki-ref'
         ? true
         : isInline(el);
+
     editor.isVoid = el =>
-      (el as any).type === 'inline-image' || VOID_BLOCK_TYPES.has((el as any).type)
+      (el as any).type === 'inline-image' ||
+      (el as any).type === 'footnote' ||
+      VOID_BLOCK_TYPES.has((el as any).type)
         ? true
         : isVoid(el);
+
     return editor;
   };
 
@@ -292,6 +307,11 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
 
   const [priceTableEdit, setPriceTableEdit] = useState<PriceTableEditState>({
     blockPath: null, idx: null, item: null,
+  });
+
+  const [footnoteEdit, setFootnoteEdit] = useState<FootnoteEditState>({
+    path: null,
+    item: null,
   });
 
   const [tagInput, setTagInput] = useState(doc.tags.join(', '));
@@ -739,6 +759,74 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     setIsIconModalOpen(true);
   };
 
+  const handleFootnoteEditOpen = useCallback((path: Path, item: FootnoteElement) => {
+    setFootnoteEdit({
+      path,
+      item,
+    });
+  }, []);
+
+  const handleFootnoteModalClose = useCallback(() => {
+    setFootnoteEdit({
+      path: null,
+      item: null,
+    });
+  }, []);
+
+  const handleFootnoteModalSave = useCallback(
+    (next: { label: string; content: string }) => {
+      const path = footnoteEdit.path;
+      if (!path) {
+        handleFootnoteModalClose();
+        return;
+      }
+
+      if (!safeHasPath(path)) {
+        handleFootnoteModalClose();
+        return;
+      }
+
+      try {
+        Transforms.setNodes(
+          editor,
+          {
+            label: next.label.trim() || '각주',
+            content: next.content,
+          } as Partial<FootnoteElement>,
+          { at: path }
+        );
+        ReactEditor.focus(editor);
+      } catch {
+        // ignore
+      } finally {
+        handleFootnoteModalClose();
+      }
+    },
+    [editor, footnoteEdit.path, handleFootnoteModalClose, safeHasPath]
+  );
+
+  const handleFootnoteModalDelete = useCallback(() => {
+    const path = footnoteEdit.path;
+    if (!path) {
+      handleFootnoteModalClose();
+      return;
+    }
+
+    if (!safeHasPath(path)) {
+      handleFootnoteModalClose();
+      return;
+    }
+
+    try {
+      Transforms.removeNodes(editor, { at: path });
+      ReactEditor.focus(editor);
+    } catch {
+      // ignore
+    } finally {
+      handleFootnoteModalClose();
+    }
+  }, [editor, footnoteEdit.path, handleFootnoteModalClose, safeHasPath]);
+
   const renderLeaf = useCallback((p: RenderLeafProps) => <Leaf {...p} />, []);
   const renderElement = useCallback(
     (p: RenderElementProps) => (
@@ -748,13 +836,14 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
         onIconClick={handleIconClick}
         priceTableEdit={priceTableEdit}
         setPriceTableEdit={setPriceTableEdit}
+        openFootnoteEditor={handleFootnoteEditOpen}
         readOnly={false}
         onWikiRefClick={(refType: WikiRefKind, refId: number) => {
 
         }}
       />
     ),
-    [editor, priceTableEdit]
+    [editor, priceTableEdit, handleFootnoteEditOpen]
   );
 
   const handleSave = async () => {
@@ -1430,6 +1519,17 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
           onSave={handlePriceModalSave}
         />
       )}
+
+      {footnoteEdit.path && footnoteEdit.item && (
+        <FootnoteEditModal
+          open={true}
+          item={footnoteEdit.item}
+          onClose={handleFootnoteModalClose}
+          onSave={handleFootnoteModalSave}
+          onDelete={handleFootnoteModalDelete}
+        />
+      )}
+      
       <TableContextMenu editor={editor} />
     </>
   );
