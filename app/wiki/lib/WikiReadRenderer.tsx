@@ -213,7 +213,7 @@ const FootnoteInline: React.FC<FootnoteInlineProps> = ({ label, content }) => {
     setOpen(false);
   };
 
-  const openMobileModal = (e: React.MouseEvent | React.TouchEvent) => {
+  const openMobileModal = (e: React.MouseEvent<HTMLSpanElement>) => {
     if (!hasContent || !isMobileViewport) return;
     e.preventDefault();
     e.stopPropagation();
@@ -357,7 +357,6 @@ const FootnoteInline: React.FC<FootnoteInlineProps> = ({ label, content }) => {
         onFocus={openDesktop}
         onBlur={closeDesktop}
         onClick={openMobileModal}
-        onTouchStart={openMobileModal}
         tabIndex={hasContent ? 0 : -1}
         aria-label={hasContent ? `각주: ${safeContent}` : `각주 ${safeLabel}`}
         style={{
