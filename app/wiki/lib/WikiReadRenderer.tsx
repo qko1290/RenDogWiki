@@ -305,7 +305,7 @@ const FootnoteInline: React.FC<FootnoteInlineProps> = ({ label, content }) => {
     position: "fixed",
     left: desktopTooltipPos.left,
     top: desktopTooltipPos.top,
-    transform: open ? "translateY(0)" : "translateY(4px)",
+    transform: open ? "translateY(0)" : "translateY(6px)",
     opacity: open ? 1 : 0,
     visibility: open ? "visible" : "hidden",
     zIndex: 9998,
@@ -330,11 +330,12 @@ const FootnoteInline: React.FC<FootnoteInlineProps> = ({ label, content }) => {
     letterSpacing: "-0.1px",
     textAlign: "left",
 
-    transition: "opacity .15s ease, transform .15s ease, visibility .15s ease",
+    transition:
+      "opacity 0.16s ease, transform 0.16s ease, visibility 0.16s ease",
   };
 
   const desktopTooltip =
-    portalReady && open && !isMobileViewport && hasContent
+    portalReady && !isMobileViewport && hasContent
       ? createPortal(
           <span
             ref={desktopTooltipRef}
@@ -351,10 +352,16 @@ const FootnoteInline: React.FC<FootnoteInlineProps> = ({ label, content }) => {
                 bottom: -7,
                 width: 12,
                 height: 12,
-                transform: "translateX(-50%) rotate(45deg)",
+                transform: open
+                  ? "translateX(-50%) rotate(45deg)"
+                  : "translateX(-50%) translateY(-2px) rotate(45deg)",
                 background: "var(--surface-elevated)",
                 borderRight: "1px solid var(--border)",
                 borderBottom: "1px solid var(--border)",
+                opacity: open ? 1 : 0,
+                visibility: open ? "visible" : "hidden",
+                transition:
+                  "opacity 0.16s ease, transform 0.16s ease, visibility 0.16s ease",
               }}
             />
           </span>,
@@ -363,96 +370,103 @@ const FootnoteInline: React.FC<FootnoteInlineProps> = ({ label, content }) => {
       : null;
 
   const mobileModal =
-    portalReady && open && isMobileViewport && hasContent
-      ? createPortal(
+  portalReady && isMobileViewport && hasContent
+    ? createPortal(
+        <div
+          onClick={closeMobileModal}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`각주 ${safeLabel}`}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+            background: open ? "rgba(15, 23, 42, 0.38)" : "rgba(15, 23, 42, 0)",
+            backdropFilter: open ? "blur(2px)" : "blur(0px)",
+            WebkitBackdropFilter: open ? "blur(2px)" : "blur(0px)",
+            opacity: open ? 1 : 0,
+            visibility: open ? "visible" : "hidden",
+            pointerEvents: open ? "auto" : "none",
+            transition:
+              "opacity 0.16s ease, visibility 0.16s ease, background 0.16s ease",
+          }}
+        >
           <div
-            onClick={closeMobileModal}
-            role="dialog"
-            aria-modal="true"
-            aria-label={`각주 ${safeLabel}`}
+            onClick={(e) => e.stopPropagation()}
             style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 9999,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "20px",
-              background: "rgba(15, 23, 42, 0.38)",
-              backdropFilter: "blur(2px)",
-              WebkitBackdropFilter: "blur(2px)",
+              width: "min(420px, calc(100vw - 32px))",
+              maxHeight: "min(70vh, 520px)",
+              overflowY: "auto",
+              borderRadius: 16,
+              border: "1px solid var(--border)",
+              background: "var(--surface-elevated)",
+              color: "var(--foreground)",
+              boxShadow: "var(--shadow-lg)",
+              padding: "16px 16px 14px",
+              transform: open ? "translateY(0) scale(1)" : "translateY(8px) scale(0.985)",
+              transition: "transform 0.16s ease, opacity 0.16s ease",
             }}
           >
             <div
-              onClick={(e) => e.stopPropagation()}
               style={{
-                width: "min(420px, calc(100vw - 32px))",
-                maxHeight: "min(70vh, 520px)",
-                overflowY: "auto",
-                borderRadius: 16,
-                border: "1px solid var(--border)",
-                background: "var(--surface-elevated)",
-                color: "var(--foreground)",
-                boxShadow: "var(--shadow-lg)",
-                padding: "16px 16px 14px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                marginBottom: 10,
               }}
             >
               <div
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  marginBottom: 10,
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 800,
-                    color: "#2676ff",
-                    lineHeight: 1.2,
-                  }}
-                >
-                  [{safeLabel}]
-                </div>
-
-                <button
-                  type="button"
-                  onClick={closeMobileModal}
-                  aria-label="각주 닫기"
-                  style={{
-                    border: "1px solid var(--border)",
-                    background: "transparent",
-                    color: "var(--foreground)",
-                    borderRadius: 10,
-                    padding: "6px 10px",
-                    fontSize: 13,
-                    fontWeight: 700,
-                    cursor: "pointer",
-                  }}
-                >
-                  닫기
-                </button>
-              </div>
-
-              <div
-                style={{
                   fontSize: 14,
-                  fontWeight: 500,
-                  lineHeight: 1.65,
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "keep-all",
-                  overflowWrap: "break-word",
+                  fontWeight: 800,
+                  color: "#2676ff",
+                  lineHeight: 1.2,
                 }}
               >
-                {safeContent}
+                [{safeLabel}]
               </div>
+
+              <button
+                type="button"
+                onClick={closeMobileModal}
+                aria-label="각주 닫기"
+                style={{
+                  border: "1px solid var(--border)",
+                  background: "transparent",
+                  color: "var(--foreground)",
+                  borderRadius: 10,
+                  padding: "6px 10px",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                닫기
+              </button>
             </div>
-          </div>,
-          document.body
-        )
-      : null;
+
+            <div
+              style={{
+                fontSize: 14,
+                fontWeight: 500,
+                lineHeight: 1.65,
+                whiteSpace: "pre-wrap",
+                wordBreak: "keep-all",
+                overflowWrap: "break-word",
+              }}
+            >
+              {safeContent}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )
+    : null;
 
   return (
     <>
