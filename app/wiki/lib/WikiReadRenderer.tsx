@@ -10,7 +10,14 @@
  * - 서버/클라이언트 헤딩 ID 불일치 경고 억제를 위해 heading에 suppressHydrationWarning 사용
  */
 
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useState,
+  useMemo,
+  useRef,
+} from "react";
 import { createPortal } from "react-dom";
 import { Descendant, Text } from "slate";
 
@@ -135,9 +142,21 @@ type FootnoteInlineProps = {
 
 const FootnoteInline: React.FC<FootnoteInlineProps> = ({ label, content }) => {
   const rootRef = useRef<HTMLSpanElement | null>(null);
+  const desktopTooltipRef = useRef<HTMLSpanElement | null>(null);
+
   const [open, setOpen] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [portalReady, setPortalReady] = useState(false);
+
+  const [desktopTooltipPos, setDesktopTooltipPos] = useState<{
+    left: number;
+    top: number;
+    arrowLeft: number;
+  }>({
+    left: 0,
+    top: 0,
+    arrowLeft: 20,
+  });
 
   const safeLabel = String(label ?? "").trim() || "각주";
   const safeContent = String(content ?? "").trim();
@@ -169,11 +188,14 @@ const FootnoteInline: React.FC<FootnoteInlineProps> = ({ label, content }) => {
 
     const handlePointerDown = (e: MouseEvent | TouchEvent) => {
       const target = e.target as Node | null;
-      if (!rootRef.current || !target) return;
+      if (!target) return;
 
-      if (!rootRef.current.contains(target) && !isMobileViewport) {
-        setOpen(false);
-      }
+      if (isMobileViewport) return;
+
+      if (rootRef.current?.contains(target)) return;
+      if (desktopTooltipRef.current?.contains(target)) return;
+
+      setOpen(false);
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -203,6 +225,60 @@ const FootnoteInline: React.FC<FootnoteInlineProps> = ({ label, content }) => {
     };
   }, [open, isMobileViewport]);
 
+  const updateDesktopTooltipPosition = useCallback(() => {
+    if (typeof window === "undefined") return;
+    if (!rootRef.current || !desktopTooltipRef.current) return;
+
+    const triggerRect = rootRef.current.getBoundingClientRect();
+    const tooltipRect = desktopTooltipRef.current.getBoundingClientRect();
+
+    const sidePadding = 12;
+    const gap = 10;
+
+    let left = triggerRect.left + triggerRect.width / 2 - tooltipRect.width / 2;
+    left = Math.max(
+      sidePadding,
+      Math.min(left, window.innerWidth - sidePadding - tooltipRect.width)
+    );
+
+    let top = triggerRect.top - gap - tooltipRect.height;
+    top = Math.max(12, top);
+
+    const triggerCenterX = triggerRect.left + triggerRect.width / 2;
+    let arrowLeft = triggerCenterX - left;
+    arrowLeft = Math.max(14, Math.min(arrowLeft, tooltipRect.width - 14));
+
+    setDesktopTooltipPos({
+      left,
+      top,
+      arrowLeft,
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!portalReady || !open || isMobileViewport || !hasContent) return;
+
+    let raf = 0;
+
+    const schedule = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        updateDesktopTooltipPosition();
+      });
+    };
+
+    schedule();
+
+    window.addEventListener("resize", schedule);
+    window.addEventListener("scroll", schedule, true);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", schedule);
+      window.removeEventListener("scroll", schedule, true);
+    };
+  }, [portalReady, open, isMobileViewport, hasContent, updateDesktopTooltipPosition]);
+
   const openDesktop = () => {
     if (!hasContent || isMobileViewport) return;
     setOpen(true);
@@ -226,13 +302,13 @@ const FootnoteInline: React.FC<FootnoteInlineProps> = ({ label, content }) => {
 
   const desktopTooltipStyle: React.CSSProperties = {
     pointerEvents: "none",
-    position: "absolute",
-    left: "50%",
-    bottom: "calc(100% + 10px)",
-    transform: open ? "translate(-50%, 0)" : "translate(-50%, 4px)",
+    position: "fixed",
+    left: desktopTooltipPos.left,
+    top: desktopTooltipPos.top,
+    transform: open ? "translateY(0)" : "translateY(4px)",
     opacity: open ? 1 : 0,
     visibility: open ? "visible" : "hidden",
-    zIndex: 80,
+    zIndex: 9998,
 
     width: "max-content",
     minWidth: 120,
@@ -257,96 +333,126 @@ const FootnoteInline: React.FC<FootnoteInlineProps> = ({ label, content }) => {
     transition: "opacity .15s ease, transform .15s ease, visibility .15s ease",
   };
 
-  const mobileModal = portalReady && open && isMobileViewport && hasContent
-    ? createPortal(
-        <div
-          onClick={closeMobileModal}
-          role="dialog"
-          aria-modal="true"
-          aria-label={`각주 ${safeLabel}`}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 9999,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "20px",
-            background: "rgba(15, 23, 42, 0.38)",
-            backdropFilter: "blur(2px)",
-            WebkitBackdropFilter: "blur(2px)",
-          }}
-        >
+  const desktopTooltip =
+    portalReady && open && !isMobileViewport && hasContent
+      ? createPortal(
+          <span
+            ref={desktopTooltipRef}
+            role="tooltip"
+            aria-hidden={!open}
+            style={desktopTooltipStyle}
+          >
+            {safeContent}
+            <span
+              aria-hidden
+              style={{
+                position: "absolute",
+                left: desktopTooltipPos.arrowLeft,
+                bottom: -7,
+                width: 12,
+                height: 12,
+                transform: "translateX(-50%) rotate(45deg)",
+                background: "var(--surface-elevated)",
+                borderRight: "1px solid var(--border)",
+                borderBottom: "1px solid var(--border)",
+              }}
+            />
+          </span>,
+          document.body
+        )
+      : null;
+
+  const mobileModal =
+    portalReady && open && isMobileViewport && hasContent
+      ? createPortal(
           <div
-            onClick={(e) => e.stopPropagation()}
+            onClick={closeMobileModal}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`각주 ${safeLabel}`}
             style={{
-              width: "min(420px, calc(100vw - 32px))",
-              maxHeight: "min(70vh, 520px)",
-              overflowY: "auto",
-              borderRadius: 16,
-              border: "1px solid var(--border)",
-              background: "var(--surface-elevated)",
-              color: "var(--foreground)",
-              boxShadow: "var(--shadow-lg)",
-              padding: "16px 16px 14px",
+              position: "fixed",
+              inset: 0,
+              zIndex: 9999,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "20px",
+              background: "rgba(15, 23, 42, 0.38)",
+              backdropFilter: "blur(2px)",
+              WebkitBackdropFilter: "blur(2px)",
             }}
           >
             <div
+              onClick={(e) => e.stopPropagation()}
               style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 12,
-                marginBottom: 10,
+                width: "min(420px, calc(100vw - 32px))",
+                maxHeight: "min(70vh, 520px)",
+                overflowY: "auto",
+                borderRadius: 16,
+                border: "1px solid var(--border)",
+                background: "var(--surface-elevated)",
+                color: "var(--foreground)",
+                boxShadow: "var(--shadow-lg)",
+                padding: "16px 16px 14px",
               }}
             >
               <div
                 style={{
-                  fontSize: 14,
-                  fontWeight: 800,
-                  color: "#2676ff",
-                  lineHeight: 1.2,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  marginBottom: 10,
                 }}
               >
-                [{safeLabel}]
+                <div
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 800,
+                    color: "#2676ff",
+                    lineHeight: 1.2,
+                  }}
+                >
+                  [{safeLabel}]
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closeMobileModal}
+                  aria-label="각주 닫기"
+                  style={{
+                    border: "1px solid var(--border)",
+                    background: "transparent",
+                    color: "var(--foreground)",
+                    borderRadius: 10,
+                    padding: "6px 10px",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  닫기
+                </button>
               </div>
 
-              <button
-                type="button"
-                onClick={closeMobileModal}
-                aria-label="각주 닫기"
+              <div
                 style={{
-                  border: "1px solid var(--border)",
-                  background: "transparent",
-                  color: "var(--foreground)",
-                  borderRadius: 10,
-                  padding: "6px 10px",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  cursor: "pointer",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  lineHeight: 1.65,
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "keep-all",
+                  overflowWrap: "break-word",
                 }}
               >
-                닫기
-              </button>
+                {safeContent}
+              </div>
             </div>
-
-            <div
-              style={{
-                fontSize: 14,
-                fontWeight: 500,
-                lineHeight: 1.65,
-                whiteSpace: "pre-wrap",
-                wordBreak: "keep-all",
-                overflowWrap: "break-word",
-              }}
-            >
-              {safeContent}
-            </div>
-          </div>
-        </div>,
-        document.body
-      )
-    : null;
+          </div>,
+          document.body
+        )
+      : null;
 
   return (
     <>
@@ -376,35 +482,13 @@ const FootnoteInline: React.FC<FootnoteInlineProps> = ({ label, content }) => {
           whiteSpace: "nowrap",
           cursor: hasContent ? (isMobileViewport ? "pointer" : "help") : "default",
           WebkitTapHighlightColor: "transparent",
+          touchAction: "manipulation",
         }}
       >
         [{safeLabel}]
-
-        {hasContent && !isMobileViewport && (
-          <span
-            role="tooltip"
-            aria-hidden={!open}
-            style={desktopTooltipStyle}
-          >
-            {safeContent}
-            <span
-              aria-hidden
-              style={{
-                position: "absolute",
-                left: "50%",
-                bottom: -7,
-                width: 12,
-                height: 12,
-                transform: "translateX(-50%) rotate(45deg)",
-                background: "var(--surface-elevated)",
-                borderRight: "1px solid var(--border)",
-                borderBottom: "1px solid var(--border)",
-              }}
-            />
-          </span>
-        )}
       </span>
 
+      {desktopTooltip}
       {mobileModal}
     </>
   );
