@@ -18,9 +18,13 @@ type DocResult = {
   path: string | number;
   icon?: string;
   tags: string[];
-  match_type: 'title' | 'tags' | 'content';
-  content?: string;
+  match_type: "title" | "tags" | "content";
   category_breadcrumb?: string;
+
+  section_heading?: string | null;
+  section_dom_id?: string | null;
+  section_level?: 1 | 2 | 3 | null;
+  section_snippet?: string | null;
 };
 
 type FaqItem = {
@@ -98,45 +102,6 @@ function highlight(text: string, keyword: string) {
       {end < text.length && <span>{text.slice(end)}</span>}
     </>
   );
-}
-
-function extractSlateTextSnippets(slate: any): string[] {
-  const out: string[] = [];
-  const walk = (n: any) => {
-    if (!n) return;
-    if (Array.isArray(n)) {
-      for (const x of n) walk(x);
-      return;
-    }
-    if (typeof n === 'object') {
-      if (typeof n.text === 'string' && n.text.trim()) out.push(n.text);
-      if (Array.isArray(n.children)) walk(n.children);
-    }
-  };
-  walk(slate);
-  return out;
-}
-
-function makeSnippetFromText(text: string, keyword: string, radius = 26) {
-  const range = findLooseMatchRange(text, keyword);
-  if (!range) return null;
-
-  const start = Math.max(0, range.start - radius);
-  const end = Math.min(text.length, range.end + radius);
-
-  const prefix = start > 0 ? '…' : '';
-  const suffix = end < text.length ? '…' : '';
-
-  return `${prefix}${text.slice(start, end)}${suffix}`;
-}
-
-function extractSlateSnippet(slate: any, keyword: string): string | null {
-  const texts = extractSlateTextSnippets(slate);
-  for (const t of texts) {
-    const s = makeSnippetFromText(t, keyword);
-    if (s) return s;
-  }
-  return null;
 }
 
 const isImageLike = (v?: string) => !!v && (/^https?:\/\//i.test(v) || v.startsWith('data:image'));
@@ -389,14 +354,35 @@ export default function SearchBox({
   // 이동
   const goDoc = (res: DocResult | null) => {
     if (!res) return;
+
+    const nextHashDomId = String(res.section_dom_id ?? "").trim();
+
     setOpen(false);
-    setQuery('');
+    setQuery("");
     setDocs([]);
+    setQuestNpcs?.([]);
     setFaqs([]);
     setActiveDocIndex(-1);
-    router.push(
-      `/wiki?id=${encodeURIComponent(res.id)}&path=${encodeURIComponent(res.path)}&title=${encodeURIComponent(res.title)}`
-    );
+
+    const href =
+      `/wiki?id=${encodeURIComponent(res.id)}` +
+      `&path=${encodeURIComponent(res.path)}` +
+      `&title=${encodeURIComponent(res.title)}` +
+      (nextHashDomId ? `#${encodeURIComponent(nextHashDomId)}` : "");
+
+    router.push(href, { scroll: false });
+
+    // Next router의 pushState 기반 hash 이동은 hashchange가 안 잡힐 수 있어서
+    // 같은 문서 내 다른 heading으로 이동할 때도 기존 heading-scroll effect를 재실행시킴
+    if (nextHashDomId && typeof window !== "undefined") {
+      window.requestAnimationFrame(() => {
+        window.dispatchEvent(
+          new CustomEvent("rdwiki:search-hash-nav", {
+            detail: { domId: nextHashDomId },
+          }),
+        );
+      });
+    }
   };
 
   const openQuestNpc = (npc: QuestNpcResult | null) => {
@@ -543,16 +529,6 @@ export default function SearchBox({
                   if (item.kind === 'doc') {
                     const res = item.data;
 
-                    let contentSnippet: string | null = null;
-                    if (res.match_type === 'content') {
-                      try {
-                        const slate = typeof res.content === 'string' ? JSON.parse(res.content) : res.content;
-                        contentSnippet = extractSlateSnippet(slate, query);
-                      } catch {
-                        contentSnippet = null;
-                      }
-                    }
-
                     const cleanTags = (res.tags ?? [])
                       .map(normalizeTag)
                       .filter(Boolean)
@@ -606,33 +582,20 @@ export default function SearchBox({
                             <div style={{ fontWeight: 700, fontSize: 16 }}>{highlight(res.title, query)}</div>
 
                             {!!res.category_breadcrumb && (
-                              <div
-                                style={{
-                                  marginTop: 4,
-                                  fontSize: 12,
-                                  color: 'var(--muted-2)',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
-                                }}
-                                title={res.category_breadcrumb}
-                              >
+                              <div className="search-doc-breadcrumb">
                                 {res.category_breadcrumb}
                               </div>
                             )}
 
-                            {res.match_type === 'content' && contentSnippet && (
-                              <div
-                                style={{
-                                  color: 'var(--muted)',
-                                  fontSize: 13,
-                                  marginTop: 6,
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
-                                }}
-                              >
-                                {highlight(contentSnippet, query)}
+                            {res.match_type === "content" && !!res.section_heading && (
+                              <div className="search-doc-section-heading">
+                                {highlight(res.section_heading, query)}
+                              </div>
+                            )}
+
+                            {res.match_type === "content" && !!res.section_snippet && (
+                              <div className="search-doc-snippet">
+                                {highlight(res.section_snippet, query)}
                               </div>
                             )}
                           </div>

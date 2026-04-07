@@ -503,6 +503,8 @@ export default function WikiPageInner({ user }: Props) {
 
   const headingCorrectionInterruptedRef = useRef(false);
 
+  const [hashScrollSignal, setHashScrollSignal] = useState(0);
+
   const cancelHeadingScrollCorrection = () => {
     headingCorrectionInterruptedRef.current = true;
     clearStableHeadingScrollTimeouts();
@@ -622,6 +624,43 @@ export default function WikiPageInner({ user }: Props) {
 
     pendingTopScrollRef.current = true;
   };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const requestHashScroll = (hashLike?: string | null) => {
+      const normalizedHash = normalizeHashToDomId(
+        hashLike ?? window.location.hash,
+      );
+      if (!normalizedHash) return;
+
+      preparePendingScrollForOpen(normalizedHash, false);
+      setHashScrollSignal((v) => v + 1);
+    };
+
+    const onHashChange = () => {
+      requestHashScroll(window.location.hash);
+    };
+
+    const onSearchHashNav = (evt: Event) => {
+      const detail = (evt as CustomEvent<{ domId?: string }>).detail;
+      requestHashScroll(detail?.domId ? `#${detail.domId}` : window.location.hash);
+    };
+
+    window.addEventListener("hashchange", onHashChange);
+    window.addEventListener(
+      "rdwiki:search-hash-nav",
+      onSearchHashNav as EventListener,
+    );
+
+    return () => {
+      window.removeEventListener("hashchange", onHashChange);
+      window.removeEventListener(
+        "rdwiki:search-hash-nav",
+        onSearchHashNav as EventListener,
+      );
+    };
+  }, []);
 
   const resetTopScrollImmediatelyIfNeeded = () => {
     if (popNavigationRef.current) return;
@@ -852,7 +891,7 @@ export default function WikiPageInner({ user }: Props) {
       cancelled = true;
       for (const id of timerIds) window.clearTimeout(id);
     };
-  }, [selectedDocId, docContent, tableOfContents.length]);
+  }, [selectedDocId, docContent, tableOfContents.length, hashScrollSignal]);
 
   useEffect(() => {
     return () => {

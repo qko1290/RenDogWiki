@@ -15,6 +15,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { sql, runDbRead, isTransientDbError } from "@/wiki/lib/db";
+import { findBestSectionMatch } from "@/wiki/lib/extractSearchSections";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,6 +31,11 @@ type SearchRow = {
   content?: string | null;
   category_breadcrumb?: string | null;
   score?: number | null;
+
+  section_heading?: string | null;
+  section_dom_id?: string | null;
+  section_level?: 1 | 2 | 3 | null;
+  section_snippet?: string | null;
 };
 
 function compactSearchText(v: string) {
@@ -222,7 +228,7 @@ export async function GET(req: NextRequest) {
             d.icon,
             d.tags,
             'content' AS match_type,
-            LEFT(REGEXP_REPLACE(dc.content, '\\s+', ' ', 'g'), 1024) AS content,
+            dc.content AS content,
             (
               WITH parts AS (
                 SELECT regexp_split_to_array(
@@ -257,6 +263,37 @@ export async function GET(req: NextRequest) {
       }
     );
 
+    const enrichedContentRows: SearchRow[] = ((contentRows ?? []) as unknown as SearchRow[]).map(
+      (row) => {
+        const next: SearchRow = {
+          ...row,
+          section_heading: null,
+          section_dom_id: null,
+          section_level: null,
+          section_snippet: null,
+        };
+
+        const rawContent = typeof row.content === "string" ? row.content : "";
+        if (!rawContent) return next;
+
+        try {
+          const parsed = JSON.parse(rawContent);
+          const best = findBestSectionMatch(parsed, raw);
+
+          if (best) {
+            next.section_heading = best.sectionHeading || null;
+            next.section_dom_id = best.sectionDomId || null;
+            next.section_level = best.sectionLevel;
+            next.section_snippet = best.sectionSnippet || null;
+          }
+        } catch {
+          // 문서 JSON이 아니거나 파싱 실패면 루트 문서 이동만 유지
+        }
+
+        return next;
+      },
+    );
+
     const seen = new Set<number>();
     const merged: SearchRow[] = [];
 
@@ -265,8 +302,10 @@ export async function GET(req: NextRequest) {
         const id = Number(row.id);
         if (seen.has(id)) continue;
 
+        const { content, ...safeRow } = row;
+
         merged.push({
-          ...row,
+          ...safeRow,
           tags: parseTags(row.tags),
           category_breadcrumb: row.category_breadcrumb
             ? String(row.category_breadcrumb)
@@ -280,7 +319,7 @@ export async function GET(req: NextRequest) {
 
     pushUnique((titleRows ?? []) as unknown as SearchRow[]);
     if (merged.length < limit) pushUnique((tagRows ?? []) as unknown as SearchRow[]);
-    if (merged.length < limit) pushUnique((contentRows ?? []) as unknown as SearchRow[]);
+    if (merged.length < limit) pushUnique(enrichedContentRows);
 
     return NextResponse.json(merged, {
       headers: { "Cache-Control": "no-store" },
