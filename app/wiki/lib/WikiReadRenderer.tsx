@@ -424,7 +424,7 @@ const FootnoteInline: React.FC<FootnoteInlineProps> = ({ label, content }) => {
                 style={{
                   fontSize: 14,
                   fontWeight: 800,
-                  color: "#2676ff",
+                  color: "#7c3aed",
                   lineHeight: 1.2,
                 }}
               >
@@ -488,7 +488,7 @@ const FootnoteInline: React.FC<FootnoteInlineProps> = ({ label, content }) => {
           marginRight: 1,
           padding: 0,
           background: "transparent",
-          color: "#2676ff",
+          color: "#7c3aed",
           fontSize: "12px",
           fontWeight: 500,
           lineHeight: 1,

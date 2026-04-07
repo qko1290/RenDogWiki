@@ -1349,7 +1349,7 @@ const Element: React.FC<ElementRenderProps> = ({
             padding: 0,
             background: 'transparent',
             borderRadius: 0,
-            color: '#2676ff',
+            color: '#7c3aed',
             fontSize: '12px',
             fontWeight: 500,
             lineHeight: 1,
