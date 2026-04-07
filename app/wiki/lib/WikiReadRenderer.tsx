@@ -1024,11 +1024,21 @@ const InternalWikiLinkInline: React.FC<InternalWikiLinkInlineProps> = ({
     router.push(normalizedHref);
   };
 
-  const showTooltip =
-    portalReady && !isMobileViewport && open && previewState !== "error";
+  const showTooltip = portalReady && !isMobileViewport && open;
 
   const tooltipContent =
-    previewState === "loading" || !preview ? (
+    previewState === "error" ? (
+      <div
+        style={{
+          fontSize: 12,
+          fontWeight: 700,
+          color: "var(--muted)",
+          lineHeight: 1.45,
+        }}
+      >
+        문서 정보를 불러오지 못했습니다.
+      </div>
+    ) : previewState === "loading" || !preview ? (
       <div
         style={{
           fontSize: 12,
