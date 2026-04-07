@@ -41,6 +41,9 @@ type Props = {
 const WIKI_ICON_CACHE_KEY = "__rdwiki_doc_icon_cache__";
 const WIKI_DOCS_ALL_KEY = "__rdwiki_docs_all__";
 const WIKI_DOC_DETAIL_CACHE_KEY = "__rdwiki_doc_detail_cache__";
+const WIKI_LINK_PREVIEW_CACHE_KEY = "__rdwiki_doc_preview_cache__";
+const WIKI_CATEGORY_ROWS_KEY = "__rdwiki_category_rows__";
+const WIKI_CATEGORY_LABEL_CACHE_KEY = "__rdwiki_category_label_cache__";
 
 const wikiDocIconCache: Map<string, string> =
   (globalThis as any)[WIKI_ICON_CACHE_KEY] ?? new Map<string, string>();
@@ -54,14 +57,49 @@ const setWikiDocsAll = (rows: any[]) => {
 };
 
 type WikiDocHeadingMeta = { id: string; icon?: string | null };
-type WikiDocDetail = { icon?: string | null; headings: WikiDocHeadingMeta[] };
+type WikiDocDetail = {
+  icon?: string | null;
+  title?: string | null;
+  tags?: string[];
+  path?: string | number | null;
+  headings: WikiDocHeadingMeta[];
+};
+
+type WikiLinkPreviewData = {
+  icon: string | null;
+  categoryLabel: string;
+  title: string;
+  tags: string[];
+};
+
+type WikiCategoryRow = {
+  id: number;
+  name: string;
+  parent_id: number | null;
+};
 
 // 🔹 문서/헤딩 아이콘 캐시 (Element.tsx와 동일한 패턴)
 const wikiDocDetailCache: Map<string, WikiDocDetail> =
   (globalThis as any)[WIKI_DOC_DETAIL_CACHE_KEY] ??
   new Map<string, WikiDocDetail>();
-
 (globalThis as any)[WIKI_DOC_DETAIL_CACHE_KEY] = wikiDocDetailCache;
+
+const wikiLinkPreviewCache: Map<string, WikiLinkPreviewData> =
+  (globalThis as any)[WIKI_LINK_PREVIEW_CACHE_KEY] ??
+  new Map<string, WikiLinkPreviewData>();
+(globalThis as any)[WIKI_LINK_PREVIEW_CACHE_KEY] = wikiLinkPreviewCache;
+
+let wikiCategoryRows: WikiCategoryRow[] | null =
+  (globalThis as any)[WIKI_CATEGORY_ROWS_KEY] ?? null;
+const setWikiCategoryRows = (rows: WikiCategoryRow[]) => {
+  wikiCategoryRows = rows;
+  (globalThis as any)[WIKI_CATEGORY_ROWS_KEY] = rows;
+};
+
+const wikiCategoryLabelCache: Map<string, string> =
+  (globalThis as any)[WIKI_CATEGORY_LABEL_CACHE_KEY] ??
+  new Map<string, string>();
+(globalThis as any)[WIKI_CATEGORY_LABEL_CACHE_KEY] = wikiCategoryLabelCache;
 
 // ───────────────────────────────────────────────────────────────
 
@@ -603,6 +641,598 @@ function isInternalWikiHref(rawHref: string) {
   }
 }
 
+type ParsedWikiHref = {
+  normalizedHref: string;
+  pathParam: string | null;
+  titleParam: string | null;
+  idParam: string | null;
+  hash: string;
+  baseDocKey: string;
+};
+
+function parseInternalWikiHref(rawHref: string): ParsedWikiHref | null {
+  try {
+    const base =
+      typeof window !== "undefined" ? window.location.origin : "https://dummy.local";
+    const u = new URL(rawHref, base);
+    const sameOrigin =
+      typeof window === "undefined" || u.origin === window.location.origin;
+
+    if (!sameOrigin || !u.pathname.startsWith("/wiki")) return null;
+
+    const pathParam = (u.searchParams.get("path") ?? "").trim() || null;
+    const titleParamRaw = (u.searchParams.get("title") ?? "").trim() || null;
+    const titleParam = titleParamRaw ? decodeTitleForDisplay(titleParamRaw) : null;
+    const idParam = (u.searchParams.get("id") ?? "").trim() || null;
+
+    const rawHash = u.hash ? u.hash.slice(1) : "";
+    const hash = rawHash
+      ? (() => {
+          try {
+            return decodeURIComponent(rawHash);
+          } catch {
+            return rawHash;
+          }
+        })()
+      : "";
+
+    const keyParts: string[] = [];
+    if (idParam) keyParts.push(`id:${idParam}`);
+    if (pathParam) keyParts.push(`p:${pathParam}`);
+    if (titleParam) keyParts.push(`t:${titleParam}`);
+
+    return {
+      normalizedHref: normalizeToAppHref(rawHref),
+      pathParam,
+      titleParam,
+      idParam,
+      hash,
+      baseDocKey: keyParts.join("|") || u.pathname,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function getWikiDocDetailByHref(rawHref: string): Promise<{
+  parsed: ParsedWikiHref;
+  detail: WikiDocDetail;
+} | null> {
+  const parsed = parseInternalWikiHref(rawHref);
+  if (!parsed) return null;
+
+  let detail = wikiDocDetailCache.get(parsed.baseDocKey);
+  const hasBasicMeta =
+    !!detail &&
+    (detail.title !== undefined || detail.path !== undefined || detail.tags !== undefined);
+
+  if (!detail || !hasBasicMeta) {
+    const qs = new URLSearchParams();
+
+    if (parsed.idParam) {
+      qs.set("id", parsed.idParam);
+    } else {
+      if (parsed.pathParam) qs.set("path", parsed.pathParam);
+      if (parsed.titleParam) qs.set("title", parsed.titleParam);
+    }
+
+    if (![...qs.keys()].length) return null;
+
+    const res = await fetch(`/api/documents?${qs.toString()}`, {
+      cache: "force-cache",
+    });
+    if (!res.ok) return null;
+
+    const text = await res.text();
+    if (!text) return null;
+
+    const data = JSON.parse(text);
+    const rawContent = (data as any).content;
+    let slateContent: any[] = [];
+
+    try {
+      slateContent =
+        typeof rawContent === "string"
+          ? JSON.parse(rawContent)
+          : Array.isArray(rawContent)
+          ? rawContent
+          : [];
+    } catch {
+      slateContent = [];
+    }
+
+    let headingsMeta: WikiDocHeadingMeta[] = [];
+    try {
+      const hs = extractHeadings(Array.isArray(slateContent) ? slateContent : []);
+      headingsMeta = hs.map((h: any) => ({
+        id: String(h.id ?? ""),
+        icon: h.icon ?? null,
+      }));
+    } catch {
+      headingsMeta = [];
+    }
+
+    detail = {
+      icon: ((data as any).icon ?? "").trim() || null,
+      title: ((data as any).title ?? "").trim() || parsed.titleParam || null,
+      tags: Array.isArray((data as any).tags)
+        ? (data as any).tags
+            .map((tag: any) => String(tag ?? "").trim())
+            .filter(Boolean)
+        : [],
+      path: (data as any).path ?? parsed.pathParam ?? null,
+      headings: headingsMeta,
+    };
+
+    wikiDocDetailCache.set(parsed.baseDocKey, detail);
+  }
+
+  return { parsed, detail };
+}
+
+async function getWikiCategoryRows(): Promise<WikiCategoryRow[]> {
+  if (wikiCategoryRows) return wikiCategoryRows;
+
+  const res = await fetch("/api/categories", { cache: "force-cache" });
+  if (!res.ok) return [];
+
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : [];
+
+  const rows: WikiCategoryRow[] = Array.isArray(data)
+    ? data
+        .map((row: any) => ({
+          id: Number(row?.id),
+          name: String(row?.name ?? "").trim(),
+          parent_id:
+            row?.parent_id == null || row?.parent_id === ""
+              ? null
+              : Number(row.parent_id),
+        }))
+        .filter((row) => Number.isFinite(row.id) && row.name.length > 0)
+    : [];
+
+  setWikiCategoryRows(rows);
+  return rows;
+}
+
+function resolveWikiCategoryLabel(
+  pathValue: string | number | null | undefined,
+  rows: WikiCategoryRow[]
+) {
+  if (pathValue == null) return "루트";
+
+  const raw = String(pathValue).trim();
+  if (!raw || raw === "0") return "루트";
+
+  const cached = wikiCategoryLabelCache.get(raw);
+  if (cached) return cached;
+
+  if (!/^\d+$/.test(raw)) {
+    wikiCategoryLabelCache.set(raw, raw);
+    return raw;
+  }
+
+  const startId = Number(raw);
+  const byId = new Map<number, WikiCategoryRow>(
+    rows.map((row) => [Number(row.id), row])
+  );
+
+  const names: string[] = [];
+  const seen = new Set<number>();
+  let current = byId.get(startId);
+
+  while (current && !seen.has(current.id)) {
+    seen.add(current.id);
+    if (current.name) names.push(current.name);
+
+    const parentId =
+      current.parent_id == null || !Number.isFinite(Number(current.parent_id))
+        ? null
+        : Number(current.parent_id);
+
+    if (parentId == null) break;
+    current = byId.get(parentId);
+  }
+
+  const label = names.reverse().join(" / ") || raw;
+  wikiCategoryLabelCache.set(raw, label);
+  return label;
+}
+
+async function getWikiLinkPreviewData(
+  rawHref: string
+): Promise<WikiLinkPreviewData | null> {
+  const parsed = parseInternalWikiHref(rawHref);
+  if (!parsed) return null;
+
+  const cached = wikiLinkPreviewCache.get(parsed.baseDocKey);
+  if (cached) return cached;
+
+  const loaded = await getWikiDocDetailByHref(rawHref);
+  if (!loaded) return null;
+
+  const rows = await getWikiCategoryRows();
+  const preview: WikiLinkPreviewData = {
+    icon: loaded.detail.icon ?? null,
+    categoryLabel: resolveWikiCategoryLabel(
+      loaded.detail.path ?? loaded.parsed.pathParam,
+      rows
+    ),
+    title: loaded.detail.title?.trim() || loaded.parsed.titleParam || "문서",
+    tags: Array.isArray(loaded.detail.tags)
+      ? loaded.detail.tags
+          .map((tag) => String(tag ?? "").trim())
+          .filter(Boolean)
+          .slice(0, 3)
+      : [],
+  };
+
+  wikiLinkPreviewCache.set(parsed.baseDocKey, preview);
+  return preview;
+}
+
+type InternalWikiLinkInlineProps = {
+  href: string;
+  children: React.ReactNode;
+  onWikiNavigate?: (href: string) => void;
+};
+
+const InternalWikiLinkInline: React.FC<InternalWikiLinkInlineProps> = ({
+  href,
+  children,
+  onWikiNavigate,
+}) => {
+  const router = useRouter();
+  const rootRef = useRef<HTMLAnchorElement | null>(null);
+  const tooltipRef = useRef<HTMLDivElement | null>(null);
+  const tooltipIdRef = useRef(
+    `wiki-inline-preview-${Math.random().toString(36).slice(2, 10)}`
+  );
+
+  const [portalReady, setPortalReady] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [preview, setPreview] = useState<WikiLinkPreviewData | null>(null);
+  const [previewState, setPreviewState] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
+  const [tooltipPos, setTooltipPos] = useState({
+    left: 0,
+    top: 0,
+    arrowLeft: 24,
+  });
+
+  const normalizedHref = useMemo(() => normalizeToAppHref(href), [href]);
+
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mq = window.matchMedia("(max-width: 768px)");
+    const apply = () => setIsMobileViewport(mq.matches);
+
+    apply();
+
+    if (typeof mq.addEventListener === "function") {
+      mq.addEventListener("change", apply);
+      return () => mq.removeEventListener("change", apply);
+    }
+
+    mq.addListener(apply);
+    return () => mq.removeListener(apply);
+  }, []);
+
+  useEffect(() => {
+    setOpen(false);
+    setPreviewState("idle");
+    setPreview(null);
+  }, [normalizedHref]);
+
+  useEffect(() => {
+    if (!open || isMobileViewport || previewState === "ready" || previewState === "loading") {
+      return;
+    }
+
+    let cancelled = false;
+    setPreviewState("loading");
+
+    getWikiLinkPreviewData(normalizedHref)
+      .then((data) => {
+        if (cancelled) return;
+        if (!data) {
+          setPreviewState("error");
+          return;
+        }
+        setPreview(data);
+        setPreviewState("ready");
+      })
+      .catch(() => {
+        if (!cancelled) setPreviewState("error");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, isMobileViewport, normalizedHref, previewState]);
+
+  const updateTooltipPosition = useCallback(() => {
+    if (typeof window === "undefined") return;
+    if (!rootRef.current || !tooltipRef.current) return;
+
+    const triggerRect = rootRef.current.getBoundingClientRect();
+    const tooltipRect = tooltipRef.current.getBoundingClientRect();
+    const sidePadding = 12;
+    const gap = 10;
+
+    let left = triggerRect.left + triggerRect.width / 2 - tooltipRect.width / 2;
+    left = Math.max(
+      sidePadding,
+      Math.min(left, window.innerWidth - sidePadding - tooltipRect.width)
+    );
+
+    let top = triggerRect.top - gap - tooltipRect.height;
+    top = Math.max(12, top);
+
+    const triggerCenterX = triggerRect.left + triggerRect.width / 2;
+    let arrowLeft = triggerCenterX - left;
+    arrowLeft = Math.max(16, Math.min(arrowLeft, tooltipRect.width - 16));
+
+    setTooltipPos({ left, top, arrowLeft });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!portalReady || !open || isMobileViewport || previewState === "error") return;
+
+    let raf = 0;
+    const schedule = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        updateTooltipPosition();
+      });
+    };
+
+    schedule();
+
+    window.addEventListener("resize", schedule);
+    window.addEventListener("scroll", schedule, true);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", schedule);
+      window.removeEventListener("scroll", schedule, true);
+    };
+  }, [portalReady, open, isMobileViewport, previewState, updateTooltipPosition]);
+
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    const any = e as any;
+    if (any.metaKey || any.ctrlKey || any.shiftKey || any.altKey) return;
+    if (e.button !== 0) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    setOpen(false);
+
+    if (onWikiNavigate) {
+      onWikiNavigate(normalizedHref);
+      return;
+    }
+
+    router.push(normalizedHref);
+  };
+
+  const showTooltip =
+    portalReady && !isMobileViewport && open && previewState !== "error";
+
+  const tooltipContent =
+    previewState === "loading" || !preview ? (
+      <div
+        style={{
+          fontSize: 12,
+          fontWeight: 700,
+          color: "var(--muted)",
+          lineHeight: 1.35,
+        }}
+      >
+        문서 정보를 불러오는 중...
+      </div>
+    ) : (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 12,
+          minWidth: 0,
+        }}
+      >
+        <div
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: 12,
+            background: "var(--accent-soft)",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flex: "0 0 auto",
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
+          }}
+        >
+          {preview.icon ? (
+            preview.icon.startsWith("http") ? (
+              <SmartImage
+                src={withVersion(cdn(preview.icon))}
+                alt="doc icon"
+                width={22}
+                height={22}
+                style={{
+                  width: 22,
+                  height: 22,
+                  objectFit: "contain",
+                  display: "block",
+                }}
+              />
+            ) : (
+              <span style={{ fontSize: 20, lineHeight: 1 }}>{preview.icon}</span>
+            )
+          ) : (
+            <span style={{ fontSize: 18, lineHeight: 1 }} aria-hidden>
+              📄
+            </span>
+          )}
+        </div>
+
+        <div style={{ flex: "1 1 auto", minWidth: 0 }}>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: "var(--muted)",
+              lineHeight: 1.35,
+              letterSpacing: "0.02em",
+              marginBottom: 5,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+            title={preview.categoryLabel}
+          >
+            {preview.categoryLabel}
+          </div>
+
+          <div
+            style={{
+              fontSize: 14,
+              fontWeight: 800,
+              color: "var(--foreground)",
+              lineHeight: 1.4,
+              letterSpacing: "-0.1px",
+              wordBreak: "keep-all",
+              overflowWrap: "break-word",
+            }}
+          >
+            {preview.title}
+          </div>
+
+          {preview.tags.length > 0 ? (
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 6,
+                marginTop: 9,
+              }}
+            >
+              {preview.tags.map((tag, idx) => (
+                <span
+                  key={`${tag}-${idx}`}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    padding: "4px 8px",
+                    borderRadius: 999,
+                    background: "rgba(124, 58, 237, 0.10)",
+                    border: "1px solid rgba(124, 58, 237, 0.18)",
+                    color: "var(--accent)",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    lineHeight: 1,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  #{tag.replace(/^#+/, "")}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+
+  const desktopTooltip = showTooltip
+    ? createPortal(
+        <div
+          ref={tooltipRef}
+          id={tooltipIdRef.current}
+          role="tooltip"
+          aria-hidden={!open}
+          style={{
+            pointerEvents: "none",
+            position: "fixed",
+            left: tooltipPos.left,
+            top: tooltipPos.top,
+            transform: open ? "translateY(0)" : "translateY(6px)",
+            opacity: open ? 1 : 0,
+            visibility: open ? "visible" : "hidden",
+            zIndex: 9998,
+            width: "max-content",
+            minWidth: 240,
+            maxWidth: 360,
+            padding: "12px 13px",
+            borderRadius: 14,
+            border: "1px solid var(--border)",
+            background: "var(--surface-elevated)",
+            color: "var(--foreground)",
+            boxShadow: "var(--shadow-lg)",
+            transition:
+              "opacity 0.16s ease, transform 0.16s ease, visibility 0.16s ease",
+          }}
+        >
+          {tooltipContent}
+
+          <span
+            aria-hidden
+            style={{
+              position: "absolute",
+              left: tooltipPos.arrowLeft,
+              bottom: -7,
+              width: 12,
+              height: 12,
+              transform: open
+                ? "translateX(-50%) rotate(45deg)"
+                : "translateX(-50%) translateY(-2px) rotate(45deg)",
+              background: "var(--surface-elevated)",
+              borderRight: "1px solid var(--border)",
+              borderBottom: "1px solid var(--border)",
+              opacity: open ? 1 : 0,
+              visibility: open ? "visible" : "hidden",
+              transition:
+                "opacity 0.16s ease, transform 0.16s ease, visibility 0.16s ease",
+            }}
+          />
+        </div>,
+        document.body
+      )
+    : null;
+
+  return (
+    <>
+      <a
+        ref={rootRef}
+        href={normalizedHref}
+        onClick={handleClick}
+        onMouseEnter={() => {
+          if (!isMobileViewport) setOpen(true);
+        }}
+        onMouseLeave={() => setOpen(false)}
+        onFocus={() => {
+          if (!isMobileViewport) setOpen(true);
+        }}
+        onBlur={() => setOpen(false)}
+        aria-describedby={showTooltip ? tooltipIdRef.current : undefined}
+        style={{ color: "var(--accent)", textDecoration: "none" }}
+      >
+        {children}
+      </a>
+
+      {desktopTooltip}
+    </>
+  );
+};
+
 /** infobox 인라인 스타일 preset */
 function getInfoboxPreset(
   boxType: string
@@ -936,6 +1566,13 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({
 
           detail = {
             icon: ((data as any).icon ?? "").trim() || null,
+            title: ((data as any).title ?? "").trim() || titleParam || null,
+            tags: Array.isArray((data as any).tags)
+              ? (data as any).tags
+                  .map((tag: any) => String(tag ?? "").trim())
+                  .filter(Boolean)
+              : [],
+            path: (data as any).path ?? pathParam ?? null,
             headings: headingsMeta,
           };
           wikiDocDetailCache.set(baseDocKey, detail);
@@ -3456,13 +4093,13 @@ function renderNode(
 
       if (internal) {
         return (
-          <a
+          <InternalWikiLinkInline
             key={key}
             href={href}
-            style={{ color: "var(--accent)", textDecoration: "none" }}
+            onWikiNavigate={env?.onWikiNavigate}
           >
             {children}
-          </a>
+          </InternalWikiLinkInline>
         );
       }
 
