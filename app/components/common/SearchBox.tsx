@@ -196,13 +196,18 @@ export default function SearchBox({
   const router = useRouter();
   const listId = useMemo(() => `search-list-${Math.random().toString(36).slice(2)}`, []);
 
-  // ===== 우선순위 정렬(제목 > 태그 > 내용) =====
+  // ===== 우선순위 정렬(목차 감지 문서 최상단 > 제목 > 태그 > 내용) =====
   const sortedDocs = useMemo(() => {
     const order: Record<DocResult['match_type'], number> = { title: 0, tags: 1, content: 2 };
     return [...docs].sort((a, b) => {
+      const aHasSection = !!String(a.section_heading ?? '').trim();
+      const bHasSection = !!String(b.section_heading ?? '').trim();
+      if (aHasSection !== bHasSection) return aHasSection ? -1 : 1;
+
       const oa = order[a.match_type] ?? 99;
       const ob = order[b.match_type] ?? 99;
       if (oa !== ob) return oa - ob;
+
       return (a.title?.length ?? 0) - (b.title?.length ?? 0);
     });
   }, [docs]);
@@ -581,16 +586,39 @@ export default function SearchBox({
                           <div style={{ minWidth: 0, flex: 1 }}>
                             <div style={{ fontWeight: 700, fontSize: 16 }}>{highlight(res.title, query)}</div>
 
-                            {!!res.category_breadcrumb && (
-                              <div className="search-doc-breadcrumb">
-                                {res.category_breadcrumb}
+                            {!!String(res.section_heading ?? '').trim() ? (
+                              <div
+                                className="search-doc-section-heading"
+                                style={{
+                                  marginTop: 4,
+                                  fontSize: 13,
+                                  fontWeight: 700,
+                                  color: 'var(--accent)',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                                title={String(res.section_heading ?? '')}
+                              >
+                                {highlight(String(res.section_heading ?? ''), query)}
                               </div>
-                            )}
-
-                            {res.match_type === "content" && !!res.section_heading && (
-                              <div className="search-doc-section-heading">
-                                {highlight(res.section_heading, query)}
-                              </div>
+                            ) : (
+                              !!res.category_breadcrumb && (
+                                <div
+                                  className="search-doc-breadcrumb"
+                                  style={{
+                                    marginTop: 4,
+                                    fontSize: 12,
+                                    color: 'var(--muted-2)',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                  title={res.category_breadcrumb}
+                                >
+                                  {res.category_breadcrumb}
+                                </div>
+                              )
                             )}
                           </div>
 
