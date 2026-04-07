@@ -196,13 +196,34 @@ export default function SearchBox({
   const router = useRouter();
   const listId = useMemo(() => `search-list-${Math.random().toString(36).slice(2)}`, []);
 
-  // ===== 우선순위 정렬(목차 감지 문서 최상단 > 제목 > 태그 > 내용) =====
+  // ===== 우선순위 정렬(검색어를 포함한 목차명 최상단 > 제목 > 태그 > 내용) =====
   const sortedDocs = useMemo(() => {
     const order: Record<DocResult['match_type'], number> = { title: 0, tags: 1, content: 2 };
+    const queryText = String(query ?? '').trim();
+    const compactQuery = normalizeSearchText(queryText);
+    const loose = compactQuery.length >= 2 ? makeLooseRegex(queryText) : null;
+
+    const isMatchedSectionHeading = (value?: string | null) => {
+      const heading = String(value ?? '').trim();
+      if (!heading || !compactQuery) return false;
+
+      const lowerHeading = heading.toLowerCase();
+      const lowerQuery = queryText.toLowerCase();
+      if (lowerQuery && lowerHeading.includes(lowerQuery)) return true;
+
+      const compactHeading = normalizeSearchText(heading);
+      if (compactHeading.includes(compactQuery)) return true;
+
+      if (loose && loose.test(compactHeading)) return true;
+      return false;
+    };
+
     return [...docs].sort((a, b) => {
-      const aHasSection = !!String(a.section_heading ?? '').trim();
-      const bHasSection = !!String(b.section_heading ?? '').trim();
-      if (aHasSection !== bHasSection) return aHasSection ? -1 : 1;
+      const aHasMatchedSection = isMatchedSectionHeading(a.section_heading);
+      const bHasMatchedSection = isMatchedSectionHeading(b.section_heading);
+      if (aHasMatchedSection !== bHasMatchedSection) {
+        return aHasMatchedSection ? -1 : 1;
+      }
 
       const oa = order[a.match_type] ?? 99;
       const ob = order[b.match_type] ?? 99;
@@ -210,7 +231,7 @@ export default function SearchBox({
 
       return (a.title?.length ?? 0) - (b.title?.length ?? 0);
     });
-  }, [docs]);
+  }, [docs, query]);
 
   const combinedDocItems = useMemo(() => {
     const docItems = sortedDocs.map((doc) => ({
