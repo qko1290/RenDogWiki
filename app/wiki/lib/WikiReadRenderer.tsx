@@ -890,6 +890,25 @@ const InternalWikiLinkInline: React.FC<InternalWikiLinkInlineProps> = ({
     `wiki-inline-preview-${Math.random().toString(36).slice(2, 10)}`
   );
 
+  const mountedRef = useRef(false);
+  const previewReqSeqRef = useRef(0);
+  const previewTimeoutRef = useRef<number | null>(null);
+
+  const clearPreviewTimeout = useCallback(() => {
+    if (previewTimeoutRef.current != null && typeof window !== "undefined") {
+      window.clearTimeout(previewTimeoutRef.current);
+      previewTimeoutRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      clearPreviewTimeout();
+    };
+  }, [clearPreviewTimeout]);
+
   const [portalReady, setPortalReady] = useState(false);
   const [open, setOpen] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
@@ -927,37 +946,69 @@ const InternalWikiLinkInline: React.FC<InternalWikiLinkInlineProps> = ({
   }, []);
 
   useEffect(() => {
+    previewReqSeqRef.current += 1;
+    clearPreviewTimeout();
     setOpen(false);
     setPreviewState("idle");
     setPreview(null);
-  }, [normalizedHref]);
+  }, [normalizedHref, clearPreviewTimeout]);
 
-  useEffect(() => {
-    if (!open || isMobileViewport || previewState === "ready" || previewState === "loading") {
-      return;
-    }
+  const beginPreviewLoad = useCallback(() => {
+    if (isMobileViewport) return;
+    if (previewState === "ready" && preview) return;
+    if (previewState === "loading") return;
 
-    let cancelled = false;
+    const reqSeq = ++previewReqSeqRef.current;
     setPreviewState("loading");
+    clearPreviewTimeout();
+
+    if (typeof window !== "undefined") {
+      previewTimeoutRef.current = window.setTimeout(() => {
+        if (!mountedRef.current) return;
+        if (previewReqSeqRef.current !== reqSeq) return;
+
+        setPreviewState("error");
+      }, 6000);
+    }
 
     getWikiLinkPreviewData(normalizedHref)
       .then((data) => {
-        if (cancelled) return;
+        if (!mountedRef.current) return;
+        if (previewReqSeqRef.current !== reqSeq) return;
+
+        clearPreviewTimeout();
+
         if (!data) {
+          setPreview(null);
           setPreviewState("error");
           return;
         }
+
         setPreview(data);
         setPreviewState("ready");
       })
       .catch(() => {
-        if (!cancelled) setPreviewState("error");
-      });
+        if (!mountedRef.current) return;
+        if (previewReqSeqRef.current !== reqSeq) return;
 
-    return () => {
-      cancelled = true;
-    };
-  }, [open, isMobileViewport, normalizedHref, previewState]);
+        clearPreviewTimeout();
+        setPreview(null);
+        setPreviewState("error");
+      });
+  }, [
+    isMobileViewport,
+    normalizedHref,
+    preview,
+    previewState,
+    clearPreviewTimeout,
+  ]);
+
+  useEffect(() => {
+    if (!open || isMobileViewport) return;
+    if (previewState === "ready" && preview) return;
+
+    beginPreviewLoad();
+  }, [open, isMobileViewport, previewState, preview, beginPreviewLoad]);
 
   const updateTooltipPosition = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -1037,6 +1088,8 @@ const InternalWikiLinkInline: React.FC<InternalWikiLinkInlineProps> = ({
         }}
       >
         문서 정보를 불러오지 못했습니다.
+        <br />
+        다시 올리면 재시도합니다.
       </div>
     ) : previewState === "loading" || !preview ? (
       <div
@@ -1217,6 +1270,17 @@ const InternalWikiLinkInline: React.FC<InternalWikiLinkInlineProps> = ({
         document.body
       )
     : null;
+  
+  const handlePreviewOpen = () => {
+    if (isMobileViewport) return;
+
+    if (previewState === "error") {
+      setPreview(null);
+      setPreviewState("idle");
+    }
+
+    setOpen(true);
+  };
 
   return (
     <>
@@ -1224,13 +1288,9 @@ const InternalWikiLinkInline: React.FC<InternalWikiLinkInlineProps> = ({
         ref={rootRef}
         href={normalizedHref}
         onClick={handleClick}
-        onMouseEnter={() => {
-          if (!isMobileViewport) setOpen(true);
-        }}
+        onMouseEnter={handlePreviewOpen}
         onMouseLeave={() => setOpen(false)}
-        onFocus={() => {
-          if (!isMobileViewport) setOpen(true);
-        }}
+        onFocus={handlePreviewOpen}
         onBlur={() => setOpen(false)}
         aria-describedby={showTooltip ? tooltipIdRef.current : undefined}
         style={{ color: "var(--accent)", textDecoration: "none" }}
