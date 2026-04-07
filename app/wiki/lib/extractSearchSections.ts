@@ -25,6 +25,14 @@ function normalizeSearchText(v: string) {
   return String(v ?? "").toLowerCase().trim();
 }
 
+function isStrictHeadingMatch(headingText: string, query: string) {
+  const heading = normalizeSearchText(headingText);
+  const keyword = normalizeSearchText(query);
+
+  if (!heading || !keyword) return false;
+  return heading.includes(keyword);
+}
+
 function cleanText(v: string) {
   return String(v ?? "").replace(/\s+/g, " ").trim();
 }
@@ -184,17 +192,13 @@ export function findBestSectionMatch(
   let best: SearchSectionMatch | null = null;
 
   for (const section of sections) {
-    const headingScore = scoreText(section.headingText, query, 10);
-    const bodyScore = scoreText(section.plainText, query, 0);
-    const score = Math.max(headingScore, bodyScore);
+    // 목차 타겟은 "목차 문자열 직접 포함"일 때만 허용
+    if (!isStrictHeadingMatch(section.headingText, query)) {
+      continue;
+    }
 
-    if (score <= 0) continue;
-
-    const snippetSource =
-      bodyScore >= headingScore
-        ? section.plainText
-        : cleanText(`${section.headingText} ${section.plainText}`);
-
+    const score = 1000; // strict heading match는 최우선
+    const snippetSource = cleanText(`${section.headingText} ${section.plainText}`);
     const snippet =
       makeSnippetFromText(snippetSource, query, 40) ??
       makeSnippetFromText(section.plainText, query, 40) ??
@@ -211,12 +215,13 @@ export function findBestSectionMatch(
       score,
     };
 
-    if (
-      !best ||
-      candidate.score > best.score ||
-      (candidate.score === best.score &&
-        candidate.sectionSnippet.length < best.sectionSnippet.length)
-    ) {
+    if (!best) {
+      best = candidate;
+      continue;
+    }
+
+    // 같은 strict match면 heading이 더 짧은 쪽 우선 정도만 주면 충분
+    if (candidate.sectionHeading.length < best.sectionHeading.length) {
       best = candidate;
     }
   }
