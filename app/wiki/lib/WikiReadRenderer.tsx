@@ -337,15 +337,17 @@ const FootnoteInline: React.FC<FootnoteInlineProps> = ({ label, content }) => {
   const closeMobileModal = () => {
     setOpen(false);
   };
+  const showDesktopTooltip = portalReady && !isMobileViewport && open && hasContent;
+  const tooltipVisible = showDesktopTooltip;
 
   const desktopTooltipStyle: React.CSSProperties = {
     pointerEvents: "none",
     position: "fixed",
     left: desktopTooltipPos.left,
     top: desktopTooltipPos.top,
-    transform: open ? "translateY(0)" : "translateY(6px)",
-    opacity: open ? 1 : 0,
-    visibility: open ? "visible" : "hidden",
+    transform: tooltipVisible ? "translateY(0)" : "translateY(6px)",
+    opacity: tooltipVisible ? 1 : 0,
+    visibility: tooltipVisible ? "visible" : "hidden",
     zIndex: 9998,
 
     width: "max-content",
@@ -373,7 +375,7 @@ const FootnoteInline: React.FC<FootnoteInlineProps> = ({ label, content }) => {
   };
 
   const desktopTooltip =
-    portalReady && !isMobileViewport && hasContent
+    showDesktopTooltip
       ? createPortal(
           <span
             ref={desktopTooltipRef}
@@ -390,14 +392,14 @@ const FootnoteInline: React.FC<FootnoteInlineProps> = ({ label, content }) => {
                 bottom: -7,
                 width: 12,
                 height: 12,
-                transform: open
+                transform: tooltipVisible
                   ? "translateX(-50%) rotate(45deg)"
                   : "translateX(-50%) translateY(-2px) rotate(45deg)",
+                opacity: tooltipVisible ? 1 : 0,
+                visibility: tooltipVisible ? "visible" : "hidden",
                 background: "var(--surface-elevated)",
                 borderRight: "1px solid var(--border)",
                 borderBottom: "1px solid var(--border)",
-                opacity: open ? 1 : 0,
-                visibility: open ? "visible" : "hidden",
                 transition:
                   "opacity 0.16s ease, transform 0.16s ease, visibility 0.16s ease",
               }}
@@ -921,6 +923,7 @@ const InternalWikiLinkInline: React.FC<InternalWikiLinkInlineProps> = ({
     top: 0,
     arrowLeft: 24,
   });
+  const [tooltipMeasured, setTooltipMeasured] = useState(false);
 
   const normalizedHref = useMemo(() => normalizeToAppHref(href), [href]);
 
@@ -951,6 +954,7 @@ const InternalWikiLinkInline: React.FC<InternalWikiLinkInlineProps> = ({
     setOpen(false);
     setPreviewState("idle");
     setPreview(null);
+    setTooltipMeasured(false);
   }, [normalizedHref, clearPreviewTimeout]);
 
   const beginPreviewLoad = useCallback(() => {
@@ -1033,6 +1037,7 @@ const InternalWikiLinkInline: React.FC<InternalWikiLinkInlineProps> = ({
     arrowLeft = Math.max(16, Math.min(arrowLeft, tooltipRect.width - 16));
 
     setTooltipPos({ left, top, arrowLeft });
+    setTooltipMeasured(true);
   }, []);
 
   useLayoutEffect(() => {
@@ -1076,6 +1081,7 @@ const InternalWikiLinkInline: React.FC<InternalWikiLinkInlineProps> = ({
   };
 
   const showTooltip = portalReady && !isMobileViewport && open;
+  const tooltipVisible = showTooltip && tooltipMeasured;
 
   const tooltipContent =
     previewState === "error" ? (
@@ -1227,9 +1233,9 @@ const InternalWikiLinkInline: React.FC<InternalWikiLinkInlineProps> = ({
             position: "fixed",
             left: tooltipPos.left,
             top: tooltipPos.top,
-            transform: open ? "translateY(0)" : "translateY(6px)",
-            opacity: open ? 1 : 0,
-            visibility: open ? "visible" : "hidden",
+            transform: tooltipVisible ? "translateY(0)" : "translateY(6px)",
+            opacity: tooltipVisible ? 1 : 0,
+            visibility: tooltipVisible ? "visible" : "hidden",
             zIndex: 9998,
             width: "max-content",
             minWidth: 240,
@@ -1254,14 +1260,14 @@ const InternalWikiLinkInline: React.FC<InternalWikiLinkInlineProps> = ({
               bottom: -7,
               width: 12,
               height: 12,
-              transform: open
+              transform: tooltipVisible
                 ? "translateX(-50%) rotate(45deg)"
                 : "translateX(-50%) translateY(-2px) rotate(45deg)",
+              opacity: tooltipVisible ? 1 : 0,
+              visibility: tooltipVisible ? "visible" : "hidden",
               background: "var(--surface-elevated)",
               borderRight: "1px solid var(--border)",
               borderBottom: "1px solid var(--border)",
-              opacity: open ? 1 : 0,
-              visibility: open ? "visible" : "hidden",
               transition:
                 "opacity 0.16s ease, transform 0.16s ease, visibility 0.16s ease",
             }}
@@ -1274,11 +1280,14 @@ const InternalWikiLinkInline: React.FC<InternalWikiLinkInlineProps> = ({
   const handlePreviewOpen = () => {
     if (isMobileViewport) return;
 
+    clearPreviewTimeout();
+
     if (previewState === "error") {
       setPreview(null);
       setPreviewState("idle");
     }
 
+    setTooltipMeasured(false);
     setOpen(true);
   };
 

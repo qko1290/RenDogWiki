@@ -415,7 +415,7 @@ const CategoryTree: React.FC<Props> = ({
   };
 
   useEffect(() => {
-    const onClick = (e: MouseEvent) => {
+    const onClick = async (e: MouseEvent) => {
       try {
         const target = e.target as HTMLElement | null;
         const a = target?.closest("a") as HTMLAnchorElement | null;
@@ -429,6 +429,7 @@ const CategoryTree: React.FC<Props> = ({
           a.classList.contains("wiki-logo");
 
         if (!looksLikeLogo) return;
+
         if (!interactionReady) {
           e.preventDefault();
           e.stopPropagation();
@@ -436,23 +437,43 @@ const CategoryTree: React.FC<Props> = ({
         }
 
         const rootRep = allDocuments.find(
-          (d) => Array.isArray(d.fullPath) && d.fullPath.length === 0 && d.id === HIDE_ROOT_DOC_ID
+          (d) =>
+            Array.isArray(d.fullPath) &&
+            d.fullPath.length === 0 &&
+            d.id === HIDE_ROOT_DOC_ID
         );
         if (!rootRep) return;
 
         e.preventDefault();
         e.stopPropagation();
 
+        // 현재 열려 있는 루트 카테고리 전부 닫기
+        for (const root of filteredCategories) {
+          const rootPath = [root.id];
+          if (!isPathOpen(rootPath)) continue;
+          try {
+            // eslint-disable-next-line no-await-in-loop
+            await closeTreeWithChildren(root, rootPath);
+          } catch {}
+        }
+
         fetchDoc([0], rootRep.title, rootRep.id, {
           clearCategoryPath: true,
-          history: 'push',
+          history: "push",
         });
       } catch {}
     };
 
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);
-  }, [allDocuments, fetchDoc, interactionReady]);
+  }, [
+    allDocuments,
+    fetchDoc,
+    interactionReady,
+    filteredCategories,
+    isPathOpen,
+    closeTreeWithChildren,
+  ]);
 
   const isReallyOpen = (path: number[]) => isPathOpen(path) && !isClosing(path);
 
