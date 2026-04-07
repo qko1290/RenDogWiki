@@ -136,8 +136,24 @@ function findLooseMatchRange(
   return { start, end };
 }
 
+function findDirectMatchRange(
+  text: string,
+  keyword: string,
+): { start: number; end: number } | null {
+  const source = String(text ?? '');
+  const query = String(keyword ?? '').trim();
+  if (!source || !query) return null;
+
+  const lowerSource = source.toLowerCase();
+  const lowerQuery = query.toLowerCase();
+  const idx = lowerSource.indexOf(lowerQuery);
+  if (idx < 0) return null;
+
+  return { start: idx, end: idx + query.length };
+}
+
 function makeSnippetFromText(text: string, keyword: string, radius = 40) {
-  const range = findLooseMatchRange(text, keyword);
+  const range = findDirectMatchRange(text, keyword) ?? findLooseMatchRange(text, keyword);
   if (!range) return null;
 
   const start = Math.max(0, range.start - radius);
@@ -215,29 +231,7 @@ function isTitleMatchedForSectionSuppression(title: string, query: string) {
   return false;
 }
 
-function isStrictSectionHeadingMatch(heading: string, query: string) {
-  const normalizedHeading = normalizeSearchText(heading);
-  const normalizedQuery = normalizeSearchText(query);
-  const compactHeading = compactSearchText(heading);
-  const compactQuery = compactSearchText(query);
-
-  if (!normalizedHeading || !compactQuery) return false;
-
-  // 1) 사용자가 입력한 검색어가 목차 문자열에 그대로 포함되면 허용
-  if (normalizedQuery && normalizedHeading.includes(normalizedQuery)) {
-    return true;
-  }
-
-  // 2) 띄어쓰기만 제거한 완전 동일어는 허용
-  //    예: "은총의물방울" <-> "은총의 물방울"
-  if (compactHeading === compactQuery) {
-    return true;
-  }
-
-  return false;
-}
-
-function getStrictHeadingScore(heading: string, query: string) {
+function getHeadingMatchScore(heading: string, query: string) {
   const normalizedHeading = normalizeSearchText(heading);
   const normalizedQuery = normalizeSearchText(query);
   const compactHeading = compactSearchText(heading);
@@ -245,11 +239,23 @@ function getStrictHeadingScore(heading: string, query: string) {
 
   if (!normalizedHeading || !compactQuery) return 0;
 
-  if (normalizedHeading === normalizedQuery) return 120;
-  if (compactHeading === compactQuery) return 110;
-  if (normalizedQuery && normalizedHeading.startsWith(normalizedQuery)) return 100;
-  if (normalizedQuery && normalizedHeading.includes(normalizedQuery)) return 90;
+  if (normalizedHeading === normalizedQuery) return 160;
+  if (compactHeading === compactQuery) return 150;
+  if (normalizedQuery && normalizedHeading.startsWith(normalizedQuery)) return 140;
+  if (normalizedQuery && normalizedHeading.includes(normalizedQuery)) return 130;
   return 0;
+}
+
+function getBodyMatchScore(body: string, query: string) {
+  const normalizedBody = normalizeSearchText(body);
+  const normalizedQuery = normalizeSearchText(query);
+
+  if (!normalizedBody || !normalizedQuery) return 0;
+  if (!normalizedBody.includes(normalizedQuery)) return 0;
+
+  if (normalizedBody === normalizedQuery) return 100;
+  if (normalizedBody.startsWith(normalizedQuery)) return 90;
+  return 80;
 }
 
 function findBestSectionMatch(
@@ -264,12 +270,16 @@ function findBestSectionMatch(
   let best: SearchSectionMatch | null = null;
 
   for (const section of sections) {
-    if (!isStrictSectionHeadingMatch(section.headingText, query)) continue;
+    const headingScore = getHeadingMatchScore(section.headingText, query);
+    const bodyScore = getBodyMatchScore(section.plainText, query);
+    const score = Math.max(headingScore, bodyScore);
 
-    const score = getStrictHeadingScore(section.headingText, query);
     if (score <= 0) continue;
 
-    const snippetSource = cleanText(`${section.headingText} ${section.plainText}`);
+    const snippetSource = bodyScore > headingScore
+      ? section.plainText
+      : cleanText(`${section.headingText} ${section.plainText}`);
+
     const snippet =
       makeSnippetFromText(snippetSource, query, 40) ??
       makeSnippetFromText(section.headingText, query, 40) ??
@@ -297,6 +307,10 @@ function findBestSectionMatch(
   }
 
   return best;
+}
+
+function toSearchRows(rows: Iterable<unknown> | null | undefined): SearchRow[] {
+  return Array.from(rows ?? []).map((row) => row as SearchRow);
 }
 
 export async function GET(req: NextRequest) {
@@ -463,9 +477,9 @@ export async function GET(req: NextRequest) {
       ]);
 
       return {
-        titleRows: Array.from(titleRowsRaw) as SearchRow[],
-        tagRows: Array.from(tagRowsRaw) as SearchRow[],
-        contentRows: Array.from(contentRowsRaw) as SearchRow[],
+        titleRows: toSearchRows(titleRowsRaw),
+        tagRows: toSearchRows(tagRowsRaw),
+        contentRows: toSearchRows(contentRowsRaw),
       };
     });
 
@@ -569,8 +583,8 @@ export async function GET(req: NextRequest) {
       }
     };
 
-    pushUnique(matchedSectionRows);
-    if (merged.length < limit) pushUnique(titleRows);
+    pushUnique(titleRows);
+    if (merged.length < limit) pushUnique(matchedSectionRows);
     if (merged.length < limit) pushUnique(tagRows);
     if (merged.length < limit) pushUnique(enrichedContentRows);
 
