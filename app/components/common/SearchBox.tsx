@@ -592,12 +592,6 @@ export default function SearchBox({
                                 {highlight(res.section_heading, query)}
                               </div>
                             )}
-
-                            {res.match_type === "content" && !!res.section_snippet && (
-                              <div className="search-doc-snippet">
-                                {highlight(res.section_snippet, query)}
-                              </div>
-                            )}
                           </div>
 
                           {cleanTags.length > 0 && (
