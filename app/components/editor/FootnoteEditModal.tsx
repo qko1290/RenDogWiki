@@ -110,13 +110,13 @@ export default function FootnoteEditModal({
       <div style={{ display: 'grid', gap: 14 }}>
         <div style={{ display: 'grid', gap: 6 }}>
           <label style={{ fontSize: 14, fontWeight: 800, color: '#111827' }}>
-            표시 이름
+            각주 이름
           </label>
           <input
             autoFocus
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            placeholder="예: 26 / 보충설명 / 주의"
+            placeholder=""
             maxLength={30}
             style={{
               width: '100%',
@@ -132,12 +132,12 @@ export default function FootnoteEditModal({
 
         <div style={{ display: 'grid', gap: 6 }}>
           <label style={{ fontSize: 14, fontWeight: 800, color: '#111827' }}>
-            설명 텍스트
+            설명
           </label>
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder="나중에 hover나 팝업에 표시할 내용을 입력"
+            placeholder=""
             rows={6}
             style={{
               width: '100%',
