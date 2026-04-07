@@ -20,6 +20,8 @@
       "./types",
       "./node_modules/@types"
     ],
+    "ignoreDeprecations": "6.0",
+    "baseUrl": ".",
     "incremental": true,
     "plugins": [
       {
@@ -27,9 +29,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"],
+      "@/*": ["./*", "./app/*"],
       "@lib/*": ["./app/wiki/lib/*"],
-      "@wiki/*": ["./app/wiki/*"]
+      "@wiki/*": ["app/wiki/*"]
     }
   },
   "include": [
