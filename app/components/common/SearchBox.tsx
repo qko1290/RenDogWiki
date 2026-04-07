@@ -25,6 +25,7 @@ type DocResult = {
   section_dom_id?: string | null;
   section_level?: 1 | 2 | 3 | null;
   section_snippet?: string | null;
+  section_match_source?: 'heading' | 'body' | null;
 };
 
 type FaqItem = {
@@ -50,6 +51,15 @@ function normalizeSearchText(v: string) {
     .toLowerCase()
     .replace(/\s+/g, '');
 }
+
+function isExactSectionHeadingMatch(heading: string, keyword: string) {
+  const normalizedHeading = normalizeSearchText(heading);
+  const normalizedKeyword = normalizeSearchText(keyword);
+
+  if (!normalizedHeading || !normalizedKeyword) return false;
+  return normalizedHeading === normalizedKeyword;
+}
+
 
 function buildCompactIndexMap(text: string) {
   const compactChars: string[] = [];
@@ -196,15 +206,26 @@ export default function SearchBox({
   const router = useRouter();
   const listId = useMemo(() => `search-list-${Math.random().toString(36).slice(2)}`, []);
 
-  // ===== 우선순위 정렬(제목 > 태그 > 내용) =====
+  // ===== 우선순위 정렬(제목 > 목차명 매치 > 태그 > 목차 내용 매치 > 기타 내용) =====
   const sortedDocs = useMemo(() => {
-    const order: Record<DocResult['match_type'], number> = { title: 0, tags: 1, content: 2 };
-    return [...docs].sort((a, b) => {
-      const oa = order[a.match_type] ?? 99;
-      const ob = order[b.match_type] ?? 99;
-      if (oa !== ob) return oa - ob;
-      return (a.title?.length ?? 0) - (b.title?.length ?? 0);
-    });
+    const getPriority = (doc: DocResult) => {
+      if (doc.match_type === 'title') return 0;
+      if (doc.match_type === 'content' && doc.section_match_source === 'heading') return 1;
+      if (doc.match_type === 'tags') return 2;
+      if (doc.match_type === 'content' && doc.section_match_source === 'body') return 3;
+      if (doc.match_type === 'content') return 4;
+      return 99;
+    };
+
+    return docs
+      .map((doc, index) => ({ doc, index }))
+      .sort((a, b) => {
+        const pa = getPriority(a.doc);
+        const pb = getPriority(b.doc);
+        if (pa !== pb) return pa - pb;
+        return a.index - b.index;
+      })
+      .map(({ doc }) => doc);
   }, [docs]);
 
   const renderDocTitle = (res: DocResult) => {
@@ -217,6 +238,51 @@ export default function SearchBox({
     }
 
     return highlight(res.title, query);
+  };
+
+  const renderSectionMeta = (res: DocResult) => {
+    const sectionHeading = String(res.section_heading ?? '').trim();
+    const breadcrumb = String(res.category_breadcrumb ?? '').trim();
+
+    if (res.match_type === 'content' && sectionHeading) {
+      const isExact = isExactSectionHeadingMatch(sectionHeading, query);
+
+      return (
+        <div
+          style={{
+            marginTop: 4,
+            fontSize: 12,
+            color: isExact ? 'var(--accent)' : 'var(--muted-2)',
+            fontWeight: isExact ? 700 : 500,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+          title={sectionHeading}
+        >
+          {sectionHeading}
+        </div>
+      );
+    }
+
+    if (!breadcrumb) return null;
+
+    return (
+      <div
+        style={{
+          marginTop: 4,
+          fontSize: 12,
+          color: 'var(--muted-2)',
+          fontWeight: 500,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+        title={breadcrumb}
+      >
+        {breadcrumb}
+      </div>
+    );
   };
 
   const combinedDocItems = useMemo(() => {
@@ -593,17 +659,7 @@ export default function SearchBox({
                           <div style={{ minWidth: 0, flex: 1 }}>
                             <div style={{ fontWeight: 700, fontSize: 16 }}>{renderDocTitle(res)}</div>
 
-                            {res.match_type === 'content' && !!res.section_heading ? (
-                              <div className="search-doc-section-heading">
-                                {highlight(res.section_heading, query)}
-                              </div>
-                            ) : (
-                              !!res.category_breadcrumb && (
-                                <div className="search-doc-breadcrumb">
-                                  {res.category_breadcrumb}
-                                </div>
-                              )
-                            )}
+                            {renderSectionMeta(res)}
                           </div>
 
                           {cleanTags.length > 0 && (

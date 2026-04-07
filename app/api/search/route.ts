@@ -21,6 +21,7 @@ type SearchRow = {
   section_dom_id?: string | null;
   section_level?: 1 | 2 | 3 | null;
   section_snippet?: string | null;
+  section_match_source?: 'heading' | 'body' | null;
 };
 
 type SearchSection = {
@@ -35,12 +36,13 @@ type SearchSectionMatch = {
   sectionDomId: string;
   sectionLevel: 1 | 2 | 3 | null;
   sectionSnippet: string;
+  sectionMatchSource: 'heading' | 'body';
   score: number;
 };
 
 type SectionMeta = Pick<
   SearchRow,
-  'section_heading' | 'section_dom_id' | 'section_level' | 'section_snippet'
+  'section_heading' | 'section_dom_id' | 'section_level' | 'section_snippet' | 'section_match_source'
 >;
 
 function compactSearchText(v: string) {
@@ -293,6 +295,7 @@ function findBestSectionMatch(
           ? section.level
           : null,
       sectionSnippet: snippet,
+      sectionMatchSource: headingScore >= bodyScore ? 'heading' : 'body',
       score,
     };
 
@@ -496,6 +499,7 @@ export async function GET(req: NextRequest) {
         section_dom_id: null,
         section_level: null,
         section_snippet: null,
+        section_match_source: null,
       };
 
       const rawContent = typeof row.content === 'string' ? row.content : '';
@@ -505,6 +509,7 @@ export async function GET(req: NextRequest) {
           section_dom_id: null,
           section_level: null,
           section_snippet: null,
+          section_match_source: null,
         });
         return next;
       }
@@ -519,6 +524,7 @@ export async function GET(req: NextRequest) {
           next.section_dom_id = best.sectionDomId || null;
           next.section_level = best.sectionLevel;
           next.section_snippet = best.sectionSnippet || null;
+          next.section_match_source = best.sectionMatchSource;
         }
       } catch {
         // noop
@@ -529,6 +535,7 @@ export async function GET(req: NextRequest) {
         section_dom_id: next.section_dom_id ?? null,
         section_level: next.section_level ?? null,
         section_snippet: next.section_snippet ?? null,
+        section_match_source: next.section_match_source ?? null,
       });
 
       return next;
@@ -536,6 +543,14 @@ export async function GET(req: NextRequest) {
 
     const matchedSectionRows = enrichedContentRows.filter(
       (row) => !!String(row.section_dom_id ?? '').trim(),
+    );
+
+    const headingMatchedSectionRows = matchedSectionRows.filter(
+      (row) => row.section_match_source === 'heading',
+    );
+
+    const bodyMatchedSectionRows = matchedSectionRows.filter(
+      (row) => row.section_match_source === 'body',
     );
 
     const seen = new Set<number>();
@@ -550,6 +565,7 @@ export async function GET(req: NextRequest) {
           section_dom_id: row.section_dom_id ?? null,
           section_level: row.section_level ?? null,
           section_snippet: row.section_snippet ?? null,
+          section_match_source: row.section_match_source ?? null,
         };
       }
 
@@ -559,6 +575,7 @@ export async function GET(req: NextRequest) {
         section_dom_id: meta.section_dom_id ?? row.section_dom_id ?? null,
         section_level: meta.section_level ?? row.section_level ?? null,
         section_snippet: meta.section_snippet ?? row.section_snippet ?? null,
+        section_match_source: meta.section_match_source ?? row.section_match_source ?? null,
       };
     };
 
@@ -584,8 +601,9 @@ export async function GET(req: NextRequest) {
     };
 
     pushUnique(titleRows);
-    if (merged.length < limit) pushUnique(matchedSectionRows);
+    if (merged.length < limit) pushUnique(headingMatchedSectionRows);
     if (merged.length < limit) pushUnique(tagRows);
+    if (merged.length < limit) pushUnique(bodyMatchedSectionRows);
     if (merged.length < limit) pushUnique(enrichedContentRows);
 
     return NextResponse.json(merged, {
