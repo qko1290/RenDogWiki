@@ -51,6 +51,45 @@ function normalizeSearchText(v: string) {
     .replace(/\s+/g, '');
 }
 
+function normalizeSearchTextKeepSpaces(v: string) {
+  return String(v ?? '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isStrictHeadingTargetMatch(heading: string | null | undefined, keyword: string) {
+  const safeHeading = String(heading ?? '');
+  const headingText = normalizeSearchTextKeepSpaces(safeHeading);
+  const queryText = normalizeSearchTextKeepSpaces(keyword);
+  const compactHeading = normalizeSearchText(safeHeading);
+  const compactQuery = normalizeSearchText(keyword);
+
+  if (!compactHeading || !compactQuery) return false;
+
+  if (queryText && headingText.includes(queryText)) return true;
+
+  return compactHeading === compactQuery;
+}
+
+function isTitleMatchedForTop(title: string | null | undefined, keyword: string) {
+  const safeTitle = String(title ?? '');
+  const titleText = normalizeSearchTextKeepSpaces(safeTitle);
+  const queryText = normalizeSearchTextKeepSpaces(keyword);
+  const compactTitle = normalizeSearchText(safeTitle);
+  const compactQuery = normalizeSearchText(keyword);
+
+  if (!compactTitle || !compactQuery) return false;
+
+  if (queryText && titleText.includes(queryText)) return true;
+
+  return compactTitle.includes(compactQuery);
+}
+
+function shouldPreferSectionTarget(title: string | null | undefined, heading: string | null | undefined, keyword: string) {
+  return isStrictHeadingTargetMatch(heading, keyword) && !isTitleMatchedForTop(title, keyword);
+}
+
 function buildCompactIndexMap(text: string) {
   const compactChars: string[] = [];
   const indexMap: number[] = [];
@@ -196,31 +235,13 @@ export default function SearchBox({
   const router = useRouter();
   const listId = useMemo(() => `search-list-${Math.random().toString(36).slice(2)}`, []);
 
-  // ===== 우선순위 정렬(검색어를 포함한 목차명 최상단 > 제목 > 태그 > 내용) =====
+  // ===== 우선순위 정렬(목차 strict target 우선 > 제목 > 태그 > 내용) =====
   const sortedDocs = useMemo(() => {
     const order: Record<DocResult['match_type'], number> = { title: 0, tags: 1, content: 2 };
-    const queryText = String(query ?? '').trim();
-    const compactQuery = normalizeSearchText(queryText);
-    const loose = compactQuery.length >= 2 ? makeLooseRegex(queryText) : null;
-
-    const isMatchedSectionHeading = (value?: string | null) => {
-      const heading = String(value ?? '').trim();
-      if (!heading || !compactQuery) return false;
-
-      const lowerHeading = heading.toLowerCase();
-      const lowerQuery = queryText.toLowerCase();
-      if (lowerQuery && lowerHeading.includes(lowerQuery)) return true;
-
-      const compactHeading = normalizeSearchText(heading);
-      if (compactHeading.includes(compactQuery)) return true;
-
-      if (loose && loose.test(compactHeading)) return true;
-      return false;
-    };
 
     return [...docs].sort((a, b) => {
-      const aHasMatchedSection = isMatchedSectionHeading(a.section_heading);
-      const bHasMatchedSection = isMatchedSectionHeading(b.section_heading);
+      const aHasMatchedSection = shouldPreferSectionTarget(a.title, a.section_heading, query);
+      const bHasMatchedSection = shouldPreferSectionTarget(b.title, b.section_heading, query);
       if (aHasMatchedSection !== bHasMatchedSection) {
         return aHasMatchedSection ? -1 : 1;
       }
@@ -381,10 +402,13 @@ export default function SearchBox({
   const goDoc = (res: DocResult | null) => {
     if (!res) return;
 
-    const nextHashDomId = String(res.section_dom_id ?? "").trim();
+    const useSectionTarget = shouldPreferSectionTarget(res.title, res.section_heading, query);
+    const nextHashDomId = useSectionTarget
+      ? String(res.section_dom_id ?? '').trim()
+      : '';
 
     setOpen(false);
-    setQuery("");
+    setQuery('');
     setDocs([]);
     setQuestNpcs?.([]);
     setFaqs([]);
@@ -394,16 +418,14 @@ export default function SearchBox({
       `/wiki?id=${encodeURIComponent(res.id)}` +
       `&path=${encodeURIComponent(res.path)}` +
       `&title=${encodeURIComponent(res.title)}` +
-      (nextHashDomId ? `#${encodeURIComponent(nextHashDomId)}` : "");
+      (nextHashDomId ? `#${encodeURIComponent(nextHashDomId)}` : '');
 
     router.push(href, { scroll: false });
 
-    // Next router의 pushState 기반 hash 이동은 hashchange가 안 잡힐 수 있어서
-    // 같은 문서 내 다른 heading으로 이동할 때도 기존 heading-scroll effect를 재실행시킴
-    if (nextHashDomId && typeof window !== "undefined") {
+    if (nextHashDomId && typeof window !== 'undefined') {
       window.requestAnimationFrame(() => {
         window.dispatchEvent(
-          new CustomEvent("rdwiki:search-hash-nav", {
+          new CustomEvent('rdwiki:search-hash-nav', {
             detail: { domId: nextHashDomId },
           }),
         );
@@ -560,6 +582,12 @@ export default function SearchBox({
                       .filter(Boolean)
                       .filter((tag) => isTagMatched(tag, query));
 
+                    const shouldShowSectionTarget = shouldPreferSectionTarget(
+                      res.title,
+                      res.section_heading,
+                      query,
+                    );
+
                     return (
                       <li
                         id={`${listId}-opt-doc-${res.id}`}
@@ -607,7 +635,7 @@ export default function SearchBox({
                           <div style={{ minWidth: 0, flex: 1 }}>
                             <div style={{ fontWeight: 700, fontSize: 16 }}>{highlight(res.title, query)}</div>
 
-                            {!!String(res.section_heading ?? '').trim() ? (
+                            {shouldShowSectionTarget ? (
                               <div
                                 className="search-doc-section-heading"
                                 style={{
