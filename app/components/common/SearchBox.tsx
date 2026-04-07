@@ -52,12 +52,12 @@ function normalizeSearchText(v: string) {
     .replace(/\s+/g, '');
 }
 
-function isExactSectionHeadingMatch(heading: string, keyword: string) {
+function isSectionHeadingHighlighted(heading: string, keyword: string) {
   const normalizedHeading = normalizeSearchText(heading);
   const normalizedKeyword = normalizeSearchText(keyword);
 
   if (!normalizedHeading || !normalizedKeyword) return false;
-  return normalizedHeading === normalizedKeyword;
+  return normalizedHeading.includes(normalizedKeyword);
 }
 
 
@@ -245,15 +245,15 @@ export default function SearchBox({
     const breadcrumb = String(res.category_breadcrumb ?? '').trim();
 
     if (res.match_type === 'content' && sectionHeading) {
-      const isExact = isExactSectionHeadingMatch(sectionHeading, query);
+      const isHighlighted = isSectionHeadingHighlighted(sectionHeading, query);
 
       return (
         <div
           style={{
             marginTop: 4,
             fontSize: 12,
-            color: isExact ? 'var(--accent)' : 'var(--muted-2)',
-            fontWeight: isExact ? 700 : 500,
+            color: isHighlighted ? 'var(--accent)' : 'var(--muted-2)',
+            fontWeight: isHighlighted ? 700 : 500,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
