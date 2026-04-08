@@ -694,18 +694,6 @@ export default function WikiPageInner({ user }: Props) {
   };
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!('scrollRestoration' in window.history)) return;
-
-    const prev = window.history.scrollRestoration;
-    window.history.scrollRestoration = 'manual';
-
-    return () => {
-      window.history.scrollRestoration = prev;
-    };
-  }, []);
-
-  useEffect(() => {
     if (typeof window === "undefined") return;
 
     const requestHashScroll = (hashLike?: string | null) => {
@@ -785,9 +773,21 @@ export default function WikiPageInner({ user }: Props) {
   };
 
   useEffect(() => {
+    if (typeof window === 'undefined' || !('scrollRestoration' in window.history)) {
+      return;
+    }
+
+    const prev = window.history.scrollRestoration;
+    window.history.scrollRestoration = 'manual';
+
+    return () => {
+      window.history.scrollRestoration = prev;
+    };
+  }, []);
+
+  useEffect(() => {
     const onPopState = () => {
       popNavigationRef.current = true;
-      respectLocationHashRef.current = true;
       pendingPopRestoreTopRef.current = readHistoryScroll(window.location);
     };
 
@@ -830,6 +830,20 @@ export default function WikiPageInner({ user }: Props) {
     }
 
     return false;
+  }
+
+
+  function getActiveHeadingTarget(hashLike?: string | null) {
+    const direct = normalizeHashToDomId(hashLike);
+    if (direct) return direct;
+
+    if (pendingScrollDomIdRef.current) return pendingScrollDomIdRef.current;
+
+    if (typeof window !== 'undefined' && respectLocationHashRef.current) {
+      return normalizeHashToDomId(window.location.hash);
+    }
+
+    return '';
   }
 
   function isHeadingAligned(
@@ -915,10 +929,7 @@ export default function WikiPageInner({ user }: Props) {
     if (!selectedDocId) return;
 
     const baseTarget =
-      pendingScrollDomIdRef.current ||
-      (respectLocationHashRef.current
-        ? normalizeHashToDomId(window.location.hash)
-        : '');
+      pendingScrollDomIdRef.current || normalizeHashToDomId(window.location.hash);
 
     // heading 이동이 있으면 top 보정은 절대 사용하지 않음
     if (baseTarget) {
@@ -1162,6 +1173,17 @@ export default function WikiPageInner({ user }: Props) {
   };
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const onPageHide = () => {
+      saveCurrentHistoryScroll();
+    };
+
+    window.addEventListener('pagehide', onPageHide);
+    return () => window.removeEventListener('pagehide', onPageHide);
+  }, []);
+
+  useEffect(() => {
     const onMode = (e: Event) => {
       const next = (e as CustomEvent).detail?.mode ?? null;
       setMode(next && MODE_WHITELIST.has(next) ? next : null);
@@ -1203,10 +1225,7 @@ export default function WikiPageInner({ user }: Props) {
     setSelectedDocPath([]); // 루트 경로는 []
     setSelectedCategoryPath(null);
 
-    await fetchDocById(rootDoc.id, {
-      hideChrome: true,
-      ignoreCurrentLocationHash: true,
-    });
+    await fetchDocById(rootDoc.id, { hideChrome: true, ignoreCurrentLocationHash: true });
   };
 
   // ✅ 특정 ID로 루트 문서 열기(로고/초기 로딩용)
@@ -1217,10 +1236,7 @@ export default function WikiPageInner({ user }: Props) {
     setSelectedDocId(docId);
     const inList = allDocuments.find(d => d.id === docId);
     setSelectedDocTitle(inList?.title ?? null); // 목록에 있으면 즉시 반영
-    await fetchDocById(docId, {
-      hideChrome: true,
-      ignoreCurrentLocationHash: true,
-    });
+    await fetchDocById(docId, { hideChrome: true, ignoreCurrentLocationHash: true });
   };
 
   // 카테고리 + 전체 문서 로드
@@ -2293,6 +2309,38 @@ export default function WikiPageInner({ user }: Props) {
   const isLoadingView = loadingDoc || docContent === null;
   const hold = isLoadingView || delaying;
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!selectedDocId) return;
+    if (hold) return;
+
+    const target =
+      getPreferredScrollContainer(contentRef.current) ??
+      mainScrollRef.current ??
+      window;
+
+    let rafId = 0;
+
+    const flush = () => {
+      rafId = 0;
+      saveCurrentHistoryScroll();
+    };
+
+    const onScroll = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(flush);
+    };
+
+    target.addEventListener('scroll', onScroll, { passive: true });
+    saveCurrentHistoryScroll();
+
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      target.removeEventListener('scroll', onScroll as EventListener);
+      saveCurrentHistoryScroll();
+    };
+  }, [selectedDocId, hold, docContent]);
+
   // ✅ 문서 조회수 기록
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -2316,56 +2364,9 @@ export default function WikiPageInner({ user }: Props) {
   }, [selectedDocId, loadingDoc, hold, docContent]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (hold) return;
-    if (!selectedDocId) return;
-
-    const container =
-      getPreferredScrollContainer(contentRef.current) ??
-      mainScrollRef.current ??
-      (document.getElementById('wiki-scroll-root') as HTMLElement | null);
-
-    const target: HTMLElement | Window = container ?? window;
-    let rafId = 0;
-
-    const flush = () => {
-      rafId = 0;
-      saveCurrentHistoryScroll();
-    };
-
-    const onScroll = () => {
-      if (rafId) window.cancelAnimationFrame(rafId);
-      rafId = window.requestAnimationFrame(flush);
-    };
-
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        saveCurrentHistoryScroll();
-      }
-    };
-
-    target.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('pagehide', flush);
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    saveCurrentHistoryScroll();
-
-    return () => {
-      if (rafId) window.cancelAnimationFrame(rafId);
-      target.removeEventListener('scroll', onScroll as EventListener);
-      window.removeEventListener('pagehide', flush);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-      saveCurrentHistoryScroll();
-    };
-  }, [hold, selectedDocId, docContent, tableOfContents.length]);
-
-  useEffect(() => {
     if (hold) return;
 
-    const pendingHeading =
-      pendingScrollDomIdRef.current ||
-      (respectLocationHashRef.current
-        ? normalizeHashToDomId(window.location.hash)
-        : '');
+    const pendingHeading = getActiveHeadingTarget();
     const shouldScrollTop = pendingTopScrollRef.current;
     const cameFromPopNavigation = popNavigationRef.current;
     const pendingPopRestoreTop = pendingPopRestoreTopRef.current;
@@ -2374,7 +2375,25 @@ export default function WikiPageInner({ user }: Props) {
     popNavigationRef.current = false;
     pendingPopRestoreTopRef.current = null;
 
-    // 1) 해시가 있으면 해당 heading으로 이동
+    // 1) 뒤로가기/앞으로가기는 저장된 마지막 스크롤 위치 우선 복원
+    if (cameFromPopNavigation && Number.isFinite(pendingPopRestoreTop)) {
+      pendingScrollDomIdRef.current = '';
+      pendingTopScrollRef.current = false;
+      respectLocationHashRef.current = false;
+      clearStableHeadingScrollTimeouts();
+
+      const restoreTop = Math.max(0, Number(pendingPopRestoreTop ?? 0));
+
+      requestAnimationFrame(() => {
+        restoreDocumentScrollTop(restoreTop);
+        requestAnimationFrame(() => {
+          restoreDocumentScrollTop(restoreTop);
+        });
+      });
+      return;
+    }
+
+    // 2) 해시가 있으면 해당 heading으로 이동
     if (pendingHeading) {
       // heading 이동이 시작되면 top 로직은 완전히 꺼둠
       pendingTopScrollRef.current = false;
@@ -2411,25 +2430,13 @@ export default function WikiPageInner({ user }: Props) {
       return;
     }
 
-    // 2) 뒤로가기/앞으로가기는 저장된 스크롤을 우선 복원
+    // 3) 뒤로가기/앞으로가기는 저장값이 없으면 강제 top scroll 제외
     if (cameFromPopNavigation) {
       pendingTopScrollRef.current = false;
-
-      if (Number.isFinite(pendingPopRestoreTop)) {
-        clearStableHeadingScrollTimeouts();
-
-        const restoreTop = Math.max(0, Number(pendingPopRestoreTop ?? 0));
-        const restore = () => restoreDocumentScrollTop(restoreTop);
-
-        restore();
-        requestAnimationFrame(restore);
-        requestAnimationFrame(() => requestAnimationFrame(restore));
-      }
-
       return;
     }
 
-    // 3) 해시 없는 새 문서 오픈은 항상 맨 위
+    // 4) 해시 없는 새 문서 오픈은 항상 맨 위
     if (shouldScrollTop && !hasPendingHeadingNavigation()) {
       pendingTopScrollRef.current = false;
       clearStableHeadingScrollTimeouts();
