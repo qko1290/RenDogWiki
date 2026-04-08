@@ -10,6 +10,7 @@ export type StoredDocFavorite = {
   title: string;
   href: string;
   emoji: string;
+  icon?: string | null;
   addedAt: number;
   updatedAt?: string | null;
 };
@@ -48,6 +49,7 @@ export function sanitizeDocFavorites(input: unknown): StoredDocFavorite[] {
     const emoji = String((row as any).emoji ?? '⭐').trim() || '⭐';
     const addedAtRaw = Number((row as any).addedAt);
     const updatedAt = (row as any).updatedAt == null ? null : String((row as any).updatedAt);
+    const icon = (row as any).icon == null ? null : String((row as any).icon);
 
     if (!Number.isFinite(id) || id <= 0) continue;
     if (!title || !href) continue;
@@ -58,6 +60,7 @@ export function sanitizeDocFavorites(input: unknown): StoredDocFavorite[] {
       href,
       emoji,
       addedAt: Number.isFinite(addedAtRaw) ? addedAtRaw : Date.now(),
+      icon,
       updatedAt,
     });
   }
@@ -102,6 +105,7 @@ export function upsertDocFavorite(
     href: String(nextItem.href ?? '').trim(),
     emoji: String(nextItem.emoji ?? '⭐').trim() || '⭐',
     addedAt: prev?.addedAt ?? nextItem.addedAt ?? Date.now(),
+    icon: nextItem.icon ?? prev?.icon ?? null,
     updatedAt: nextItem.updatedAt ?? prev?.updatedAt ?? null,
   });
 

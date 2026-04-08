@@ -2178,6 +2178,7 @@ export default function WikiPageInner({ user }: Props) {
       title: item.title,
       href: item.href,
       emoji: item.emoji || '⭐',
+      docIcon: item.icon ?? undefined,
     }));
   }, [docFavorites]);
 
@@ -2210,6 +2211,7 @@ export default function WikiPageInner({ user }: Props) {
           title: selectedDocTitle,
           href,
           emoji: '⭐',
+          icon: currentDoc?.icon ?? null,
           updatedAt: currentDoc?.updated_at ?? null,
         });
 

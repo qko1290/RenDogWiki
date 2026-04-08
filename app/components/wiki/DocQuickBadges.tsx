@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { toProxyUrl } from '@lib/cdn';
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -19,11 +20,13 @@ import type { DocBadgeMode } from '@/wiki/lib/docFavorites';
 export type DocQuickBadgeItem = {
   icon?: 'price' | 'quest' | 'head' | 'collection' | 'calc';
   emoji?: string;
+  docIcon?: string | null;
   id?: number;
   title: string;
   href: string;
   external?: boolean;
   disabled?: boolean;
+  emptyState?: boolean;
 };
 
 type Props = {
@@ -51,6 +54,11 @@ function iconByKey(key: NonNullable<DocQuickBadgeItem['icon']>) {
     case 'calc':
       return faCalculator;
   }
+}
+
+function isImageIconValue(value: string) {
+  if (!value) return false;
+  return /^(https?:\/\/|\/|data:image\/)/i.test(value) || /\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(value);
 }
 
 function detectDarkMode() {
@@ -116,6 +124,7 @@ export default function DocQuickBadges({
         href: '#',
         emoji: '⭐',
         disabled: true,
+        emptyState: true,
       },
     ];
   }, [favoriteItems, isFavoritesMode, items]);
@@ -309,7 +318,7 @@ export default function DocQuickBadges({
           <button
             key={`${it.href}-${idx}`}
             type="button"
-            className={`qbd-btn qbd-item ${open ? 'is-open' : ''} ${it.disabled ? 'is-disabled' : ''}`}
+            className={`qbd-btn qbd-item ${open ? 'is-open' : ''} ${it.disabled ? 'is-disabled' : ''} ${it.emptyState ? 'is-empty' : ''}`}
             style={{
               transform: open ? `translateY(${56 * idx}px)` : 'translateY(0px)',
               transitionDelay: open ? `${idx * 55}ms` : '0ms',
@@ -327,7 +336,20 @@ export default function DocQuickBadges({
             disabled={hidden || it.disabled}
           >
             <span className="qbd-ic" aria-hidden>
-              {it.emoji ? (
+              {it.docIcon ? (
+                isImageIconValue(it.docIcon) ? (
+                  <img
+                    src={it.docIcon.startsWith('http') ? toProxyUrl(it.docIcon) : it.docIcon}
+                    alt=""
+                    className="qbd-doc-icon-img"
+                    loading="lazy"
+                    decoding="async"
+                    draggable={false}
+                  />
+                ) : (
+                  <span className="qbd-emoji">{it.docIcon}</span>
+                )
+              ) : it.emoji ? (
                 <span className="qbd-emoji">{it.emoji}</span>
               ) : it.icon ? (
                 <FontAwesomeIcon icon={iconByKey(it.icon)} />
@@ -467,6 +489,25 @@ export default function DocQuickBadges({
           transform: translateY(-50%);
         }
 
+        .qbd-item.is-empty::before {
+          width: calc(46px + var(--qbd-expand));
+          border-radius: 50px;
+          background-color: var(--qbd-hover-bg);
+          border-color: transparent;
+          box-shadow: 0px 0px 22px rgba(0, 0, 0, 0.22);
+        }
+
+        .qbd-item.is-empty::after {
+          opacity: 1;
+          font-size: var(--qbd-label-size);
+          color: #fff;
+          transform: translateY(-50%);
+        }
+
+        .qbd-item.is-empty .qbd-ic {
+          color: #fff;
+        }
+
         .qbd-ic {
           position: absolute;
           left: 0;
@@ -488,6 +529,16 @@ export default function DocQuickBadges({
           justify-content: center;
           font-size: 22px;
           line-height: 1;
+        }
+
+        .qbd-doc-icon-img {
+          width: 24px;
+          height: 24px;
+          object-fit: cover;
+          border-radius: 6px;
+          display: block;
+          pointer-events: none;
+          user-select: none;
         }
 
         .qbd-root:not(.hover-lock):not(.is-hidden) .qbd-btn:not(.qbd-main):not(.is-disabled):hover .qbd-ic,
