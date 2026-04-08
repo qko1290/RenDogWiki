@@ -27,7 +27,7 @@ import {
 
 function OutlineBoltIcon(props: SVGProps<SVGSVGElement>) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.45" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
       <path d="M13.5 2.75 6.8 12.1h4.85L10.5 21.25l6.7-9.35h-4.85l1.15-9.15Z" />
     </svg>
   );
@@ -35,7 +35,7 @@ function OutlineBoltIcon(props: SVGProps<SVGSVGElement>) {
 
 function OutlineStarIcon(props: SVGProps<SVGSVGElement>) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
       <path d="m12 3.35 2.68 5.43 5.99.87-4.33 4.22 1.02 5.96L12 17.01l-5.36 2.82 1.03-5.96L3.34 9.65l5.98-.87L12 3.35Z" />
     </svg>
   );
@@ -258,8 +258,30 @@ export default function WikiHeader({
               aria-pressed={docBadgeMode === 'favorites'}
               aria-label={docBadgeMode === 'favorites' ? '즐겨찾기 모드 사용 중. 클릭하면 바로가기 모드로 전환' : '바로가기 모드 사용 중. 클릭하면 즐겨찾기 모드로 전환'}
               title={docBadgeMode === 'favorites' ? '즐겨찾기 모드' : '바로가기 모드'}
+              style={{
+                appearance: 'none',
+                border: 'none',
+                background: 'transparent',
+                boxShadow: 'none',
+                padding: 0,
+                margin: 0,
+                width: 28,
+                height: 28,
+                minWidth: 28,
+                minHeight: 28,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#111111',
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
             >
-              <span className="wiki-doc-badge-mode-btn__icon" aria-hidden>
+              <span
+                className="wiki-doc-badge-mode-btn__icon"
+                aria-hidden
+                style={{ display: 'inline-flex', width: 22, height: 22 }}
+              >
                 {docBadgeMode === 'favorites' ? <OutlineStarIcon /> : <OutlineBoltIcon />}
               </span>
             </button>
@@ -286,8 +308,30 @@ export default function WikiHeader({
               aria-pressed={docBadgeMode === 'favorites'}
               aria-label={docBadgeMode === 'favorites' ? '즐겨찾기 모드 사용 중. 클릭하면 바로가기 모드로 전환' : '바로가기 모드 사용 중. 클릭하면 즐겨찾기 모드로 전환'}
               title={docBadgeMode === 'favorites' ? '즐겨찾기 모드' : '바로가기 모드'}
+              style={{
+                appearance: 'none',
+                border: 'none',
+                background: 'transparent',
+                boxShadow: 'none',
+                padding: 0,
+                margin: 0,
+                width: 28,
+                height: 28,
+                minWidth: 28,
+                minHeight: 28,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#111111',
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
             >
-              <span className="wiki-doc-badge-mode-btn__icon" aria-hidden>
+              <span
+                className="wiki-doc-badge-mode-btn__icon"
+                aria-hidden
+                style={{ display: 'inline-flex', width: 22, height: 22 }}
+              >
                 {docBadgeMode === 'favorites' ? <OutlineStarIcon /> : <OutlineBoltIcon />}
               </span>
             </button>

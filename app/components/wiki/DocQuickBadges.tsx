@@ -106,13 +106,24 @@ export default function DocQuickBadges({
   const isFavoritesMode = mode === 'favorites';
   const activeItems = useMemo(() => {
     if (!isFavoritesMode) return items.slice(0, 5);
-    return favoriteItems.slice(0, 10);
+
+    const favorites = favoriteItems.slice(0, 10);
+    if (favorites.length > 0) return favorites;
+
+    return [
+      {
+        title: '즐겨찾기 목록이 비었습니다',
+        href: '#',
+        emoji: '⭐',
+        disabled: true,
+      },
+    ];
   }, [favoriteItems, isFavoritesMode, items]);
 
   const mainTitle = isFavoritesMode ? '즐겨찾기' : '바로가기';
   const mainButtonTitle = mainTitle;
   const activeExpandWidth = isFavoritesMode ? Math.max(expandWidth, 220) : expandWidth;
-  const rootHeight = Math.max(120, 90 + Math.max(activeItems.length, 1) * 56);
+  const rootHeight = Math.max(120, 90 + activeItems.length * 56);
 
   const go = (item: DocQuickBadgeItem) => {
     if (hidden || item.disabled) return;
@@ -258,7 +269,7 @@ export default function DocQuickBadges({
       style={
         {
           ['--qbd-expand' as any]: `${activeExpandWidth}px`,
-          ['--qbd-hover-bg' as any]: isFavoritesMode ? '#6f4cff' : hoverBg,
+          ['--qbd-hover-bg' as any]: hoverBg,
           ['--qbd-top' as any]: `${topOffset}px`,
           ['--qbd-base-bg' as any]: badgeBaseBg,
           ['--qbd-base-fg' as any]: badgeBaseFg,
