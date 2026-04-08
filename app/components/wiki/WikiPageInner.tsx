@@ -30,7 +30,6 @@ import {
   readDocFavorites,
   removeDocFavorite,
   upsertDocFavorite,
-  writeDocBadgeMode,
   writeDocFavorites,
   type DocBadgeMode,
 } from '@/wiki/lib/docFavorites';
@@ -2181,10 +2180,6 @@ export default function WikiPageInner({ user }: Props) {
     }));
   }, [docFavorites]);
 
-  const handleQuickBadgeModeChange = (nextMode: DocBadgeMode) => {
-    setQuickBadgeMode(nextMode);
-    writeDocBadgeMode(nextMode);
-  };
 
   const handleToggleCurrentDocFavorite = () => {
     if (!selectedDocId || !selectedDocTitle) return;
@@ -2213,6 +2208,13 @@ export default function WikiPageInner({ user }: Props) {
 
     setDocFavorites(nextFavorites);
     writeDocFavorites(nextFavorites);
+
+    if (typeof document !== 'undefined') {
+      const activeEl = document.activeElement;
+      if (activeEl instanceof HTMLElement) {
+        activeEl.blur();
+      }
+    }
   };
 
   const isFaq = specialMeta?.kind === 'faq';
@@ -2975,7 +2977,6 @@ export default function WikiPageInner({ user }: Props) {
         <DocQuickBadges
           hidden={hold}
           mode={quickBadgeMode}
-          onModeChange={handleQuickBadgeModeChange}
           favoriteItems={favoriteQuickItems}
           items={[
             {
@@ -3144,8 +3145,6 @@ export default function WikiPageInner({ user }: Props) {
         .wiki-doc-favorite-btn--active {
           background: #fff7ed;
           color: #f59e0b;
-          opacity: 1;
-          pointer-events: auto;
         }
 
         @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');

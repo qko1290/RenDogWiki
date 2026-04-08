@@ -29,7 +29,6 @@ type Props = {
   items: DocQuickBadgeItem[];
   favoriteItems?: DocQuickBadgeItem[];
   mode?: DocBadgeMode;
-  onModeChange?: (mode: DocBadgeMode) => void;
   hidden?: boolean;
   expandWidth?: number;
   hoverBg?: string;
@@ -85,7 +84,6 @@ export default function DocQuickBadges({
   items,
   favoriteItems = [],
   mode = 'quick',
-  onModeChange,
   hidden = false,
   expandWidth = 150,
   hoverBg = 'rgb(255, 69, 69)',
@@ -120,7 +118,7 @@ export default function DocQuickBadges({
   }, [favoriteItems, isFavoritesMode, items]);
 
   const mainTitle = isFavoritesMode ? '즐겨찾기' : '바로가기';
-  const mainButtonTitle = `${mainTitle} (우클릭으로 모드 전환)`;
+  const mainButtonTitle = mainTitle;
   const activeExpandWidth = isFavoritesMode ? Math.max(expandWidth, 220) : expandWidth;
   const rootHeight = Math.max(300, 90 + activeItems.length * 56);
 
@@ -135,11 +133,6 @@ export default function DocQuickBadges({
     router.push(item.href, { scroll: false });
   };
 
-  const toggleMode = () => {
-    const nextMode: DocBadgeMode = isFavoritesMode ? 'quick' : 'favorites';
-    onModeChange?.(nextMode);
-    setOpen(false);
-  };
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -293,11 +286,6 @@ export default function DocQuickBadges({
         onClick={() => {
           if (hidden) return;
           setOpen((v) => !v);
-        }}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          if (hidden) return;
-          toggleMode();
         }}
         aria-label={mainButtonTitle}
         title={mainButtonTitle}

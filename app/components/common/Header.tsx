@@ -11,11 +11,17 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import HamburgerMenu from '@/components/common/HamburgerMenu';
 import ThemeToggle from '@/components/common/ThemeToggle';
-import '@/wiki/css/header.css';
 import SearchBox from '@/components/common/SearchBox';
 import logo from '../../image/logo.png';
 import Image from 'next/image';
 import { ModalCard } from '@/components/common/Modal';
+import {
+  DOC_BADGE_MODE_EVENT,
+  DOC_BADGE_MODE_STORAGE_KEY,
+  readDocBadgeMode,
+  writeDocBadgeMode,
+  type DocBadgeMode,
+} from '@/wiki/lib/docFavorites';
 
 type WikiHeaderProps = {
   user: {
@@ -53,6 +59,7 @@ export default function WikiHeader({
 }: WikiHeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [comingSoonOpen, setComingSoonOpen] = useState(false);
+  const [docBadgeMode, setDocBadgeMode] = useState<DocBadgeMode>('quick');
 
   const initialMode = useMemo(() => {
     if (typeof window === 'undefined') return DEFAULT_MODE;
@@ -67,6 +74,31 @@ export default function WikiHeader({
   }, []);
 
   const [mode, setMode] = useState<string>(initialMode);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const syncMode = () => setDocBadgeMode(readDocBadgeMode());
+    syncMode();
+
+    const onBadgeModeChange = (event: Event) => {
+      const next = (event as CustomEvent<{ mode?: DocBadgeMode }>).detail?.mode;
+      setDocBadgeMode(next === 'favorites' ? 'favorites' : 'quick');
+    };
+
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== DOC_BADGE_MODE_STORAGE_KEY) return;
+      syncMode();
+    };
+
+    window.addEventListener(DOC_BADGE_MODE_EVENT, onBadgeModeChange as EventListener);
+    window.addEventListener('storage', onStorage);
+
+    return () => {
+      window.removeEventListener(DOC_BADGE_MODE_EVENT, onBadgeModeChange as EventListener);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isMenuOpen) return;
@@ -104,6 +136,15 @@ export default function WikiHeader({
     }
     applyMode(next);
   };
+
+  const handleToggleDocBadgeMode = () => {
+    const nextMode: DocBadgeMode = docBadgeMode === 'favorites' ? 'quick' : 'favorites';
+    setDocBadgeMode(nextMode);
+    writeDocBadgeMode(nextMode);
+  };
+
+  const docBadgeModeLabel = docBadgeMode === 'favorites' ? '즐겨찾기' : '바로가기';
+  const docBadgeModeIcon = docBadgeMode === 'favorites' ? '⭐' : '⚡';
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -194,6 +235,19 @@ export default function WikiHeader({
               <SearchBox onQuestNpcClick={onQuestNpcClick} />
             </div>
 
+            <button
+              type="button"
+              className="wiki-doc-badge-mode-btn"
+              onClick={handleToggleDocBadgeMode}
+              aria-pressed={docBadgeMode === 'favorites'}
+              title={`문서 버튼 모드: ${docBadgeModeLabel}`}
+            >
+              <span className="wiki-doc-badge-mode-btn__icon" aria-hidden>
+                {docBadgeModeIcon}
+              </span>
+              <span className="wiki-doc-badge-mode-btn__text">{docBadgeModeLabel}</span>
+            </button>
+
             <ThemeToggle />
           </div>
 
@@ -209,6 +263,19 @@ export default function WikiHeader({
           )}
 
           <div className="wiki-mobile-right-tools">
+            <button
+              type="button"
+              className="wiki-doc-badge-mode-btn wiki-doc-badge-mode-btn--mobile"
+              onClick={handleToggleDocBadgeMode}
+              aria-pressed={docBadgeMode === 'favorites'}
+              title={`문서 버튼 모드: ${docBadgeModeLabel}`}
+            >
+              <span className="wiki-doc-badge-mode-btn__icon" aria-hidden>
+                {docBadgeModeIcon}
+              </span>
+              <span className="wiki-doc-badge-mode-btn__text">{docBadgeModeLabel}</span>
+            </button>
+
             <div className="wiki-mobile-theme-toggle">
               <ThemeToggle />
             </div>
@@ -284,6 +351,67 @@ export default function WikiHeader({
           margin: 0;
         }
 
+        .wiki-doc-badge-mode-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          height: 34px;
+          padding: 0 11px;
+          border-radius: 999px;
+          border: 1px solid rgba(111, 76, 255, 0.18);
+          background: rgba(255, 255, 255, 0.92);
+          color: #5b42e6;
+          font-size: 13px;
+          font-weight: 800;
+          letter-spacing: -0.01em;
+          cursor: pointer;
+          box-shadow: 0 8px 20px rgba(17, 24, 39, 0.08);
+          transition:
+            transform 0.15s ease,
+            box-shadow 0.15s ease,
+            border-color 0.15s ease,
+            background 0.15s ease,
+            color 0.15s ease;
+        }
+
+        .wiki-doc-badge-mode-btn:hover {
+          transform: translateY(-1px);
+          border-color: rgba(111, 76, 255, 0.32);
+          box-shadow: 0 10px 22px rgba(79, 70, 229, 0.14);
+        }
+
+        .wiki-doc-badge-mode-btn:active {
+          transform: translateY(0);
+        }
+
+        .wiki-doc-badge-mode-btn__icon {
+          font-size: 14px;
+          line-height: 1;
+        }
+
+        .wiki-doc-badge-mode-btn__text {
+          line-height: 1;
+          white-space: nowrap;
+        }
+
+        :global(html[data-theme='dark']) .wiki-doc-badge-mode-btn {
+          background: rgba(30, 35, 55, 0.96);
+          color: #ddd6fe;
+          border-color: rgba(167, 139, 250, 0.26);
+          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+        }
+
+        :global(html[data-theme='dark']) .wiki-doc-badge-mode-btn:hover {
+          border-color: rgba(196, 181, 253, 0.38);
+          background: rgba(40, 46, 70, 0.98);
+        }
+
+        .wiki-doc-badge-mode-btn--mobile {
+          height: 32px;
+          padding: 0 10px;
+        }
+
         @media (max-width: 768px) {
           .wiki-admin-menu-btn--desktop {
             display: none !important;
@@ -295,6 +423,15 @@ export default function WikiHeader({
             gap: 10px;
             margin-left: auto;
             flex-shrink: 0;
+          }
+
+          .wiki-doc-badge-mode-btn--mobile {
+            min-width: 32px;
+            padding: 0 9px;
+          }
+
+          .wiki-doc-badge-mode-btn--mobile .wiki-doc-badge-mode-btn__text {
+            display: none;
           }
         }
       `}</style>

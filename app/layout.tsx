@@ -14,6 +14,7 @@ import "@/wiki/css/fonts-kor.css";
 import { Analytics } from "@vercel/analytics/react";
 import logoImg from "./image/logo.png";
 import AuthProvider from "@/components/auth/AuthProvider";
+import "./wiki/css/header.css";
 
 export const dynamic = "force-dynamic";
 
