@@ -8,9 +8,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type SVGProps } from 'react';
 import HamburgerMenu from '@/components/common/HamburgerMenu';
 import ThemeToggle from '@/components/common/ThemeToggle';
+import '@/wiki/css/header.css';
 import SearchBox from '@/components/common/SearchBox';
 import logo from '../../image/logo.png';
 import Image from 'next/image';
@@ -22,6 +23,23 @@ import {
   writeDocBadgeMode,
   type DocBadgeMode,
 } from '@/wiki/lib/docFavorites';
+
+
+function OutlineBoltIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
+      <path d="M13.5 2.75 6.8 12.1h4.85L10.5 21.25l6.7-9.35h-4.85l1.15-9.15Z" />
+    </svg>
+  );
+}
+
+function OutlineStarIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
+      <path d="m12 3.35 2.68 5.43 5.99.87-4.33 4.22 1.02 5.96L12 17.01l-5.36 2.82 1.03-5.96L3.34 9.65l5.98-.87L12 3.35Z" />
+    </svg>
+  );
+}
 
 type WikiHeaderProps = {
   user: {
@@ -143,8 +161,6 @@ export default function WikiHeader({
     writeDocBadgeMode(nextMode);
   };
 
-  const docBadgeModeLabel = docBadgeMode === 'favorites' ? '즐겨찾기' : '바로가기';
-  const docBadgeModeIcon = docBadgeMode === 'favorites' ? '⭐' : '⚡';
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -240,12 +256,12 @@ export default function WikiHeader({
               className="wiki-doc-badge-mode-btn"
               onClick={handleToggleDocBadgeMode}
               aria-pressed={docBadgeMode === 'favorites'}
-              title={`문서 버튼 모드: ${docBadgeModeLabel}`}
+              aria-label={docBadgeMode === 'favorites' ? '즐겨찾기 모드 사용 중. 클릭하면 바로가기 모드로 전환' : '바로가기 모드 사용 중. 클릭하면 즐겨찾기 모드로 전환'}
+              title={docBadgeMode === 'favorites' ? '즐겨찾기 모드' : '바로가기 모드'}
             >
               <span className="wiki-doc-badge-mode-btn__icon" aria-hidden>
-                {docBadgeModeIcon}
+                {docBadgeMode === 'favorites' ? <OutlineStarIcon /> : <OutlineBoltIcon />}
               </span>
-              <span className="wiki-doc-badge-mode-btn__text">{docBadgeModeLabel}</span>
             </button>
 
             <ThemeToggle />
@@ -268,12 +284,12 @@ export default function WikiHeader({
               className="wiki-doc-badge-mode-btn wiki-doc-badge-mode-btn--mobile"
               onClick={handleToggleDocBadgeMode}
               aria-pressed={docBadgeMode === 'favorites'}
-              title={`문서 버튼 모드: ${docBadgeModeLabel}`}
+              aria-label={docBadgeMode === 'favorites' ? '즐겨찾기 모드 사용 중. 클릭하면 바로가기 모드로 전환' : '바로가기 모드 사용 중. 클릭하면 즐겨찾기 모드로 전환'}
+              title={docBadgeMode === 'favorites' ? '즐겨찾기 모드' : '바로가기 모드'}
             >
               <span className="wiki-doc-badge-mode-btn__icon" aria-hidden>
-                {docBadgeModeIcon}
+                {docBadgeMode === 'favorites' ? <OutlineStarIcon /> : <OutlineBoltIcon />}
               </span>
-              <span className="wiki-doc-badge-mode-btn__text">{docBadgeModeLabel}</span>
             </button>
 
             <div className="wiki-mobile-theme-toggle">
@@ -355,16 +371,13 @@ export default function WikiHeader({
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          gap: 6px;
+          width: 34px;
           height: 34px;
-          padding: 0 11px;
+          padding: 0;
           border-radius: 999px;
-          border: 1px solid rgba(111, 76, 255, 0.18);
+          border: 1px solid rgba(111, 76, 255, 0.2);
           background: rgba(255, 255, 255, 0.92);
-          color: #5b42e6;
-          font-size: 13px;
-          font-weight: 800;
-          letter-spacing: -0.01em;
+          color: #6f4cff;
           cursor: pointer;
           box-shadow: 0 8px 20px rgba(17, 24, 39, 0.08);
           transition:
@@ -377,7 +390,7 @@ export default function WikiHeader({
 
         .wiki-doc-badge-mode-btn:hover {
           transform: translateY(-1px);
-          border-color: rgba(111, 76, 255, 0.32);
+          border-color: rgba(111, 76, 255, 0.34);
           box-shadow: 0 10px 22px rgba(79, 70, 229, 0.14);
         }
 
@@ -386,19 +399,24 @@ export default function WikiHeader({
         }
 
         .wiki-doc-badge-mode-btn__icon {
-          font-size: 14px;
+          width: 18px;
+          height: 18px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
           line-height: 1;
         }
 
-        .wiki-doc-badge-mode-btn__text {
-          line-height: 1;
-          white-space: nowrap;
+        .wiki-doc-badge-mode-btn__icon :global(svg) {
+          width: 18px;
+          height: 18px;
+          display: block;
         }
 
         :global(html[data-theme='dark']) .wiki-doc-badge-mode-btn {
           background: rgba(30, 35, 55, 0.96);
           color: #ddd6fe;
-          border-color: rgba(167, 139, 250, 0.26);
+          border-color: rgba(167, 139, 250, 0.28);
           box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
         }
 
@@ -408,8 +426,8 @@ export default function WikiHeader({
         }
 
         .wiki-doc-badge-mode-btn--mobile {
+          width: 32px;
           height: 32px;
-          padding: 0 10px;
         }
 
         @media (max-width: 768px) {
@@ -424,14 +442,11 @@ export default function WikiHeader({
             margin-left: auto;
             flex-shrink: 0;
           }
-
           .wiki-doc-badge-mode-btn--mobile {
             min-width: 32px;
-            padding: 0 9px;
-          }
-
-          .wiki-doc-badge-mode-btn--mobile .wiki-doc-badge-mode-btn__text {
-            display: none;
+            width: 32px;
+            height: 32px;
+            padding: 0;
           }
         }
       `}</style>

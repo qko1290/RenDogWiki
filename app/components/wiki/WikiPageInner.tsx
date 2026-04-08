@@ -2174,12 +2174,19 @@ export default function WikiPageInner({ user }: Props) {
 
   const favoriteQuickItems = useMemo(() => {
     return docFavorites.map((item) => ({
+      id: item.id,
       title: item.title,
       href: item.href,
       emoji: item.emoji || '⭐',
     }));
   }, [docFavorites]);
 
+  const handleRemoveFavoriteQuickItem = (item: { id?: number }) => {
+    if (!item.id) return;
+    const nextFavorites = removeDocFavorite(docFavorites, item.id);
+    setDocFavorites(nextFavorites);
+    writeDocFavorites(nextFavorites);
+  };
 
   const handleToggleCurrentDocFavorite = () => {
     if (!selectedDocId || !selectedDocTitle) return;
@@ -2978,6 +2985,7 @@ export default function WikiPageInner({ user }: Props) {
           hidden={hold}
           mode={quickBadgeMode}
           favoriteItems={favoriteQuickItems}
+          onFavoriteRemove={handleRemoveFavoriteQuickItem}
           items={[
             {
               icon: 'quest',
