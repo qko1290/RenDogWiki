@@ -145,7 +145,6 @@ export default function DocQuickBadges({
     router.push(item.href, { scroll: false });
   };
 
-
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -226,8 +225,6 @@ export default function DocQuickBadges({
     setOpen(false);
   }, [mode]);
 
-  // 감지 영역
-  // 왼쪽 100 / 오른쪽 50 / 위 50 / 아래는 현재 아이템 수만큼 동적 확장
   useEffect(() => {
     let raf = 0;
 
@@ -314,51 +311,70 @@ export default function DocQuickBadges({
       </div>
 
       <div className="qbd-stack" aria-hidden={!open || hidden}>
-        {activeItems.map((it, idx) => (
-          <button
-            key={`${it.href}-${idx}`}
-            type="button"
-            className={`qbd-btn qbd-item ${open ? 'is-open' : ''} ${it.disabled ? 'is-disabled' : ''} ${it.emptyState ? 'is-empty' : ''}`}
-            style={{
-              transform: open ? `translateY(${56 * idx}px)` : 'translateY(0px)',
-              transitionDelay: open ? `${idx * 55}ms` : '0ms',
-            }}
-            onClick={() => go(it)}
-            onContextMenu={(e) => {
-              if (!isFavoritesMode || !it.id || !onFavoriteRemove || hidden || it.disabled) return;
-              e.preventDefault();
-              e.stopPropagation();
-              onFavoriteRemove(it);
-            }}
-            aria-label={it.title}
-            title={isFavoritesMode && onFavoriteRemove && !it.disabled ? `${it.title} (우클릭으로 해제)` : it.title}
-            data-label={it.title}
-            disabled={hidden || it.disabled}
-          >
-            <span className="qbd-ic" aria-hidden>
-              {it.docIcon ? (
-                isImageIconValue(it.docIcon) ? (
-                  <img
-                    src={it.docIcon.startsWith('http') ? toProxyUrl(it.docIcon) : it.docIcon}
-                    alt=""
-                    className="qbd-doc-icon-img"
-                    loading="lazy"
-                    decoding="async"
-                    draggable={false}
-                  />
+        {activeItems.map((it, idx) => {
+          const isDisabled = hidden || !!it.disabled;
+          const isEmptyState = !!it.emptyState;
+
+          return (
+            <button
+              key={`${it.href}-${idx}`}
+              type="button"
+              className={`qbd-btn qbd-item ${open ? 'is-open' : ''} ${it.disabled ? 'is-disabled' : ''} ${it.emptyState ? 'is-empty' : ''}`}
+              style={{
+                transform: open ? `translateY(${56 * idx}px)` : 'translateY(0px)',
+                transitionDelay: open ? `${idx * 55}ms` : '0ms',
+              }}
+              onClick={(e) => {
+                if (isDisabled) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  return;
+                }
+                go(it);
+              }}
+              onContextMenu={(e) => {
+                if (isDisabled) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  return;
+                }
+                if (!isFavoritesMode || !it.id || !onFavoriteRemove) return;
+                e.preventDefault();
+                e.stopPropagation();
+                onFavoriteRemove(it);
+              }}
+              aria-label={it.title}
+              aria-disabled={isDisabled}
+              title={isFavoritesMode && onFavoriteRemove && !it.disabled ? `${it.title} (우클릭으로 해제)` : it.title}
+              data-label={it.title}
+              disabled={hidden}
+              tabIndex={hidden ? -1 : 0}
+            >
+              <span className="qbd-ic" aria-hidden>
+                {it.docIcon ? (
+                  isImageIconValue(it.docIcon) ? (
+                    <img
+                      src={it.docIcon.startsWith('http') ? toProxyUrl(it.docIcon) : it.docIcon}
+                      alt=""
+                      className="qbd-doc-icon-img"
+                      loading="lazy"
+                      decoding="async"
+                      draggable={false}
+                    />
+                  ) : (
+                    <span className="qbd-emoji">{it.docIcon}</span>
+                  )
+                ) : it.emoji ? (
+                  <span className="qbd-emoji">{it.emoji}</span>
+                ) : it.icon ? (
+                  <FontAwesomeIcon icon={iconByKey(it.icon)} />
                 ) : (
-                  <span className="qbd-emoji">{it.docIcon}</span>
-                )
-              ) : it.emoji ? (
-                <span className="qbd-emoji">{it.emoji}</span>
-              ) : it.icon ? (
-                <FontAwesomeIcon icon={iconByKey(it.icon)} />
-              ) : (
-                <FontAwesomeIcon icon={faStar} />
-              )}
-            </span>
-          </button>
-        ))}
+                  <FontAwesomeIcon icon={faStar} />
+                )}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       <style jsx>{`
@@ -416,6 +432,8 @@ export default function DocQuickBadges({
           justify-content: center;
           overflow: visible;
           transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms ease;
+          -webkit-appearance: none;
+          appearance: none;
         }
 
         .qbd-btn::before {
@@ -490,22 +508,22 @@ export default function DocQuickBadges({
         }
 
         .qbd-item.is-empty::before {
-          width: calc(46px + var(--qbd-expand));
-          border-radius: 50px;
-          background-color: var(--qbd-hover-bg);
-          border-color: transparent;
-          box-shadow: 0px 0px 22px rgba(0, 0, 0, 0.22);
+          width: calc(46px + var(--qbd-expand)) !important;
+          border-radius: 50px !important;
+          background-color: var(--qbd-hover-bg) !important;
+          border-color: transparent !important;
+          box-shadow: 0px 0px 22px rgba(0, 0, 0, 0.22) !important;
         }
 
         .qbd-item.is-empty::after {
-          opacity: 1;
-          font-size: var(--qbd-label-size);
-          color: #fff;
-          transform: translateY(-50%);
+          opacity: 1 !important;
+          font-size: var(--qbd-label-size) !important;
+          color: #fff !important;
+          transform: translateY(-50%) !important;
         }
 
         .qbd-item.is-empty .qbd-ic {
-          color: #fff;
+          color: #fff !important;
         }
 
         .qbd-ic {
