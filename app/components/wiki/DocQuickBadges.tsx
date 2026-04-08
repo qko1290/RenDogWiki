@@ -11,18 +11,25 @@ import {
   faBoltLightning,
   faCalculator,
   faBookOpen,
+  faStar,
 } from '@fortawesome/free-solid-svg-icons';
 
+import type { DocBadgeMode } from '@/wiki/lib/docFavorites';
+
 export type DocQuickBadgeItem = {
-  icon: 'price' | 'quest' | 'head' | 'collection' | 'calc';
+  icon?: 'price' | 'quest' | 'head' | 'collection' | 'calc';
+  emoji?: string;
   title: string;
   href: string;
   external?: boolean;
+  disabled?: boolean;
 };
 
 type Props = {
-  items: [DocQuickBadgeItem, DocQuickBadgeItem, DocQuickBadgeItem, DocQuickBadgeItem, DocQuickBadgeItem];
-  mainTitle?: string;
+  items: DocQuickBadgeItem[];
+  favoriteItems?: DocQuickBadgeItem[];
+  mode?: DocBadgeMode;
+  onModeChange?: (mode: DocBadgeMode) => void;
   hidden?: boolean;
   expandWidth?: number;
   hoverBg?: string;
@@ -30,7 +37,7 @@ type Props = {
   topOffset?: number;
 };
 
-function iconByKey(key: DocQuickBadgeItem['icon']) {
+function iconByKey(key: NonNullable<DocQuickBadgeItem['icon']>) {
   switch (key) {
     case 'price':
       return faDollarSign;
@@ -76,7 +83,9 @@ function detectDarkMode() {
 
 export default function DocQuickBadges({
   items,
-  mainTitle = '바로가기',
+  favoriteItems = [],
+  mode = 'quick',
+  onModeChange,
   hidden = false,
   expandWidth = 150,
   hoverBg = 'rgb(255, 69, 69)',
@@ -93,10 +102,30 @@ export default function DocQuickBadges({
   const hoverLockTimerRef = useRef<number | null>(null);
   const prevOpenRef = useRef(false);
 
-  const stack = useMemo(() => items.slice(0, 5), [items]);
+  const isFavoritesMode = mode === 'favorites';
+  const activeItems = useMemo(() => {
+    if (!isFavoritesMode) return items.slice(0, 5);
+
+    const favorites = favoriteItems.slice(0, 10);
+    if (favorites.length > 0) return favorites;
+
+    return [
+      {
+        title: '즐겨찾기 없음',
+        href: '#',
+        emoji: '⭐',
+        disabled: true,
+      },
+    ];
+  }, [favoriteItems, isFavoritesMode, items]);
+
+  const mainTitle = isFavoritesMode ? '즐겨찾기' : '바로가기';
+  const mainButtonTitle = `${mainTitle} (우클릭으로 모드 전환)`;
+  const activeExpandWidth = isFavoritesMode ? Math.max(expandWidth, 220) : expandWidth;
+  const rootHeight = Math.max(300, 90 + activeItems.length * 56);
 
   const go = (item: DocQuickBadgeItem) => {
-    if (hidden) return;
+    if (hidden || item.disabled) return;
 
     if (item.external) {
       window.open(item.href, '_blank', 'noopener,noreferrer');
@@ -104,6 +133,12 @@ export default function DocQuickBadges({
     }
 
     router.push(item.href, { scroll: false });
+  };
+
+  const toggleMode = () => {
+    const nextMode: DocBadgeMode = isFavoritesMode ? 'quick' : 'favorites';
+    onModeChange?.(nextMode);
+    setOpen(false);
   };
 
   useEffect(() => {
@@ -182,8 +217,12 @@ export default function DocQuickBadges({
     }
   }, [hidden]);
 
+  useEffect(() => {
+    setOpen(false);
+  }, [mode]);
+
   // 감지 영역
-  // 왼쪽 100 / 오른쪽 50 / 위 50 / 아래 180
+  // 왼쪽 100 / 오른쪽 50 / 위 50 / 아래는 현재 아이템 수만큼 동적 확장
   useEffect(() => {
     let raf = 0;
 
@@ -201,7 +240,8 @@ export default function DocQuickBadges({
       const x = e.clientX;
       const y = e.clientY;
 
-      const inside = x >= cx - 100 && x <= cx + 50 && y >= cy - 50 && y <= cy + 250;
+      const maxY = cy + 70 + activeItems.length * 56;
+      const inside = x >= cx - 100 && x <= cx + 60 && y >= cy - 50 && y <= maxY;
 
       if (raf) cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => setOpen(inside));
@@ -212,7 +252,7 @@ export default function DocQuickBadges({
       if (raf) cancelAnimationFrame(raf);
       window.removeEventListener('mousemove', onMove);
     };
-  }, [hidden]);
+  }, [activeItems.length, hidden]);
 
   const badgeBaseBg = isDarkMode ? 'rgba(255, 255, 255, 0.96)' : 'rgb(20, 20, 20)';
   const badgeBaseFg = isDarkMode ? '#111827' : '#ffffff';
@@ -229,10 +269,11 @@ export default function DocQuickBadges({
       ref={rootRef}
       className={`qbd-root ${hoverLock ? 'hover-lock' : ''} ${hidden ? 'is-hidden' : ''}`}
       aria-hidden={hidden}
+      data-mode={mode}
       style={
         {
-          ['--qbd-expand' as any]: `${expandWidth}px`,
-          ['--qbd-hover-bg' as any]: hoverBg,
+          ['--qbd-expand' as any]: `${activeExpandWidth}px`,
+          ['--qbd-hover-bg' as any]: isFavoritesMode ? '#6f4cff' : hoverBg,
           ['--qbd-top' as any]: `${topOffset}px`,
           ['--qbd-base-bg' as any]: badgeBaseBg,
           ['--qbd-base-fg' as any]: badgeBaseFg,
@@ -241,10 +282,11 @@ export default function DocQuickBadges({
           ['--qbd-bubble-bg' as any]: bubbleBg,
           ['--qbd-bubble-fg' as any]: bubbleFg,
           ['--qbd-bubble-border' as any]: bubbleBorder,
+          ['--qbd-root-height' as any]: `${rootHeight}px`,
+          ['--qbd-label-size' as any]: isFavoritesMode ? '15px' : '20px',
         } as React.CSSProperties
       }
     >
-      {/* 메인: open 되면 숨김 */}
       <button
         type="button"
         className={`qbd-btn qbd-main ${open ? 'is-hidden' : ''}`}
@@ -252,28 +294,31 @@ export default function DocQuickBadges({
           if (hidden) return;
           setOpen((v) => !v);
         }}
-        aria-label={mainTitle}
-        title={mainTitle}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          if (hidden) return;
+          toggleMode();
+        }}
+        aria-label={mainButtonTitle}
+        title={mainButtonTitle}
         data-label={mainTitle}
         disabled={hidden}
       >
         <span className="qbd-ic" aria-hidden>
-          <FontAwesomeIcon icon={faBoltLightning} />
+          <FontAwesomeIcon icon={isFavoritesMode ? faStar : faBoltLightning} />
         </span>
       </button>
 
-      {/* 메인 아래 말풍선 */}
       <div className={`qbd-bubble ${open ? 'is-hidden' : ''}`} aria-hidden={open || hidden}>
-        <span className="qbd-bubble-text">바로가기</span>
+        <span className="qbd-bubble-text">{mainTitle}</span>
       </div>
 
-      {/* 5개: 아래로 펼침 */}
       <div className="qbd-stack" aria-hidden={!open || hidden}>
-        {stack.map((it, idx) => (
+        {activeItems.map((it, idx) => (
           <button
             key={`${it.href}-${idx}`}
             type="button"
-            className={`qbd-btn qbd-item ${open ? 'is-open' : ''}`}
+            className={`qbd-btn qbd-item ${open ? 'is-open' : ''} ${it.disabled ? 'is-disabled' : ''}`}
             style={{
               transform: open ? `translateY(${56 * idx}px)` : 'translateY(0px)',
               transitionDelay: open ? `${idx * 55}ms` : '0ms',
@@ -282,10 +327,16 @@ export default function DocQuickBadges({
             aria-label={it.title}
             title={it.title}
             data-label={it.title}
-            disabled={hidden}
+            disabled={hidden || it.disabled}
           >
             <span className="qbd-ic" aria-hidden>
-              <FontAwesomeIcon icon={iconByKey(it.icon)} />
+              {it.emoji ? (
+                <span className="qbd-emoji">{it.emoji}</span>
+              ) : it.icon ? (
+                <FontAwesomeIcon icon={iconByKey(it.icon)} />
+              ) : (
+                <FontAwesomeIcon icon={faStar} />
+              )}
             </span>
           </button>
         ))}
@@ -299,7 +350,7 @@ export default function DocQuickBadges({
           z-index: 80;
           pointer-events: none;
           width: 110px;
-          height: 300px;
+          height: var(--qbd-root-height);
           transition:
             opacity 0.18s ease,
             visibility 0.18s ease;
@@ -388,8 +439,8 @@ export default function DocQuickBadges({
           font-size: 0 !important;
         }
 
-        .qbd-root:not(.hover-lock):not(.is-hidden) .qbd-btn:not(.qbd-main):hover::before,
-        .qbd-root:not(.hover-lock):not(.is-hidden) .qbd-btn:not(.qbd-main):focus-visible::before {
+        .qbd-root:not(.hover-lock):not(.is-hidden) .qbd-btn:not(.qbd-main):not(.is-disabled):hover::before,
+        .qbd-root:not(.hover-lock):not(.is-hidden) .qbd-btn:not(.qbd-main):not(.is-disabled):focus-visible::before {
           width: calc(46px + var(--qbd-expand));
           border-radius: 50px;
           background-color: var(--qbd-hover-bg);
@@ -400,7 +451,22 @@ export default function DocQuickBadges({
         .qbd-root:not(.hover-lock):not(.is-hidden) .qbd-btn:not(.qbd-main):hover::after,
         .qbd-root:not(.hover-lock):not(.is-hidden) .qbd-btn:not(.qbd-main):focus-visible::after {
           opacity: 1;
-          font-size: 20px;
+          font-size: var(--qbd-label-size);
+          transform: translateY(-50%);
+        }
+
+        .qbd-item.is-disabled {
+          cursor: default;
+        }
+
+        .qbd-item.is-disabled::before {
+          background-color: ${isDarkMode ? 'rgba(255,255,255,0.92)' : 'rgba(20,20,20,0.92)'};
+        }
+
+        .qbd-item.is-disabled::after {
+          opacity: 1;
+          font-size: 14px;
+          color: ${isDarkMode ? '#6b7280' : 'rgba(255,255,255,0.82)'};
           transform: translateY(-50%);
         }
 
@@ -419,8 +485,16 @@ export default function DocQuickBadges({
           transition: color 240ms ease;
         }
 
-        .qbd-root:not(.hover-lock):not(.is-hidden) .qbd-btn:not(.qbd-main):hover .qbd-ic,
-        .qbd-root:not(.hover-lock):not(.is-hidden) .qbd-btn:not(.qbd-main):focus-visible .qbd-ic {
+        .qbd-emoji {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 22px;
+          line-height: 1;
+        }
+
+        .qbd-root:not(.hover-lock):not(.is-hidden) .qbd-btn:not(.qbd-main):not(.is-disabled):hover .qbd-ic,
+        .qbd-root:not(.hover-lock):not(.is-hidden) .qbd-btn:not(.qbd-main):not(.is-disabled):focus-visible .qbd-ic {
           color: #fff;
         }
 

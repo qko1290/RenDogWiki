@@ -24,6 +24,16 @@ import DocQuickBadges from './DocQuickBadges';
 import { Descendant } from 'slate';
 import { useRouter, useSearchParams } from 'next/navigation';
 import MobileWikiNav from './MobileWikiNav';
+import {
+  hasDocFavorite,
+  readDocBadgeMode,
+  readDocFavorites,
+  removeDocFavorite,
+  upsertDocFavorite,
+  writeDocBadgeMode,
+  writeDocFavorites,
+  type DocBadgeMode,
+} from '@/wiki/lib/docFavorites';
 
 type CategoryNode = {
   id: number;
@@ -290,6 +300,8 @@ function parseSpecial(raw?: string | null): SpecialMeta {
 export default function WikiPageInner({ user }: Props) {
   const DEFAULT_MODE = 'RPG';
   const [mode, setMode] = useState<string>(getInitialMode() ?? DEFAULT_MODE);
+  const [quickBadgeMode, setQuickBadgeMode] = useState<DocBadgeMode>('quick');
+  const [docFavorites, setDocFavorites] = useState(readDocFavorites);
 
   const [categories, setCategories] = useState<CategoryNode[]>([]);
   const [categoryIdToPathMap, setCategoryIdToPathMap] = useState<
@@ -1193,6 +1205,32 @@ export default function WikiPageInner({ user }: Props) {
       return () =>
         window.removeEventListener(MODE_EVENT, onMode as EventListener);
     }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    setQuickBadgeMode(readDocBadgeMode());
+    setDocFavorites(readDocFavorites());
+
+    const syncFavorites = () => setDocFavorites(readDocFavorites());
+    const syncMode = () => setQuickBadgeMode(readDocBadgeMode());
+
+    const onStorage = (e: StorageEvent) => {
+      if (!e.key) return;
+      if (e.key === 'wiki:doc-favorites') syncFavorites();
+      if (e.key === 'wiki:doc-badge-mode') syncMode();
+    };
+
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('wiki-doc-favorites-change', syncFavorites as EventListener);
+    window.addEventListener('wiki-doc-badge-mode-change', syncMode as EventListener);
+
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('wiki-doc-favorites-change', syncFavorites as EventListener);
+      window.removeEventListener('wiki-doc-badge-mode-change', syncMode as EventListener);
+    };
   }, []);
 
   const docReqIdRef = useRef(0);
@@ -2130,6 +2168,53 @@ export default function WikiPageInner({ user }: Props) {
     return formatDocUpdatedTooltip(currentDoc?.updated_at);
   }, [currentDoc?.updated_at]);
 
+  const currentDocFavorited = useMemo(() => {
+    if (!selectedDocId) return false;
+    return hasDocFavorite(docFavorites, selectedDocId);
+  }, [docFavorites, selectedDocId]);
+
+  const favoriteQuickItems = useMemo(() => {
+    return docFavorites.map((item) => ({
+      title: item.title,
+      href: item.href,
+      emoji: item.emoji || '⭐',
+    }));
+  }, [docFavorites]);
+
+  const handleQuickBadgeModeChange = (nextMode: DocBadgeMode) => {
+    setQuickBadgeMode(nextMode);
+    writeDocBadgeMode(nextMode);
+  };
+
+  const handleToggleCurrentDocFavorite = () => {
+    if (!selectedDocId || !selectedDocTitle) return;
+
+    const normalizedPath =
+      selectedDocPath && selectedDocPath.length > 0
+        ? String(selectedDocPath[selectedDocPath.length - 1])
+        : currentDoc?.path != null
+          ? String(currentDoc.path)
+          : '0';
+
+    const safeTitle = encodeTitleForUrlParam(selectedDocTitle);
+    const safeMode = mode || DEFAULT_MODE;
+
+    const href = `/wiki?path=${encodeURIComponent(normalizedPath)}&title=${encodeURIComponent(safeTitle)}&mode=${encodeURIComponent(safeMode)}`;
+
+    const nextFavorites = currentDocFavorited
+      ? removeDocFavorite(docFavorites, selectedDocId)
+      : upsertDocFavorite(docFavorites, {
+          id: selectedDocId,
+          title: selectedDocTitle,
+          href,
+          emoji: '⭐',
+          updatedAt: currentDoc?.updated_at ?? null,
+        });
+
+    setDocFavorites(nextFavorites);
+    writeDocFavorites(nextFavorites);
+  };
+
   const isFaq = specialMeta?.kind === 'faq';
 
   type WikiRefKind = 'quest' | 'npc' | 'qna';
@@ -2642,13 +2727,27 @@ export default function WikiPageInner({ user }: Props) {
                       <button
                         type="button"
                         className={
-                          'wiki-doc-link-btn' +
+                          'wiki-doc-title-action-btn wiki-doc-link-btn' +
                           (copiedDocLink ? ' wiki-doc-link-btn--copied' : '')
                         }
                         onClick={handleCopyDocLink}
                         title="문서 링크 복사"
+                        aria-label="문서 링크 복사"
                       >
                         {copiedDocLink ? '✔' : '🔗'}
+                      </button>
+
+                      <button
+                        type="button"
+                        className={
+                          'wiki-doc-title-action-btn wiki-doc-favorite-btn' +
+                          (currentDocFavorited ? ' wiki-doc-favorite-btn--active' : '')
+                        }
+                        onClick={handleToggleCurrentDocFavorite}
+                        title={currentDocFavorited ? '즐겨찾기 해제' : '즐겨찾기 추가'}
+                        aria-label={currentDocFavorited ? '즐겨찾기 해제' : '즐겨찾기 추가'}
+                      >
+                        {currentDocFavorited ? '★' : '☆'}
                       </button>
                     </h2>
                   </div>
@@ -2875,6 +2974,9 @@ export default function WikiPageInner({ user }: Props) {
       <div className="wiki-quick-badges-wrap">
         <DocQuickBadges
           hidden={hold}
+          mode={quickBadgeMode}
+          onModeChange={handleQuickBadgeModeChange}
+          favoriteItems={favoriteQuickItems}
           items={[
             {
               icon: 'quest',
@@ -2905,7 +3007,7 @@ export default function WikiPageInner({ user }: Props) {
             },
           ]}
         />
-    </div>
+      </div>
 
       <style jsx global>{`
         .wiki-content.is-ready {
@@ -2995,9 +3097,9 @@ export default function WikiPageInner({ user }: Props) {
           image-rendering: pixelated;
         }
 
-        .wiki-doc-link-btn {
-          width: 20px;
-          height: 20px;
+        .wiki-doc-title-action-btn {
+          width: 22px;
+          height: 22px;
           margin-left: 6px;
           display: grid;
           place-items: center;
@@ -3005,14 +3107,15 @@ export default function WikiPageInner({ user }: Props) {
           border-radius: 50%;
           background: transparent;
           color: #9ca3af;
-          font-size: 12px;
+          font-size: 13px;
           opacity: 0;
           pointer-events: none;
           cursor: pointer;
           transition: all 0.15s ease;
         }
 
-        .wiki-doc-title-wrap:hover .wiki-doc-link-btn {
+        .wiki-doc-title-wrap:hover .wiki-doc-title-action-btn,
+        .wiki-doc-title-wrap:focus-within .wiki-doc-title-action-btn {
           opacity: 1;
           pointer-events: auto;
         }
@@ -3025,6 +3128,22 @@ export default function WikiPageInner({ user }: Props) {
         .wiki-doc-link-btn--copied {
           background: #dcfce7;
           color: #16a34a;
+          opacity: 1;
+          pointer-events: auto;
+        }
+
+        .wiki-doc-favorite-btn {
+          font-size: 14px;
+        }
+
+        .wiki-doc-favorite-btn:hover {
+          background: #fff7ed;
+          color: #f59e0b;
+        }
+
+        .wiki-doc-favorite-btn--active {
+          background: #fff7ed;
+          color: #f59e0b;
           opacity: 1;
           pointer-events: auto;
         }
