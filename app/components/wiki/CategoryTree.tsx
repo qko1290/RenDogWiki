@@ -725,6 +725,7 @@ const CategoryTree: React.FC<Props> = ({
                   fetchDoc([0], doc.title, doc.id, {
                     clearCategoryPath: true,
                     history: 'push',
+                    ignoreCurrentLocationHash: true,
                   });
                 }}
                 aria-disabled={!interactionReady}
