@@ -50,6 +50,7 @@ type Props = {
       history?: 'push' | 'replace';
       skipUrlSync?: boolean;
       forceRoot?: boolean;
+      ignoreCurrentLocationHash?: boolean;
     }
   ) => void;
   allDocuments: Document[];
@@ -460,6 +461,7 @@ const CategoryTree: React.FC<Props> = ({
         fetchDoc([0], rootRep.title, rootRep.id, {
           clearCategoryPath: true,
           history: "push",
+          ignoreCurrentLocationHash: true,
         });
       } catch {}
     };
@@ -551,6 +553,7 @@ const CategoryTree: React.FC<Props> = ({
                     fetchDoc(currentPath, title, repId, {
                       clearCategoryPath: false,
                       history: 'push',
+                      ignoreCurrentLocationHash: true,
                     });
                   }
                   return;
@@ -660,6 +663,7 @@ const CategoryTree: React.FC<Props> = ({
                         fetchDoc(currentPath, doc.title, doc.id, {
                           clearCategoryPath: true,
                           history: 'push',
+                          ignoreCurrentLocationHash: true,
                         });
                       }}
                       aria-disabled={!interactionReady}

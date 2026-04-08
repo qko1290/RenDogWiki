@@ -498,12 +498,79 @@ export default function WikiPageInner({ user }: Props) {
   const pendingScrollDomIdRef = useRef<string>('');
   const pendingTopScrollRef = useRef(false);
   const popNavigationRef = useRef(false);
+  const respectLocationHashRef = useRef(true);
   const stableHeadingScrollTimeoutsRef = useRef<number[]>([]);
   const docAbortRef = useRef<AbortController | null>(null);
 
   const headingCorrectionInterruptedRef = useRef(false);
 
+  const pendingPopRestoreTopRef = useRef<number | null>(null);
+
   const [hashScrollSignal, setHashScrollSignal] = useState(0);
+
+  const getHistoryScrollKey = (
+    loc?: Pick<Location, 'pathname' | 'search' | 'hash'> | null,
+  ) => {
+    if (typeof window === 'undefined') return '';
+    const target = loc ?? window.location;
+    return `${target.pathname}${target.search}${target.hash}`;
+  };
+
+  const getCurrentDocumentScrollTop = () => {
+    const targets = getScrollResetTargets();
+    for (const target of targets) {
+      if (target && Math.abs(target.scrollTop) > 0) return target.scrollTop;
+    }
+
+    return (
+      window.scrollY ||
+      document.documentElement.scrollTop ||
+      document.body.scrollTop ||
+      0
+    );
+  };
+
+  const saveCurrentHistoryScroll = () => {
+    if (typeof window === 'undefined') return;
+    const key = getHistoryScrollKey();
+    if (!key) return;
+
+    const top = Math.max(0, Math.round(getCurrentDocumentScrollTop()));
+    try {
+      sessionStorage.setItem(`rdwiki:scroll:${key}`, String(top));
+    } catch {}
+  };
+
+  const readHistoryScroll = (
+    loc?: Pick<Location, 'pathname' | 'search' | 'hash'> | null,
+  ) => {
+    if (typeof window === 'undefined') return null;
+    const key = getHistoryScrollKey(loc);
+    if (!key) return null;
+
+    try {
+      const raw = sessionStorage.getItem(`rdwiki:scroll:${key}`);
+      if (raw == null) return null;
+      const num = Number(raw);
+      return Number.isFinite(num) ? num : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const restoreDocumentScrollTop = (top: number) => {
+    const nextTop = Math.max(0, Math.round(top));
+    const targets = getScrollResetTargets();
+
+    for (const target of targets) {
+      target.scrollTop = nextTop;
+      target.scrollTo({ top: nextTop, behavior: 'auto' });
+    }
+
+    window.scrollTo({ top: nextTop, behavior: 'auto' });
+    document.documentElement.scrollTop = nextTop;
+    document.body.scrollTop = nextTop;
+  };
 
   const cancelHeadingScrollCorrection = () => {
     headingCorrectionInterruptedRef.current = true;
@@ -604,13 +671,14 @@ export default function WikiPageInner({ user }: Props) {
   const preparePendingScrollForOpen = (
     hashLike?: string | null,
     isPopNavigation = false,
+    respectLocationHash = true,
   ) => {
     headingCorrectionInterruptedRef.current = false;
+    respectLocationHashRef.current = respectLocationHash;
 
     const normalizedHash = normalizeHashToDomId(hashLike);
     pendingScrollDomIdRef.current = normalizedHash;
 
-    // heading 이동이 있으면 top 이동/보정 예약을 즉시 끊음
     if (normalizedHash) {
       pendingTopScrollRef.current = false;
       clearStableHeadingScrollTimeouts();
@@ -705,13 +773,55 @@ export default function WikiPageInner({ user }: Props) {
   };
 
   useEffect(() => {
+    if (typeof window === 'undefined' || !('scrollRestoration' in window.history)) {
+      return;
+    }
+
+    const prev = window.history.scrollRestoration;
+    window.history.scrollRestoration = 'manual';
+
+    return () => {
+      window.history.scrollRestoration = prev;
+    };
+  }, []);
+
+  useEffect(() => {
     const onPopState = () => {
       popNavigationRef.current = true;
+      pendingPopRestoreTopRef.current = readHistoryScroll(window.location);
     };
 
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (loadingDoc || docContent === null || delaying) return;
+
+    const container =
+      getPreferredScrollContainer(contentRef.current) ??
+      mainScrollRef.current ??
+      (document.getElementById('wiki-scroll-root') as HTMLElement | null);
+
+    const target: HTMLElement | Window = container ?? window;
+    let rafId = 0;
+
+    const onScroll = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        saveCurrentHistoryScroll();
+      });
+    };
+
+    target.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      target.removeEventListener('scroll', onScroll as EventListener);
+    };
+  }, [loadingDoc, docContent, delaying, selectedDocId]);
 
 
   function normalizeHashToDomId(hashLike: string | null | undefined) {
@@ -743,7 +853,7 @@ export default function WikiPageInner({ user }: Props) {
 
     if (pendingScrollDomIdRef.current) return true;
 
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && respectLocationHashRef.current) {
       return !!normalizeHashToDomId(window.location.hash);
     }
 
@@ -1016,6 +1126,7 @@ export default function WikiPageInner({ user }: Props) {
 
     if (currentUrl === nextUrl) return;
 
+    saveCurrentHistoryScroll();
     ignoreNextUrlSyncRef.current = true;
 
     if (options?.history === 'replace') {
@@ -1442,6 +1553,8 @@ export default function WikiPageInner({ user }: Props) {
 
     // ✅ popstate(뒤로가기/앞으로가기)로 들어온 오픈인지 여부
     isPopNavigation?: boolean;
+
+    ignoreCurrentLocationHash?: boolean;
   };
 
   // 문서 fetch (path/title)
@@ -1458,9 +1571,13 @@ export default function WikiPageInner({ user }: Props) {
       !!normalizeHashToDomId(options?.requestedHash ?? '');
 
     if (Object.prototype.hasOwnProperty.call(options ?? {}, 'requestedHash')) {
-      preparePendingScrollForOpen(options?.requestedHash ?? '', isPopNavigation);
+      preparePendingScrollForOpen(options?.requestedHash ?? '', isPopNavigation, true);
     } else if (!isPopNavigation) {
-      preparePendingScrollForOpen('', false);
+      preparePendingScrollForOpen(
+        '',
+        false,
+        !options?.ignoreCurrentLocationHash,
+      );
     } else {
       pendingScrollDomIdRef.current = '';
       pendingTopScrollRef.current = false;
@@ -2217,11 +2334,32 @@ export default function WikiPageInner({ user }: Props) {
       pendingScrollDomIdRef.current || normalizeHashToDomId(window.location.hash);
     const shouldScrollTop = pendingTopScrollRef.current;
     const cameFromPopNavigation = popNavigationRef.current;
+    const pendingPopRestoreTop = pendingPopRestoreTopRef.current;
 
     // popstate는 한 번만 소비
     popNavigationRef.current = false;
+    pendingPopRestoreTopRef.current = null;
 
-    // 1) 해시가 있으면 해당 heading으로 이동
+    // 1) 뒤로가기/앞으로가기면 저장된 스크롤 우선 복원
+    if (
+      cameFromPopNavigation &&
+      Number.isFinite(pendingPopRestoreTop) &&
+      (Number(pendingPopRestoreTop) > 8 || !pendingHeading)
+    ) {
+      pendingScrollDomIdRef.current = '';
+      pendingTopScrollRef.current = false;
+      clearStableHeadingScrollTimeouts();
+
+      const restoreTop = Math.max(0, Number(pendingPopRestoreTop ?? 0));
+      const restore = () => restoreDocumentScrollTop(restoreTop);
+
+      restore();
+      requestAnimationFrame(restore);
+      requestAnimationFrame(() => requestAnimationFrame(restore));
+      return;
+    }
+
+    // 2) 해시가 있으면 해당 heading으로 이동
     if (pendingHeading) {
       // heading 이동이 시작되면 top 로직은 완전히 꺼둠
       pendingTopScrollRef.current = false;
@@ -2258,13 +2396,13 @@ export default function WikiPageInner({ user }: Props) {
       return;
     }
 
-    // 2) 뒤로가기/앞으로가기는 강제 top scroll 제외
+    // 3) 뒤로가기/앞으로가기는 강제 top scroll 제외
     if (cameFromPopNavigation) {
       pendingTopScrollRef.current = false;
       return;
     }
 
-    // 3) 해시 없는 새 문서 오픈은 항상 맨 위
+    // 4) 해시 없는 새 문서 오픈은 항상 맨 위
     if (shouldScrollTop && !hasPendingHeadingNavigation()) {
       pendingTopScrollRef.current = false;
       clearStableHeadingScrollTimeouts();
