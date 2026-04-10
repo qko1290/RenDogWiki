@@ -37,6 +37,8 @@ type Props = {
   onWikiNavigate?: (href: string) => void;
 };
 
+const FOOTNOTE_HOVER_EVENT = "rdwiki:footnote-hover";
+
 // ── Element.tsx와 동일한 전역 캐시 (HMR 안전) ─────────────────────
 const WIKI_ICON_CACHE_KEY = "__rdwiki_doc_icon_cache__";
 const WIKI_DOCS_ALL_KEY = "__rdwiki_docs_all__";
@@ -200,6 +202,11 @@ const FootnoteInline: React.FC<FootnoteInlineProps> = ({ label, content }) => {
   const safeContent = String(content ?? "").trim();
   const hasContent = safeContent.length > 0;
 
+  const notifyFootnoteHover = useCallback(() => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(new CustomEvent(FOOTNOTE_HOVER_EVENT));
+  }, []);
+
   useEffect(() => {
     setPortalReady(true);
   }, []);
@@ -319,6 +326,7 @@ const FootnoteInline: React.FC<FootnoteInlineProps> = ({ label, content }) => {
 
   const openDesktop = () => {
     if (!hasContent || isMobileViewport) return;
+    notifyFootnoteHover();
     setOpen(true);
   };
 
@@ -331,6 +339,7 @@ const FootnoteInline: React.FC<FootnoteInlineProps> = ({ label, content }) => {
     if (!hasContent || !isMobileViewport) return;
     e.preventDefault();
     e.stopPropagation();
+    notifyFootnoteHover();
     setOpen(true);
   };
 
@@ -512,9 +521,15 @@ const FootnoteInline: React.FC<FootnoteInlineProps> = ({ label, content }) => {
     <>
       <span
         ref={rootRef}
-        onMouseEnter={openDesktop}
+        onMouseEnter={() => {
+          notifyFootnoteHover();
+          openDesktop();
+        }}
         onMouseLeave={closeDesktop}
-        onFocus={openDesktop}
+        onFocus={() => {
+          notifyFootnoteHover();
+          openDesktop();
+        }}
         onBlur={closeDesktop}
         onClick={openMobileModal}
         tabIndex={hasContent ? 0 : -1}
@@ -926,6 +941,21 @@ const InternalWikiLinkInline: React.FC<InternalWikiLinkInlineProps> = ({
   const [tooltipMeasured, setTooltipMeasured] = useState(false);
 
   const normalizedHref = useMemo(() => normalizeToAppHref(href), [href]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleFootnoteHover = () => {
+      clearPreviewTimeout();
+      setOpen(false);
+    };
+
+    window.addEventListener(FOOTNOTE_HOVER_EVENT, handleFootnoteHover);
+
+    return () => {
+      window.removeEventListener(FOOTNOTE_HOVER_EVENT, handleFootnoteHover);
+    };
+  }, [clearPreviewTimeout]);
 
   useEffect(() => {
     setPortalReady(true);
