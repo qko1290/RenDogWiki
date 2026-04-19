@@ -33,6 +33,7 @@ import {
   writeDocFavorites,
   type DocBadgeMode,
 } from '@/wiki/lib/docFavorites';
+import { consumeNextDocViewSource } from '@/wiki/lib/viewSource';
 
 type CategoryNode = {
   id: number;
@@ -130,7 +131,8 @@ function ymdKey(d = new Date()) {
 }
 
 function sendDocView(documentId: number) {
-  const payload = JSON.stringify({ documentId });
+  const source = consumeNextDocViewSource('other');
+  const payload = JSON.stringify({ documentId, source });
 
   if (typeof navigator !== 'undefined' && 'sendBeacon' in navigator) {
     const blob = new Blob([payload], { type: 'application/json' });

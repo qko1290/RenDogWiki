@@ -2,8 +2,8 @@
 // File: app/api/view/route.ts
 // (전체 코드)
 // - 문서 조회수 기록
-// - DB 불안정 시에도 문서 열람을 방해하지 않도록 best-effort 처리
-// - DISABLE_VIEW_TRACKING=1 이면 완전 비활성화
+// - source(category/search/link/other) 함께 집계
+// - 기존 10분 쿨다운 유지
 // =============================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -16,6 +16,9 @@ export const revalidate = 0;
 
 const VIEW_COOLDOWN_MINUTES = 10;
 const COOKIE_NAME = 'rd_vid';
+
+const SOURCE_VALUES = ['category', 'search', 'link', 'other'] as const;
+type DocViewSource = (typeof SOURCE_VALUES)[number];
 
 function makeVisitorId() {
   return crypto.randomUUID();
@@ -36,6 +39,135 @@ function isConnectTimeoutError(err: unknown) {
   );
 }
 
+function normalizeSource(raw: unknown): DocViewSource {
+  const value = String(raw ?? '').trim();
+  return SOURCE_VALUES.includes(value as DocViewSource)
+    ? (value as DocViewSource)
+    : 'other';
+}
+
+async function bumpTotal(documentId: number, source: DocViewSource) {
+  switch (source) {
+    case 'category':
+      await sql`
+        INSERT INTO document_stats_total (
+          document_id, views, category_views, updated_at
+        )
+        VALUES (${documentId}, 1, 1, NOW())
+        ON CONFLICT (document_id) DO UPDATE
+        SET
+          views = document_stats_total.views + 1,
+          category_views = document_stats_total.category_views + 1,
+          updated_at = NOW()
+      `;
+      return;
+
+    case 'search':
+      await sql`
+        INSERT INTO document_stats_total (
+          document_id, views, search_views, updated_at
+        )
+        VALUES (${documentId}, 1, 1, NOW())
+        ON CONFLICT (document_id) DO UPDATE
+        SET
+          views = document_stats_total.views + 1,
+          search_views = document_stats_total.search_views + 1,
+          updated_at = NOW()
+      `;
+      return;
+
+    case 'link':
+      await sql`
+        INSERT INTO document_stats_total (
+          document_id, views, link_views, updated_at
+        )
+        VALUES (${documentId}, 1, 1, NOW())
+        ON CONFLICT (document_id) DO UPDATE
+        SET
+          views = document_stats_total.views + 1,
+          link_views = document_stats_total.link_views + 1,
+          updated_at = NOW()
+      `;
+      return;
+
+    case 'other':
+    default:
+      await sql`
+        INSERT INTO document_stats_total (
+          document_id, views, other_views, updated_at
+        )
+        VALUES (${documentId}, 1, 1, NOW())
+        ON CONFLICT (document_id) DO UPDATE
+        SET
+          views = document_stats_total.views + 1,
+          other_views = document_stats_total.other_views + 1,
+          updated_at = NOW()
+      `;
+      return;
+  }
+}
+
+async function bumpDaily(documentId: number, source: DocViewSource) {
+  switch (source) {
+    case 'category':
+      await sql`
+        INSERT INTO document_stats_daily (
+          day, document_id, views, category_views, updated_at
+        )
+        VALUES (CURRENT_DATE, ${documentId}, 1, 1, NOW())
+        ON CONFLICT (day, document_id) DO UPDATE
+        SET
+          views = document_stats_daily.views + 1,
+          category_views = document_stats_daily.category_views + 1,
+          updated_at = NOW()
+      `;
+      return;
+
+    case 'search':
+      await sql`
+        INSERT INTO document_stats_daily (
+          day, document_id, views, search_views, updated_at
+        )
+        VALUES (CURRENT_DATE, ${documentId}, 1, 1, NOW())
+        ON CONFLICT (day, document_id) DO UPDATE
+        SET
+          views = document_stats_daily.views + 1,
+          search_views = document_stats_daily.search_views + 1,
+          updated_at = NOW()
+      `;
+      return;
+
+    case 'link':
+      await sql`
+        INSERT INTO document_stats_daily (
+          day, document_id, views, link_views, updated_at
+        )
+        VALUES (CURRENT_DATE, ${documentId}, 1, 1, NOW())
+        ON CONFLICT (day, document_id) DO UPDATE
+        SET
+          views = document_stats_daily.views + 1,
+          link_views = document_stats_daily.link_views + 1,
+          updated_at = NOW()
+      `;
+      return;
+
+    case 'other':
+    default:
+      await sql`
+        INSERT INTO document_stats_daily (
+          day, document_id, views, other_views, updated_at
+        )
+        VALUES (CURRENT_DATE, ${documentId}, 1, 1, NOW())
+        ON CONFLICT (day, document_id) DO UPDATE
+        SET
+          views = document_stats_daily.views + 1,
+          other_views = document_stats_daily.other_views + 1,
+          updated_at = NOW()
+      `;
+      return;
+  }
+}
+
 export async function POST(req: NextRequest) {
   let body: any = null;
 
@@ -49,6 +181,8 @@ export async function POST(req: NextRequest) {
   }
 
   const documentId = Number(body?.documentId);
+  const source = normalizeSource(body?.source);
+
   if (!Number.isFinite(documentId) || documentId <= 0) {
     return NextResponse.json(
       { ok: false, error: 'invalid_documentId' },
@@ -64,13 +198,13 @@ export async function POST(req: NextRequest) {
     shouldSetCookie = true;
   }
 
-  // 운영 중 긴급 차단용
   if (process.env.DISABLE_VIEW_TRACKING === '1') {
     const res = NextResponse.json(
       {
         ok: true,
         counted: false,
         skipped: 'disabled',
+        source,
         cooldownMinutes: VIEW_COOLDOWN_MINUTES,
       },
       { headers: noStoreHeaders() }
@@ -107,37 +241,24 @@ export async function POST(req: NextRequest) {
     const withinCooldown = !!lastViewedAt && now - lastViewedAt < cooldownMs;
 
     if (!withinCooldown) {
-      await sql`
-        INSERT INTO document_stats_total (document_id, views, updated_at)
-        VALUES (${documentId}, 1, NOW())
-        ON CONFLICT (document_id)
-        DO UPDATE SET
-          views = document_stats_total.views + 1,
-          updated_at = NOW()
-      `;
-
-      await sql`
-        INSERT INTO document_stats_daily (day, document_id, views, updated_at)
-        VALUES (CURRENT_DATE, ${documentId}, 1, NOW())
-        ON CONFLICT (day, document_id)
-        DO UPDATE SET
-          views = document_stats_daily.views + 1,
-          updated_at = NOW()
-      `;
+      await bumpTotal(documentId, source);
+      await bumpDaily(documentId, source);
     }
 
     await sql`
-      INSERT INTO document_view_recent (document_id, visitor_id, last_viewed_at)
+      INSERT INTO document_view_recent (
+        document_id, visitor_id, last_viewed_at
+      )
       VALUES (${documentId}, ${visitorId}, NOW())
       ON CONFLICT (document_id, visitor_id)
-      DO UPDATE SET
-        last_viewed_at = NOW()
+      DO UPDATE SET last_viewed_at = NOW()
     `;
 
     const res = NextResponse.json(
       {
         ok: true,
         counted: !withinCooldown,
+        source,
         cooldownMinutes: VIEW_COOLDOWN_MINUTES,
       },
       { headers: noStoreHeaders() }
@@ -155,7 +276,6 @@ export async function POST(req: NextRequest) {
 
     return res;
   } catch (err) {
-    // 조회수 기록은 비핵심 기능이라 문서 로딩을 방해하면 안 됨
     if (isConnectTimeoutError(err)) {
       console.warn('[view] DB timeout, skipping tracking');
 
@@ -164,6 +284,7 @@ export async function POST(req: NextRequest) {
           ok: true,
           counted: false,
           skipped: 'db_timeout',
+          source,
           cooldownMinutes: VIEW_COOLDOWN_MINUTES,
         },
         { headers: noStoreHeaders() }
@@ -183,6 +304,7 @@ export async function POST(req: NextRequest) {
     }
 
     console.error('[view] unexpected error:', err);
+
     return NextResponse.json(
       { ok: false, error: 'server_error' },
       { status: 500, headers: noStoreHeaders() }

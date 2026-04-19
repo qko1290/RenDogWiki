@@ -6,6 +6,7 @@
 import React, { useRef, useLayoutEffect, useMemo, useEffect } from "react";
 import SmartImage from "../common/SmartImage"; // ✅ import 유지
 import { toProxyUrl } from "@lib/cdn";
+import { markNextDocViewSource } from '@/wiki/lib/viewSource';
 
 type CategoryNode = {
   id: number;
@@ -458,7 +459,7 @@ const CategoryTree: React.FC<Props> = ({
           } catch {}
         }
 
-        fetchDoc([0], rootRep.title, rootRep.id, {
+        openCategoryDoc([0], rootRep.title, rootRep.id, {
           clearCategoryPath: true,
           history: "push",
           ignoreCurrentLocationHash: true,
@@ -486,6 +487,22 @@ const CategoryTree: React.FC<Props> = ({
       return true;
     }
     return false;
+  };
+
+  const openCategoryDoc = (
+    path: number[],
+    title: string,
+    docId?: number,
+    options?: {
+      clearCategoryPath?: boolean;
+      history?: 'push' | 'replace';
+      skipUrlSync?: boolean;
+      forceRoot?: boolean;
+      ignoreCurrentLocationHash?: boolean;
+    }
+  ) => {
+    markNextDocViewSource('category');
+    fetchDoc(path, title, docId, options);
   };
 
   const renderTree = (nodes: CategoryNode[], parentPath: number[] = []) =>
@@ -550,7 +567,7 @@ const CategoryTree: React.FC<Props> = ({
                   if (title) {
                     // ✅ 카테고리 강조를 위해: clearCategoryPath 쓰면 안 됨
                     setSelectedCategoryPath(currentPath);
-                    fetchDoc(currentPath, title, repId, {
+                    openCategoryDoc(currentPath, title, repId, {
                       clearCategoryPath: false,
                       history: 'push',
                       ignoreCurrentLocationHash: true,
@@ -660,7 +677,7 @@ const CategoryTree: React.FC<Props> = ({
                       data-docid={doc.id}
                       onClick={(e) => {
                         if (guardClick(e as any)) return;
-                        fetchDoc(currentPath, doc.title, doc.id, {
+                        openCategoryDoc(currentPath, doc.title, doc.id, {
                           clearCategoryPath: true,
                           history: 'push',
                           ignoreCurrentLocationHash: true,
@@ -722,7 +739,7 @@ const CategoryTree: React.FC<Props> = ({
                 }`}
                 onClick={(e) => {
                   if (guardClick(e)) return;
-                  fetchDoc([0], doc.title, doc.id, {
+                  openCategoryDoc([0], doc.title, doc.id, {
                     clearCategoryPath: true,
                     history: 'push',
                     ignoreCurrentLocationHash: true,

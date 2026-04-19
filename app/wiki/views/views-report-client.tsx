@@ -5,6 +5,14 @@ import React, { useEffect, useMemo, useState } from 'react';
 // WikiPageInner에서도 쓰는 트리 빌더(파일은 "수정 금지"지만 import는 OK)
 import { buildCategoryTree } from '@/wiki/lib/buildCategoryTree';
 
+type ViewBreakdown = {
+  total: number;
+  category: number;
+  search: number;
+  link: number;
+  other: number;
+};
+
 type CategoryNode = {
   id: number;
   name: string;
@@ -30,20 +38,19 @@ function withTs(url: string) {
   return url + (url.includes('?') ? '&' : '?') + '_ts=' + Date.now();
 }
 
-function pathToStr(path: number[]) {
-  return path.join('/');
-}
-
 export default function ViewsReportClient() {
-  const [range, setRange] = useState<RangeKey>('week'); // ✅ 기본: 인기순(주간)
-  const [loading, setLoading] = useState(true);
+  const [range, setRange] = useState<RangeKey>('week');
   const [query, setQuery] = useState('');
 
   const [documents, setDocuments] = useState<DocumentRow[]>([]);
   const [categoryNameById, setCategoryNameById] = useState<Record<number, string>>({});
   const [categoryIdToPathMap, setCategoryIdToPathMap] = useState<Record<number, number[]>>({});
+  const [viewsMap, setViewsMap] = useState<Map<number, ViewBreakdown>>(new Map());
 
-  const [viewsMap, setViewsMap] = useState<Map<number, number>>(new Map());
+  const [bootstrapLoading, setBootstrapLoading] = useState(true);
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  const loading = bootstrapLoading || statsLoading;
 
   // 1) bootstrap 로드 (문서/카테고리)
   useEffect(() => {
@@ -51,42 +58,59 @@ export default function ViewsReportClient() {
 
     (async () => {
       try {
-        setLoading(true);
+        setBootstrapLoading(true);
 
-        const r = await fetch(withTs('/api/bootstrap'), { cache: 'no-store' });
+        const r = await fetch(withTs('/api/bootstrap'), {
+          cache: 'no-store',
+        });
         if (!r.ok) throw new Error('bootstrap failed');
-        const data = (await r.json()) as BootstrapResponse;
 
-        const docs: DocumentRow[] = (data.documents || []).map((d: any) => ({
-          id: Number(d.id),
-          title: String(d.title ?? ''),
-          path: d.path,
-        }));
+        const data: BootstrapResponse = await r.json();
 
-        // 카테고리 트리 + 경로 맵 구축
-        const tree = buildCategoryTree(data.categories || []) as CategoryNode[];
+        const docs: DocumentRow[] = Array.isArray(data?.documents)
+          ? data.documents.map((doc: any) => ({
+              id: Number(doc?.id),
+              title: String(doc?.title ?? ''),
+              path: doc?.path ?? 0,
+            }))
+          : [];
 
-        const idToPath: Record<number, number[]> = {};
-        const nameMap: Record<number, string> = {};
+        const tree = buildCategoryTree(
+          Array.isArray(data?.categories) ? data.categories : []
+        ) as CategoryNode[];
 
-        const walk = (nodes: CategoryNode[], path: number[] = []) => {
-          for (const n of nodes) {
-            const nextPath = [...path, Number(n.id)];
-            idToPath[Number(n.id)] = nextPath;
-            nameMap[Number(n.id)] = String(n.name ?? '');
-            if (n.children?.length) walk(n.children, nextPath);
+        const nextCategoryNameById: Record<number, string> = {};
+        const nextCategoryIdToPathMap: Record<number, number[]> = {};
+
+        const walk = (nodes: CategoryNode[], parentPath: number[] = []) => {
+          for (const node of nodes) {
+            const currentPath = [...parentPath, node.id];
+            nextCategoryNameById[node.id] = node.name;
+            nextCategoryIdToPathMap[node.id] = currentPath;
+
+            if (Array.isArray(node.children) && node.children.length > 0) {
+              walk(node.children, currentPath);
+            }
           }
         };
+
         walk(tree);
 
         if (cancelled) return;
+
         setDocuments(docs);
-        setCategoryIdToPathMap(idToPath);
-        setCategoryNameById(nameMap);
+        setCategoryNameById(nextCategoryNameById);
+        setCategoryIdToPathMap(nextCategoryIdToPathMap);
       } catch (e) {
         console.error('[views report] bootstrap failed', e);
+
+        if (cancelled) return;
+
+        setDocuments([]);
+        setCategoryNameById({});
+        setCategoryIdToPathMap({});
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setBootstrapLoading(false);
       }
     })();
 
@@ -101,15 +125,27 @@ export default function ViewsReportClient() {
 
     (async () => {
       try {
-        const r = await fetch(withTs(`/api/view/stats?range=${range}`), { cache: 'no-store' });
-        if (!r.ok) throw new Error('stats failed');
-        const data = await r.json();
+        setStatsLoading(true);
 
-        const m = new Map<number, number>();
+        const r = await fetch(withTs(`/api/view/stats?range=${range}`), {
+          cache: 'no-store',
+        });
+        if (!r.ok) throw new Error('stats failed');
+
+        const data = await r.json();
+        const m = new Map<number, ViewBreakdown>();
+
         for (const it of data?.items || []) {
           const id = Number(it?.documentId);
-          const v = Number(it?.views);
-          if (Number.isFinite(id) && id > 0 && Number.isFinite(v)) m.set(id, v);
+          if (!Number.isFinite(id) || id <= 0) continue;
+
+          m.set(id, {
+            total: Number(it?.views ?? 0),
+            category: Number(it?.categoryViews ?? 0),
+            search: Number(it?.searchViews ?? 0),
+            link: Number(it?.linkViews ?? 0),
+            other: Number(it?.otherViews ?? 0),
+          });
         }
 
         if (cancelled) return;
@@ -117,6 +153,8 @@ export default function ViewsReportClient() {
       } catch (e) {
         console.error('[views report] stats failed', e);
         if (!cancelled) setViewsMap(new Map());
+      } finally {
+        if (!cancelled) setStatsLoading(false);
       }
     })();
 
@@ -137,24 +175,34 @@ export default function ViewsReportClient() {
 
       const p = categoryIdToPathMap[cid] || [cid];
       const names = p.map((id) => categoryNameById[id]).filter(Boolean);
+
       if (!names.length) return `카테고리#${cid}`;
       return names.join(' > ');
     };
 
     const merged = documents.map((d) => {
-      const views = viewsMap.get(d.id) ?? 0;
+      const stat = viewsMap.get(d.id) ?? {
+        total: 0,
+        category: 0,
+        search: 0,
+        link: 0,
+        other: 0,
+      };
+
       return {
         documentId: d.id,
         title: d.title || `(제목없음 #${d.id})`,
         category: makeBreadcrumb(d),
-        views,
+        views: stat.total,
+        categoryViews: stat.category,
+        searchViews: stat.search,
+        linkViews: stat.link,
+        otherViews: stat.other,
       };
     });
 
-    // ✅ (1) 조회수 0은 표시하지 않기
-    const nonZero = merged.filter(r => r.views > 0);
+    const nonZero = merged.filter((r) => r.views > 0);
 
-    // 검색 필터(제목/카테고리)
     const filtered = !q
       ? nonZero
       : nonZero.filter((r) => {
@@ -165,10 +213,9 @@ export default function ViewsReportClient() {
           );
         });
 
-    // ✅ 기본: 인기순(조회수 DESC), 동률이면 title
     filtered.sort((a, b) => {
       if (b.views !== a.views) return b.views - a.views;
-      return a.title.localeCompare(b.title);
+      return a.title.localeCompare(b.title, 'ko');
     });
 
     return filtered;
@@ -177,7 +224,16 @@ export default function ViewsReportClient() {
   return (
     <div style={{ padding: 18 }}>
       <h2 style={{ margin: 0, fontSize: 20 }}>문서 조회수 통계</h2>
-      <div style={{ marginTop: 12, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+
+      <div
+        style={{
+          marginTop: 12,
+          display: 'flex',
+          gap: 10,
+          alignItems: 'center',
+          flexWrap: 'wrap',
+        }}
+      >
         <RangeSwitch value={range} onChange={setRange} />
 
         <input
@@ -199,44 +255,69 @@ export default function ViewsReportClient() {
         </div>
       </div>
 
-      <div style={{ marginTop: 12, border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+      <div
+        style={{
+          marginTop: 12,
+          border: '1px solid #e5e7eb',
+          borderRadius: 12,
+          overflow: 'hidden',
+        }}
+      >
         <div style={{ overflow: 'auto', maxHeight: '70vh' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead style={{ position: 'sticky', top: 0, background: '#f9fafb', zIndex: 1 }}>
+            <thead
+              style={{
+                position: 'sticky',
+                top: 0,
+                background: '#f9fafb',
+                zIndex: 1,
+              }}
+            >
               <tr>
                 <Th style={{ width: 90 }}>문서ID</Th>
                 <Th>문서 제목</Th>
                 <Th>소속 카테고리</Th>
-                <Th style={{ width: 110, textAlign: 'right' }}>조회수</Th>
+                <Th style={{ textAlign: 'right' }}>전체</Th>
+                <Th style={{ textAlign: 'right' }}>카테고리</Th>
+                <Th style={{ textAlign: 'right' }}>검색</Th>
+                <Th style={{ textAlign: 'right' }}>하이퍼링크</Th>
+                <Th style={{ textAlign: 'right' }}>기타</Th>
               </tr>
             </thead>
 
             <tbody>
               {loading ? (
                 <tr>
-                  <Td colSpan={4} style={{ padding: 18, color: '#6b7280' }}>
+                  <Td colSpan={8} style={{ padding: 18, color: '#6b7280' }}>
                     로딩중…
                   </Td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <Td colSpan={4} style={{ padding: 18, color: '#6b7280' }}>
+                  <Td colSpan={8} style={{ padding: 18, color: '#6b7280' }}>
                     표시할 데이터가 없습니다.
                   </Td>
                 </tr>
               ) : (
                 rows.map((r) => (
-                  <tr key={`${r.documentId}-${r.views}-${pathToStr([])}`}>
-                    {/* ✅ (2) 문서ID 하얀색 */}
-                    <Td style={{ color: '#fff' }}>{r.documentId}</Td>
-
+                  <tr key={r.documentId}>
+                    <Td>{r.documentId}</Td>
                     <Td style={{ fontWeight: 600 }}>{r.title}</Td>
-
-                    {/* ✅ (2) 소속카테고리 하얀색 */}
-                    <Td style={{ color: '#fff' }}>{r.category}</Td>
-
+                    <Td>{r.category}</Td>
                     <Td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                       {r.views.toLocaleString()}
+                    </Td>
+                    <Td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                      {r.categoryViews.toLocaleString()}
+                    </Td>
+                    <Td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                      {r.searchViews.toLocaleString()}
+                    </Td>
+                    <Td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                      {r.linkViews.toLocaleString()}
+                    </Td>
+                    <Td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                      {r.otherViews.toLocaleString()}
                     </Td>
                   </tr>
                 ))
@@ -249,7 +330,13 @@ export default function ViewsReportClient() {
   );
 }
 
-function RangeSwitch({ value, onChange }: { value: RangeKey; onChange: (v: RangeKey) => void }) {
+function RangeSwitch({
+  value,
+  onChange,
+}: {
+  value: RangeKey;
+  onChange: (v: RangeKey) => void;
+}) {
   const items: { key: RangeKey; label: string }[] = [
     { key: 'total', label: '총합' },
     { key: 'day', label: '일간' },
@@ -292,7 +379,10 @@ function RangeSwitch({ value, onChange }: { value: RangeKey; onChange: (v: Range
   );
 }
 
-function Th({ style, children }: React.PropsWithChildren<{ style?: React.CSSProperties }>) {
+function Th({
+  style,
+  children,
+}: React.PropsWithChildren<{ style?: React.CSSProperties }>) {
   return (
     <th
       style={{

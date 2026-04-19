@@ -10,6 +10,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { toProxyUrl } from '@lib/cdn';
+import { markNextDocViewSource } from '@/wiki/lib/viewSource';
 
 // -------------------- types --------------------
 type DocResult = {
@@ -448,10 +449,9 @@ export default function SearchBox({
       `&title=${encodeURIComponent(res.title)}` +
       (nextHashDomId ? `#${encodeURIComponent(nextHashDomId)}` : "");
 
+    markNextDocViewSource('search');
     router.push(href, { scroll: false });
 
-    // Next router의 pushState 기반 hash 이동은 hashchange가 안 잡힐 수 있어서
-    // 같은 문서 내 다른 heading으로 이동할 때도 기존 heading-scroll effect를 재실행시킴
     if (nextHashDomId && typeof window !== "undefined") {
       window.requestAnimationFrame(() => {
         window.dispatchEvent(

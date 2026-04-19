@@ -30,6 +30,8 @@ import type { WikiRefKind } from '@/components/editor/render/types';
 
 import { useRouter } from "next/navigation";
 
+import { markNextDocViewSource } from '@/wiki/lib/viewSource';
+
 type Props = {
   content: Descendant[];
   readOnly?: boolean;
@@ -1780,6 +1782,8 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({
 
     e.preventDefault();
     e.stopPropagation();
+
+    markNextDocViewSource('link');
 
     if (onWikiNavigate) {
       onWikiNavigate(normalizedHref);
