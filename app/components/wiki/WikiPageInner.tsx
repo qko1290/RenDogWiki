@@ -33,7 +33,10 @@ import {
   writeDocFavorites,
   type DocBadgeMode,
 } from '@/wiki/lib/docFavorites';
-import { consumeNextDocViewSource } from '@/wiki/lib/viewSource';
+import {
+  consumeNextDocViewSource,
+  markNextDocViewSource,
+} from '@/wiki/lib/viewSource';
 
 type CategoryNode = {
   id: number;
@@ -1974,6 +1977,8 @@ export default function WikiPageInner({ user }: Props) {
     const isWikiDocLink = isSameOrigin && url.pathname === '/wiki';
     if (!isWikiDocLink) return;
 
+    markNextDocViewSource('link');
+
     const path = url.searchParams.get('path');
     const titleRaw = url.searchParams.get('title');
     const title = titleRaw ? decodeTitleFromUrlParam(titleRaw) : null;
@@ -2045,6 +2050,7 @@ export default function WikiPageInner({ user }: Props) {
       e.preventDefault();
       e.stopPropagation();
 
+      markNextDocViewSource('link');
       handleInternalWikiNavigate(rawHref);
     };
 
