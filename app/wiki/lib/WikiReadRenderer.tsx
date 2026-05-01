@@ -3329,7 +3329,8 @@ function shortLevelLabel(label: string): string {
   const raw = (label ?? "").trim();
   if (!raw) return "?";
 
-  if (raw.toUpperCase() === "MAX") return "M"; // MAX → M
+  const upper = raw.toUpperCase();
+  if (upper === "MAX" || upper === "M") return "M"; // MAX/M → M
 
   const numMatch = raw.match(/\d+/);
   if (numMatch) return numMatch[0]; // "1강" → "1", "10강" → "10"
@@ -3343,6 +3344,7 @@ type WeaponLevelSelectorProps = {
   onChange: (idx: number) => void;
   compact?: boolean;
   overlay?: boolean;
+  spiritLayout?: boolean;
 };
 
 /** 카드 오른쪽 바깥에 붙는 강수 선택 버튼 (단색 뱃지 + MAX만 다른 색) */
@@ -3352,14 +3354,22 @@ function WeaponLevelSelector({
   onChange,
   compact = false,
   overlay = false,
+  spiritLayout = false,
 }: WeaponLevelSelectorProps) {
   const [open, setOpen] = useState(false);
 
   // ✅ 단계가 0~1개면 버튼 자체를 렌더하지 않음
   if (levelLabels.length <= 1) return null;
 
+  const displayLevelLabels =
+    spiritLayout && levelLabels.length >= 15
+      ? levelLabels.map((label, idx) =>
+          idx === levelLabels.length - 1 ? "MAX" : label
+        )
+      : levelLabels;
+
   const selectedLabel =
-    selectedIndex != null ? levelLabels[selectedIndex] : null;
+    selectedIndex != null ? displayLevelLabels[selectedIndex] : null;
   const selectedShort = selectedLabel ? shortLevelLabel(selectedLabel) : "-";
 
   const isMaxLabel = (label: string | null | undefined, short: string) => {
@@ -3479,61 +3489,109 @@ function WeaponLevelSelector({
             alignItems: "center",
           }}
         >
-          {levelLabels.map((fullLabel, idx) => {
-            const short = shortLevelLabel(fullLabel);
-            const active = selectedIndex === idx;
-            const isMax = isMaxLabel(fullLabel, short);
+          {(() => {
+            const renderLevelButton = (fullLabel: string, idx: number) => {
+              const short = shortLevelLabel(fullLabel);
+              const active = selectedIndex === idx;
+              const isMax = isMaxLabel(fullLabel, short);
 
-            const bg = isMax ? MAX_BG : BASE_BG;
-            const textColor = isMax ? MAX_TEXT : BASE_TEXT;
+              const bg = isMax ? MAX_BG : BASE_BG;
+              const textColor = isMax ? MAX_TEXT : BASE_TEXT;
 
-            const border = isMax
-              ? MAX_BORDER
-              : active
-              ? ACTIVE_BORDER
-              : BASE_BORDER;
+              const border = isMax
+                ? MAX_BORDER
+                : active
+                ? ACTIVE_BORDER
+                : BASE_BORDER;
 
-            return (
-              <button
-                key={`${fullLabel}-${idx}`}
-                type="button"
-                onClick={() => handleSelect(idx)}
-                style={{
-                  border: "none",
-                  outline: "none",
-                  cursor: "pointer",
-                  padding: 0,
-                  margin: 0,
-                  background: "transparent",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <span
+              return (
+                <button
+                  key={`${fullLabel}-${idx}`}
+                  type="button"
+                  onClick={() => handleSelect(idx)}
                   style={{
-                    width: DOT,
-                    height: DOT,
-                    borderRadius: 999,
-                    display: "inline-flex",
+                    border: "none",
+                    outline: "none",
+                    cursor: "pointer",
+                    padding: 0,
+                    margin: 0,
+                    background: "transparent",
+                    display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: DOT_FONT,
-                    fontWeight: active ? 900 : 800,
-                    background: bg,
-                    color: textColor,
-                    border,
-                    boxShadow: active ? DOT_SHADOW_ACTIVE : DOT_SHADOW,
-                    transform: active ? "translateY(-1px)" : "translateY(0)",
-                    transition:
-                      "transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease",
                   }}
                 >
-                  {short}
-                </span>
-              </button>
+                  <span
+                    style={{
+                      width: DOT,
+                      height: DOT,
+                      borderRadius: 999,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: DOT_FONT,
+                      fontWeight: active ? 900 : 800,
+                      background: bg,
+                      color: textColor,
+                      border,
+                      boxShadow: active ? DOT_SHADOW_ACTIVE : DOT_SHADOW,
+                      transform: active ? "translateY(-1px)" : "translateY(0)",
+                      transition:
+                        "transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease",
+                    }}
+                  >
+                    {short}
+                  </span>
+                </button>
+              );
+            };
+
+            if (spiritLayout) {
+              const left = displayLevelLabels.slice(0, 9);
+              const right = displayLevelLabels.slice(9);
+
+              return (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "row",
+                    gap: compact ? 8 : 10,
+                    alignItems: "flex-start",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 10,
+                      alignItems: "center",
+                    }}
+                  >
+                    {left.map((fullLabel, idx) =>
+                      renderLevelButton(fullLabel, idx)
+                    )}
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 10,
+                      alignItems: "center",
+                    }}
+                  >
+                    {right.map((fullLabel, localIdx) =>
+                      renderLevelButton(fullLabel, localIdx + 9)
+                    )}
+                  </div>
+                </div>
+              );
+            }
+
+            return displayLevelLabels.map((fullLabel, idx) =>
+              renderLevelButton(fullLabel, idx)
             );
-          })}
+          })()}
         </div>
       </div>
     </div>
@@ -3622,8 +3680,8 @@ function WeaponCardRead({
     overflow: "hidden",
     position: "relative",
     background:
-      "radial-gradient(circle at 18% 5%, rgba(29, 211, 199, .18), transparent 34%), radial-gradient(circle at 88% 12%, rgba(56, 189, 248, .10), transparent 32%), radial-gradient(circle at 50% 115%, rgba(4, 120, 87, .24), transparent 48%), linear-gradient(180deg, #02090a 0%, #041314 48%, #010506 100%)",
-    boxShadow: "0 0 0 1px rgba(148, 255, 246, .10) inset",
+      "radial-gradient(circle at 18% 5%, rgba(29, 211, 199, .16), transparent 34%), radial-gradient(circle at 88% 12%, rgba(56, 189, 248, .08), transparent 32%), radial-gradient(circle at 50% 115%, rgba(4, 120, 87, .22), transparent 48%), linear-gradient(180deg, #02090a 0%, #041314 48%, #010506 100%)",
+    boxShadow: "0 0 28px rgba(20, 184, 166, .06) inset",
   };
 
   const spiritOverlayStyle: React.CSSProperties = {
@@ -3824,6 +3882,7 @@ function WeaponCardRead({
                     onChange={(idx) => setSelectedLevelIndex(idx)}
                     compact
                     overlay
+                    spiritLayout={isSpirit}
                   />
                 </div>
               )}
@@ -4004,6 +4063,7 @@ function WeaponCardRead({
             levelLabels={levelLabels}
             selectedIndex={selectedLevelIndex}
             onChange={(idx) => setSelectedLevelIndex(idx)}
+            spiritLayout={isSpirit}
           />
         )}
       </div>
