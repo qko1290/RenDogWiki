@@ -3622,8 +3622,8 @@ function WeaponCardRead({
     overflow: "hidden",
     position: "relative",
     background:
-      "radial-gradient(circle at 18% 5%, rgba(29, 211, 199, .18), transparent 34%), radial-gradient(circle at 88% 12%, rgba(56, 189, 248, .10), transparent 32%), radial-gradient(circle at 50% 115%, rgba(4, 120, 87, .24), transparent 48%), linear-gradient(180deg, #02090a 0%, #041314 48%, #010506 100%)",
-    boxShadow: "0 0 0 1px rgba(148, 255, 246, .10) inset",
+      "radial-gradient(circle at 18% 5%, rgba(29, 211, 199, .16), transparent 34%), radial-gradient(circle at 88% 12%, rgba(56, 189, 248, .08), transparent 32%), radial-gradient(circle at 50% 115%, rgba(4, 120, 87, .22), transparent 48%), linear-gradient(180deg, #02090a 0%, #041314 48%, #010506 100%)",
+    boxShadow: "0 0 28px rgba(20, 184, 166, .06) inset",
   };
 
   const spiritOverlayStyle: React.CSSProperties = {
