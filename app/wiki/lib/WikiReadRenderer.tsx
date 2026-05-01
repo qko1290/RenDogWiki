@@ -3467,7 +3467,7 @@ function WeaponLevelSelector({
         style={{
           position: "absolute",
           top: "100%",
-          right: overlay ? 0 : 17,
+          right: spiritLayout ? -21 : overlay ? 0 : 17,
           marginTop: 8,
           zIndex: 40,
           pointerEvents: open ? "auto" : "none",
