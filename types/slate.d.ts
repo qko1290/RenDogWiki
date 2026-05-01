@@ -257,7 +257,8 @@ export type WeaponType =
   | 'rune'
   | 'fishing-rod'
   | 'armor'
-  | 'weapon';
+  | 'weapon'
+  | 'spirit';
 
 export type WeaponStatKey =
   | 'damage'      // 데미지

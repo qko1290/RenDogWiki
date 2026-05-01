@@ -73,6 +73,12 @@ export const WEAPON_TYPES_META: Record<
     border: '#6b7280',
     badgeBg: '#111827',
   },
+  spirit: {
+    label: 'SPIRIT',
+    headerBg: '#052426',
+    border: '#1dd3c7',
+    badgeBg: '#061617',
+  },
 };
 
 // 무기 카드에서 사용할 전체 스탯 키 목록
@@ -114,6 +120,25 @@ export function getWeaponLevelLabels(type: WeaponType): string[] {
     // 1강 ~ MAX(9강)
     case 'class':
       return ['1강', '2강', '3강', '4강', '5강', '6강', '7강', '8강', 'MAX'];
+      
+    case 'spirit':
+      return [
+        '1강',
+        '2강',
+        '3강',
+        '4강',
+        '5강',
+        '6강',
+        '7강',
+        '8강',
+        '9강',
+        '10강',
+        '11강',
+        '12강',
+        '13강',
+        '14강',
+        '15강',
+      ];
 
     // 나머지는 단일 단계
     case 'block':

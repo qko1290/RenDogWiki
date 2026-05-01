@@ -39,18 +39,27 @@ export function WeaponCard(props: WeaponCardProps) {
   const isReadOnly = ReactEditor.isReadOnly(editor);
 
   const weaponType: WeaponType = el.weaponType || 'epic';
-  const VIDEOLESS_TYPES = new Set<WeaponType>(['boss', 'mini-boss', 'monster', 'rune', 'fishing-rod','armor',]);
+  const VIDEOLESS_TYPES = new Set<WeaponType>([
+    'boss',
+    'mini-boss',
+    'monster',
+    'rune',
+    'fishing-rod',
+    'armor',
+  ]);
   const supportsVideo = !VIDEOLESS_TYPES.has(weaponType);
   const meta = WEAPON_TYPES_META[weaponType];
 
   // ✅ TRANSCEND 카드만 화려하게 만들기 위한 플래그
   const isTranscend =
-    (meta?.label ? meta.label.toUpperCase().startsWith("TRANSCEND") : false) ||
-    String(weaponType || "").toLowerCase().startsWith("transcend");
+    (meta?.label ? meta.label.toUpperCase().startsWith('TRANSCEND') : false) ||
+    String(weaponType || '').toLowerCase().startsWith('transcend');
+
+  const isSpirit = weaponType === 'spirit';
 
   // ✅ 색상 -> rgba (WeaponCard.tsx에는 없으니 여기서만 로컬로)
   const hexToRgba = (hex: string, alpha: number) => {
-    const h = (hex || "").replace("#", "").trim();
+    const h = (hex || '').replace('#', '').trim();
     const a = Math.max(0, Math.min(1, alpha));
     if (h.length === 3) {
       const r = parseInt(h[0] + h[0], 16);
@@ -68,8 +77,8 @@ export function WeaponCard(props: WeaponCardProps) {
   };
 
   // ✅ 초월 프레임/글로우/샤인에 쓸 값들
-  const tBorder = meta?.border || "#a855f7";
-  const tHeader = meta?.headerBg || "#7c3aed";
+  const tBorder = meta?.border || '#a855f7';
+  const tHeader = meta?.headerBg || '#7c3aed';
 
   const transcendFrameStyle: React.CSSProperties = {
     padding: 2,
@@ -92,6 +101,36 @@ export function WeaponCard(props: WeaponCardProps) {
       #020617`,
     boxShadow: `0 0 0 1px rgba(255,255,255,.10) inset`,
     position: 'relative',
+  };
+
+  const spiritFrameStyle: React.CSSProperties = {
+    padding: 2,
+    borderRadius: 20,
+    background:
+      'linear-gradient(135deg, #021011 0%, #06383a 28%, #15c8bc 48%, #071112 62%, #0b1f2a 100%)',
+    boxShadow:
+      '0 0 0 1px rgba(29, 211, 199, .22) inset, 0 20px 55px rgba(0,0,0,.72), 0 0 34px rgba(20, 184, 166, .24), 0 0 80px rgba(8, 47, 73, .35)',
+  };
+
+  const spiritInnerGlowStyle: React.CSSProperties = {
+    borderRadius: 18,
+    overflow: 'hidden',
+    position: 'relative',
+    background:
+      'radial-gradient(circle at 18% 5%, rgba(29, 211, 199, .18), transparent 34%), radial-gradient(circle at 88% 12%, rgba(56, 189, 248, .10), transparent 32%), radial-gradient(circle at 50% 115%, rgba(4, 120, 87, .24), transparent 48%), linear-gradient(180deg, #02090a 0%, #041314 48%, #010506 100%)',
+    boxShadow: '0 0 0 1px rgba(148, 255, 246, .10) inset',
+  };
+
+  const spiritOverlayStyle: React.CSSProperties = {
+    position: 'absolute',
+    inset: 0,
+    pointerEvents: 'none',
+    opacity: 0.9,
+    backgroundImage:
+      'radial-gradient(circle at 16% 22%, rgba(125, 255, 239, .22) 0 1px, transparent 2px), radial-gradient(circle at 78% 32%, rgba(56, 189, 248, .20) 0 1px, transparent 2px), radial-gradient(circle at 42% 68%, rgba(45, 212, 191, .16) 0 1px, transparent 2px), linear-gradient(135deg, transparent 0%, rgba(20, 184, 166, .08) 44%, transparent 62%)',
+    backgroundSize: '72px 72px, 96px 96px, 120px 120px, 100% 100%',
+    mixBlendMode: 'screen',
+    zIndex: 0,
   };
 
   const stats = ensureWeaponStats(el.stats, weaponType);
@@ -196,226 +235,282 @@ export function WeaponCard(props: WeaponCardProps) {
         }}
       >
         {/* 카드 본체 */}
-        <div style={isTranscend ? transcendFrameStyle : undefined}>
+        <div
+          style={
+            isSpirit
+              ? spiritFrameStyle
+              : isTranscend
+                ? transcendFrameStyle
+                : {
+                    borderRadius: 18,
+                    border: `2px solid ${meta.border}`,
+                    overflow: 'hidden',
+                    background: '#020617',
+                    boxShadow: '0 16px 35px rgba(0,0,0,.45)',
+                  }
+          }
+        >
           <div
-            style={{
-              width: cardWidth,
-              borderRadius: 18,
-              overflow: "hidden",
-              background: "#020617",
-              boxShadow: "0 18px 45px rgba(0,0,0,.45)",
-              fontFamily: "inherit",
-              paddingTop: 8,
-
-              ...(isTranscend ? transcendInnerGlowStyle : null),
-            }}
+            style={
+              isSpirit
+                ? {
+                    width: cardWidth,
+                    fontFamily: 'inherit',
+                    paddingTop: 8,
+                    ...spiritInnerGlowStyle,
+                  }
+                : isTranscend
+                  ? {
+                      width: cardWidth,
+                      fontFamily: 'inherit',
+                      paddingTop: 8,
+                      ...transcendInnerGlowStyle,
+                    }
+                  : {
+                      width: cardWidth,
+                      borderRadius: 18,
+                      overflow: 'hidden',
+                      background: '#020617',
+                      boxShadow: '0 18px 45px rgba(0,0,0,.45)',
+                      fontFamily: 'inherit',
+                      paddingTop: 8,
+                    }
+            }
           >
-          {/* 상단 타입 바 */}
-          <button
-            type="button"
-            onClick={() => !isReadOnly && setTypeModalOpen(true)}
-            style={{
-              width: '100%',
-              border: 'none',
-              outline: 'none',
-              background: meta.headerBg,
-              color: '#f9fafb',
-              padding: '6px 0',
-              fontSize: 16,
-              fontWeight: 700,
-              letterSpacing: 1.5,
-              textAlign: 'center',
-              cursor: isReadOnly ? 'default' : 'pointer',
-            }}
-          >
-            {meta.label}
-          </button>
-
-          {/* 무기 이름 */}
-          <div
-            onClick={() => !isReadOnly && setNameModalOpen(true)}
-            style={{
-              padding: '10px 14px',
-              background: '#020617',
-              color: '#e5e7eb',
-              fontSize: 18,
-              fontWeight: 700,
-              textAlign: 'center',
-              borderBottom: '1px solid #111827',
-              cursor: isReadOnly ? 'default' : 'pointer',
-              userSelect: 'none',
-            }}
-          >
-            {el.name || '새 무기 이름'}
-          </div>
-
-          {/* 이미지 영역 */}
-          <div
-            onClick={() => !isReadOnly && setImageModalOpen(true)}
-            style={{
-              background:
-                'radial-gradient(circle at 20% 0%, rgba(56,189,248,0.18), transparent 55%), ' +
-                'radial-gradient(circle at 100% 0%, rgba(129,140,248,0.22), transparent 55%), ' +
-                '#020617',
-              height: 140,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: isReadOnly ? 'default' : 'pointer',
-            }}
-          >
-            {imageSrc ? (
-              <img
-                src={imageSrc}
-                alt=""
-                width={160}
-                height={96}
-                loading="lazy"
-                decoding="async"
-                draggable={false}
-                style={{
-                  maxWidth: '80%',
-                  maxHeight: '80%',
-                  objectFit: 'contain',
-                  filter: 'drop-shadow(0 12px 18px rgba(0,0,0,.55))',
-                  display: 'block',
-                }}
-              />
-            ) : (
-              <span
-                style={{
-                  color: '#6b7280',
-                  fontSize: 14,
-                }}
-              >
-                이미지 없음
-              </span>
-            )}
-          </div>
-
-          {/* 정보 리스트 */}
-          <div
-            style={{
-              padding: '8px 10px 8px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 6,
-            }}
-          >
-            {visibleStats.length === 0 && (
-              <div
-                style={{
-                  fontSize: 12,
-                  color: '#6b7280',
-                  padding: '6px 8px',
-                  borderRadius: 10,
-                  background: 'rgba(15,23,42,.75)',
-                }}
-              >
-                표시할 정보가 없습니다. (정보 설정 버튼으로 추가)
-              </div>
+            {isSpirit && (
+              <div style={spiritOverlayStyle} contentEditable={false} />
             )}
 
-            {visibleStats.map((stat) => (
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              {/* 상단 타입 바 */}
               <button
-                key={stat.key}
                 type="button"
-                onClick={() => setStatEditKey(stat.key)}
+                onClick={() => !isReadOnly && setTypeModalOpen(true)}
                 style={{
-                  borderRadius: 10,
-                  padding: '6px 8px',
-                  border: '1px solid #111827',
-                  background:
-                    'linear-gradient(90deg, rgba(15,23,42,.95), rgba(15,23,42,.85))',
+                  width: '100%',
+                  border: 'none',
+                  outline: 'none',
+                  background: isSpirit
+                    ? 'linear-gradient(90deg, #020617 0%, #06383a 35%, #0f766e 55%, #020617 100%)'
+                    : meta.headerBg,
+                  color: isSpirit ? '#d9fffb' : '#f9fafb',
+                  textShadow: isSpirit
+                    ? '0 0 10px rgba(45, 212, 191, .65)'
+                    : undefined,
+                  padding: '6px 0',
+                  fontSize: 16,
+                  fontWeight: 700,
+                  letterSpacing: 1.5,
+                  textAlign: 'center',
+                  cursor: isReadOnly ? 'default' : 'pointer',
+                }}
+              >
+                {meta.label}
+              </button>
+
+              {/* 무기 이름 */}
+              <div
+                onClick={() => !isReadOnly && setNameModalOpen(true)}
+                style={{
+                  padding: '10px 14px',
+                  background: isSpirit
+                    ? 'linear-gradient(180deg, rgba(2, 6, 23, .98), rgba(3, 24, 27, .96))'
+                    : '#020617',
+                  color: isSpirit ? '#e6fffb' : '#e5e7eb',
+                  fontSize: 18,
+                  fontWeight: 700,
+                  textAlign: 'center',
+                  borderBottom: isSpirit
+                    ? '1px solid rgba(45, 212, 191, .22)'
+                    : '1px solid #111827',
+                  cursor: isReadOnly ? 'default' : 'pointer',
+                  userSelect: 'none',
+                  textShadow: isSpirit
+                    ? '0 0 12px rgba(20, 184, 166, .35)'
+                    : undefined,
+                }}
+              >
+                {el.name || '새 무기 이름'}
+              </div>
+
+              {/* 이미지 영역 */}
+              <div
+                onClick={() => !isReadOnly && setImageModalOpen(true)}
+                style={{
+                  background: isSpirit
+                    ? 'radial-gradient(circle at 18% 12%, rgba(29, 211, 199, .20), transparent 38%), radial-gradient(circle at 78% 22%, rgba(14, 165, 233, .12), transparent 42%), radial-gradient(circle at 50% 95%, rgba(6, 78, 59, .26), transparent 48%), #010607'
+                    : 'radial-gradient(circle at 20% 0%, rgba(56,189,248,0.18), transparent 55%), radial-gradient(circle at 100% 0%, rgba(129,140,248,0.22), transparent 55%), #020617',
+                  height: 140,
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'space-between',
-                  cursor: 'pointer',
+                  justifyContent: 'center',
+                  cursor: isReadOnly ? 'default' : 'pointer',
                 }}
-                title="클릭해서 강화별 상세 정보 보기/편집"
               >
-                <span
-                  style={{
-                    fontSize: 12,
-                    color: '#9ca3af',
-                    fontWeight: 500,
-                  }}
-                >
-                  {stat.label}
-                </span>
-                <span
-                  style={{
-                    fontSize: 13,
-                    color: '#e5e7eb',
-                    fontWeight: 600,
-                  }}
-                >
-                  {stat.summary || '-'}
-                  {stat.unit ? ` ${stat.unit}` : ''}
-                </span>
-              </button>
-            ))}
-          </div>
+                {imageSrc ? (
+                  <img
+                    src={imageSrc}
+                    alt=""
+                    width={160}
+                    height={96}
+                    loading="lazy"
+                    decoding="async"
+                    draggable={false}
+                    style={{
+                      maxWidth: '80%',
+                      maxHeight: '80%',
+                      objectFit: 'contain',
+                      filter: 'drop-shadow(0 12px 18px rgba(0,0,0,.55))',
+                      display: 'block',
+                    }}
+                  />
+                ) : (
+                  <span
+                    style={{
+                      color: '#6b7280',
+                      fontSize: 14,
+                    }}
+                  >
+                    이미지 없음
+                  </span>
+                )}
+              </div>
 
-          {/* 하단 영상 버튼 */}
-          {supportsVideo && (
-            <div
-              style={{
-                padding: '8px 10px 10px',
-                display: 'flex',
-                gap: showConfigButtons ? 8 : 0,
-                justifyContent: showConfigButtons ? 'stretch' : 'center',
-              }}
-            >
-              {/* ✅ 문서 로드(readOnly)에서는 가운데 정렬 + 단일 버튼 */}
-              <button
-                type="button"
-                disabled={!videoSrc}
-                onClick={() => videoSrc && setVideoModalOpen(true)}
+              {/* 정보 리스트 */}
+              <div
                 style={{
-                  padding: '8px 10px',
-                  borderRadius: 999,
-                  border: 'none',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  background: videoSrc
-                    ? 'linear-gradient(90deg,#1d4ed8,#3b82f6)'
-                    : '#111827',
-                  color: videoSrc ? '#f9fafb' : '#6b7280',
-                  cursor: videoSrc ? 'pointer' : 'default',
-                  flex: showConfigButtons ? 1 : undefined,
-                  minWidth: showConfigButtons ? undefined : 160,
-                  textAlign: 'center',
-                  boxShadow: videoSrc
-                    ? '0 12px 30px rgba(37,99,235,0.7)'
-                    : 'none',
+                  padding: '8px 10px 8px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 6,
                 }}
               >
-                스킬 사용 영상
-              </button>
+                {visibleStats.length === 0 && (
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: '#6b7280',
+                      padding: '6px 8px',
+                      borderRadius: 10,
+                      background: 'rgba(15,23,42,.75)',
+                    }}
+                  >
+                    표시할 정보가 없습니다. (정보 설정 버튼으로 추가)
+                  </div>
+                )}
 
-              {/* 영상 설정 버튼은 에디터에서만 표시 */}
-              {showConfigButtons && (
-                <button
-                  type="button"
-                  onClick={() => setVideoSelectOpen(true)}
+                {visibleStats.map((stat) => (
+                  <button
+                    key={stat.key}
+                    type="button"
+                    onClick={() => setStatEditKey(stat.key)}
+                    style={{
+                      borderRadius: 10,
+                      padding: '6px 8px',
+                      background: isSpirit
+                        ? 'linear-gradient(90deg, rgba(2, 18, 20, .96), rgba(4, 32, 35, .88))'
+                        : 'linear-gradient(90deg, rgba(15,23,42,.95), rgba(15,23,42,.85))',
+                      border: isSpirit
+                        ? '1px solid rgba(45, 212, 191, .18)'
+                        : '1px solid #111827',
+                      boxShadow: isSpirit
+                        ? '0 0 16px rgba(20, 184, 166, .08) inset'
+                        : undefined,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      cursor: 'pointer',
+                    }}
+                    title="클릭해서 강화별 상세 정보 보기/편집"
+                  >
+                    <span
+                      style={{
+                        fontSize: 12,
+                        color: '#9ca3af',
+                        fontWeight: 500,
+                      }}
+                    >
+                      {stat.label}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 13,
+                        color: '#e5e7eb',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {stat.summary || '-'}
+                      {stat.unit ? ` ${stat.unit}` : ''}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {/* 하단 영상 버튼 */}
+              {supportsVideo && (
+                <div
                   style={{
-                    padding: '8px 10px',
-                    borderRadius: 999,
-                    border: '1px solid #334155',
-                    background: '#020617',
-                    color: '#e5e7eb',
-                    fontSize: 12,
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
+                    padding: '8px 10px 10px',
+                    display: 'flex',
+                    gap: showConfigButtons ? 8 : 0,
+                    justifyContent: showConfigButtons ? 'stretch' : 'center',
                   }}
                 >
-                  영상 설정
-                </button>
+                  {/* ✅ 문서 로드(readOnly)에서는 가운데 정렬 + 단일 버튼 */}
+                  <button
+                    type="button"
+                    disabled={!videoSrc}
+                    onClick={() => videoSrc && setVideoModalOpen(true)}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: 999,
+                      border: 'none',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      background: videoSrc
+                        ? isSpirit
+                          ? 'linear-gradient(90deg, #064e3b, #0f766e, #155e75)'
+                          : 'linear-gradient(90deg,#1d4ed8,#3b82f6)'
+                        : '#111827',
+
+                      boxShadow: videoSrc
+                        ? isSpirit
+                          ? '0 12px 34px rgba(20,184,166,.42), 0 0 18px rgba(45,212,191,.22)'
+                          : '0 12px 30px rgba(37,99,235,0.7)'
+                        : 'none',
+                      color: videoSrc ? '#f9fafb' : '#6b7280',
+                      cursor: videoSrc ? 'pointer' : 'default',
+                      flex: showConfigButtons ? 1 : undefined,
+                      minWidth: showConfigButtons ? undefined : 160,
+                      textAlign: 'center',
+                    }}
+                  >
+                    스킬 사용 영상
+                  </button>
+
+                  {/* 영상 설정 버튼은 에디터에서만 표시 */}
+                  {showConfigButtons && (
+                    <button
+                      type="button"
+                      onClick={() => setVideoSelectOpen(true)}
+                      style={{
+                        padding: '8px 10px',
+                        borderRadius: 999,
+                        border: '1px solid #334155',
+                        background: '#020617',
+                        color: '#e5e7eb',
+                        fontSize: 12,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      영상 설정
+                    </button>
+                  )}
+                </div>
               )}
             </div>
-          )}
-        </div>
+          </div>
         </div>
 
         {/* ✅ 정보 설정 버튼: 카드 “밖”에 배치 (에디터에서만) */}
@@ -524,6 +619,7 @@ export function WeaponCard(props: WeaponCardProps) {
         onClose={() => setImageModalOpen(false)}
         onSelectImage={handleImageSelected}
       />
+
       {supportsVideo && (
         <ImageSelectModal
           open={videoSelectOpen && !isReadOnly}
