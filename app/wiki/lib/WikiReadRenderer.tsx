@@ -3680,8 +3680,8 @@ function WeaponCardRead({
     overflow: "hidden",
     position: "relative",
     background:
-      "radial-gradient(circle at 18% 5%, rgba(29, 211, 199, .16), transparent 34%), radial-gradient(circle at 88% 12%, rgba(56, 189, 248, .08), transparent 32%), radial-gradient(circle at 50% 115%, rgba(4, 120, 87, .22), transparent 48%), linear-gradient(180deg, #02090a 0%, #041314 48%, #010506 100%)",
-    boxShadow: "0 0 28px rgba(20, 184, 166, .06) inset",
+      "radial-gradient(circle at 18% 5%, rgba(29, 211, 199, .12), transparent 36%), radial-gradient(circle at 88% 12%, rgba(56, 189, 248, .06), transparent 34%), radial-gradient(circle at 50% 115%, rgba(4, 120, 87, .18), transparent 50%), linear-gradient(180deg, #02090a 0%, #031112 48%, #010506 100%)",
+    boxShadow: "0 0 34px rgba(20, 184, 166, .045) inset",
   };
 
   const spiritOverlayStyle: React.CSSProperties = {
@@ -3765,13 +3765,13 @@ function WeaponCardRead({
     ? "var(--foreground)"
     : "#e5e7eb";
   const titleBorder = isSpirit
-    ? "1px solid rgba(45, 212, 191, .22)"
+    ? "1px solid rgba(45, 212, 191, .055)"
     : isDarkMode
     ? "1px solid var(--border)"
     : "1px solid #111827";
 
   const mediaBg = isSpirit
-    ? "radial-gradient(circle at 18% 12%, rgba(29, 211, 199, .20), transparent 38%), radial-gradient(circle at 78% 22%, rgba(14, 165, 233, .12), transparent 42%), radial-gradient(circle at 50% 95%, rgba(6, 78, 59, .26), transparent 48%), #010607"
+    ? "radial-gradient(circle at 18% 12%, rgba(29, 211, 199, .12), transparent 40%), radial-gradient(circle at 78% 22%, rgba(14, 165, 233, .07), transparent 44%), radial-gradient(circle at 50% 95%, rgba(6, 78, 59, .18), transparent 52%), linear-gradient(180deg, rgba(3, 24, 27, .94) 0%, rgba(1, 8, 9, .98) 72%, #010607 100%)"
     : isDarkMode
     ? "radial-gradient(circle at 20% 0%, rgba(56,189,248,0.12), transparent 55%), radial-gradient(circle at 100% 0%, rgba(129,140,248,0.14), transparent 55%), linear-gradient(180deg, rgba(15,23,42,.96), rgba(11,18,32,.98))"
     : "radial-gradient(circle at 20% 0%, rgba(56,189,248,0.18), transparent 55%), radial-gradient(circle at 100% 0%, rgba(129,140,248,0.22), transparent 55%), #020617";
@@ -3779,12 +3779,12 @@ function WeaponCardRead({
   const emptyTextColor = isDarkMode ? "var(--muted-2)" : "#6b7280";
   const statEmptyBg = isDarkMode ? "rgba(15,23,42,.82)" : "rgba(15,23,42,.75)";
   const statRowBorder = isSpirit
-    ? "1px solid rgba(45, 212, 191, .18)"
+    ? "1px solid rgba(45, 212, 191, .085)"
     : isDarkMode
     ? "1px solid var(--border)"
     : "1px solid #111827";
   const statRowBg = isSpirit
-    ? "linear-gradient(90deg, rgba(2, 18, 20, .96), rgba(4, 32, 35, .88))"
+    ? "linear-gradient(90deg, rgba(2, 18, 20, .82), rgba(4, 32, 35, .72))"
     : isDarkMode
     ? "linear-gradient(90deg, rgba(15,23,42,.82), rgba(17,24,39,.96))"
     : "linear-gradient(90deg, rgba(15,23,42,.95), rgba(15,23,42,.85))";
@@ -3855,6 +3855,9 @@ function WeaponCardRead({
                 color: isSpirit ? "#d9fffb" : "#f9fafb",
                 textShadow: isSpirit
                   ? "0 0 10px rgba(45, 212, 191, .65)"
+                  : undefined,
+                boxShadow: isSpirit
+                  ? "0 16px 28px rgba(1, 8, 9, .18)"
                   : undefined,
                 padding: isMobile ? "5px 12px" : "10px 12px",
                 fontSize: 16,
@@ -3982,7 +3985,7 @@ function WeaponCardRead({
                       border: statRowBorder,
                       background: statRowBg,
                       boxShadow: isSpirit
-                        ? "0 0 16px rgba(20, 184, 166, .08) inset"
+                        ? "0 0 18px rgba(20, 184, 166, .035) inset"
                         : undefined,
                       display: "flex",
                       alignItems: "center",
