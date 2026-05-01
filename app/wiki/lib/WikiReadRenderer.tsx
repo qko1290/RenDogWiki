@@ -3578,6 +3578,8 @@ function WeaponCardRead({
   const isTranscend =
     meta.label.startsWith("TRANSCEND") || weaponType.startsWith("transcend-");
 
+  const isSpirit = weaponType === "spirit";
+
   const transcendFrameStyle: React.CSSProperties = {
     padding: 2,
     borderRadius: 20,
@@ -3597,6 +3599,36 @@ function WeaponCardRead({
       #020617`,
     boxShadow: `0 0 0 1px rgba(255,255,255,.10) inset`,
     position: "relative",
+  };
+
+  const spiritFrameStyle: React.CSSProperties = {
+    padding: 2,
+    borderRadius: 20,
+    background:
+      "linear-gradient(135deg, #021011 0%, #06383a 28%, #15c8bc 48%, #071112 62%, #0b1f2a 100%)",
+    boxShadow:
+      "0 0 0 1px rgba(29, 211, 199, .22) inset, 0 20px 55px rgba(0,0,0,.72), 0 0 34px rgba(20, 184, 166, .24), 0 0 80px rgba(8, 47, 73, .35)",
+  };
+
+  const spiritInnerGlowStyle: React.CSSProperties = {
+    borderRadius: 18,
+    overflow: "hidden",
+    position: "relative",
+    background:
+      "radial-gradient(circle at 18% 5%, rgba(29, 211, 199, .18), transparent 34%), radial-gradient(circle at 88% 12%, rgba(56, 189, 248, .10), transparent 32%), radial-gradient(circle at 50% 115%, rgba(4, 120, 87, .24), transparent 48%), linear-gradient(180deg, #02090a 0%, #041314 48%, #010506 100%)",
+    boxShadow: "0 0 0 1px rgba(148, 255, 246, .10) inset",
+  };
+
+  const spiritOverlayStyle: React.CSSProperties = {
+    position: "absolute",
+    inset: 0,
+    pointerEvents: "none",
+    opacity: 0.9,
+    backgroundImage:
+      "radial-gradient(circle at 16% 22%, rgba(125, 255, 239, .22) 0 1px, transparent 2px), radial-gradient(circle at 78% 32%, rgba(56, 189, 248, .20) 0 1px, transparent 2px), radial-gradient(circle at 42% 68%, rgba(45, 212, 191, .16) 0 1px, transparent 2px), linear-gradient(135deg, transparent 0%, rgba(20, 184, 166, .08) 44%, transparent 62%)",
+    backgroundSize: "72px 72px, 96px 96px, 120px 120px, 100% 100%",
+    mixBlendMode: "screen",
+    zIndex: 0,
   };
 
   const name = (node.name ?? "").trim() || "무기 이름 없음";
@@ -3646,29 +3678,57 @@ function WeaponCardRead({
 
   const cardWidth = isMobile ? 220 : 260;
 
-  const cardBg = isDarkMode ? "var(--surface-elevated)" : "#020617";
-  const cardShadow = isDarkMode
+  const cardBg = isSpirit
+    ? "#02090a"
+    : isDarkMode
+    ? "var(--surface-elevated)"
+    : "#020617";
+  const cardShadow = isSpirit
+    ? "0 18px 45px rgba(0,0,0,.58)"
+    : isDarkMode
     ? "0 18px 45px rgba(2, 6, 23, 0.46)"
     : "0 18px 45px rgba(0,0,0,.45)";
 
-  const titleBg = isDarkMode
+  const titleBg = isSpirit
+    ? "linear-gradient(180deg, rgba(2, 6, 23, .98), rgba(3, 24, 27, .96))"
+    : isDarkMode
     ? "linear-gradient(180deg, rgba(15,23,42,.98), rgba(17,24,39,.96))"
     : "#020617";
-  const titleColor = isDarkMode ? "var(--foreground)" : "#e5e7eb";
-  const titleBorder = isDarkMode ? "1px solid var(--border)" : "1px solid #111827";
+  const titleColor = isSpirit
+    ? "#e6fffb"
+    : isDarkMode
+    ? "var(--foreground)"
+    : "#e5e7eb";
+  const titleBorder = isSpirit
+    ? "1px solid rgba(45, 212, 191, .22)"
+    : isDarkMode
+    ? "1px solid var(--border)"
+    : "1px solid #111827";
 
-  const mediaBg = isDarkMode
+  const mediaBg = isSpirit
+    ? "radial-gradient(circle at 18% 12%, rgba(29, 211, 199, .20), transparent 38%), radial-gradient(circle at 78% 22%, rgba(14, 165, 233, .12), transparent 42%), radial-gradient(circle at 50% 95%, rgba(6, 78, 59, .26), transparent 48%), #010607"
+    : isDarkMode
     ? "radial-gradient(circle at 20% 0%, rgba(56,189,248,0.12), transparent 55%), radial-gradient(circle at 100% 0%, rgba(129,140,248,0.14), transparent 55%), linear-gradient(180deg, rgba(15,23,42,.96), rgba(11,18,32,.98))"
     : "radial-gradient(circle at 20% 0%, rgba(56,189,248,0.18), transparent 55%), radial-gradient(circle at 100% 0%, rgba(129,140,248,0.22), transparent 55%), #020617";
 
   const emptyTextColor = isDarkMode ? "var(--muted-2)" : "#6b7280";
   const statEmptyBg = isDarkMode ? "rgba(15,23,42,.82)" : "rgba(15,23,42,.75)";
-  const statRowBorder = isDarkMode ? "1px solid var(--border)" : "1px solid #111827";
-  const statRowBg = isDarkMode
+  const statRowBorder = isSpirit
+    ? "1px solid rgba(45, 212, 191, .18)"
+    : isDarkMode
+    ? "1px solid var(--border)"
+    : "1px solid #111827";
+  const statRowBg = isSpirit
+    ? "linear-gradient(90deg, rgba(2, 18, 20, .96), rgba(4, 32, 35, .88))"
+    : isDarkMode
     ? "linear-gradient(90deg, rgba(15,23,42,.82), rgba(17,24,39,.96))"
     : "linear-gradient(90deg, rgba(15,23,42,.95), rgba(15,23,42,.85))";
   const statLabelColor = isDarkMode ? "var(--muted)" : "#9ca3af";
-  const statValueColor = isDarkMode ? "var(--foreground)" : "#e5e7eb";
+  const statValueColor = isSpirit
+    ? "#e6fffb"
+    : isDarkMode
+    ? "var(--foreground)"
+    : "#e5e7eb";
 
   const disabledButtonBg = isDarkMode ? "var(--surface)" : "#111827";
   const disabledButtonColor = isDarkMode ? "var(--muted-2)" : "#6b7280";
@@ -3690,7 +3750,15 @@ function WeaponCardRead({
         }}
       >
         {/* 카드 본체 – Element 와 거의 동일한 스타일 */}
-        <div style={isTranscend ? transcendFrameStyle : undefined}>
+        <div
+          style={
+            isSpirit
+              ? spiritFrameStyle
+              : isTranscend
+              ? transcendFrameStyle
+              : undefined
+          }
+        >
           <div
             data-wiki-card="weapon-read"
             style={{
@@ -3701,16 +3769,28 @@ function WeaponCardRead({
               boxShadow: cardShadow,
               fontFamily: "inherit",
               paddingTop: 8,
-              ...(isTranscend ? transcendInnerGlowStyle : null),
+              ...(isSpirit
+                ? spiritInnerGlowStyle
+                : isTranscend
+                ? transcendInnerGlowStyle
+                : null),
             }}
           >
+            {isSpirit && <div style={spiritOverlayStyle} aria-hidden="true" />}
+
+            <div style={{ position: "relative", zIndex: 1 }}>
             {/* 상단 타입 바 */}
             <div
               data-wiki-part="weapon-type-bar"
               style={{
                 width: "100%",
-                background: meta.headerBg,
-                color: "#f9fafb",
+                background: isSpirit
+                  ? "linear-gradient(90deg, #020617 0%, #06383a 35%, #0f766e 55%, #020617 100%)"
+                  : meta.headerBg,
+                color: isSpirit ? "#d9fffb" : "#f9fafb",
+                textShadow: isSpirit
+                  ? "0 0 10px rgba(45, 212, 191, .65)"
+                  : undefined,
                 padding: isMobile ? "5px 12px" : "10px 12px",
                 fontSize: 16,
                 fontWeight: 700,
@@ -3753,6 +3833,9 @@ function WeaponCardRead({
                 fontWeight: 700,
                 textAlign: "center",
                 borderBottom: titleBorder,
+                textShadow: isSpirit
+                  ? "0 0 12px rgba(20, 184, 166, .35)"
+                  : undefined,
               }}
             >
               {name}
@@ -3832,6 +3915,9 @@ function WeaponCardRead({
                       padding: "6px 8px",
                       border: statRowBorder,
                       background: statRowBg,
+                      boxShadow: isSpirit
+                        ? "0 0 16px rgba(20, 184, 166, .08) inset"
+                        : undefined,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
@@ -3882,14 +3968,18 @@ function WeaponCardRead({
                     fontSize: 13,
                     fontWeight: 600,
                     background: videoSrc
-                      ? "linear-gradient(90deg,#1d4ed8,#3b82f6)"
+                      ? isSpirit
+                        ? "linear-gradient(90deg, #064e3b, #0f766e, #155e75)"
+                        : "linear-gradient(90deg,#1d4ed8,#3b82f6)"
                       : disabledButtonBg,
                     color: videoSrc ? "#f9fafb" : disabledButtonColor,
                     cursor: videoSrc ? "pointer" : "default",
                     minWidth: 160,
                     textAlign: "center",
                     boxShadow: videoSrc
-                      ? "0 12px 30px rgba(37,99,235,0.7)"
+                      ? isSpirit
+                        ? "0 12px 34px rgba(20,184,166,.42), 0 0 18px rgba(45,212,191,.22)"
+                        : "0 12px 30px rgba(37,99,235,0.7)"
                       : "none",
                   }}
                 >
@@ -3897,6 +3987,7 @@ function WeaponCardRead({
                 </button>
               </div>
             )}
+            </div>
           </div>
         </div>
 
