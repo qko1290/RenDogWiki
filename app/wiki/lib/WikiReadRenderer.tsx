@@ -2335,7 +2335,8 @@ type WeaponType =
   | "transcend-divine"
   | "transcend-superior"
   | 'armor'
-  | 'weapon';
+  | 'weapon'
+  | 'spirit';
 
 // 무기 희귀도(유형)별 메타 정보 (BLOCK/디바인 색상 포함)
 const WEAPON_TYPES_META: Record<
@@ -2461,6 +2462,12 @@ const WEAPON_TYPES_META: Record<
     headerBg: '#1f2937',
     border: '#6b7280',
     badgeBg: '#111827',
+  },
+  spirit: {
+    label: "SPIRIT",
+    headerBg: "#052426",
+    border: "#1dd3c7",
+    badgeBg: "#061617",
   },
 };
 
