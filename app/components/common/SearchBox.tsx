@@ -171,12 +171,14 @@ type Props = {
   /** 박스 너비 (CSS 값). 기본: min(720px, 56vw) */
   width?: string;
   /** 퀘스트 NPC 클릭 시 상위에서 모달 열기 */
+  paddingLeft?: number;
   onQuestNpcClick?: (id: number) => void;
 };
 
 export default function SearchBox({
   align = 'center',
   width = 'min(720px, 56vw)',
+  paddingLeft = 100,
   onQuestNpcClick,
 }: Props) {
   const [query, setQuery] = useState('');

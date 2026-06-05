@@ -280,7 +280,7 @@ export default function WikiHeader({
           <div className="wiki-header-desktop-tools">
             <div
               style={{
-                display: 'flex',
+                display: 'none',
                 alignItems: 'center',
                 gap: 14,
                 marginLeft: 12,
