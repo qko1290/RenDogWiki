@@ -32,15 +32,12 @@ import sharp from 'sharp';
 import crypto from 'crypto';
 
 // ---- 동영상 인코딩 의존성 (타입 선언 없음 → TS 억제) ----
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import ffmpeg from 'fluent-ffmpeg';
 
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import ffmpegStatic from 'ffmpeg-static';
 
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import ffprobeStatic from 'ffprobe-static';
 
