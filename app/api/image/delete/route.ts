@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
 import { S3 } from 'aws-sdk';
 import { logActivity } from '@wiki/lib/activity';
+import { requireRole } from '@/wiki/lib/requireRole';
 
 export const runtime = 'nodejs';
 
@@ -21,6 +22,18 @@ function normalizeIds(input: any): number[] {
 }
 
 export async function DELETE(req: NextRequest) {
+  const gate = await requireRole(['writer', 'admin']);
+
+  if (!gate.ok) {
+    return NextResponse.json(
+      { error: gate.error },
+      {
+        status: gate.status,
+        headers: { 'Cache-Control': 'no-store' },
+      }
+    );
+  }
+
   try {
     const body = await req.json().catch(() => null);
     const ids = normalizeIds(body?.ids);

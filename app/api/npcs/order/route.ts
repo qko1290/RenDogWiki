@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
 import { getAuthUser } from '@/wiki/lib/auth';
 import { logActivity, resolveVillageName } from '@wiki/lib/activity';
+import { requireRole } from '@/wiki/lib/requireRole';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,6 +26,18 @@ export const revalidate = 0;
 type OrderPair = { id: number; order: number };
 
 export async function PATCH(req: NextRequest) {
+  const gate = await requireRole(['writer', 'admin']);
+
+  if (!gate.ok) {
+    return NextResponse.json(
+      { error: gate.error },
+      {
+        status: gate.status,
+        headers: { 'Cache-Control': 'no-store' },
+      }
+    );
+  }
+
   try {
     // 본문 파싱
     const body = await req.json().catch(() => null);

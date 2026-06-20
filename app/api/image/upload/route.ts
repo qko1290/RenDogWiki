@@ -26,6 +26,7 @@ import { sql } from '@/wiki/lib/db';
 import { S3 } from 'aws-sdk';
 import { getAuthUser } from '@/wiki/lib/auth';
 import { logActivity, resolveFolderName } from '@wiki/lib/activity';
+import { requireRole } from '@/wiki/lib/requireRole';
 
 import sharp from 'sharp';
 import crypto from 'crypto';
@@ -244,6 +245,18 @@ async function processVideoIfNeeded(file: File): Promise<{
 // ========================================================
 
 export async function POST(req: NextRequest) {
+  const gate = await requireRole(['writer', 'admin']);
+
+  if (!gate.ok) {
+    return NextResponse.json(
+      { error: gate.error },
+      {
+        status: gate.status,
+        headers: { 'Cache-Control': 'no-store' },
+      }
+    );
+  }
+
   try {
     // 1) formData 파싱
     const formData = await req.formData();

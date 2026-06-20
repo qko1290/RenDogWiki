@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logActivity, resolveCategoryName } from '@wiki/lib/activity';
 import { getAuthUser } from '@/wiki/lib/auth';
 import { invalidate } from '@/wiki/lib/cache';
+import { requireRole } from '@/wiki/lib/requireRole';
 
 export const runtime = 'nodejs';
 
@@ -28,6 +29,18 @@ function toIntOrDefault(v: unknown, d = 0): number {
 }
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+  const gate = await requireRole(['writer', 'admin']);
+
+  if (!gate.ok) {
+    return NextResponse.json(
+      { error: gate.error },
+      {
+        status: gate.status,
+        headers: { 'Cache-Control': 'no-store' },
+      }
+    );
+  }
+
   try {
     const idNum = Number(params.id);
     if (!Number.isFinite(idNum)) {
@@ -159,6 +172,18 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  const gate = await requireRole(['writer', 'admin']);
+
+  if (!gate.ok) {
+    return NextResponse.json(
+      { error: gate.error },
+      {
+        status: gate.status,
+        headers: { 'Cache-Control': 'no-store' },
+      }
+    );
+  }
+
   try {
     const idNum = Number(params.id);
     if (!Number.isFinite(idNum)) {
@@ -241,6 +266,18 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const gate = await requireRole(['writer', 'admin']);
+
+  if (!gate.ok) {
+    return NextResponse.json(
+      { error: gate.error },
+      {
+        status: gate.status,
+        headers: { 'Cache-Control': 'no-store' },
+      }
+    );
+  }
+
   try {
     const idNum = Number(params.id);
     if (!Number.isFinite(idNum)) {

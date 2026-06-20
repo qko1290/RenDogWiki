@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
 // ⚠️ 이 프로젝트의 getAuthUser는 인자 없는 시그니처라고 가정합니다.
 import { getAuthUser } from '@/wiki/lib/auth';
+import { requireRole } from '@/wiki/lib/requireRole';
 
 type Role = 'guest' | 'writer' | 'admin';
 
@@ -17,7 +18,18 @@ type AuthLike = {
 };
 
 export async function PATCH(_req: NextRequest) {
-  // ❌ getAuthUser(req) -> ✅ getAuthUser()
+  const gate = await requireRole(['writer', 'admin']);
+
+  if (!gate.ok) {
+    return NextResponse.json(
+      { error: gate.error },
+      {
+        status: gate.status,
+        headers: { 'Cache-Control': 'no-store' },
+      }
+    );
+  }
+
   const user = (await getAuthUser()) as AuthLike | null;
   if (!user) return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
 

@@ -12,6 +12,7 @@ import { sql } from '@/wiki/lib/db';
 import { S3 } from 'aws-sdk';
 import { getAuthUser } from '@/wiki/lib/auth';
 import { logActivity, resolveFolderName } from '@/wiki/lib/activity';
+import { requireRole } from '@/wiki/lib/requireRole';
 
 export const runtime = 'nodejs';
 
@@ -30,6 +31,18 @@ async function getAllFolderIds(rootId: number): Promise<number[]> {
 }
 
 export async function DELETE(req: NextRequest) {
+  const gate = await requireRole(['writer', 'admin']);
+
+  if (!gate.ok) {
+    return NextResponse.json(
+      { error: gate.error },
+      {
+        status: gate.status,
+        headers: { 'Cache-Control': 'no-store' },
+      }
+    );
+  }
+
   try {
     // 1) 인증 + 입력 파싱
     const user = getAuthUser();

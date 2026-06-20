@@ -14,6 +14,7 @@ import { sql } from '@/wiki/lib/db';
 import { getAuthUser } from '@/wiki/lib/auth';
 import { logActivity } from '@wiki/lib/activity';
 import { cached } from '@/wiki/lib/cache'; // ✅ 캐시 유틸
+import { requireRole } from '@/wiki/lib/requireRole';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -76,6 +77,18 @@ export async function GET(req: NextRequest) {
 
 /** [마을 추가] POST */
 export async function POST(req: NextRequest) {
+  const gate = await requireRole(['writer', 'admin']);
+
+  if (!gate.ok) {
+    return NextResponse.json(
+      { error: gate.error },
+      {
+        status: gate.status,
+        headers: { 'Cache-Control': 'no-store' },
+      }
+    );
+  }
+
   try {
     const body = await req.json().catch(() => ({} as any));
     const name = strOr(body?.name, '');

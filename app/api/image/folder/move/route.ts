@@ -18,6 +18,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
 import { getAuthUser } from '@/wiki/lib/auth';
 import { logActivity, resolveFolderName } from '@/wiki/lib/activity';
+import { requireRole } from '@/wiki/lib/requireRole';
 
 export const runtime = 'nodejs';
 
@@ -28,6 +29,18 @@ function toNullableParent(v: unknown): number | null {
 }
 
 export async function PATCH(req: NextRequest) {
+  const gate = await requireRole(['writer', 'admin']);
+
+  if (!gate.ok) {
+    return NextResponse.json(
+      { error: gate.error },
+      {
+        status: gate.status,
+        headers: { 'Cache-Control': 'no-store' },
+      }
+    );
+  }
+
   try {
     const body = await req.json().catch(() => null);
     const idNum = Number(body?.id);

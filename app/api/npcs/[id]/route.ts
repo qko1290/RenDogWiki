@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
 import { getAuthUser } from '@/wiki/lib/auth';
 import { logActivity } from '@wiki/lib/activity';
+import { requireRole } from '@/wiki/lib/requireRole';
 
 export const runtime = 'nodejs';
 
@@ -68,6 +69,18 @@ function toNpcTypeOr(v: unknown, fallback: string): string {
 
 /** PATCH: 단건 수정 */
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const gate = await requireRole(['writer', 'admin']);
+
+  if (!gate.ok) {
+    return NextResponse.json(
+      { error: gate.error },
+      {
+        status: gate.status,
+        headers: { 'Cache-Control': 'no-store' },
+      }
+    );
+  }
+
   try {
     const id = Number(params.id);
     if (!Number.isFinite(id) || id <= 0) {
@@ -143,6 +156,18 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
 /** DELETE: 그대로 */
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  const gate = await requireRole(['writer', 'admin']);
+
+  if (!gate.ok) {
+    return NextResponse.json(
+      { error: gate.error },
+      {
+        status: gate.status,
+        headers: { 'Cache-Control': 'no-store' },
+      }
+    );
+  }
+
   try {
     const id = Number(params.id);
     if (!Number.isFinite(id) || id <= 0) {

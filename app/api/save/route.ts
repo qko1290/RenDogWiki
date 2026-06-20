@@ -4,6 +4,7 @@ import { sql } from '@/wiki/lib/db';
 import { getAuthUser } from '@/wiki/lib/auth';
 import { logActivity, resolveCategoryName } from '@wiki/lib/activity';
 import { invalidate } from '@wiki/lib/cache';
+import { requireRole } from '@/app/wiki/lib/requireRole';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,6 +27,18 @@ function normalizeTags(v: unknown): string[] {
 }
 
 export async function POST(req: NextRequest) {
+  const gate = await requireRole(['writer', 'admin']);
+
+  if (!gate.ok) {
+    return NextResponse.json(
+      { error: gate.error },
+      {
+        status: gate.status,
+        headers: { 'Cache-Control': 'no-store' },
+      }
+    );
+  }
+  
   const getColInfo = async (table: string, column: string) => {
     const rows = (await sql`
       SELECT data_type, udt_name
