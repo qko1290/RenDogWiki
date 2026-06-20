@@ -2,32 +2,32 @@
 // File: app/api/image/upload/route.ts
 // (이미지: sharp 리사이즈/WebP, 영상: ffmpeg 4MB 타깃 인코딩, S3 캐시, 안전 폴백)
 // =============================================
+
 /**
  * 업로드 (S3 + DB) - 이미지/영상 공용
  * - POST (multipart/form-data)
- *   - fields -> files[] , folder_id
- *   - uploader -> 로그인 유저 닉네임 우선, 없으면 헤더, 최후엔 'admin'
+ * - fields -> files[] , folder_id
+ * - uploader -> 로그인 유저 닉네임 우선, 없으면 헤더, 최후엔 'admin'
  * - 흐름 -> formData 파싱 -> 입력 검증
- *        -> (이미지면 sharp, 영상이면 ffmpeg로 압축) -> S3 업로드 -> DB 저장 -> 활동 로그
+ * -> (이미지면 sharp, 영상이면 ffmpeg로 압축) -> S3 업로드 -> DB 저장 -> 활동 로그
  * - 정책
- *   [이미지]
- *     - GIF(애니메이션), SVG는 원본 업로드
- *     - 그 외 이미지: WebP(Q=80) + 긴 변 1600px 리사이즈 (env 조정)
- *     - 변환 후 용량이 원본보다 크면 원본 업로드(안전 폴백)
- *   [영상]
- *     - 목표 용량(TARGET_MB=4MB) 맞추도록 평균 비트레이트 산출하여 MP4(H.264/AAC)로 인코딩
- *     - 가로 최대폭 MAX_WIDTH(기본 720px)로 스케일
- *     - 원본이 타깃보다 작고, 인코딩 결과보다도 작으면 원본 유지(안전 폴백)
- *   - S3 Cache-Control: public, max-age=31536000, immutable
+ * [이미지]
+ * - GIF(애니메이션), SVG는 원본 업로드
+ * - 그 외 이미지: WebP(Q=80) + 긴 변 1600px 리사이즈 (env 조정)
+ * - 변환 후 용량이 원본보다 크면 원본 업로드(안전 폴백)
+ * [영상]
+ * - 목표 용량(TARGET_MB=4MB) 맞추도록 평균 비트레이트 산출하여 MP4(H.264/AAC)로 인코딩
+ * - 가로 최대폭 MAX_WIDTH(기본 720px)로 스케일
+ * - 원본이 타깃보다 작고, 인코딩 결과보다도 작으면 원본 유지(안전 폴백)
+ * - S3 Cache-Control: public, max-age=31536000, immutable
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/wiki/lib/db';
-import { S3 } from 'aws-sdk';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getAuthUser } from '@/wiki/lib/auth';
 import { logActivity, resolveFolderName } from '@wiki/lib/activity';
 import { requireRole } from '@/wiki/lib/requireRole';
-
 import sharp from 'sharp';
 import crypto from 'crypto';
 
@@ -35,9 +35,11 @@ import crypto from 'crypto';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import ffmpeg from 'fluent-ffmpeg';
+
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import ffmpegStatic from 'ffmpeg-static';
+
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import ffprobeStatic from 'ffprobe-static';
@@ -54,13 +56,15 @@ export const revalidate = 0;
 export const dynamic = 'force-dynamic';
 
 // ---- 설정 (env로 조정 가능) ----
+
 // 이미지
-const MAX_DIM = Number(process.env.WIKI_IMAGE_MAX_DIM || 1600);     // 긴 변 픽셀
-const QUALITY = Number(process.env.WIKI_IMAGE_QUALITY || 80);       // 0~100
+const MAX_DIM = Number(process.env.WIKI_IMAGE_MAX_DIM || 1600); // 긴 변 픽셀
+const QUALITY = Number(process.env.WIKI_IMAGE_QUALITY || 80); // 0~100
+
 // 영상
-const TARGET_MB = Number(process.env.WIKI_VIDEO_TARGET_MB || 4);    // 목표 용량(MB)
-const MAX_WIDTH = Number(process.env.WIKI_VIDEO_MAX_WIDTH || 720);  // 가로 최대폭(px)
-const AUDIO_K   = Number(process.env.WIKI_VIDEO_AUDIO_K || 64);     // 오디오 비트레이트(kbps)
+const TARGET_MB = Number(process.env.WIKI_VIDEO_TARGET_MB || 4); // 목표 용량(MB)
+const MAX_WIDTH = Number(process.env.WIKI_VIDEO_MAX_WIDTH || 720); // 가로 최대폭(px)
+const AUDIO_K = Number(process.env.WIKI_VIDEO_AUDIO_K || 64); // 오디오 비트레이트(kbps)
 
 // S3 캐시
 const CACHE_CONTROL = 'public, max-age=31536000, immutable';
@@ -71,14 +75,33 @@ function getSafeExt(filename: string) {
   const ext = dot >= 0 ? filename.slice(dot + 1) : '';
   return ext.replace(/[^a-zA-Z0-9]/g, '').slice(0, 10).toLowerCase();
 }
+
 function sha1Short(buf: Buffer) {
   return crypto.createHash('sha1').update(buf).digest('hex').slice(0, 10);
 }
+
 function buildKey(folderId: number, ext: string, hint?: string) {
   const now = Date.now();
   const rand = Math.random().toString(36).slice(2, 8);
   const postfix = hint ? `_${hint}` : `_${rand}`;
   return `images/${folderId}/${now}${postfix}.${ext}`;
+}
+
+function buildS3PublicUrl(bucket: string, key: string) {
+  const encodedKey = key.split('/').map(encodeURIComponent).join('/');
+  const publicBaseUrl = process.env.S3_PUBLIC_BASE_URL?.replace(/\/+$/, '');
+
+  if (publicBaseUrl) {
+    return `${publicBaseUrl}/${encodedKey}`;
+  }
+
+  const region = process.env.AWS_REGION || 'us-east-1';
+
+  if (region === 'us-east-1') {
+    return `https://${bucket}.s3.amazonaws.com/${encodedKey}`;
+  }
+
+  return `https://${bucket}.s3.${region}.amazonaws.com/${encodedKey}`;
 }
 
 // ---------------------- 이미지 처리 ----------------------
@@ -104,6 +127,7 @@ async function processImageIfNeeded(file: File): Promise<{
 
   // sharp 메타데이터로 GIF 애니메이션 판별
   let meta: sharp.Metadata | null = null;
+
   try {
     meta = await sharp(origBuf, { animated: true }).metadata();
   } catch {
@@ -198,6 +222,7 @@ async function transcodeToTargetMP4(
 
   const buf = await fs.readFile(outPath);
   await fs.unlink(outPath).catch(() => {});
+
   return buf;
 }
 
@@ -220,6 +245,7 @@ async function processVideoIfNeeded(file: File): Promise<{
     os.tmpdir(),
     `in_${Date.now()}_${Math.random().toString(36).slice(2)}.${origExt}`
   );
+
   await fs.writeFile(inPath, origBuf);
 
   try {
@@ -227,12 +253,12 @@ async function processVideoIfNeeded(file: File): Promise<{
     const targetBytes = TARGET_MB * 1024 * 1024;
 
     // 원본이 타깃 이하 & 인코딩 결과보다 작다면 원본 유지
-    const pickOriginal =
-      origBuf.byteLength <= targetBytes && origBuf.byteLength <= outBuf.byteLength;
+    const pickOriginal = origBuf.byteLength <= targetBytes && origBuf.byteLength <= outBuf.byteLength;
 
     if (pickOriginal) {
       return { buffer: origBuf, mime: origMime, ext: origExt, usedOriginal: true };
     }
+
     return { buffer: outBuf, mime: 'video/mp4', ext: 'mp4', usedOriginal: false };
   } catch {
     // 인코딩 실패 시 원본 유지
@@ -243,7 +269,6 @@ async function processVideoIfNeeded(file: File): Promise<{
 }
 
 // ========================================================
-
 export async function POST(req: NextRequest) {
   const gate = await requireRole(['writer', 'admin']);
 
@@ -270,12 +295,14 @@ export async function POST(req: NextRequest) {
 
     // 2) 입력 검증
     const folderIdNum = Number(folderIdRaw);
+
     if (!Number.isFinite(folderIdNum) || folderIdNum <= 0) {
       return NextResponse.json(
         { error: '폴더 ID 누락 또는 형식 오류' },
         { status: 400, headers: { 'Cache-Control': 'no-store' } }
       );
     }
+
     if (!files.length) {
       return NextResponse.json(
         { error: '파일 없음' },
@@ -285,14 +312,16 @@ export async function POST(req: NextRequest) {
 
     // S3 필수 환경 검사(버킷 이름은 반드시 필요)
     const bucket = process.env.S3_BUCKET_NAME;
+
     if (!bucket) {
       return NextResponse.json(
         { error: 'S3_BUCKET_NAME 누락' },
         { status: 500, headers: { 'Cache-Control': 'no-store' } }
       );
     }
+
     // 자격증명은 환경/IAM에서 자동 탐색. region만 명시(필요 시)
-    const s3 = new S3({ region: process.env.AWS_REGION });
+    const s3 = new S3Client({ region: process.env.AWS_REGION });
 
     const uploaded: any[] = [];
 
@@ -313,6 +342,7 @@ export async function POST(req: NextRequest) {
         processed = await processVideoIfNeeded(file);
       } else {
         const buffer = Buffer.from(await file.arrayBuffer());
+
         processed = {
           buffer,
           mime: file.type || 'application/octet-stream',
@@ -323,12 +353,12 @@ export async function POST(req: NextRequest) {
 
       const hash = sha1Short(processed.buffer);
       const key = buildKey(folderIdNum, processed.ext, hash);
+      const location = buildS3PublicUrl(bucket, key);
 
       // 3-1) S3 업로드
-      let s3result;
       try {
-        s3result = await s3
-          .upload({
+        await s3.send(
+          new PutObjectCommand({
             Bucket: bucket,
             Key: key,
             Body: processed.buffer,
@@ -336,7 +366,7 @@ export async function POST(req: NextRequest) {
             CacheControl: CACHE_CONTROL,
             ContentDisposition: 'inline',
           })
-          .promise();
+        );
       } catch (e: any) {
         return NextResponse.json(
           { error: 'S3 업로드 실패: ' + (e?.message || e) },
@@ -348,9 +378,10 @@ export async function POST(req: NextRequest) {
       try {
         const rows = (await sql`
           INSERT INTO images (name, folder_id, uploader, s3_key, url, mime_type)
-          VALUES (${file.name}, ${folderIdNum}, ${uploader}, ${key}, ${s3result.Location}, ${processed.mime || null})
+          VALUES (${file.name}, ${folderIdNum}, ${uploader}, ${key}, ${location}, ${processed.mime || null})
           RETURNING *
         `) as unknown as any[];
+
         uploaded.push(rows[0]);
       } catch (e: any) {
         // 주의: 여기서 실패해도 이미 S3에는 올라가 있음(롤백 없음)
@@ -389,6 +420,7 @@ export async function POST(req: NextRequest) {
     );
   } catch (err: unknown) {
     console.error('[image/upload POST] unexpected error:', err);
+
     return NextResponse.json(
       { error: 'Server error' },
       { status: 500, headers: { 'Cache-Control': 'no-store' } }
