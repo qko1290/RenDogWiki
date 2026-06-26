@@ -81,6 +81,38 @@ const ExternalLinkIcon: React.FC<{ size?: number }> = ({ size = 18 }) => (
   </svg>
 );
 
+function normalizeHostForWikiLink(hostname: string | null | undefined) {
+  return String(hostname ?? '')
+    .trim()
+    .replace(/^www\./i, '')
+    .toLowerCase();
+}
+
+function isKnownRdwikiHost(hostname: string | null | undefined) {
+  const host = normalizeHostForWikiLink(hostname);
+
+  if (!host) return false;
+
+  return (
+    host === 'ren-dog-wiki.vercel.app' ||
+    (host.startsWith('ren-dog-wiki-') && host.endsWith('.vercel.app')) ||
+    host.endsWith('qko1290s-projects.vercel.app')
+  );
+}
+
+function isRdwikiWikiUrl(urlObj: URL) {
+  if (!urlObj.pathname.startsWith('/wiki')) return false;
+
+  if (typeof window === 'undefined') {
+    return true;
+  }
+
+  const currentHost = normalizeHostForWikiLink(window.location.hostname);
+  const targetHost = normalizeHostForWikiLink(urlObj.hostname);
+
+  return targetHost === currentHost || isKnownRdwikiHost(targetHost);
+}
+
 // -------------------- 타입 --------------------
 export type ElementProps = RenderElementProps & {
   editor: any;
@@ -125,12 +157,7 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
     if (el.isWiki) return true;
     if (!parsedUrl) return false;
 
-    if (typeof window === 'undefined') {
-      return parsedUrl.pathname.startsWith('/wiki');
-    }
-
-    const sameHost = parsedUrl.host === window.location.host;
-    return sameHost && parsedUrl.pathname.startsWith('/wiki');
+    return isRdwikiWikiUrl(parsedUrl);
   }, [el.isWiki, parsedUrl]);
 
   let displaySitename = el.sitename;
@@ -470,14 +497,14 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
       href={el.url}
       title={title}
       subtitle={siteLabel}
-      metaText={compactSubText}
+      metaText={isReadOnly ? compactSubText : undefined}
       icon={icon}
       size={isSmall ? 'half' : 'normal'}
       inRow={inRow}
       isWikiLink={isWikiLink}
-      attributes={attributes}
+      attributes={attributes as any}
       editControls={deleteButton}
-      clickableInReadMode
+      clickableInReadMode={false}
     >
       {children}
     </LinkCardBlock>
