@@ -104,6 +104,7 @@ export default function ParagraphBlock({
         ]);
 
   const style: React.CSSProperties = {
+    ...(attributes?.style || {}),
     textAlign: normalizeTextAlign(textAlign),
     margin: 0,
     lineHeight: mobileTable ? 1.45 : 1.6,
@@ -111,7 +112,6 @@ export default function ParagraphBlock({
     fontSize: `${paragraphFontPx}px`,
     whiteSpace: 'pre-wrap',
     color: 'var(--foreground)',
-    ...(attributes?.style || {}),
   };
 
   if (indentLine) {

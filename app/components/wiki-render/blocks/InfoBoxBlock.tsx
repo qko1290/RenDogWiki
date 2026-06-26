@@ -40,7 +40,7 @@ function normalizeInfoBoxType(raw: string | null | undefined) {
     return 'red';
   }
 
-  return v;
+  return v || 'info';
 }
 
 function getInfoboxPreset(
@@ -235,8 +235,15 @@ export default function InfoBoxBlock({
 
       <div
         style={{
-          flex: '1 1 auto',
+          flex: 1,
           minWidth: 0,
+
+          /**
+           * 원본에서는 paragraph가 whiteSpace: pre-wrap을 갖고 있었음.
+           * 현재 공통화 과정에서 children이 p를 정확히 안 타는 경우가 있어서
+           * 이 wrapper에서도 줄바꿈 보존을 강제한다.
+           */
+          whiteSpace: 'pre-wrap',
         }}
       >
         {children}
