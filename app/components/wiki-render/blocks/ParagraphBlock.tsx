@@ -5,68 +5,93 @@ type ParagraphBlockProps = {
   mode: WikiRenderMode;
   textAlign?: string | null;
   indentLine?: boolean;
-  indentClassName?: string;
-  plainText?: string;
-  isMobileTableText?: boolean;
   attributes?: React.HTMLAttributes<HTMLParagraphElement>;
   children?: React.ReactNode;
+
+  /**
+   * WikiReadRenderer에서 이미 계산해서 넘기고 있으면 사용.
+   * 없으면 children에서 최대한 텍스트를 추출해서 계산.
+   */
+  plainText?: string;
+  isEmpty?: boolean;
+  isMobileTableText?: boolean;
 };
+
+function textFromReact(node: React.ReactNode): string {
+  if (node == null || typeof node === 'boolean') return '';
+
+  if (typeof node === 'string' || typeof node === 'number') {
+    return String(node);
+  }
+
+  if (Array.isArray(node)) {
+    return node.map(textFromReact).join('');
+  }
+
+  if (React.isValidElement(node)) {
+    return textFromReact((node.props as any).children);
+  }
+
+  return '';
+}
 
 function autoFont(
   base: number,
   text: string,
-  rules: Array<[number, number]>
+  steps?: Array<[number, number]>
 ) {
-  const len = String(text ?? '').length;
+  const len = Array.from(text ?? '').length;
+  const rules: Array<[number, number]> =
+    steps ??
+    [
+      [8, base],
+      [12, base - 2],
+      [16, base - 4],
+      [22, base - 6],
+      [30, base - 8],
+      [40, base - 9],
+    ];
 
-  for (const [limit, size] of rules) {
-    if (len <= limit) return size;
+  for (const [threshold, size] of rules) {
+    if (len <= threshold) return size;
   }
 
-  return rules.length > 0 ? rules[rules.length - 1][1] : base;
+  return Math.max(11, (rules.at(-1)?.[1] ?? base) - 2);
+}
+
+function normalizeTextAlign(
+  textAlign?: string | null
+): React.CSSProperties['textAlign'] {
+  if (textAlign === 'center') return 'center';
+  if (textAlign === 'right') return 'right';
+  return 'left';
 }
 
 export default function ParagraphBlock({
   mode,
   textAlign,
   indentLine,
-  indentClassName,
-  plainText = '',
-  isMobileTableText = false,
   attributes,
   children,
+  plainText: plainTextProp,
+  isEmpty: isEmptyProp,
+  isMobileTableText,
 }: ParagraphBlockProps) {
-  if (mode === 'edit') {
-    const className = [
-      'wiki-paragraph',
-      indentLine ? 'indent-line' : '',
-      indentClassName || '',
-    ]
-      .filter(Boolean)
-      .join(' ');
+  const plainText = (plainTextProp ?? textFromReact(children))
+    .replace(/\u200B/g, '')
+    .trim();
 
-    return (
-      <p
-        {...attributes}
-        className={className}
-        style={{
-          textAlign: (textAlign as React.CSSProperties['textAlign']) || 'left',
-        }}
-      >
-        {children}
-      </p>
-    );
-  }
+  const isEmpty =
+    typeof isEmptyProp === 'boolean' ? isEmptyProp : plainText.length === 0;
 
-  const cleanedText = String(plainText ?? '').replace(/\u200B/g, '').trim();
-  const isEmpty = cleanedText.length === 0;
-  const baseFont = isMobileTableText ? 13 : 19;
+  const mobileTable = Boolean(isMobileTableText);
+  const baseFont = mobileTable ? 13 : 19;
 
-  const paragraphFontPx = isMobileTableText
+  const paragraphFontPx = mobileTable
     ? 13
     : isEmpty
       ? baseFont
-      : autoFont(baseFont, cleanedText, [
+      : autoFont(baseFont, plainText, [
           [40, baseFont],
           [80, baseFont - 1],
           [120, baseFont - 2],
@@ -77,13 +102,14 @@ export default function ParagraphBlock({
         ]);
 
   const style: React.CSSProperties = {
-    textAlign: (textAlign as React.CSSProperties['textAlign']) || 'left',
+    textAlign: normalizeTextAlign(textAlign),
     margin: 0,
-    lineHeight: isMobileTableText ? 1.45 : 1.6,
-    minHeight: isEmpty ? (isMobileTableText ? '1.45em' : '1.6em') : undefined,
+    lineHeight: mobileTable ? 1.45 : 1.6,
+    minHeight: isEmpty ? (mobileTable ? '1.45em' : '1.6em') : undefined,
     fontSize: `${paragraphFontPx}px`,
     whiteSpace: 'pre-wrap',
     color: 'var(--foreground)',
+    ...(attributes?.style || {}),
   };
 
   if (indentLine) {
@@ -91,5 +117,12 @@ export default function ParagraphBlock({
     style.paddingLeft = 16;
   }
 
-  return <p style={style}>{children}</p>;
+  return (
+    <p
+      {...attributes}
+      style={style}
+    >
+      {children}
+    </p>
+  );
 }

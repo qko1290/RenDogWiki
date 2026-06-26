@@ -40,7 +40,7 @@ function normalizeInfoBoxType(raw: string | null | undefined) {
     return 'red';
   }
 
-  return v || 'info';
+  return v;
 }
 
 function getInfoboxPreset(
@@ -53,6 +53,8 @@ function getInfoboxPreset(
   showIcon: boolean;
   type: string;
 } {
+  const type = normalizeInfoBoxType(rawTone);
+
   const baseContainer: React.CSSProperties = {
     display: 'flex',
     alignItems: 'flex-start',
@@ -106,6 +108,7 @@ function getInfoboxPreset(
         'https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-exclamation.svg?v=2&token=a463935e93',
       role: 'note',
     },
+
     white: {
       bg: 'var(--surface-elevated)',
       bd: 'var(--border)',
@@ -150,7 +153,6 @@ function getInfoboxPreset(
     },
   };
 
-  const type = normalizeInfoBoxType(rawTone);
   const sel = map[type] ?? map.info;
   const noIcon = forceNoIcon || sel.noIcon;
 
