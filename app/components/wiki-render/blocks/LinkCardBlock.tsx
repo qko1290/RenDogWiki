@@ -12,29 +12,16 @@ type LinkCardBlockProps = {
   icon?: React.ReactNode;
   fallbackIcon?: React.ReactNode;
 
-  size?: 'normal' | 'small' | 'half' | string | null;
+  size?: 'normal' | 'small' | 'half' | 'full' | string | null;
   inRow?: boolean;
   isWikiLink?: boolean;
 
   attributes?: React.HTMLAttributes<HTMLDivElement>;
   children?: React.ReactNode;
 
-  /**
-   * 편집 화면 전용 버튼 자리.
-   * 예: 삭제 버튼, 편집 버튼
-   */
   editControls?: React.ReactNode;
-
-  /**
-   * 읽기 화면 전용 버튼 자리.
-   * 예: 새 창 열기, 복사 버튼
-   */
   readControls?: React.ReactNode;
 
-  /**
-   * 읽기 모드에서만 카드 전체를 링크로 감쌀지 여부.
-   * 에디터에서는 Slate 선택/편집과 충돌할 수 있으므로 기본적으로 감싸지 않는다.
-   */
   clickableInReadMode?: boolean;
 };
 
@@ -42,24 +29,17 @@ function isHalfSize(size?: LinkCardBlockProps['size']) {
   return size === 'small' || size === 'half';
 }
 
-function defaultFallbackIcon(isWikiLink?: boolean) {
+function DefaultIcon({ isWikiLink }: { isWikiLink?: boolean }) {
   return (
     <span
-      aria-hidden="true"
+      aria-hidden
       style={{
-        width: 38,
-        height: 38,
-        borderRadius: 10,
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: isWikiLink ? '#eef6ff' : '#f1f5f9',
-        color: isWikiLink ? '#2563eb' : '#64748b',
-        fontSize: 20,
-        flex: '0 0 auto',
+        fontSize: 18,
+        lineHeight: 1,
+        color: isWikiLink ? 'var(--accent)' : 'var(--muted)',
       }}
     >
-      {isWikiLink ? '📘' : '↗'}
+      {isWikiLink ? '📄' : '🌐'}
     </span>
   );
 }
@@ -83,36 +63,58 @@ export default function LinkCardBlock({
 }: LinkCardBlockProps) {
   const half = isHalfSize(size);
   const controls = mode === 'edit' ? editControls : readControls;
-  const resolvedIcon = icon || fallbackIcon || defaultFallbackIcon(isWikiLink);
+  const [hovered, setHovered] = React.useState(false);
 
-  const wrapperStyle: React.CSSProperties = half
+  const resolvedIcon =
+    icon || fallbackIcon || <DefaultIcon isWikiLink={isWikiLink} />;
+
+  /**
+   * 원본 WikiReadRenderer LinkBlockView의 wrapperStyle 복구.
+   * half 카드 2개가 row로 묶이는 경우는 상위 row가 폭을 담당하므로
+   * LinkCardBlock 내부에서는 다시 calc(50%)를 중복 적용하지 않는다.
+   */
+  const wrapperStyle: React.CSSProperties = half && !inRow
     ? {
-        display: inRow ? 'block' : 'inline-block',
-        verticalAlign: 'top',
+        flex: '1 1 calc(50% - 6px)',
         width: 'calc(50% - 6px)',
         maxWidth: 'calc(50% - 6px)',
-        marginRight: inRow ? 0 : 12,
-        }
+        boxSizing: 'border-box',
+        display: 'block',
+      }
     : {
         display: 'block',
         width: '100%',
         maxWidth: '100%',
-        };
+        boxSizing: 'border-box',
+      };
 
+  const border = hovered
+    ? '1.5px solid var(--accent)'
+    : '1.5px solid var(--border)';
+
+  const shadow = hovered ? 'var(--shadow-lg)' : 'var(--shadow-sm)';
+
+  /**
+   * 원본 WikiReadRenderer 링크 카드 본체 스타일.
+   * padding, radius, marginBottom, shadow, transition을 원본 쪽으로 되돌림.
+   */
   const cardStyle: React.CSSProperties = {
     position: 'relative',
     display: 'flex',
     alignItems: 'center',
     gap: 12,
-    minHeight: 76,
-    padding: '14px 16px',
-    borderRadius: 14,
-    border: '1px solid #c7d2fe',
-    background: 'var(--surface-elevated, #fff)',
-    boxShadow: '0 8px 22px rgba(15,23,42,0.06)',
+    padding: '14px 14px',
+    border,
+    borderRadius: 12,
+    marginBottom: 10,
+    width: '100%',
+    boxSizing: 'border-box',
+    background: 'var(--surface-elevated)',
+    boxShadow: shadow,
+    transition: 'box-shadow .14s ease, border-color .14s ease, transform .14s ease',
+    transform: hovered ? 'translateY(-1px)' : 'translateY(0)',
     color: 'inherit',
     textDecoration: 'none',
-    transition: 'border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease',
     cursor: mode === 'read' && href ? 'pointer' : 'default',
   };
 
@@ -135,21 +137,23 @@ export default function LinkCardBlock({
     >
       <div
         className="wiki-link-card-inner"
-        style={cardStyle}
         contentEditable={mode === 'edit' ? false : undefined}
         suppressContentEditableWarning
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={cardStyle}
       >
         {controls ? (
           <span
             className="wiki-link-card-controls"
+            contentEditable={false}
+            suppressContentEditableWarning
             style={{
               position: 'absolute',
               top: -10,
               right: -10,
               zIndex: 2,
             }}
-            contentEditable={false}
-            suppressContentEditableWarning
           >
             {controls}
           </span>
@@ -157,11 +161,18 @@ export default function LinkCardBlock({
 
         <span
           className="wiki-link-card-icon"
+          contentEditable={false}
+          suppressContentEditableWarning
           style={{
+            width: 38,
+            height: 38,
+            borderRadius: 12,
+            background: 'var(--accent-soft)',
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
             flex: '0 0 auto',
+            overflow: 'hidden',
           }}
         >
           {resolvedIcon}
@@ -170,20 +181,20 @@ export default function LinkCardBlock({
         <span
           className="wiki-link-card-text"
           style={{
+            flex: '1 1 auto',
             minWidth: 0,
             display: 'flex',
             flexDirection: 'column',
             gap: 4,
-            flex: '1 1 auto',
           }}
         >
           <span
             className="wiki-link-card-title"
             style={{
-              fontSize: 15,
-              fontWeight: 700,
-              lineHeight: 1.35,
+              fontSize: 16,
+              fontWeight: 750,
               color: 'var(--foreground)',
+              lineHeight: 1.35,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -196,9 +207,10 @@ export default function LinkCardBlock({
             <span
               className="wiki-link-card-subtitle"
               style={{
-                fontSize: 13,
+                fontSize: 12,
+                fontWeight: 600,
+                color: 'var(--muted)',
                 lineHeight: 1.35,
-                color: 'var(--muted-foreground)',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
@@ -212,9 +224,10 @@ export default function LinkCardBlock({
             <span
               className="wiki-link-card-meta"
               style={{
-                fontSize: 12,
+                fontSize: 11,
+                fontWeight: 600,
+                color: 'var(--muted)',
                 lineHeight: 1.35,
-                color: 'var(--muted-foreground)',
                 opacity: 0.85,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -228,11 +241,12 @@ export default function LinkCardBlock({
 
         <span
           className="wiki-link-card-arrow"
-          aria-hidden="true"
+          aria-hidden
           style={{
-            color: 'var(--muted-foreground)',
-            fontSize: 18,
             flex: '0 0 auto',
+            color: 'var(--muted)',
+            fontSize: 18,
+            lineHeight: 1,
           }}
         >
           →
@@ -243,17 +257,22 @@ export default function LinkCardBlock({
     </div>
   );
 
+  /**
+   * WikiReadRenderer 쪽은 내부/외부 링크 클릭 처리를 상위 LinkBlockView가 직접 한다.
+   * 그래서 clickableInReadMode=false일 때는 여기서 a로 감싸지 않는다.
+   */
   if (mode === 'read' && clickableInReadMode && href) {
     return (
       <a
         href={href}
         className="wiki-link-card-anchor"
         style={{
-            color: 'inherit',
-            textDecoration: 'none',
-            display: half && !inRow ? 'inline-block' : 'block',
+          color: 'inherit',
+          textDecoration: 'none',
+          display: half && !inRow ? 'block' : 'block',
+          width: '100%',
         }}
-        >
+      >
         {content}
       </a>
     );
