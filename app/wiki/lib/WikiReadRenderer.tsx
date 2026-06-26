@@ -645,16 +645,55 @@ const HeadingAnchorButton: React.FC<HeadingAnchorButtonProps> = ({
   );
 };
 
+function normalizeHostForWikiLink(hostname: string | null | undefined) {
+  return String(hostname ?? '')
+    .trim()
+    .replace(/^www\./i, '')
+    .toLowerCase();
+}
+
+function isKnownRdwikiHost(hostname: string | null | undefined) {
+  const host = normalizeHostForWikiLink(hostname);
+
+  if (!host) return false;
+
+  return (
+    host === 'ren-dog-wiki.vercel.app' ||
+    host.startsWith('ren-dog-wiki-') && host.endsWith('.vercel.app') ||
+    host.endsWith('qko1290s-projects.vercel.app')
+  );
+}
+
+function isRdwikiWikiUrl(urlObj: URL) {
+  if (!urlObj.pathname.startsWith('/wiki')) return false;
+
+  if (typeof window === 'undefined') {
+    return true;
+  }
+
+  const currentHost = normalizeHostForWikiLink(window.location.hostname);
+  const targetHost = normalizeHostForWikiLink(urlObj.hostname);
+
+  return targetHost === currentHost || isKnownRdwikiHost(targetHost);
+}
+
 function normalizeToAppHref(rawHref: string) {
   try {
     const base =
-      typeof window !== "undefined" ? window.location.origin : "https://dummy.local";
+      typeof window !== "undefined"
+        ? window.location.origin
+        : "https://dummy.local";
+
     const u = new URL(rawHref, base);
 
-    // 같은 오리진이면 Next Link가 좋아하는 상대경로로 정규화
+    if (isRdwikiWikiUrl(u)) {
+      return `${u.pathname}${u.search}${u.hash}`;
+    }
+
     if (typeof window !== "undefined" && u.origin === window.location.origin) {
       return `${u.pathname}${u.search}${u.hash}`;
     }
+
     return rawHref;
   } catch {
     return rawHref;
@@ -1590,12 +1629,7 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({
     if (el.isWiki) return true;
     if (!parsedUrl) return false;
 
-    if (typeof window === "undefined") {
-      return parsedUrl.pathname.startsWith("/wiki");
-    }
-
-    const sameHost = parsedUrl.host === window.location.host;
-    return sameHost && parsedUrl.pathname.startsWith("/wiki");
+    return isRdwikiWikiUrl(parsedUrl);
   }, [el.isWiki, parsedUrl]);
 
   let displaySitename = el.sitename ?? "";
