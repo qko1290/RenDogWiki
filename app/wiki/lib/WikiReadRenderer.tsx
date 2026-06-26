@@ -3002,10 +3002,11 @@ function PriceTableCardBlock({
             <div
               key={item.id ?? item.name_key ?? item.name ?? idx}
               style={{
-                background: "#fff",
+                background: "var(--surface-elevated)",
+                border: "1px solid var(--border)",
                 borderRadius: 15,
                 padding: 8,
-                boxShadow: "0 4px 24px 0 rgba(60,60,80,0.12)",
+                boxShadow: "var(--shadow-lg)",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
@@ -3036,7 +3037,10 @@ function PriceTableCardBlock({
                   <span
                     style={{
                       background: badgeColor,
-                      color: stage === "봉인" ? "#fff" : "#222",
+                      color:
+                        stage === "봉인" || stage === "거불"
+                          ? "#fff"
+                          : "#111827",
                       padding: "4px 0px",
                       borderRadius: 12,
                       fontWeight: 700,
@@ -3044,7 +3048,7 @@ function PriceTableCardBlock({
                       width: 66,
                       display: "inline-block",
                       boxShadow: "0 1px 8px #0001",
-                      border: "1.5px solid #fff",
+                      border: "1.5px solid var(--surface-elevated)",
                       textAlign: "center",
                       letterSpacing: 1,
                       transition: "background .1s",
@@ -3065,8 +3069,9 @@ function PriceTableCardBlock({
                       left: -12,
                       top: "50%",
                       transform: "translateY(-50%)",
-                      background: "#fff",
-                      border: "1.2px solid #eee",
+                      background: "var(--surface-elevated)",
+                      border: "1.2px solid var(--border)",
+                      color: "var(--foreground)",
                       borderRadius: "50%",
                       width: 28,
                       height: 28,
@@ -3076,7 +3081,7 @@ function PriceTableCardBlock({
                       cursor: "pointer",
                       fontWeight: 800,
                       fontSize: 16,
-                      boxShadow: "0 2px 6px #0001",
+                      boxShadow: "var(--shadow-sm)",
                       zIndex: 2,
                     }}
                     tabIndex={-1}
@@ -3098,8 +3103,9 @@ function PriceTableCardBlock({
                       right: -12,
                       top: "50%",
                       transform: "translateY(-50%)",
-                      background: "#fff",
-                      border: "1.2px solid #eee",
+                      background: "var(--surface-elevated)",
+                      border: "1.2px solid var(--border)",
+                      color: "var(--foreground)",
                       borderRadius: "50%",
                       width: 28,
                       height: 28,
@@ -3109,7 +3115,7 @@ function PriceTableCardBlock({
                       cursor: "pointer",
                       fontWeight: 800,
                       fontSize: 16,
-                      boxShadow: "0 2px 6px #0001",
+                      boxShadow: "var(--shadow-sm)",
                       zIndex: 2,
                     }}
                     tabIndex={-1}
@@ -3149,7 +3155,7 @@ function PriceTableCardBlock({
                       height: 65,
                       objectFit: "contain",
                       borderRadius: 7,
-                      background: "#fff",
+                      background: "transparent",
                       display: "block",
                     }}
                   />
@@ -3158,7 +3164,7 @@ function PriceTableCardBlock({
                     style={{
                       width: 54,
                       height: 54,
-                      background: "#ececec",
+                      background: "var(--surface-muted, var(--border))",
                       borderRadius: 7,
                       display: "inline-block",
                     }}
@@ -3172,7 +3178,7 @@ function PriceTableCardBlock({
                   fontSize: nameFont,
                   lineHeight: 1.12,
                   marginBottom: 0,
-                  color: item.name ? "#333" : "#bbb",
+                  color: item.name ? "var(--foreground)" : "var(--muted)",
                   textAlign: "center",
                   minHeight: 40,
                   width: "100%",
@@ -3183,7 +3189,7 @@ function PriceTableCardBlock({
                   whiteSpace: "normal",
                 }}
               >
-                {item.name ? nameNode : <span style={{ color: "#bbb" }}>이름 없음</span>}
+                {item.name ? nameNode : <span style={{ color: "var(--muted)" }}>이름 없음</span>}
               </div>
 
               <div
@@ -3191,7 +3197,7 @@ function PriceTableCardBlock({
                   fontWeight: 800,
                   fontSize: priceFont,
                   lineHeight: 1.04,
-                  color: "#5b80f5",
+                  color: "var(--accent, #5b80f5)",
                   textAlign: "center",
                   letterSpacing: 1,
                   marginTop: 3,
