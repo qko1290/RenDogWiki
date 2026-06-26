@@ -4,43 +4,34 @@ import type { WikiRenderMode } from '../types';
 type PriceTableBlockProps = {
   mode: WikiRenderMode;
 
-  title?: React.ReactNode;
-  description?: React.ReactNode;
-
   /**
-   * 기존 PriceTableCard.tsx에서 만든 실제 가격표 JSX를 그대로 넘기는 자리.
-   * 지금 단계에서는 기존 가격표 내부 구조를 건드리지 않기 위해 wrapper만 공통화한다.
+   * 기존 PriceTableCard.tsx / WikiReadRenderer.tsx에서 만든 실제 시세표 JSX.
+   * 이 컴포넌트는 디자인을 만들지 않고 그대로 출력만 한다.
    */
   content: React.ReactNode;
 
   attributes?: React.HTMLAttributes<HTMLDivElement>;
   children?: React.ReactNode;
 
-  /**
-   * 에디터 전용 버튼.
-   * 예: 편집 버튼, 삭제 버튼, 옵션 버튼
-   */
   editControls?: React.ReactNode;
-
-  /**
-   * 읽기 화면 전용 버튼.
-   * 예: 복사, 접기/펼치기, 보기 옵션
-   */
   readControls?: React.ReactNode;
 
+  /**
+   * 기존 props 호환용.
+   * 원본 복구에서는 별도 제목/설명 UI를 만들지 않는다.
+   */
+  title?: React.ReactNode;
+  description?: React.ReactNode;
   compact?: boolean;
 };
 
 export default function PriceTableBlock({
   mode,
-  title,
-  description,
   content,
   attributes,
   children,
   editControls,
   readControls,
-  compact = false,
 }: PriceTableBlockProps) {
   const controls = mode === 'edit' ? editControls : readControls;
 
@@ -48,9 +39,7 @@ export default function PriceTableBlock({
     <div
       {...attributes}
       className={[
-        'wiki-price-table-block',
         mode === 'edit' ? 'wiki-price-table-edit' : 'wiki-price-table-read',
-        compact ? 'wiki-price-table-compact' : '',
         attributes?.className || '',
       ]
         .filter(Boolean)
@@ -59,19 +48,17 @@ export default function PriceTableBlock({
         position: 'relative',
         width: '100%',
         maxWidth: '100%',
-        margin: compact ? '10px 0' : '18px 0',
         ...(attributes?.style || {}),
       }}
     >
       {controls ? (
         <div
-          className="wiki-price-table-controls"
           contentEditable={false}
           suppressContentEditableWarning
           style={{
             position: 'absolute',
-            top: -10,
-            right: 0,
+            top: -12,
+            right: -12,
             zIndex: 5,
           }}
         >
@@ -79,54 +66,7 @@ export default function PriceTableBlock({
         </div>
       ) : null}
 
-      {(title || description) ? (
-        <div
-          className="wiki-price-table-header"
-          contentEditable={mode === 'edit' ? false : undefined}
-          suppressContentEditableWarning
-          style={{
-            marginBottom: 10,
-          }}
-        >
-          {title ? (
-            <div
-              className="wiki-price-table-title"
-              style={{
-                fontSize: 18,
-                fontWeight: 800,
-                lineHeight: 1.35,
-                color: 'var(--foreground)',
-              }}
-            >
-              {title}
-            </div>
-          ) : null}
-
-          {description ? (
-            <div
-              className="wiki-price-table-description"
-              style={{
-                marginTop: 4,
-                fontSize: 13,
-                lineHeight: 1.45,
-                color: 'var(--muted-foreground)',
-              }}
-            >
-              {description}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
-      <div
-        className="wiki-price-table-content"
-        style={{
-          width: '100%',
-          maxWidth: '100%',
-        }}
-      >
-        {content}
-      </div>
+      {content}
 
       {mode === 'edit' ? children : null}
     </div>
