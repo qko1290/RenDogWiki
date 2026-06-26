@@ -3,6 +3,7 @@
 // - ✅ 렌더링 시점에 DB에서 최신 시세를 가져와 "표시용"으로 반영
 // - ✅ 저장 없이도 최신 시세가 보이도록 (Slate 문서 자체는 건드리지 않음)
 // - ✅ 간단 캐시(TTL) + in-flight dedupe로 과도한 요청 방지
+// - ✅ 공통 PriceTableBlock wrapper 사용
 // =============================================
 import React, { useEffect, useMemo, useState } from 'react';
 import { ReactEditor, useSlateStatic } from 'slate-react';
@@ -14,8 +15,8 @@ import { toProxyUrl } from '@lib/cdn';
 
 import type { PriceTableCardElement } from '@/types/slate';
 import type { PriceTableEditState } from './types';
+import PriceTableBlock from '@/components/wiki-render/blocks/PriceTableBlock';
 
-// ✅ 신규: 이름 클릭 시 아이템 선택 모달
 import PriceItemSelectModal from '../PriceItemSelectModal';
 
 // -------------------- 형식/스테이지 정의 --------------------
@@ -110,17 +111,14 @@ function autoFont(base: number, text: string, steps?: Array<[number, number]>) {
       [26, base - 8],
       [34, base - 9],
     ];
+
   for (const [threshold, size] of rules) {
     if (len <= threshold) return size;
   }
+
   return Math.max(11, (rules.at(-1)?.[1] ?? base) - 2);
 }
 
-/**
- * ✅ 이름 줄바꿈 규칙 + "줄바꿈 발생 여부"까지 반환
- * - 10글자 이상 + 띄어쓰기 2개 이상이면
- * - 7글자 이후에 처음 등장하는 띄어쓰기 지점부터 줄바꿈
- */
 function smartNameBreakInfo(nameRaw: string | null | undefined) {
   const name = String(nameRaw ?? '');
   const chars = Array.from(name);
@@ -132,6 +130,7 @@ function smartNameBreakInfo(nameRaw: string | null | undefined) {
   }
 
   const breakAt = chars.findIndex((ch, i) => i >= 7 && ch === ' ');
+
   if (breakAt === -1) {
     return { node: name as React.ReactNode, broke: false };
   }
@@ -155,18 +154,17 @@ function smartNameBreakInfo(nameRaw: string | null | undefined) {
   };
 }
 
-// ✅ PHP(colors.js)와 동일 팔레트: [10강..1강]
 const RDW_PALETTE = [
-  '#5E2569', // 10
-  '#B746F8', // 9
-  '#F39C12', // 8
-  '#E74C3C', // 7
-  '#3498DB', // 6
-  '#1ABC9C', // 5
-  '#309C49', // 4
-  '#F1C40F', // 3
-  '#DDB89E', // 2
-  '#34495E', // 1
+  '#5E2569',
+  '#B746F8',
+  '#F39C12',
+  '#E74C3C',
+  '#3498DB',
+  '#1ABC9C',
+  '#309C49',
+  '#F1C40F',
+  '#DDB89E',
+  '#34495E',
 ] as const;
 
 function colorForLevel(lv: number) {
@@ -176,21 +174,21 @@ function colorForLevel(lv: number) {
 
 type ColoredChunk = { text: string; color?: string };
 
-// 숫자/콜론/물결/공백만 “강화석 표기 가능 문자열”로 간주
 function isProbablyCompressedPrice(s: string) {
   return /^[0-9:~\s]+$/.test(s ?? '');
 }
 
 function tokenizeCompressedForColor(input: string): ColoredChunk[] {
   const s0 = String(input ?? '').trim().replace(/\s+/g, '');
+
   if (!s0) return [{ text: '' }];
 
   let s = s0;
   const out: ColoredChunk[] = [];
 
-  // Case: '10:NN...'
   if (s.startsWith('10:')) {
     const rest = s.slice(3);
+
     if (/^\d+$/.test(rest)) {
       const use2 = rest.length >= 2 && (rest.length - 2) % 2 === 0;
       const take = use2 ? 2 : 1;
@@ -203,9 +201,9 @@ function tokenizeCompressedForColor(input: string): ColoredChunk[] {
     }
   }
 
-  // Case: '10N...' / '10NN...'
   if (s.startsWith('10')) {
     const rem = s.length - 2;
+
     if (rem >= 1) {
       const two = rem >= 2 && rem % 2 === 0;
       const take = two ? 2 : 1;
@@ -219,7 +217,6 @@ function tokenizeCompressedForColor(input: string): ColoredChunk[] {
     }
   }
 
-  // 나머지 2자리쌍
   for (let i = 0; i < s.length; ) {
     if (i + 1 >= s.length) {
       out.push({ text: s.slice(i) });
@@ -244,9 +241,9 @@ function tokenizeCompressedForColor(input: string): ColoredChunk[] {
 function ColoredCompressedText({ value }: { value: string | number }) {
   const raw = String(value ?? '');
   const s = raw.trim();
+
   if (!s) return <span className="ptc-price-text" />;
 
-  // 범위: 6153~7263
   if (s.includes('~')) {
     const [left, right] = s.split('~', 2);
 
@@ -282,7 +279,9 @@ function ColoredCompressedText({ value }: { value: string | number }) {
     );
   }
 
-  const chunks = isProbablyCompressedPrice(s) ? tokenizeCompressedForColor(s) : [{ text: s }];
+  const chunks = isProbablyCompressedPrice(s)
+    ? tokenizeCompressedForColor(s)
+    : [{ text: s }];
 
   return (
     <span className="ptc-price-text">
@@ -305,34 +304,37 @@ type PickedPriceItem = {
   prices: string[];
 };
 
-// -------------------- ✅ 라이브(최신) 시세 로딩/캐시 --------------------
+// -------------------- 라이브 시세 로딩/캐시 --------------------
 
-// 캐시 TTL (원하면 10초/30초/60초로 조절)
 const PRICE_CACHE_TTL_MS = 60_000;
 
-// key: "id:123" or "key:xxx"
 type CacheEntry = { ts: number; item: PickedPriceItem };
 
-// 모듈 스코프 캐시(페이지 내 공유)
 const priceCache = new Map<string, CacheEntry>();
 const inflight = new Map<string, Promise<PickedPriceItem | null>>();
 
 function makeCacheKey(id?: number | null, nameKey?: string | null) {
   if (Number.isFinite(id as any) && (id as number) > 0) return `id:${id}`;
+
   const nk = String(nameKey ?? '').trim();
+
   if (nk) return `key:${nk}`;
+
   return '';
 }
 
 async function fetchLatestPriceItem(id?: number | null, nameKey?: string | null) {
   const key = makeCacheKey(id, nameKey);
+
   if (!key) return null;
 
   const now = Date.now();
   const hit = priceCache.get(key);
+
   if (hit && now - hit.ts <= PRICE_CACHE_TTL_MS) return hit.item;
 
   const inFlight = inflight.get(key);
+
   if (inFlight) return inFlight;
 
   const p = (async () => {
@@ -342,12 +344,13 @@ async function fetchLatestPriceItem(id?: number | null, nameKey?: string | null)
           ? `/api/prices/get?id=${encodeURIComponent(String(id))}`
           : `/api/prices/get?name_key=${encodeURIComponent(String(nameKey ?? ''))}`;
 
-      // 최신 보장 목적: no-store
       const res = await fetch(url, { cache: 'no-store' });
-      if (!res.ok) return null;
-      const data = (await res.json()) as any;
 
+      if (!res.ok) return null;
+
+      const data = (await res.json()) as any;
       const it = data?.item;
+
       if (!it) return null;
 
       const normalized: PickedPriceItem = {
@@ -355,10 +358,13 @@ async function fetchLatestPriceItem(id?: number | null, nameKey?: string | null)
         name: String(it.name ?? ''),
         name_key: String(it.name_key ?? ''),
         mode: String(it.mode ?? ''),
-        prices: Array.isArray(it.prices) ? it.prices.map((v: any) => String(v ?? '')) : [],
+        prices: Array.isArray(it.prices)
+          ? it.prices.map((v: any) => String(v ?? ''))
+          : [],
       };
 
       priceCache.set(key, { ts: Date.now(), item: normalized });
+
       return normalized;
     } catch {
       return null;
@@ -368,6 +374,7 @@ async function fetchLatestPriceItem(id?: number | null, nameKey?: string | null)
   })();
 
   inflight.set(key, p);
+
   return p;
 }
 
@@ -410,11 +417,15 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
     const norm = raw.map((v: any) => String(v ?? ''));
 
     if (norm.length === stages.length) return norm;
+
     const next = [...norm];
+
     next.length = stages.length;
+
     for (let i = 0; i < stages.length; i++) {
       if (typeof next[i] === 'undefined') next[i] = '';
     }
+
     return next;
   }, [item.prices, stages]);
 
@@ -424,7 +435,6 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
   const badgeColor = getPriceBadgeColor(stage, item.colorType);
 
   const imgSrc = item.image?.startsWith?.('http') ? toProxyUrl(item.image) : item.image;
-
   const nameShown = item.name || '이름 없음';
 
   const { node: nameNode, broke: nameBroke } = useMemo(
@@ -454,6 +464,7 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
     const firstSpaceCount = (first.match(/\s/g) ?? []).length;
 
     if (firstLen >= 8 && firstSpaceCount >= 1) return 15;
+
     return 17;
   }, [nameBroke, nameShown, item.name]);
 
@@ -469,6 +480,7 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
   const patchItem = (patch: Record<string, any>) => {
     const el = Editor.node(editor, path)[0] as PriceTableCardElement;
     const newItems = el.items.map((itm, i) => (i === idx ? { ...itm, ...patch } : itm));
+
     Transforms.setNodes(editor, { items: newItems }, { at: path });
   };
 
@@ -479,10 +491,13 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
 
   const handlePickItem = (picked: PickedPriceItem) => {
     const newStages = stagesByFormat(picked.mode);
-
-    const raw = Array.isArray(picked.prices) ? picked.prices.map((v) => String(v ?? '')) : [];
+    const raw = Array.isArray(picked.prices)
+      ? picked.prices.map((v) => String(v ?? ''))
+      : [];
     const nextPrices = [...raw];
+
     nextPrices.length = newStages.length;
+
     for (let i = 0; i < newStages.length; i++) {
       if (typeof nextPrices[i] === 'undefined') nextPrices[i] = '';
     }
@@ -623,7 +638,6 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
         </>
       )}
 
-      {/* 이미지 */}
       <div
         style={{
           marginBottom: 10,
@@ -679,7 +693,6 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
         onSelectImage={handleImageSelect}
       />
 
-      {/* 이름 (클릭하면 아이템 선택 모달) */}
       <div
         style={{
           fontWeight: 700,
@@ -700,9 +713,11 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
         title="아이템 선택"
         onClick={(e) => {
           e.stopPropagation();
+
           try {
             Transforms.deselect(editor);
           } catch {}
+
           setSelectModalOpen(true);
         }}
       >
@@ -715,7 +730,6 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
         onSelect={handlePickItem}
       />
 
-      {/* 가격 (클릭하면 PriceTableEditModal 흐름 유지) */}
       <div
         style={{
           fontWeight: 800,
@@ -734,6 +748,7 @@ const PriceCardItem: React.FC<PriceCardItemProps> = ({
         onClick={(e) => {
           e.stopPropagation();
           window.dispatchEvent(new CustomEvent('editor:capture-scroll:price'));
+
           setPriceTableEdit({
             blockPath: path,
             idx,
@@ -764,12 +779,14 @@ export function PriceTableCard(props: PriceTableCardProps) {
   const el = element as PriceTableCardElement;
   const path = ReactEditor.findPath(editorStatic, el);
 
-  // Backspace로 블럭 자체 삭제 방지
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const { selection } = editorStatic;
+
       if (!selection || !ReactEditor.isFocused(editorStatic)) return;
+
       const [node] = Editor.node(editorStatic, selection, { depth: 1 });
+
       if (
         SlateElement.isElement(node) &&
         (node as any).type === 'price-table-card' &&
@@ -778,22 +795,20 @@ export function PriceTableCard(props: PriceTableCardProps) {
         e.preventDefault();
       }
     };
+
     window.addEventListener('keydown', handler, true);
+
     return () => window.removeEventListener('keydown', handler, true);
   }, [editorStatic]);
 
   const [stageIdxArr, setStageIdxArr] = useState<number[]>(el.items.map(() => 0));
   const [hovered, setHovered] = useState<number | null>(null);
-
-  // ✅ 라이브 시세 반영된 "표시용 items"
   const [liveMap, setLiveMap] = useState<Map<string, PickedPriceItem>>(new Map());
 
-  // 아이템 변경되면 stage index 초기화
   useEffect(() => {
     setStageIdxArr(el.items.map(() => 0));
   }, [el.items]);
 
-  // ✅ 이 카드에 포함된 아이템들의 identity 시그니처 (id/name_key 기반)
   const itemsSignature = useMemo(() => {
     return (el.items ?? [])
       .map((it: any) => makeCacheKey(it?.id ?? null, it?.name_key ?? null))
@@ -801,7 +816,6 @@ export function PriceTableCard(props: PriceTableCardProps) {
       .join('|');
   }, [el.items]);
 
-  // ✅ 렌더링 시점(= mount + itemsSignature 변화 시점)에 최신 시세를 가져와서 표시용으로만 덮어씀
   useEffect(() => {
     let alive = true;
 
@@ -810,18 +824,21 @@ export function PriceTableCard(props: PriceTableCardProps) {
       const targets = items
         .map((it: any) => {
           const key = makeCacheKey(it?.id ?? null, it?.name_key ?? null);
+
           return { key, id: it?.id ?? null, name_key: it?.name_key ?? null };
         })
         .filter((t) => !!t.key);
 
       if (targets.length === 0) {
         if (alive) setLiveMap(new Map());
+
         return;
       }
 
       const results = await Promise.all(
         targets.map(async (t) => {
           const latest = await fetchLatestPriceItem(t.id, t.name_key);
+
           return { key: t.key, latest };
         })
       );
@@ -829,9 +846,11 @@ export function PriceTableCard(props: PriceTableCardProps) {
       if (!alive) return;
 
       const next = new Map<string, PickedPriceItem>();
+
       for (const r of results) {
         if (r.latest) next.set(r.key, r.latest);
       }
+
       setLiveMap(next);
     })();
 
@@ -840,11 +859,9 @@ export function PriceTableCard(props: PriceTableCardProps) {
     };
   }, [itemsSignature, el.items]);
 
-  // ✅ "표시용" 최종 items: 문서에 저장된 item + (라이브 시세) 병합
-  // - image 같은 사용자 커스텀 값은 문서에 저장된 값을 유지
-  // - name/mode/prices는 최신 값을 우선 반영
   const viewItems = useMemo(() => {
     const items = Array.isArray(el.items) ? el.items : [];
+
     return items.map((it: any) => {
       const key = makeCacheKey(it?.id ?? null, it?.name_key ?? null);
       const latest = key ? liveMap.get(key) : null;
@@ -852,9 +869,13 @@ export function PriceTableCard(props: PriceTableCardProps) {
       if (!latest) return it;
 
       const newStages = stagesByFormat(latest.mode);
-      const raw = Array.isArray(latest.prices) ? latest.prices.map((v) => String(v ?? '')) : [];
+      const raw = Array.isArray(latest.prices)
+        ? latest.prices.map((v) => String(v ?? ''))
+        : [];
       const nextPrices = [...raw];
+
       nextPrices.length = newStages.length;
+
       for (let i = 0; i < newStages.length; i++) {
         if (typeof nextPrices[i] === 'undefined') nextPrices[i] = '';
       }
@@ -874,96 +895,106 @@ export function PriceTableCard(props: PriceTableCardProps) {
   const handlePrev = (idx: number, len: number) => {
     setStageIdxArr((arr) => arr.map((v, i) => (i === idx ? (v - 1 + len) % len : v)));
   };
+
   const handleNext = (idx: number, len: number) => {
     setStageIdxArr((arr) => arr.map((v, i) => (i === idx ? (v + 1) % len : v)));
   };
 
-  return (
-    <div {...attributes}>
+  const deleteButton = (
+    <button
+      type="button"
+      aria-label="시세표 블럭 삭제"
+      style={{
+        background: '#fff',
+        color: '#d34b4b',
+        border: '1.2px solid #e6b7b7',
+        borderRadius: '50%',
+        width: 26,
+        height: 26,
+        fontWeight: 900,
+        fontSize: 16,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxShadow: '0 1px 8px #0001',
+        cursor: 'pointer',
+        transition: 'background .13s',
+        padding: 0,
+      }}
+      title="시세표 블럭 삭제"
+      tabIndex={-1}
+      onClick={(e) => {
+        e.stopPropagation();
+
+        const pathToRemove = ReactEditor.findPath(editorStatic, element);
+
+        Transforms.removeNodes(editorStatic, { at: pathToRemove });
+      }}
+    >
+      ×
+    </button>
+  );
+
+  const content = (
+    <div
+      contentEditable={false}
+      style={{
+        width: '100%',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: 0,
+        boxSizing: 'border-box',
+        padding: '10px 0',
+        margin: '10px 0',
+        marginLeft: 10,
+        position: 'relative',
+      }}
+    >
       <div
-        contentEditable={false}
         style={{
-          width: '100%',
           display: 'flex',
+          flexDirection: 'row',
+          gap: 25,
+          flexWrap: 'nowrap',
+          width: '100%',
           justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: 0,
-          boxSizing: 'border-box',
-          padding: '10px 0',
-          margin: '10px 0',
-          marginLeft: 10,
-          position: 'relative',
+          margin: '0 auto',
+          maxWidth: 1040,
         }}
       >
-        <button
-          type="button"
-          aria-label="시세표 블럭 삭제"
-          style={{
-            position: 'absolute',
-            top: 10,
-            right: 10,
-            zIndex: 10,
-            background: '#fff',
-            color: '#d34b4b',
-            border: '1.2px solid #e6b7b7',
-            borderRadius: '50%',
-            width: 26,
-            height: 26,
-            fontWeight: 900,
-            fontSize: 16,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 1px 8px #0001',
-            cursor: 'pointer',
-            transition: 'background .13s',
-          }}
-          title="시세표 블럭 삭제"
-          tabIndex={-1}
-          onClick={(e) => {
-            e.stopPropagation();
-            const pathToRemove = ReactEditor.findPath(editorStatic, element);
-            Transforms.removeNodes(editorStatic, { at: pathToRemove });
-          }}
-        >
-          ×
-        </button>
+        {viewItems.map((item, idx) => {
+          const stages = stagesByFormat(item?.mode);
 
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'row',
-            gap: 25,
-            flexWrap: 'nowrap',
-            width: '100%',
-            justifyContent: 'center',
-            margin: '0 auto',
-            maxWidth: 1040,
-          }}
-        >
-          {viewItems.map((item, idx) => {
-            const stages = stagesByFormat(item?.mode);
-            return (
-              <PriceCardItem
-                key={idx}
-                idx={idx}
-                item={item}
-                stageIndex={stageIdxArr[idx] ?? 0}
-                hovered={hovered === idx}
-                onHover={(h) => setHovered(h ? idx : null)}
-                editor={editorStatic}
-                path={path}
-                onPrevStage={(len) => handlePrev(idx, len)}
-                onNextStage={(len) => handleNext(idx, len)}
-                setPriceTableEdit={setPriceTableEdit}
-              />
-            );
-          })}
-        </div>
+          return (
+            <PriceCardItem
+              key={idx}
+              idx={idx}
+              item={item}
+              stageIndex={stageIdxArr[idx] ?? 0}
+              hovered={hovered === idx}
+              onHover={(h) => setHovered(h ? idx : null)}
+              editor={editorStatic}
+              path={path}
+              onPrevStage={(len) => handlePrev(idx, len)}
+              onNextStage={(len) => handleNext(idx, len)}
+              setPriceTableEdit={setPriceTableEdit}
+            />
+          );
+        })}
       </div>
-
-      {children}
     </div>
+  );
+
+  return (
+    <PriceTableBlock
+      mode="edit"
+      attributes={attributes as React.HTMLAttributes<HTMLDivElement>}
+      content={content}
+      editControls={deleteButton}
+    >
+      {children}
+    </PriceTableBlock>
   );
 }
 
