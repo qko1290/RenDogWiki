@@ -4280,12 +4280,11 @@ function renderNode(
       const content = (
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(5, 136px)",
-            columnGap: 32,
-            rowGap: 28,
-            alignItems: "start",
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "flex-start",
             justifyContent: "center",
+            gap: "28px 32px",
             margin: "28px 0 46px",
             width: "100%",
           }}
