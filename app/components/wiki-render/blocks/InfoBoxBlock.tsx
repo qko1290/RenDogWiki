@@ -106,7 +106,6 @@ function getInfoboxPreset(
         'https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-exclamation.svg?v=2&token=a463935e93',
       role: 'note',
     },
-
     white: {
       bg: 'var(--surface-elevated)',
       bd: 'var(--border)',
@@ -236,10 +235,6 @@ export default function InfoBoxBlock({
         style={{
           flex: '1 1 auto',
           minWidth: 0,
-          lineHeight: 1.65,
-          fontSize: 15,
-          wordBreak: 'keep-all',
-          overflowWrap: 'break-word',
         }}
       >
         {children}
