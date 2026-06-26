@@ -5,6 +5,7 @@ type ParagraphBlockProps = {
   mode: WikiRenderMode;
   textAlign?: string | null;
   indentLine?: boolean;
+  indentClassName?: string;
   attributes?: React.HTMLAttributes<HTMLParagraphElement>;
   children?: React.ReactNode;
 
@@ -71,6 +72,7 @@ export default function ParagraphBlock({
   mode,
   textAlign,
   indentLine,
+  indentClassName,
   attributes,
   children,
   plainText: plainTextProp,
@@ -120,6 +122,9 @@ export default function ParagraphBlock({
   return (
     <p
       {...attributes}
+      className={[attributes?.className || '', indentClassName || '']
+        .filter(Boolean)
+        .join(' ')}
       style={style}
     >
       {children}
