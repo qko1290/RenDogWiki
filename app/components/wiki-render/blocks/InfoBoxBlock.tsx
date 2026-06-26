@@ -237,13 +237,15 @@ export default function InfoBoxBlock({
         style={{
           flex: 1,
           minWidth: 0,
+          whiteSpace: 'pre-wrap',
 
           /**
-           * 원본에서는 paragraph가 whiteSpace: pre-wrap을 갖고 있었음.
-           * 현재 공통화 과정에서 children이 p를 정확히 안 타는 경우가 있어서
-           * 이 wrapper에서도 줄바꿈 보존을 강제한다.
+           * 원본 WikiReadRenderer에서는 infoChildren 내부의 bold leaf가
+           * <strong>으로 살아 들어가야 했다.
+           * 현재 공통화 구조에서는 정보박스 내부 bold 시각 결과가 약해져서,
+           * 원본 표시와 맞추기 위해 정보박스 본문 기본 weight를 복구한다.
            */
-          whiteSpace: 'pre-wrap',
+          fontWeight: 700,
         }}
       >
         {children}
