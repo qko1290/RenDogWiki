@@ -104,6 +104,9 @@ export default function MediaBlock({
       width: resolvedWidth ? `${resolvedWidth}px` : 'auto',
       height: resolvedHeight ? `${resolvedHeight}px` : 'auto',
       objectFit: resolvedWidth && resolvedHeight ? 'contain' : undefined,
+
+      // 원본 에디터 렌더와 동일하게 이미지/영상 모서리 둥글게 처리
+      borderRadius: 10,
     };
 
     const mediaNode =
