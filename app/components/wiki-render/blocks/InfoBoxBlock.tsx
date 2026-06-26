@@ -220,6 +220,7 @@ export default function InfoBoxBlock({
         .filter(Boolean)
         .join(' ')}
       style={{
+        margin: '10px 0',
         ...container,
         ...(attributes?.style || {}),
       }}
