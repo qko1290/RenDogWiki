@@ -5,68 +5,64 @@ type WeaponBlockProps = {
   mode: WikiRenderMode;
 
   /**
-   * 기존 WeaponCard.tsx 또는 WikiReadRenderer.tsx에서 만든 실제 무기 카드 JSX.
-   * 지금 단계에서는 내부 구조를 건드리지 않고 wrapper만 공통화한다.
+   * WeaponCard.tsx 또는 WikiReadRenderer.tsx에서 이미 완성한 실제 무기 카드 JSX.
+   * WeaponBlock은 디자인을 다시 만들지 않는다.
    */
-  content: React.ReactNode;
+  content?: React.ReactNode;
 
-  attributes?: React.HTMLAttributes<HTMLDivElement>;
+  /**
+   * 호출부가 children으로 넘기는 경우도 보존한다.
+   */
   children?: React.ReactNode;
 
-  /**
-   * 에디터 전용 버튼/모달 트리거.
-   * 예: 편집, 삭제, 옵션, 상세 모달 버튼
-   */
-  editControls?: React.ReactNode;
+  attributes?: React.HTMLAttributes<HTMLDivElement>;
 
-  /**
-   * 읽기 화면 전용 버튼.
-   * 예: 상세 보기, 복사, 접기/펼치기
-   */
+  editControls?: React.ReactNode;
   readControls?: React.ReactNode;
 
+  /**
+   * 이전 공통화 과정에서 추가된 호환용 props.
+   * 원본 복구에서는 별도 스타일 분기에는 사용하지 않는다.
+   */
   compact?: boolean;
 };
 
 export default function WeaponBlock({
   mode,
   content,
-  attributes,
   children,
+  attributes,
   editControls,
   readControls,
-  compact = false,
 }: WeaponBlockProps) {
   const controls = mode === 'edit' ? editControls : readControls;
+  const body = content ?? children;
 
   return (
     <div
       {...attributes}
       className={[
-        'wiki-weapon-block',
-        mode === 'edit' ? 'wiki-weapon-edit' : 'wiki-weapon-read',
-        compact ? 'wiki-weapon-compact' : '',
+        mode === 'edit' ? 'wiki-weapon-card-edit' : 'wiki-weapon-card-read',
         attributes?.className || '',
       ]
         .filter(Boolean)
         .join(' ')}
       style={{
         position: 'relative',
+        display: 'block',
         width: '100%',
         maxWidth: '100%',
-        margin: compact ? '10px 0' : '18px 0',
         ...(attributes?.style || {}),
       }}
     >
       {controls ? (
         <div
-          className="wiki-weapon-controls"
           contentEditable={false}
           suppressContentEditableWarning
           style={{
             position: 'absolute',
-            top: -10,
-            right: 0,
+            top: -12,
+            right: -12,
             zIndex: 5,
           }}
         >
@@ -74,17 +70,7 @@ export default function WeaponBlock({
         </div>
       ) : null}
 
-      <div
-        className="wiki-weapon-content"
-        style={{
-          width: '100%',
-          maxWidth: '100%',
-        }}
-      >
-        {content}
-      </div>
-
-      {mode === 'edit' ? children : null}
+      {body}
     </div>
   );
 }
