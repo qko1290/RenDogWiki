@@ -40,19 +40,15 @@ function readJustifyFromAlign(
 ): 'flex-start' | 'center' | 'flex-end' {
   if (textAlign === 'center') return 'center';
   if (textAlign === 'right') return 'flex-end';
-
-  // 원본 WikiReadRenderer의 flexJustifyFromAlign 기본값
   return 'flex-start';
 }
 
 function editJustifyFromAlign(
   textAlign?: string | null
 ): 'flex-start' | 'center' | 'flex-end' {
-  if (textAlign === 'left') return 'flex-start';
+  if (textAlign === 'center') return 'center';
   if (textAlign === 'right') return 'flex-end';
-
-  // 원본 Element.tsx ImageBlock / VideoBlock 기본값
-  return 'center';
+  return 'flex-start';
 }
 
 function numberOrUndefined(value?: number | string | null) {
@@ -61,7 +57,8 @@ function numberOrUndefined(value?: number | string | null) {
   }
 
   if (typeof value === 'string') {
-    const n = Number(value);
+    const cleaned = value.trim().replace(/px$/i, '');
+    const n = Number(cleaned);
     return Number.isFinite(n) && n > 0 ? n : undefined;
   }
 
@@ -88,42 +85,25 @@ export default function MediaBlock({
   const safeSrc = String(src || '');
   const resolvedWidth = numberOrUndefined(width);
   const resolvedHeight = numberOrUndefined(height);
-
   const controls = mode === 'edit' ? editControls : readControls;
 
-  /**
-   * ================================
-   * READ MODE
-   * ================================
-   *
-   * 원본 WikiReadRenderer 기준:
-   * - textAlign은 flexJustifyFromAlign으로 처리
-   * - 기본값은 flex-start
-   * - width/height는 실제 CSS width/height로 반영
-   * - 에디터용 90% maxWidth 방식 사용 금지
-   */
   if (mode === 'read') {
     const justifyContent = readJustifyFromAlign(textAlign);
 
     const outerStyle: React.CSSProperties = {
+      ...(attributes?.style || {}),
       display: 'flex',
-      justifyContent: justifyContent,
+      justifyContent,
       width: '100%',
       margin: '10px 0',
-      ...(attributes?.style || {}),
     };
 
     const readMediaStyle: React.CSSProperties = {
       display: 'block',
       maxWidth: '100%',
-
-      /**
-       * 핵심:
-       * 기존 MediaBlock은 width를 maxWidth로만 줬는데,
-       * 읽기 화면에서는 실제 표시 크기를 맞추려면 width 자체를 줘야 한다.
-       */
-      width: resolvedWidth ? `${resolvedWidth}px` : undefined,
+      width: resolvedWidth ? `${resolvedWidth}px` : 'auto',
       height: resolvedHeight ? `${resolvedHeight}px` : 'auto',
+      objectFit: resolvedWidth && resolvedHeight ? 'contain' : undefined,
     };
 
     const mediaNode =
@@ -181,24 +161,11 @@ export default function MediaBlock({
     );
   }
 
-  /**
-   * ================================
-   * EDIT MODE
-   * ================================
-   *
-   * 원본 Element.tsx ImageBlock / VideoBlock 기준:
-   * - 기본 정렬 center
-   * - 바깥 margin: 16px 0
-   * - 내부 flex wrapper 사용
-   * - media maxWidth: width ? width + 'px' : '90%'
-   * - height: height ? height + 'px' : 'auto'
-   * - 이미지 border, 영상 outline
-   */
   const justifyContent = editJustifyFromAlign(textAlign);
 
   const outerStyle: React.CSSProperties = {
-    margin: '16px 0',
     ...(attributes?.style || {}),
+    margin: '16px 0',
   };
 
   const alignWrapperStyle: React.CSSProperties = {
@@ -287,7 +254,7 @@ export default function MediaBlock({
       style={outerStyle}
     >
       <div
-        key={textAlign || 'center'}
+        key={textAlign || 'left'}
         contentEditable={false}
         suppressContentEditableWarning
         style={alignWrapperStyle}
