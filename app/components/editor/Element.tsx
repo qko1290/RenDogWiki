@@ -1006,10 +1006,9 @@ const Element: React.FC<ElementRenderProps> = ({
           {...attributes}
           style={{
             display: 'flex',
-            gap: 12,
-            margin: '8px 0',
-            width: '100%',
             flexWrap: 'wrap',
+            gap: 12,
+            width: '100%',
             alignItems: 'stretch',
           }}
         >

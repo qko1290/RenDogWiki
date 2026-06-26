@@ -69,7 +69,7 @@ export default function LinkCardBlock({
     icon || fallbackIcon || <DefaultIcon isWikiLink={isWikiLink} />;
 
   const wrapperStyle: React.CSSProperties =
-    mode === 'edit' && half && !inRow
+    mode === 'edit' && half
       ? {
           flex: '1 1 calc(50% - 6px)',
           width: 'calc(50% - 6px)',
