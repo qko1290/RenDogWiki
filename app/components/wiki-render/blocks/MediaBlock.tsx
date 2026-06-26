@@ -19,8 +19,8 @@ type MediaBlockProps = {
   src?: string | null;
   alt?: string | null;
   textAlign?: string | null;
-  width?: number;
-  height?: number;
+  width?: number | string | null;
+  height?: number | string | null;
 
   selected?: boolean;
   focused?: boolean;
@@ -55,10 +55,17 @@ function editJustifyFromAlign(
   return 'center';
 }
 
-function numberOrUndefined(value?: number) {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0
-    ? value
-    : undefined;
+function numberOrUndefined(value?: number | string | null) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && value > 0 ? value : undefined;
+  }
+
+  if (typeof value === 'string') {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n : undefined;
+  }
+
+  return undefined;
 }
 
 export default function MediaBlock({
