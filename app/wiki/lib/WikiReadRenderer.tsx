@@ -4126,8 +4126,282 @@ function renderNode(
     }
 
     case "price-table-card": {
-      if (!Array.isArray(node.items)) return <div key={key}></div>;
-      return <PriceTableCardBlock node={node} keyProp={key ?? ""} />;
+      if (!Array.isArray(node.items) || node.items.length === 0) {
+        return null;
+      }
+
+      const getStageLabels = (mode?: string) => {
+        const f = String(mode ?? "").trim().toLowerCase();
+
+        if (
+          f === "transcend epic" ||
+          f === "transcend unique" ||
+          f === "transcend legendary" ||
+          f === "transcend divine" ||
+          f === "transcend superior"
+        ) {
+          return ["거가", "거불"];
+        }
+
+        if (
+          f === "epic" ||
+          f === "unique" ||
+          f === "legendary" ||
+          f === "divine" ||
+          f === "superior"
+        ) {
+          return ["봉인", "1각", "2각", "3각", "4각", "MAX"];
+        }
+
+        return ["가격"];
+      };
+
+      const palette = [
+        "#5E2569",
+        "#B746F8",
+        "#F39C12",
+        "#E74C3C",
+        "#3498DB",
+        "#1ABC9C",
+        "#309C49",
+        "#F1C40F",
+        "#DDB89E",
+        "#34495E",
+      ] as const;
+
+      const colorForLevel = (lv: number) => {
+        if (!Number.isFinite(lv) || lv < 1 || lv > 10) return "#5b80f5";
+        return palette[10 - lv];
+      };
+
+      const isProbablyCompressedPrice = (s: string) => /^[0-9:~\s]+$/.test(s ?? "");
+
+      const tokenizeCompressedForColor = (input: string) => {
+        const s0 = String(input ?? "").trim().replace(/\s+/g, "");
+        if (!s0) return [{ text: "" }];
+
+        let s = s0;
+        const out: Array<{ text: string; color?: string }> = [];
+
+        if (s.startsWith("10:")) {
+          const rest = s.slice(3);
+          if (/^\d+$/.test(rest)) {
+            const use2 = rest.length >= 2 && (rest.length - 2) % 2 === 0;
+            const take = use2 ? 2 : 1;
+            const nPart = rest.slice(0, take);
+            out.push({ text: `10:${nPart}`, color: colorForLevel(10) });
+            s = rest.slice(take);
+          } else {
+            return [{ text: s0 }];
+          }
+        }
+
+        if (s.startsWith("10")) {
+          const rem = s.length - 2;
+
+          if (rem >= 1) {
+            const two = rem >= 2 && rem % 2 === 0;
+            const take = two ? 2 : 1;
+            const nPart = s.slice(2, 2 + take);
+            out.push({ text: `10${nPart}`, color: colorForLevel(10) });
+            s = s.slice(2 + take);
+          } else {
+            out.push({ text: "10", color: colorForLevel(10) });
+            s = "";
+          }
+        }
+
+        for (let i = 0; i < s.length; ) {
+          if (i + 1 >= s.length) {
+            out.push({ text: s.slice(i) });
+            break;
+          }
+
+          const token = s.slice(i, i + 2);
+          const lv = parseInt(token[0], 10);
+
+          if (Number.isFinite(lv) && lv >= 1 && lv <= 9) {
+            out.push({ text: token, color: colorForLevel(lv) });
+          } else {
+            out.push({ text: token });
+          }
+
+          i += 2;
+        }
+
+        return out.length ? out : [{ text: s0 }];
+      };
+
+      const renderPriceText = (value: string | number | null | undefined) => {
+        const raw = String(value ?? "").trim();
+        if (!raw) return "-";
+
+        if (raw.includes("~")) {
+          const [left, right] = raw.split("~", 2);
+          const leftChunks = isProbablyCompressedPrice(left)
+            ? tokenizeCompressedForColor(left)
+            : [{ text: left }];
+          const rightChunks = isProbablyCompressedPrice(right)
+            ? tokenizeCompressedForColor(right)
+            : [{ text: right }];
+
+          return (
+            <>
+              {leftChunks.map((chunk, i) => (
+                <span key={`l-${i}`} style={{ color: chunk.color }}>
+                  {chunk.text}
+                </span>
+              ))}
+              <span style={{ color: "#84cc16" }}>~</span>
+              {rightChunks.map((chunk, i) => (
+                <span key={`r-${i}`} style={{ color: chunk.color }}>
+                  {chunk.text}
+                </span>
+              ))}
+            </>
+          );
+        }
+
+        const chunks = isProbablyCompressedPrice(raw)
+          ? tokenizeCompressedForColor(raw)
+          : [{ text: raw }];
+
+        return (
+          <>
+            {chunks.map((chunk, i) => (
+              <span key={i} style={{ color: chunk.color }}>
+                {chunk.text}
+              </span>
+            ))}
+          </>
+        );
+      };
+
+      const content = (
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 26,
+            alignItems: "flex-start",
+            justifyContent: "center",
+            margin: "28px 0 46px",
+            width: "100%",
+          }}
+        >
+          {node.items.map((item: any, idx: number) => {
+            const stages = getStageLabels(item.mode);
+            const prices = Array.isArray(item.prices)
+              ? item.prices.map((v: any) => String(v ?? ""))
+              : [];
+
+            const stageIndexRaw = Number(item.stageIndex ?? item.selectedStage ?? 0);
+            const stageIndex =
+              Number.isFinite(stageIndexRaw) && stageIndexRaw >= 0
+                ? Math.min(stageIndexRaw, Math.max(0, stages.length - 1))
+                : 0;
+
+            const priceValue = prices[stageIndex] ?? prices[0] ?? "";
+            const imgRaw = String(item.image ?? "").trim();
+            const imgSrc = imgRaw ? withVersion(cdn(imgRaw)) : "";
+            const name = String(item.name ?? "이름 없음");
+
+            return (
+              <div
+                key={item.id ?? item.name_key ?? item.name ?? idx}
+                style={{
+                  width: 150,
+                  minHeight: 214,
+                  borderRadius: 16,
+                  background: "var(--surface-elevated)",
+                  boxShadow: "var(--shadow-lg)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "flex-start",
+                  padding: "26px 12px 18px",
+                  boxSizing: "border-box",
+                }}
+              >
+                <div
+                  style={{
+                    width: 84,
+                    height: 84,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: 16,
+                  }}
+                >
+                  {imgSrc ? (
+                    <SmartImage
+                      src={imgSrc}
+                      alt=""
+                      width={84}
+                      height={84}
+                      style={{
+                        width: 84,
+                        height: 84,
+                        objectFit: "contain",
+                        imageRendering: "pixelated",
+                        display: "block",
+                      }}
+                    />
+                  ) : (
+                    <span
+                      style={{
+                        fontSize: 13,
+                        color: "var(--muted)",
+                        fontWeight: 700,
+                      }}
+                    >
+                      이미지 없음
+                    </span>
+                  )}
+                </div>
+
+                <div
+                  style={{
+                    width: "100%",
+                    textAlign: "center",
+                    fontSize: 17,
+                    fontWeight: 800,
+                    lineHeight: 1.35,
+                    color: "var(--foreground)",
+                    wordBreak: "keep-all",
+                    overflowWrap: "break-word",
+                    marginBottom: 8,
+                  }}
+                >
+                  {name}
+                </div>
+
+                <div
+                  style={{
+                    width: "100%",
+                    textAlign: "center",
+                    fontSize: 20,
+                    fontWeight: 900,
+                    lineHeight: 1.2,
+                    letterSpacing: "0.5px",
+                    color: "#38bdf8",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {renderPriceText(priceValue)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+
+      return (
+        <PriceTableBlock
+          mode="read"
+          content={content}
+        />
+      );
     }
 
     // 무기 카드 블록 (문서 보기용)
