@@ -15,22 +15,36 @@ type HeadingBlockProps = {
   children?: React.ReactNode;
 };
 
+function getHeadingTag(level: HeadingLevel): 'h1' | 'h2' | 'h3' {
+  if (level === 1) return 'h1';
+  if (level === 2) return 'h2';
+  return 'h3';
+}
+
 function getHeadingFontSize(level: HeadingLevel) {
   if (level === 1) return '28px';
   if (level === 2) return '22px';
   return '18px';
 }
 
-function getDefaultIcon(level: HeadingLevel) {
-  if (level === 1) return '';
-  if (level === 2) return '';
-  return '';
+function getHeadingFontWeight(level: HeadingLevel) {
+  if (level === 1) return 800;
+  if (level === 2) return 750;
+  return 700;
 }
 
 function getJustify(textAlign?: string | null) {
   if (textAlign === 'center') return 'center';
   if (textAlign === 'right') return 'flex-end';
   return 'flex-start';
+}
+
+function getTextAlign(
+  textAlign?: string | null
+): React.CSSProperties['textAlign'] {
+  if (textAlign === 'center') return 'center';
+  if (textAlign === 'right') return 'right';
+  return 'left';
 }
 
 export default function HeadingBlock({
@@ -44,92 +58,85 @@ export default function HeadingBlock({
   attributes,
   children,
 }: HeadingBlockProps) {
-  const Tag = `h${level}` as keyof JSX.IntrinsicElements;
+  const Tag = getHeadingTag(level);
   const fontSize = getHeadingFontSize(level);
+  const fontWeight = getHeadingFontWeight(level);
   const justify = getJustify(textAlign);
-  const resolvedIcon = icon || getDefaultIcon(level);
 
-  const iconNode =
-    resolvedIcon && resolvedIcon.startsWith('http') ? (
-      <img
-        src={resolvedIcon}
-        alt=""
-        style={{
-          width: 28,
-          height: 28,
-          objectFit: 'contain',
-          display: 'block',
-        }}
-      />
-    ) : (
-      <span
-        style={{
-          fontSize: 26,
-          lineHeight: 1,
-          display: 'inline-flex',
-          alignItems: 'center',
-        }}
-      >
-        {resolvedIcon}
-      </span>
-    );
-
-  const headingStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: justify,
-    gap: 0,
-    textAlign: (textAlign as React.CSSProperties['textAlign']) || 'left',
-    fontSize,
-    fontWeight: level === 1 ? 800 : level === 2 ? 750 : 700,
-    lineHeight: 1.25,
-  };
-
-  return React.createElement(
-    Tag,
-    {
-      ...attributes,
-      id: domId,
-      'data-heading-id': dataHeadingId,
-      className: mode === 'read' ? 'wiki-heading' : attributes?.className,
-      style: {
-        ...headingStyle,
-        ...(attributes?.style || {}),
-      },
-    },
-    <>
-      {resolvedIcon ? (
-        <span
-          onClick={
-            mode === 'edit'
-              ? (e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onIconClick?.();
-                }
-              : undefined
-          }
-          contentEditable={mode === 'edit' ? false : undefined}
-          suppressContentEditableWarning
+  const iconNode = icon ? (
+    <span
+      onClick={
+        mode === 'edit'
+          ? (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onIconClick?.();
+            }
+          : undefined
+      }
+      contentEditable={false}
+      suppressContentEditableWarning
+      style={{
+        cursor: mode === 'edit' && onIconClick ? 'pointer' : 'default',
+        marginRight: 8,
+        display: 'inline-flex',
+        alignItems: 'center',
+        flex: '0 0 auto',
+      }}
+    >
+      {typeof icon === 'string' && icon.startsWith('http') ? (
+        <img
+          src={icon}
+          alt=""
           style={{
-            cursor: mode === 'edit' && onIconClick ? 'pointer' : 'default',
-            marginRight: 8,
+            width: 28,
+            height: 28,
+            objectFit: 'contain',
+            display: 'block',
+          }}
+          draggable={false}
+        />
+      ) : (
+        <span
+          style={{
+            fontSize: 26,
+            lineHeight: 1,
             display: 'inline-flex',
             alignItems: 'center',
-            flex: '0 0 auto',
           }}
         >
-          {iconNode}
+          {icon}
         </span>
-      ) : null}
+      )}
+    </span>
+  ) : null;
 
-      <span
-        style={{
-          minWidth: 0,
-        }}
-      >
-        {children}
-      </span>
-    </>
+  return (
+    <Tag
+      {...attributes}
+      id={domId}
+      data-heading-id={dataHeadingId}
+      className={[
+        mode === 'read' ? 'wiki-heading' : '',
+        attributes?.className || '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      suppressHydrationWarning={mode === 'read' ? true : undefined}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: justify,
+        gap: 0,
+        textAlign: getTextAlign(textAlign),
+        fontSize,
+        fontWeight,
+        lineHeight: 1.25,
+        ...(attributes?.style || {}),
+      }}
+    >
+      {iconNode}
+      {children}
+    </Tag>
   );
 }
