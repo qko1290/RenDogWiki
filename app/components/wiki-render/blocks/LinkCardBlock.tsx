@@ -100,6 +100,7 @@ export default function LinkCardBlock({
     borderRadius: 12,
     marginBottom: 10,
     width: '100%',
+    minHeight: 76,
     boxSizing: 'border-box',
     background: 'var(--surface-elevated)',
     boxShadow: shadow,
@@ -177,17 +178,21 @@ export default function LinkCardBlock({
             display: 'flex',
             flexDirection: 'column',
             gap: 4,
+            justifyContent: 'center',
           }}
         >
           <span
             className="wiki-link-card-title"
             style={{
+              fontSize: 16,
+              fontWeight: 750,
               color: 'var(--foreground)',
               lineHeight: 1.35,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
-              fontWeight: mode === 'edit' ? 700 : undefined,
+              minWidth: 0,
+              display: 'block',
             }}
           >
             {title || children || '링크'}
