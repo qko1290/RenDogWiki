@@ -15,37 +15,23 @@ type RenderImageArgs = {
 type MediaBlockProps = {
   mode: WikiRenderMode;
   kind: MediaKind;
+
   src?: string | null;
   alt?: string | null;
   textAlign?: string | null;
   width?: number;
   height?: number;
+
   selected?: boolean;
   focused?: boolean;
+
   attributes?: React.HTMLAttributes<HTMLDivElement>;
   children?: React.ReactNode;
 
-  /**
-   * 에디터 전용 버튼 자리.
-   * 예: 크기 조절 버튼, 삭제 버튼, 선택 툴바
-   */
   editControls?: React.ReactNode;
-
-  /**
-   * 문서 조회 전용 버튼 자리.
-   * 예: 원본 보기, 복사, 확대 보기
-   */
   readControls?: React.ReactNode;
 
-  /**
-   * 읽기 렌더러에서 SmartImage 같은 별도 이미지 컴포넌트를 쓰기 위한 슬롯.
-   * 이걸로 에디터와 문서 렌더러의 이미지 로딩 방식 차이를 유지한다.
-   */
   renderImage?: (args: RenderImageArgs) => React.ReactNode;
-
-  /**
-   * 에디터에서 실제 img 크기를 읽기 위한 ref.
-   */
   imageRef?: React.Ref<HTMLImageElement>;
 };
 
@@ -84,21 +70,35 @@ export default function MediaBlock({
   const controls = mode === 'edit' ? editControls : readControls;
 
   const wrapperStyle: React.CSSProperties = {
+    ...(attributes?.style || {}),
+
     display: 'flex',
     justifyContent: justifyFromAlign(textAlign),
+    width: '100%',
+
+    /**
+     * 원본 WikiReadRenderer의 이미지/영상은 본문 블록 사이에서
+     * 별도 카드형 스타일을 만들지 않고, 정렬용 flex wrapper 중심으로 처리된다.
+     * 따라서 여기서는 배경/테두리/그림자 같은 새 디자인을 넣지 않는다.
+     */
     margin: mode === 'read' ? '10px 0' : '8px 0',
     position: 'relative',
   };
 
-  const mediaShellStyle: React.CSSProperties = {
+  const shellStyle: React.CSSProperties = {
     position: 'relative',
     display: 'inline-block',
     maxWidth: '100%',
-    outline:
+    lineHeight: 0,
+
+    /**
+     * 에디터 선택 표시는 원본처럼 media 자체에만 얇게 표시한다.
+     * 읽기 모드에는 절대 표시하지 않는다.
+     */
+    boxShadow:
       mode === 'edit' && selected && focused
-        ? '2px solid #2a90ff'
-        : 'none',
-    borderRadius: 6,
+        ? '0 0 0 2px #2a90ff'
+        : undefined,
   };
 
   const mediaStyle: React.CSSProperties = {
@@ -107,6 +107,11 @@ export default function MediaBlock({
     width: resolvedWidth ? `${resolvedWidth}px` : undefined,
     height: resolvedHeight ? `${resolvedHeight}px` : undefined,
     objectFit: resolvedWidth && resolvedHeight ? 'contain' : undefined,
+
+    /**
+     * 원본 쪽은 이미지/영상 자체를 카드처럼 새로 꾸미지 않는다.
+     * borderRadius만 최소 유지한다.
+     */
     borderRadius: 6,
   };
 
@@ -154,42 +159,34 @@ export default function MediaBlock({
       ]
         .filter(Boolean)
         .join(' ')}
-      style={{
-        ...wrapperStyle,
-        ...(attributes?.style || {}),
-      }}
+      style={wrapperStyle}
     >
       <span
         className="wiki-media-shell"
-        style={mediaShellStyle}
+        style={shellStyle}
         contentEditable={mode === 'edit' ? false : undefined}
         suppressContentEditableWarning
       >
-        {safeSrc ? mediaNode : (
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minWidth: 160,
-              minHeight: 90,
-              border: '1px dashed var(--border)',
-              borderRadius: 6,
-              color: 'var(--muted-foreground)',
-              fontSize: 13,
-            }}
-          >
-            {kind === 'image' ? '이미지 없음' : '영상 없음'}
-          </span>
-        )}
+        {safeSrc ? mediaNode : null}
 
         {controls ? (
           <span
             className="wiki-media-controls"
             contentEditable={false}
             suppressContentEditableWarning
+            style={{
+              position: 'absolute',
+              inset: 0,
+              pointerEvents: 'none',
+            }}
           >
-            {controls}
+            <span
+              style={{
+                pointerEvents: 'auto',
+              }}
+            >
+              {controls}
+            </span>
           </span>
         ) : null}
       </span>
