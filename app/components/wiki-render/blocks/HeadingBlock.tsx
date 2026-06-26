@@ -1,4 +1,6 @@
 import React from 'react';
+import SmartImage from '@/components/common/SmartImage';
+import { cdn, withVersion } from '@lib/cdn';
 import type { WikiRenderMode } from '../types';
 
 type HeadingLevel = 1 | 2 | 3;
@@ -47,23 +49,37 @@ function getTextAlign(
   return 'left';
 }
 
-export default function HeadingBlock({
-  mode,
-  level,
-  textAlign,
-  icon,
-  domId,
-  dataHeadingId,
-  onIconClick,
-  attributes,
-  children,
-}: HeadingBlockProps) {
-  const Tag = getHeadingTag(level);
-  const fontSize = getHeadingFontSize(level);
-  const fontWeight = getHeadingFontWeight(level);
-  const justify = getJustify(textAlign);
+function looksLikeImageIcon(icon: string) {
+  const value = icon.trim();
 
-  const iconNode = icon ? (
+  if (!value) return false;
+
+  return (
+    value.startsWith('http://') ||
+    value.startsWith('https://') ||
+    value.startsWith('/api/') ||
+    value.startsWith('/uploads/') ||
+    value.startsWith('/images/') ||
+    value.startsWith('/_next/') ||
+    /\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(value)
+  );
+}
+
+function HeadingIcon({
+  icon,
+  mode,
+  onIconClick,
+}: {
+  icon: string;
+  mode: WikiRenderMode;
+  onIconClick?: () => void;
+}) {
+  const [imageFailed, setImageFailed] = React.useState(false);
+
+  const safeIcon = String(icon ?? '').trim();
+  const shouldRenderAsImage = looksLikeImageIcon(safeIcon) && !imageFailed;
+
+  return (
     <span
       onClick={
         mode === 'edit'
@@ -84,17 +100,19 @@ export default function HeadingBlock({
         flex: '0 0 auto',
       }}
     >
-      {typeof icon === 'string' && icon.startsWith('http') ? (
-        <img
-          src={icon}
+      {shouldRenderAsImage ? (
+        <SmartImage
+          src={withVersion(cdn(safeIcon))}
           alt=""
+          width={28}
+          height={28}
           style={{
             width: 28,
             height: 28,
             objectFit: 'contain',
             display: 'block',
           }}
-          draggable={false}
+          onError={() => setImageFailed(true)}
         />
       ) : (
         <span
@@ -105,11 +123,25 @@ export default function HeadingBlock({
             alignItems: 'center',
           }}
         >
-          {icon}
+          {safeIcon}
         </span>
       )}
     </span>
-  ) : null;
+  );
+}
+
+export default function HeadingBlock({
+  mode,
+  level,
+  textAlign,
+  icon,
+  domId,
+  dataHeadingId,
+  onIconClick,
+  attributes,
+  children,
+}: HeadingBlockProps) {
+  const Tag = getHeadingTag(level);
 
   return (
     <Tag
@@ -126,16 +158,23 @@ export default function HeadingBlock({
       style={{
         display: 'flex',
         alignItems: 'center',
-        justifyContent: justify,
+        justifyContent: getJustify(textAlign),
         gap: 0,
         textAlign: getTextAlign(textAlign),
-        fontSize,
-        fontWeight,
+        fontSize: getHeadingFontSize(level),
+        fontWeight: getHeadingFontWeight(level),
         lineHeight: 1.25,
         ...(attributes?.style || {}),
       }}
     >
-      {iconNode}
+      {icon ? (
+        <HeadingIcon
+          icon={icon}
+          mode={mode}
+          onIconClick={onIconClick}
+        />
+      ) : null}
+
       {children}
     </Tag>
   );
