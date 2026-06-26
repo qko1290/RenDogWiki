@@ -35,9 +35,23 @@ type MediaBlockProps = {
   imageRef?: React.Ref<HTMLImageElement>;
 };
 
-function justifyFromAlign(textAlign?: string | null): 'flex-start' | 'center' | 'flex-end' {
+function readJustifyFromAlign(
+  textAlign?: string | null
+): 'flex-start' | 'center' | 'flex-end' {
+  if (textAlign === 'center') return 'center';
+  if (textAlign === 'right') return 'flex-end';
+
+  // 원본 WikiReadRenderer의 flexJustifyFromAlign 기본값
+  return 'flex-start';
+}
+
+function editJustifyFromAlign(
+  textAlign?: string | null
+): 'flex-start' | 'center' | 'flex-end' {
   if (textAlign === 'left') return 'flex-start';
   if (textAlign === 'right') return 'flex-end';
+
+  // 원본 Element.tsx ImageBlock / VideoBlock 기본값
   return 'center';
 }
 
@@ -67,22 +81,119 @@ export default function MediaBlock({
   const safeSrc = String(src || '');
   const resolvedWidth = numberOrUndefined(width);
   const resolvedHeight = numberOrUndefined(height);
-  const justifyContent = justifyFromAlign(textAlign);
+
   const controls = mode === 'edit' ? editControls : readControls;
 
   /**
-   * 원본 Element.tsx 기준:
-   * <div {...attributes} style={{ margin: '16px 0' }}>
+   * ================================
+   * READ MODE
+   * ================================
+   *
+   * 원본 WikiReadRenderer 기준:
+   * - textAlign은 flexJustifyFromAlign으로 처리
+   * - 기본값은 flex-start
+   * - width/height는 실제 CSS width/height로 반영
+   * - 에디터용 90% maxWidth 방식 사용 금지
    */
+  if (mode === 'read') {
+    const justifyContent = readJustifyFromAlign(textAlign);
+
+    const outerStyle: React.CSSProperties = {
+      display: 'flex',
+      justifyContent: justifyContent,
+      width: '100%',
+      margin: '10px 0',
+      ...(attributes?.style || {}),
+    };
+
+    const readMediaStyle: React.CSSProperties = {
+      display: 'block',
+      maxWidth: '100%',
+
+      /**
+       * 핵심:
+       * 기존 MediaBlock은 width를 maxWidth로만 줬는데,
+       * 읽기 화면에서는 실제 표시 크기를 맞추려면 width 자체를 줘야 한다.
+       */
+      width: resolvedWidth ? `${resolvedWidth}px` : undefined,
+      height: resolvedHeight ? `${resolvedHeight}px` : 'auto',
+    };
+
+    const mediaNode =
+      kind === 'image' ? (
+        renderImage ? (
+          renderImage({
+            src: safeSrc,
+            alt: alt || '',
+            width: resolvedWidth,
+            height: resolvedHeight,
+            style: readMediaStyle,
+            className: 'wiki-media-image',
+          })
+        ) : (
+          <img
+            src={safeSrc}
+            alt={alt || ''}
+            loading="lazy"
+            decoding="async"
+            draggable={false}
+            className="wiki-media-image"
+            style={readMediaStyle}
+          />
+        )
+      ) : (
+        <video
+          src={safeSrc}
+          controls
+          playsInline
+          preload="metadata"
+          className="wiki-media-video"
+          style={{
+            ...readMediaStyle,
+            background: '#000',
+          }}
+        />
+      );
+
+    return (
+      <div
+        {...attributes}
+        className={[
+          'wiki-media-block',
+          `wiki-media-${kind}`,
+          'wiki-media-read',
+          attributes?.className || '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        style={outerStyle}
+      >
+        {safeSrc ? mediaNode : null}
+        {controls}
+      </div>
+    );
+  }
+
+  /**
+   * ================================
+   * EDIT MODE
+   * ================================
+   *
+   * 원본 Element.tsx ImageBlock / VideoBlock 기준:
+   * - 기본 정렬 center
+   * - 바깥 margin: 16px 0
+   * - 내부 flex wrapper 사용
+   * - media maxWidth: width ? width + 'px' : '90%'
+   * - height: height ? height + 'px' : 'auto'
+   * - 이미지 border, 영상 outline
+   */
+  const justifyContent = editJustifyFromAlign(textAlign);
+
   const outerStyle: React.CSSProperties = {
-    margin: mode === 'edit' ? '16px 0' : '16px 0',
+    margin: '16px 0',
     ...(attributes?.style || {}),
   };
 
-  /**
-   * 원본 Element.tsx 기준:
-   * display:flex / justifyContent / alignItems:flex-start / minHeight:40
-   */
   const alignWrapperStyle: React.CSSProperties = {
     display: 'flex',
     flexDirection: 'row',
@@ -96,15 +207,7 @@ export default function MediaBlock({
     display: 'inline-block',
   };
 
-  /**
-   * 원본 이미지/영상 공통 크기 처리:
-   * maxWidth: width ? width + 'px' : '90%'
-   * height: height ? height + 'px' : 'auto'
-   *
-   * 여기서 width를 직접 넣으면 원본보다 커지거나 정렬이 틀어진다.
-   * 원본처럼 maxWidth만 제한해야 함.
-   */
-  const baseMediaStyle: React.CSSProperties = {
+  const baseEditMediaStyle: React.CSSProperties = {
     maxWidth: resolvedWidth ? `${resolvedWidth}px` : '90%',
     height: resolvedHeight ? `${resolvedHeight}px` : 'auto',
     borderRadius: 10,
@@ -113,16 +216,16 @@ export default function MediaBlock({
   };
 
   const imageStyle: React.CSSProperties = {
-    ...baseMediaStyle,
+    ...baseEditMediaStyle,
     background: '#fff',
-    border: mode === 'edit' && selected && focused ? '2px solid #2a90ff' : 'none',
+    border: selected && focused ? '2px solid #2a90ff' : 'none',
     transition: 'border 0.1s',
   };
 
   const videoStyle: React.CSSProperties = {
-    ...baseMediaStyle,
+    ...baseEditMediaStyle,
     background: '#000',
-    outline: mode === 'edit' && selected && focused ? '2px solid #2a90ff' : 'none',
+    outline: selected && focused ? '2px solid #2a90ff' : 'none',
     transition: 'outline 0.1s',
   };
 
@@ -169,7 +272,7 @@ export default function MediaBlock({
       className={[
         'wiki-media-block',
         `wiki-media-${kind}`,
-        mode === 'edit' ? 'wiki-media-edit' : 'wiki-media-read',
+        'wiki-media-edit',
         attributes?.className || '',
       ]
         .filter(Boolean)
@@ -188,7 +291,7 @@ export default function MediaBlock({
         </div>
       </div>
 
-      {mode === 'edit' ? children : null}
+      {children}
     </div>
   );
 }
