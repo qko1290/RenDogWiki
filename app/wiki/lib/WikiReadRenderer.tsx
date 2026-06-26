@@ -2961,6 +2961,397 @@ function getPriceBadgeColor(stage: string, _type?: string) {
   }
 }
 
+type ReadPriceTableItem = {
+  id?: number | string | null;
+  name?: string | null;
+  name_key?: string | null;
+  image?: string | null;
+  mode?: string | null;
+  prices?: Array<string | number | null | undefined>;
+};
+
+function readPriceStagesByFormat(fmt?: string | null): string[] {
+  const f = String(fmt ?? '').trim().toLowerCase();
+
+  if (
+    f === 'transcend epic' ||
+    f === 'transcend unique' ||
+    f === 'transcend legendary' ||
+    f === 'transcend divine' ||
+    f === 'transcend superior'
+  ) {
+    return ['거가', '거불'];
+  }
+
+  if (
+    f === 'epic' ||
+    f === 'unique' ||
+    f === 'legendary' ||
+    f === 'divine' ||
+    f === 'superior'
+  ) {
+    return ['봉인', '1각', '2각', '3각', '4각', 'MAX'];
+  }
+
+  return ['가격'];
+}
+
+const READ_PRICE_COLORS = [
+  '#5E2569',
+  '#B746F8',
+  '#F39C12',
+  '#E74C3C',
+  '#3498DB',
+  '#1ABC9C',
+  '#309C49',
+  '#F1C40F',
+  '#DDB89E',
+  '#34495E',
+] as const;
+
+function readPriceColorForLevel(lv: number) {
+  if (!Number.isFinite(lv) || lv < 1 || lv > 10) return '#5b80f5';
+  return READ_PRICE_COLORS[10 - lv];
+}
+
+function readIsCompressedPrice(s: string) {
+  return /^[0-9:~\s]+$/.test(s ?? '');
+}
+
+function readTokenizeCompressedPrice(input: string) {
+  const s0 = String(input ?? '').trim().replace(/\s+/g, '');
+  if (!s0) return [{ text: '' }];
+
+  let s = s0;
+  const out: Array<{ text: string; color?: string }> = [];
+
+  if (s.startsWith('10:')) {
+    const rest = s.slice(3);
+    if (/^\d+$/.test(rest)) {
+      const use2 = rest.length >= 2 && (rest.length - 2) % 2 === 0;
+      const take = use2 ? 2 : 1;
+      const nPart = rest.slice(0, take);
+      out.push({ text: `10:${nPart}`, color: readPriceColorForLevel(10) });
+      s = rest.slice(take);
+    } else {
+      return [{ text: s0 }];
+    }
+  }
+
+  if (s.startsWith('10')) {
+    const rem = s.length - 2;
+
+    if (rem >= 1) {
+      const two = rem >= 2 && rem % 2 === 0;
+      const take = two ? 2 : 1;
+      const nPart = s.slice(2, 2 + take);
+      out.push({ text: `10${nPart}`, color: readPriceColorForLevel(10) });
+      s = s.slice(2 + take);
+    } else {
+      out.push({ text: '10', color: readPriceColorForLevel(10) });
+      s = '';
+    }
+  }
+
+  for (let i = 0; i < s.length; ) {
+    if (i + 1 >= s.length) {
+      out.push({ text: s.slice(i) });
+      break;
+    }
+
+    const token = s.slice(i, i + 2);
+    const lv = parseInt(token[0], 10);
+
+    if (Number.isFinite(lv) && lv >= 1 && lv <= 9) {
+      out.push({ text: token, color: readPriceColorForLevel(lv) });
+    } else {
+      out.push({ text: token });
+    }
+
+    i += 2;
+  }
+
+  return out.length ? out : [{ text: s0 }];
+}
+
+function ReadColoredPriceText({
+  value,
+}: {
+  value: string | number | null | undefined;
+}) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return <>-</>;
+
+  if (raw.includes('~')) {
+    const [left, right] = raw.split('~', 2);
+    const leftChunks = readIsCompressedPrice(left)
+      ? readTokenizeCompressedPrice(left)
+      : [{ text: left }];
+
+    const rightChunks = readIsCompressedPrice(right)
+      ? readTokenizeCompressedPrice(right)
+      : [{ text: right }];
+
+    return (
+      <>
+        {leftChunks.map((chunk, i) => (
+          <span key={`l-${i}`} style={{ color: chunk.color }}>
+            {chunk.text}
+          </span>
+        ))}
+        <span style={{ color: '#84cc16' }}>~</span>
+        {rightChunks.map((chunk, i) => (
+          <span key={`r-${i}`} style={{ color: chunk.color }}>
+            {chunk.text}
+          </span>
+        ))}
+      </>
+    );
+  }
+
+  const chunks = readIsCompressedPrice(raw)
+    ? readTokenizeCompressedPrice(raw)
+    : [{ text: raw }];
+
+  return (
+    <>
+      {chunks.map((chunk, i) => (
+        <span key={i} style={{ color: chunk.color }}>
+          {chunk.text}
+        </span>
+      ))}
+    </>
+  );
+}
+
+function readPriceNameFontSize(name?: string | null) {
+  const n = String(name ?? '').trim();
+  if (n.length >= 9) return 16;
+  if (n.length >= 7) return 18;
+  return 20;
+}
+
+function ReadPriceTableCards({ items }: { items: ReadPriceTableItem[] }) {
+  const signature = React.useMemo(
+    () =>
+      items
+        .map((item) => `${item.id ?? ''}:${item.name_key ?? ''}:${item.name ?? ''}`)
+        .join('|'),
+    [items]
+  );
+
+  const [stageIdxArr, setStageIdxArr] = React.useState(() =>
+    items.map(() => 0)
+  );
+
+  const [hovered, setHovered] = React.useState<number | null>(null);
+
+  React.useEffect(() => {
+    setStageIdxArr(items.map(() => 0));
+  }, [signature, items]);
+
+  const setCardIdx = React.useCallback((idx: number, delta: number, len: number) => {
+    setStageIdxArr((arr) =>
+      arr.map((v, i) => (i === idx ? (v + delta + len) % len : v))
+    );
+  }, []);
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'flex-start',
+        justifyContent: 'center',
+        gap: '28px 32px',
+        margin: '28px 0 46px',
+        width: '100%',
+      }}
+    >
+      {items.map((item, idx) => {
+        const stages = readPriceStagesByFormat(item.mode);
+        const prices = Array.isArray(item.prices) ? item.prices : [];
+        const safeStageIdx =
+          stages.length > 0
+            ? Math.min(stageIdxArr[idx] ?? 0, stages.length - 1)
+            : 0;
+
+        const stage = stages[safeStageIdx] ?? '가격';
+        const price = prices[safeStageIdx] ?? prices[0] ?? '';
+        const showArrows = hovered === idx && stages.length > 1;
+
+        const imgRaw = String(item.image ?? '').trim();
+        const imgSrc = imgRaw ? withVersion(cdn(imgRaw)) : '';
+        const name = String(item.name ?? '').trim();
+
+        return (
+          <div
+            key={item.id ?? item.name_key ?? item.name ?? idx}
+            onMouseEnter={() => setHovered(idx)}
+            onMouseLeave={() => setHovered(null)}
+            style={{
+              position: 'relative',
+              width: 136,
+              height: 192,
+              borderRadius: 14,
+              background: 'var(--surface-elevated)',
+              boxShadow: 'var(--shadow-lg)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'flex-start',
+              padding: '22px 10px 16px',
+              boxSizing: 'border-box',
+            }}
+          >
+            {stages.length > 1 ? (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: -10,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  minWidth: 42,
+                  height: 22,
+                  padding: '0 8px',
+                  borderRadius: 999,
+                  background: getPriceBadgeColor(stage),
+                  color: '#fff',
+                  fontSize: 12,
+                  fontWeight: 800,
+                  lineHeight: '22px',
+                  textAlign: 'center',
+                  boxShadow: 'var(--shadow-sm)',
+                  zIndex: 2,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {stage}
+              </div>
+            ) : null}
+
+            {showArrows ? (
+              <>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setCardIdx(idx, -1, stages.length);
+                  }}
+                  aria-label="이전 시세"
+                  style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: -14,
+                    transform: 'translateY(-50%)',
+                    width: 28,
+                    height: 28,
+                    borderRadius: 999,
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface-elevated)',
+                    color: 'var(--foreground)',
+                    boxShadow: 'var(--shadow-sm)',
+                    cursor: 'pointer',
+                    zIndex: 3,
+                  }}
+                >
+                  ◀
+                </button>
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setCardIdx(idx, 1, stages.length);
+                  }}
+                  aria-label="다음 시세"
+                  style={{
+                    position: 'absolute',
+                    top: '50%',
+                    right: -14,
+                    transform: 'translateY(-50%)',
+                    width: 28,
+                    height: 28,
+                    borderRadius: 999,
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface-elevated)',
+                    color: 'var(--foreground)',
+                    boxShadow: 'var(--shadow-sm)',
+                    cursor: 'pointer',
+                    zIndex: 3,
+                  }}
+                >
+                  ▶
+                </button>
+              </>
+            ) : null}
+
+            <div
+              style={{
+                width: 72,
+                height: 72,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 14,
+              }}
+            >
+              {imgSrc ? (
+                <SmartImage
+                  src={imgSrc}
+                  alt=""
+                  width={72}
+                  height={72}
+                  style={{
+                    width: 72,
+                    height: 72,
+                    objectFit: 'contain',
+                    imageRendering: 'pixelated',
+                    display: 'block',
+                  }}
+                />
+              ) : null}
+            </div>
+
+            <div
+              style={{
+                width: '100%',
+                textAlign: 'center',
+                fontSize: readPriceNameFontSize(name),
+                fontWeight: 800,
+                lineHeight: 1.25,
+                color: 'var(--foreground)',
+                wordBreak: 'keep-all',
+                overflowWrap: 'break-word',
+                marginBottom: 8,
+              }}
+            >
+              {name || '이름 없음'}
+            </div>
+
+            <div
+              style={{
+                width: '100%',
+                textAlign: 'center',
+                fontSize: 20,
+                fontWeight: 900,
+                lineHeight: 1.2,
+                letterSpacing: '0.5px',
+                color: '#38bdf8',
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              <ReadColoredPriceText value={price} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /* ======================= 🔫 무기 카드 (문서 읽기용) ======================= */
 
 function shortLevelLabel(label: string): string {
@@ -4130,276 +4521,10 @@ function renderNode(
         return null;
       }
 
-      const getStageLabels = (mode?: string) => {
-        const f = String(mode ?? "").trim().toLowerCase();
-
-        if (
-          f === "transcend epic" ||
-          f === "transcend unique" ||
-          f === "transcend legendary" ||
-          f === "transcend divine" ||
-          f === "transcend superior"
-        ) {
-          return ["거가", "거불"];
-        }
-
-        if (
-          f === "epic" ||
-          f === "unique" ||
-          f === "legendary" ||
-          f === "divine" ||
-          f === "superior"
-        ) {
-          return ["봉인", "1각", "2각", "3각", "4각", "MAX"];
-        }
-
-        return ["가격"];
-      };
-
-      const palette = [
-        "#5E2569",
-        "#B746F8",
-        "#F39C12",
-        "#E74C3C",
-        "#3498DB",
-        "#1ABC9C",
-        "#309C49",
-        "#F1C40F",
-        "#DDB89E",
-        "#34495E",
-      ] as const;
-
-      const colorForLevel = (lv: number) => {
-        if (!Number.isFinite(lv) || lv < 1 || lv > 10) return "#5b80f5";
-        return palette[10 - lv];
-      };
-
-      const isProbablyCompressedPrice = (s: string) => /^[0-9:~\s]+$/.test(s ?? "");
-
-      const tokenizeCompressedForColor = (input: string) => {
-        const s0 = String(input ?? "").trim().replace(/\s+/g, "");
-        if (!s0) return [{ text: "" }];
-
-        let s = s0;
-        const out: Array<{ text: string; color?: string }> = [];
-
-        if (s.startsWith("10:")) {
-          const rest = s.slice(3);
-          if (/^\d+$/.test(rest)) {
-            const use2 = rest.length >= 2 && (rest.length - 2) % 2 === 0;
-            const take = use2 ? 2 : 1;
-            const nPart = rest.slice(0, take);
-            out.push({ text: `10:${nPart}`, color: colorForLevel(10) });
-            s = rest.slice(take);
-          } else {
-            return [{ text: s0 }];
-          }
-        }
-
-        if (s.startsWith("10")) {
-          const rem = s.length - 2;
-
-          if (rem >= 1) {
-            const two = rem >= 2 && rem % 2 === 0;
-            const take = two ? 2 : 1;
-            const nPart = s.slice(2, 2 + take);
-            out.push({ text: `10${nPart}`, color: colorForLevel(10) });
-            s = s.slice(2 + take);
-          } else {
-            out.push({ text: "10", color: colorForLevel(10) });
-            s = "";
-          }
-        }
-
-        for (let i = 0; i < s.length; ) {
-          if (i + 1 >= s.length) {
-            out.push({ text: s.slice(i) });
-            break;
-          }
-
-          const token = s.slice(i, i + 2);
-          const lv = parseInt(token[0], 10);
-
-          if (Number.isFinite(lv) && lv >= 1 && lv <= 9) {
-            out.push({ text: token, color: colorForLevel(lv) });
-          } else {
-            out.push({ text: token });
-          }
-
-          i += 2;
-        }
-
-        return out.length ? out : [{ text: s0 }];
-      };
-
-      const renderPriceText = (value: string | number | null | undefined) => {
-        const raw = String(value ?? "").trim();
-        if (!raw) return "-";
-
-        if (raw.includes("~")) {
-          const [left, right] = raw.split("~", 2);
-          const leftChunks = isProbablyCompressedPrice(left)
-            ? tokenizeCompressedForColor(left)
-            : [{ text: left }];
-          const rightChunks = isProbablyCompressedPrice(right)
-            ? tokenizeCompressedForColor(right)
-            : [{ text: right }];
-
-          return (
-            <>
-              {leftChunks.map((chunk, i) => (
-                <span key={`l-${i}`} style={{ color: chunk.color }}>
-                  {chunk.text}
-                </span>
-              ))}
-              <span style={{ color: "#84cc16" }}>~</span>
-              {rightChunks.map((chunk, i) => (
-                <span key={`r-${i}`} style={{ color: chunk.color }}>
-                  {chunk.text}
-                </span>
-              ))}
-            </>
-          );
-        }
-
-        const chunks = isProbablyCompressedPrice(raw)
-          ? tokenizeCompressedForColor(raw)
-          : [{ text: raw }];
-
-        return (
-          <>
-            {chunks.map((chunk, i) => (
-              <span key={i} style={{ color: chunk.color }}>
-                {chunk.text}
-              </span>
-            ))}
-          </>
-        );
-      };
-
-      const content = (
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "flex-start",
-            justifyContent: "center",
-            gap: "28px 32px",
-            margin: "28px 0 46px",
-            width: "100%",
-          }}
-        >
-          {node.items.map((item: any, idx: number) => {
-            const stages = getStageLabels(item.mode);
-            const prices = Array.isArray(item.prices)
-              ? item.prices.map((v: any) => String(v ?? ""))
-              : [];
-
-            const stageIndexRaw = Number(item.stageIndex ?? item.selectedStage ?? 0);
-            const stageIndex =
-              Number.isFinite(stageIndexRaw) && stageIndexRaw >= 0
-                ? Math.min(stageIndexRaw, Math.max(0, stages.length - 1))
-                : 0;
-
-            const priceValue = prices[stageIndex] ?? prices[0] ?? "";
-            const imgRaw = String(item.image ?? "").trim();
-            const imgSrc = imgRaw ? withVersion(cdn(imgRaw)) : "";
-            const name = String(item.name ?? "이름 없음");
-
-            return (
-              <div
-                key={item.id ?? item.name_key ?? item.name ?? idx}
-                style={{
-                  width: 136,
-                  height: 192,
-                  borderRadius: 14,
-                  background: "var(--surface-elevated)",
-                  boxShadow: "var(--shadow-lg)",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "flex-start",
-                  padding: "22px 10px 16px",
-                  boxSizing: "border-box",
-                }}
-              >
-                <div
-                  style={{
-                    width: 72,
-                    height: 72,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginBottom: 14,
-                  }}
-                >
-                  {imgSrc ? (
-                    <SmartImage
-                      src={imgSrc}
-                      alt=""
-                      width={72}
-                      height={72}
-                      style={{
-                        width: 72,
-                        height: 72,
-                        objectFit: "contain",
-                        imageRendering: "pixelated",
-                        display: "block",
-                      }}
-                    />
-                  ) : (
-                    <span
-                      style={{
-                        fontSize: 13,
-                        color: "var(--muted)",
-                        fontWeight: 700,
-                      }}
-                    >
-                      이미지 없음
-                    </span>
-                  )}
-                </div>
-
-                <div
-                  style={{
-                    width: "100%",
-                    textAlign: "center",
-                    fontSize: 16,
-                    fontWeight: 800,
-                    lineHeight: 1.35,
-                    color: "var(--foreground)",
-                    wordBreak: "keep-all",
-                    overflowWrap: "break-word",
-                    marginBottom: 8,
-                  }}
-                >
-                  {name}
-                </div>
-
-                <div
-                  style={{
-                    width: "100%",
-                    textAlign: "center",
-                    fontSize: 20,
-                    fontWeight: 900,
-                    lineHeight: 1.2,
-                    letterSpacing: "0.5px",
-                    color: "#38bdf8",
-                    fontVariantNumeric: "tabular-nums",
-                  }}
-                >
-                  {renderPriceText(priceValue)}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      );
-
       return (
         <PriceTableBlock
           mode="read"
-          content={content}
+          content={<ReadPriceTableCards items={node.items as ReadPriceTableItem[]} />}
         />
       );
     }
