@@ -32,24 +32,6 @@ import { useRouter } from "next/navigation";
 
 import { markNextDocViewSource } from '@/wiki/lib/viewSource';
 
-import DividerBlock from '@/components/wiki-render/blocks/DividerBlock';
-
-import ParagraphBlock from '@/components/wiki-render/blocks/ParagraphBlock';
-
-import HeadingBlock from '@/components/wiki-render/blocks/HeadingBlock';
-
-import InfoBoxBlock from '@/components/wiki-render/blocks/InfoBoxBlock';
-
-import MediaBlock from '@/components/wiki-render/blocks/MediaBlock';
-
-import LinkCardBlock from '@/components/wiki-render/blocks/LinkCardBlock';
-
-import TableBlock from '@/components/wiki-render/blocks/TableBlock';
-
-import PriceTableBlock from '@/components/wiki-render/blocks/PriceTableBlock';
-
-import WeaponBlock from '@/components/wiki-render/blocks/WeaponBlock';
-
 type Props = {
   content: Descendant[];
   readOnly?: boolean;
@@ -1571,21 +1553,21 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({
   const el = node;
   const router = useRouter();
 
+  // URL 파싱
   const parsedUrl = React.useMemo(() => {
     if (!el.url) return null;
-
     try {
       const base =
         typeof window !== "undefined"
           ? window.location.origin
           : "https://dummy.local";
-
       return new URL(el.url, base);
     } catch {
       return null;
     }
   }, [el.url]);
 
+  // 내부 위키 링크 판별
   const isWikiLink = React.useMemo(() => {
     if (el.isWiki) return true;
     if (!parsedUrl) return false;
@@ -1598,23 +1580,25 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({
     return sameHost && parsedUrl.pathname.startsWith("/wiki");
   }, [el.isWiki, parsedUrl]);
 
+  // 표시용 사이트 이름
   let displaySitename = el.sitename ?? "";
-
   if (!isWikiLink && !displaySitename && parsedUrl) {
     const host = parsedUrl.hostname.replace(/^www\./, "");
     displaySitename = host;
   }
 
+  // 위키 아이콘 상태
   const [wikiIcon, setWikiIcon] = useState<string | null>(
     isWikiLink ? (el.docIcon ?? null) : null
   );
 
+  // 외부 favicon 로딩 실패 폴백
   const [faviconFailed, setFaviconFailed] = useState(false);
-
   useEffect(() => {
     setFaviconFailed(false);
   }, [el.url, isWikiLink]);
 
+  // ✅ Element.tsx와 동일한 아이콘 결정 로직(기존 유지)
   useEffect(() => {
     if (!isWikiLink || !parsedUrl) return;
     if (typeof window === "undefined") return;
@@ -1641,16 +1625,14 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({
       : "";
 
     const docKeyParts: string[] = [];
-
     if (pathParam) docKeyParts.push(`p:${pathParam}`);
     if (titleParam) docKeyParts.push(`t:${titleParam}`);
-
     const baseDocKey = docKeyParts.join("|") || urlObj.pathname;
+
     const cacheKey = `${baseDocKey}#${decodedHash || "root"}`;
 
     if (wikiDocIconCache.has(cacheKey)) {
       const cached = wikiDocIconCache.get(cacheKey)!;
-
       if (cached) setWikiIcon(cached);
       return;
     }
@@ -1666,10 +1648,8 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({
 
           if (pathParam || titleParam) {
             const qs: string[] = [];
-
             if (pathParam) qs.push(`path=${encodeURIComponent(pathParam)}`);
             if (titleParam) qs.push(`title=${encodeURIComponent(titleParam)}`);
-
             const query = qs.join("&");
             res = await fetch(`/api/documents?${query}`, { cache: "force-cache" });
           }
@@ -1685,10 +1665,8 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({
             typeof rawContent === "string" ? JSON.parse(rawContent) : rawContent;
 
           let headingsMeta: WikiDocHeadingMeta[] = [];
-
           try {
             const hs = extractHeadings(Array.isArray(slateContent) ? slateContent : []);
-
             headingsMeta = hs.map((h: any) => ({
               id: String(h.id ?? ""),
               icon: h.icon ?? null,
@@ -1708,28 +1686,18 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({
             path: (data as any).path ?? pathParam ?? null,
             headings: headingsMeta,
           };
-
           wikiDocDetailCache.set(baseDocKey, detail);
         }
 
         let iconCandidate: string | null = null;
-
         if (decodedHash && detail.headings.length > 0) {
           const target = decodedHash;
-          const normalizedTarget = target.startsWith("heading-")
-            ? target
-            : `heading-${target}`;
+          const normalizedTarget = target.startsWith("heading-") ? target : `heading-${target}`;
 
           const matched = detail.headings.find((h) => {
             const hid = h.id || "";
             const hidNorm = hid.startsWith("heading-") ? hid : `heading-${hid}`;
-
-            return (
-              hid === target ||
-              hid === normalizedTarget ||
-              hidNorm === target ||
-              hidNorm === normalizedTarget
-            );
+            return hid === target || hid === normalizedTarget || hidNorm === target || hidNorm === normalizedTarget;
           });
 
           if (matched?.icon) iconCandidate = matched.icon || null;
@@ -1755,11 +1723,21 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({
     };
   }, [isWikiLink, parsedUrl, el.wikiPath, el.wikiTitle]);
 
+  // ✅ 외부 링크 파비콘
   const externalFavicon: string | null =
     !isWikiLink && parsedUrl ? `${parsedUrl.origin}/favicon.ico` : null;
 
   const isSmall = el.size === "small" || el.size === "half";
   const isCompactTwoColMobile = compactMobile && isSmall;
+  const wrapperStyle: React.CSSProperties = isSmall
+    ? {
+        flex: "1 1 calc(50% - 6px)",
+        width: "calc(50% - 6px)",
+        maxWidth: "calc(50% - 6px)",
+        boxSizing: "border-box",
+        display: "block",
+      }
+    : { display: "block", width: "100%", maxWidth: "100%" };
 
   const labelText =
     nodeToPlainText(node.children) ||
@@ -1773,7 +1751,16 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({
 
   const rawHref = el.url || "#";
 
+  // ✅ same-origin 절대URL도 /wiki?... 형태로 정규화
   const normalizedHref = React.useMemo(() => normalizeToAppHref(rawHref), [rawHref]);
+
+  // --- UI ---
+  const [hovered, setHovered] = useState(false);
+
+  const BORDER = hovered
+    ? "1.5px solid var(--accent)"
+    : "1.5px solid var(--border)";
+  const SHADOW = hovered ? "var(--shadow-lg)" : "var(--shadow-sm)";
 
   const titleFontPx = isCompactTwoColMobile
     ? 13
@@ -1785,18 +1772,18 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({
         [60, 12],
       ]);
 
+  // ✅ 내부 링크는 router.push로 통일(뒤로가기 안정화)
   const handleClick = (e: React.MouseEvent) => {
     if (!isWikiLink) return;
 
     const any = e as any;
-
     if (any.metaKey || any.ctrlKey || any.shiftKey || any.altKey) return;
     if (e.button !== 0) return;
 
     e.preventDefault();
     e.stopPropagation();
 
-    markNextDocViewSource("link");
+    markNextDocViewSource('link');
 
     if (onWikiNavigate) {
       onWikiNavigate(normalizedHref);
@@ -1806,97 +1793,14 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({
     router.push(normalizedHref);
   };
 
-  const iconNode = isWikiLink ? (
-    wikiIcon ? (
-      wikiIcon.startsWith("http") ? (
-        <SmartImage
-          src={withVersion(cdn(wikiIcon))}
-          alt="doc icon"
-          width={22}
-          height={22}
-          style={{
-            width: 22,
-            height: 22,
-            objectFit: "contain",
-            display: "block",
-          }}
-        />
-      ) : (
-        <span style={{ fontSize: 20, lineHeight: 1 }}>{wikiIcon}</span>
-      )
-    ) : (
-      <span style={{ fontSize: 18, lineHeight: 1 }} aria-hidden>
-        📄
-      </span>
-    )
-  ) : externalFavicon && !faviconFailed ? (
-    <img
-      src={externalFavicon}
-      alt=""
-      loading="lazy"
-      decoding="async"
-      width={20}
-      height={20}
-      referrerPolicy="no-referrer"
-      onError={() => setFaviconFailed(true)}
-      style={{
-        width: 20,
-        height: 20,
-        objectFit: "contain",
-        display: "block",
-        borderRadius: 4,
-      }}
-    />
-  ) : (
-    <span
-      style={{
-        fontSize: 18,
-        lineHeight: 1,
-        color: "var(--muted)",
-      }}
-      aria-hidden
-    >
-      🌐
-    </span>
-  );
-
-  const card = (
-    <LinkCardBlock
-      mode="read"
-      href={normalizedHref}
-      title={
-        <span
-          style={{
-            fontSize: titleFontPx,
-            fontWeight: 750,
-          }}
-        >
-          {labelText}
-        </span>
-      }
-      subtitle={isCompactTwoColMobile ? undefined : subText}
-      icon={iconNode}
-      size={isSmall ? "half" : "normal"}
-      inRow={isCompactTwoColMobile}
-      isWikiLink={isWikiLink}
-      clickableInReadMode={false}
-    />
-  );
-
   return (
     <div
       data-wiki-block="link-block"
       data-wiki-link-kind={isWikiLink ? "internal" : "external"}
-      style={{
-        position: "relative",
-        flex: isSmall ? "1 1 calc(50% - 6px)" : undefined,
-        width: isSmall ? "calc(50% - 6px)" : "100%",
-        maxWidth: isSmall ? "calc(50% - 6px)" : "100%",
-        boxSizing: "border-box",
-        display: "block",
-      }}
+      style={{ position: "relative", ...wrapperStyle }}
     >
       {isWikiLink ? (
+        // ✅ 내부: <a> 유지 + preventDefault + router.push (히스토리 일관성)
         <a
           href={normalizedHref}
           onClick={handleClick}
@@ -1907,9 +1811,120 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({
           }}
           aria-label={labelText}
         >
-          {card}
+          <div
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            style={{
+              position: "relative",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "14px 14px",
+              border: BORDER,
+              borderRadius: 12,
+              marginBottom: 10,
+              width: "100%",
+              boxSizing: "border-box",
+              background: "var(--surface-elevated)",
+              boxShadow: SHADOW,
+              transition: "box-shadow .14s ease, border-color .14s ease, transform .14s ease",
+              transform: hovered ? "translateY(-1px)" : "translateY(0)",
+            }}
+          >
+            {/* 아이콘 영역 */}
+            <div
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 12,
+                background: "var(--accent-soft)",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flex: "0 0 auto",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
+              }}
+            >
+              {wikiIcon ? (
+                wikiIcon.startsWith("http") ? (
+                  <SmartImage
+                    src={withVersion(cdn(wikiIcon))}
+                    alt="doc icon"
+                    width={22}
+                    height={22}
+                    style={{ width: 22, height: 22, objectFit: "contain", display: "block" }}
+                  />
+                ) : (
+                  <span style={{ fontSize: 20, lineHeight: 1 }}>{wikiIcon}</span>
+                )
+              ) : (
+                <span style={{ fontSize: 18, lineHeight: 1 }} aria-hidden>
+                  📄
+                </span>
+              )}
+            </div>
+
+            {/* 텍스트 */}
+            <div
+              style={{
+                flex: "1 1 auto",
+                minWidth: 0,
+                display: "flex",
+                flexDirection: "column",
+                gap: isCompactTwoColMobile ? 0 : 3,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: titleFontPx,
+                  fontWeight: 750,
+                  color: "var(--foreground)",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  letterSpacing: "-0.1px",
+                }}
+              >
+                {labelText}
+              </div>
+
+              {!isCompactTwoColMobile && (
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--muted)",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                  title={subText}
+                >
+                  {subText}
+                </div>
+              )}
+            </div>
+
+            {/* 오른쪽 이동 표시 */}
+            <div
+              style={{
+                flex: "0 0 auto",
+                color: hovered ? "var(--accent)" : "var(--muted-2)",
+                fontSize: 18,
+                fontWeight: 900,
+                lineHeight: 1,
+                transform: hovered ? "translateX(1px)" : "translateX(0)",
+                transition: "transform .14s ease, color .14s ease",
+                userSelect: "none",
+              }}
+              aria-hidden
+            >
+              →
+            </div>
+          </div>
         </a>
       ) : (
+        // ✅ 외부: 새 탭
         <a
           href={normalizedHref}
           target="_blank"
@@ -1921,7 +1936,123 @@ const LinkBlockView: React.FC<LinkBlockViewProps> = ({
           }}
           aria-label={labelText}
         >
-          {card}
+          <div
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            style={{
+              position: "relative",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "14px 14px",
+              border: BORDER,
+              borderRadius: 12,
+              marginBottom: 10,
+              width: "100%",
+              boxSizing: "border-box",
+              background: "var(--surface-elevated)",
+              boxShadow: SHADOW,
+              transition: "box-shadow .14s ease, border-color .14s ease, transform .14s ease",
+              transform: hovered ? "translateY(-1px)" : "translateY(0)",
+            }}
+          >
+            {/* 아이콘 영역 */}
+            <div
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 12,
+                background: "var(--surface-soft)",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flex: "0 0 auto",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
+              }}
+            >
+              {externalFavicon && !faviconFailed ? (
+                <img
+                  src={externalFavicon}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  width={20}
+                  height={20}
+                  referrerPolicy="no-referrer"
+                  onError={() => setFaviconFailed(true)}
+                  style={{
+                    width: 20,
+                    height: 20,
+                    objectFit: "contain",
+                    display: "block",
+                    borderRadius: 4,
+                  }}
+                />
+              ) : (
+                <span style={{ fontSize: 18, lineHeight: 1, color: "var(--muted)" }} aria-hidden>
+                  🌐
+                </span>
+              )}
+            </div>
+
+            {/* 텍스트 */}
+            <div
+              style={{
+                flex: "1 1 auto",
+                minWidth: 0,
+                display: "flex",
+                flexDirection: "column",
+                gap: isCompactTwoColMobile ? 0 : 3,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: titleFontPx,
+                  fontWeight: 750,
+                  color: "var(--foreground)",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  letterSpacing: "-0.1px",
+                }}
+              >
+                {labelText}
+              </div>
+
+              {!isCompactTwoColMobile && (
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--muted)",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                  title={subText}
+                >
+                  {subText}
+                </div>
+              )}
+            </div>
+
+            {/* 오른쪽 이동 표시 */}
+            <div
+              style={{
+                flex: "0 0 auto",
+                color: hovered ? "var(--accent)" : "var(--muted-2)",
+                fontSize: 18,
+                fontWeight: 900,
+                lineHeight: 1,
+                transform: hovered ? "translateX(1px)" : "translateX(0)",
+                transition: "transform .14s ease, color .14s ease",
+                userSelect: "none",
+              }}
+              aria-hidden
+            >
+              →
+            </div>
+          </div>
         </a>
       )}
     </div>
@@ -2878,31 +3009,296 @@ function PriceTableCardBlock({
     });
   };
 
-  const content = (
+  return (
     <div
       key={keyProp}
+      data-wiki-card-wrap="price-table"
       style={{
-        display: "flex",
-        flexDirection: "row",
-        gap: 25,
-        flexWrap: "nowrap",
         width: "100%",
+        display: "flex",
         justifyContent: "center",
-        margin: "0 auto",
-        maxWidth: 1040,
+        alignItems: "center",
+        minHeight: 0,
+        boxSizing: "border-box",
+        padding: "10px 0",
+        margin: "10px 0",
+        marginLeft: 10,
+        position: "relative",
       }}
     >
-      {viewItems.map((item: any, idx: number) => {
-        // 기존 map 내부 코드 그대로 유지
-      })}
-    </div>
-  );
+      <div
+        data-wiki-card-row="price-table"
+        style={{
+          display: "flex",
+          flexDirection: "row",
+          gap: 25,
+          flexWrap: "nowrap",
+          width: "100%",
+          justifyContent: "center",
+          margin: "0 auto",
+          maxWidth: 1040,
+        }}
+      >
+        {viewItems.map((item: any, idx: number) => {
+          const stages: string[] =
+            Array.isArray(item.stages) && item.stages.length
+              ? item.stages
+              : stagesByFormat(item.mode);
+          const prices: Array<string | number> = resolvePricesForStages(item, stages);
 
-  return (
-    <PriceTableBlock
-      mode="read"
-      content={content}
-    />
+          const cardIdx = indexes[idx] ?? 0;
+          const stage = stages[cardIdx] || "";
+          const priceVal = prices[cardIdx] ?? "";
+          const badgeColor = getPriceBadgeColor(stage, item.colorType);
+
+          const nameShown = item.name?.trim() ? item.name : "이름 없음";
+          const { node: nameNode, broke: nameBroke } = smartNameBreakInfo(nameShown);
+
+          let brokePrefixLen = 0;
+          let brokePrefixSpaceCount = 0;
+
+          if (nameBroke) {
+            const chars = Array.from(String(nameShown ?? ""));
+            const breakAt = chars.findIndex((ch, i) => i >= 7 && ch === " ");
+
+            if (breakAt !== -1) {
+              const first = chars.slice(0, breakAt).join("");
+              brokePrefixLen = Array.from(first).length;
+              brokePrefixSpaceCount = (first.match(/\s/g) ?? []).length;
+            }
+          }
+
+          let nameFont: number;
+
+          if (nameBroke) {
+            const prefixRule = brokePrefixLen >= 8 && brokePrefixSpaceCount >= 1;
+            nameFont = prefixRule ? 16 : 17;
+          } else {
+            nameFont = autoFont(20, String(nameShown), [
+              [7, 18],
+              [9, 16],
+              [12, 14],
+              [16, 13],
+              [20, 12],
+            ]);
+          }
+
+          const priceSize = autoFont(20, String(priceVal));
+
+          const image = item.image ? (
+            <img
+              src={cdn(item.image)}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              fetchPriority="low"
+              style={{
+                width: 65,
+                height: 65,
+                objectFit: "contain",
+                borderRadius: 7,
+                background: "var(--surface)",
+              }}
+            />
+          ) : (
+            <span
+              style={{
+                width: 54,
+                height: 54,
+                background: "var(--surface-soft)",
+                borderRadius: 7,
+                display: "inline-block",
+                boxShadow: "inset 0 0 0 1px var(--border)",
+              }}
+            />
+          );
+
+          const badge =
+            stages.length > 1 ? (
+              <div
+                data-wiki-part="price-badge-wrap"
+                style={{
+                  position: "absolute",
+                  top: 5,
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  zIndex: 3,
+                  width: 66,
+                  display: "flex",
+                  justifyContent: "center",
+                }}
+              >
+                <span
+                  data-wiki-part="price-badge"
+                  style={{
+                    background: badgeColor,
+                    color: stage === "봉인" ? "#fff" : "#222",
+                    padding: "4px 0px",
+                    borderRadius: 12,
+                    fontWeight: 700,
+                    fontSize: 15,
+                    width: 66,
+                    display: "inline-block",
+                    boxShadow: "0 1px 8px #0001",
+                    border: "1.5px solid var(--surface-elevated)",
+                    textAlign: "center",
+                    letterSpacing: "1px",
+                    transition: "background .1s",
+                  }}
+                >
+                  {stage}
+                </span>
+              </div>
+            ) : null;
+
+          const showArrows = hovered === idx && stages.length > 1;
+
+          return (
+            <div
+              key={idx}
+              data-wiki-card="price-table"
+              style={{
+                background: "var(--surface-elevated)",
+                border: "1px solid var(--border)",
+                borderRadius: 15,
+                padding: 8,
+                boxShadow: "var(--shadow-lg)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                position: "relative",
+                minWidth: 140,
+                maxWidth: 140,
+                minHeight: 160,
+                margin: "0 8px",
+              }}
+              onMouseEnter={() => setHovered(idx)}
+              onMouseLeave={() => setHovered(null)}
+            >
+              {badge}
+
+              {showArrows && (
+                <button
+                  data-wiki-part="price-arrow-left"
+                  style={{
+                    position: "absolute",
+                    left: -12,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "var(--surface-elevated)",
+                    border: "1.2px solid var(--border)",
+                    borderRadius: "50%",
+                    width: 28,
+                    height: 28,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: 800,
+                    fontSize: 16,
+                    color: "var(--foreground)",
+                    boxShadow: "var(--shadow-sm)",
+                    zIndex: 2,
+                    cursor: "pointer",
+                    opacity: 0.9,
+                  }}
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  onClick={() => setCardIdx(idx, -1)}
+                >
+                  ◀
+                </button>
+              )}
+
+              {showArrows && (
+                <button
+                  data-wiki-part="price-arrow-right"
+                  style={{
+                    position: "absolute",
+                    right: -12,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "var(--surface-elevated)",
+                    border: "1.2px solid var(--border)",
+                    borderRadius: "50%",
+                    width: 28,
+                    height: 28,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: 800,
+                    fontSize: 16,
+                    color: "var(--foreground)",
+                    boxShadow: "var(--shadow-sm)",
+                    zIndex: 2,
+                    cursor: "pointer",
+                    opacity: 0.9,
+                  }}
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  onClick={() => setCardIdx(idx, 1)}
+                >
+                  ▶
+                </button>
+              )}
+
+              <div
+                data-wiki-part="price-image-wrap"
+                style={{
+                  marginBottom: 10,
+                  marginTop: 34,
+                  width: 65,
+                  height: 65,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {image}
+              </div>
+
+              <div
+                data-wiki-part="price-title"
+                style={{
+                  fontWeight: 700,
+                  fontSize: nameFont,
+                  lineHeight: 1.12,
+                  marginBottom: 0,
+                  color: item.name ? "var(--foreground)" : "var(--muted-2)",
+                  textAlign: "center",
+                  minHeight: 40,
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 0,
+                  whiteSpace: "normal",
+                }}
+              >
+                {item.name ? nameNode : <span style={{ color: "var(--muted-2)" }}>이름 없음</span>}
+              </div>
+
+              <div
+                data-wiki-part="price-row"
+                style={{
+                  fontWeight: 800,
+                  fontSize: priceSize,
+                  lineHeight: 1.04,
+                  color: "var(--accent)",
+                  textAlign: "center",
+                  letterSpacing: "1px",
+                  marginTop: 3,
+                  borderRadius: 8,
+                  padding: "2px 10px",
+                  minHeight: 28,
+                }}
+              >
+                <ColoredCompressedText value={priceVal} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -3402,8 +3798,8 @@ function WeaponCardRead({
   const disabledButtonBg = isDarkMode ? "var(--surface)" : "#111827";
   const disabledButtonColor = isDarkMode ? "var(--muted-2)" : "#6b7280";
 
-  const content = (
-    <>
+  return (
+    <div key={keyProp} style={{ margin: "14px 0" }}>
       {/* ✅ 카드 + 강수버튼을 "형제"로 두어서 오른쪽에 붙게 함 */}
       <div
         data-wiki-card-wrap="weapon-read"
@@ -3683,16 +4079,7 @@ function WeaponCardRead({
           onClose={() => setShowVideo(false)}
         />
       )}
-    </>
-  );
-
-  return (
-    <WeaponBlock
-      key={keyProp}
-      mode="read"
-      content={content}
-      compact={isMobile}
-    />
+    </div>
   );
 }
 
@@ -3836,19 +4223,51 @@ function renderNode(
   switch (node.type) {
     case "paragraph": {
       const indentLine = node.indentLine;
+
       const plainText = stripReact(children).replace(/\u200B/g, "").trim();
+      const isEmpty = plainText.length === 0;
+
       const isMobileTableText = !!env?.isMobile && !!env?.inTableCell;
 
+      const baseFont = isMobileTableText ? 13 : 19;
+
+      const paragraphFontPx = isMobileTableText
+        ? 13
+        : isEmpty
+        ? baseFont
+        : autoFont(baseFont, plainText, [
+            [40, baseFont],
+            [80, baseFont - 1],
+            [120, baseFont - 2],
+            [170, baseFont - 3],
+            [230, baseFont - 4],
+            [320, baseFont - 5],
+            [450, baseFont - 6],
+          ]);
+
+      const style: React.CSSProperties = {
+        textAlign: node.textAlign || "left",
+        margin: 0,
+        lineHeight: isMobileTableText ? 1.45 : 1.6,
+        minHeight: isEmpty ? (isMobileTableText ? "1.45em" : "1.6em") : undefined,
+        fontSize: `${paragraphFontPx}px`,
+        whiteSpace: "pre-wrap",
+        color: "var(--foreground)",
+      };
+
+      if (indentLine) {
+        style.borderLeft = "2px solid var(--border-strong)";
+        style.paddingLeft = 16;
+      }
+
       return (
-        <ParagraphBlock
-          mode="read"
-          textAlign={node.textAlign || "left"}
-          indentLine={Boolean(indentLine)}
-          plainText={plainText}
-          isMobileTableText={isMobileTableText}
+        <p
+          key={key}
+          data-wiki-text="body"
+          style={style}
         >
           {children}
-        </ParagraphBlock>
+        </p>
       );
     }
 
@@ -3857,6 +4276,44 @@ function renderNode(
     case "heading-three": {
       const el = node;
 
+      // 아이콘 처리 (기존 로직 그대로)
+      let iconHtml: React.ReactNode = null;
+      if (el.icon) {
+        if (typeof el.icon === "string" && el.icon.startsWith("http")) {
+          iconHtml = (
+            <img
+              src={cdn(el.icon)}
+              alt="icon"
+              loading="lazy"
+              decoding="async"
+              fetchPriority="low"
+              style={{
+                width: "1.7em",
+                height: "1.7em",
+                verticalAlign: "middle",
+                marginRight: 6,
+                objectFit: "contain",
+                display: "inline-block",
+              }}
+            />
+          );
+        } else {
+          iconHtml = (
+            <span
+              style={{
+                fontSize: "1.5em",
+                fontWeight: 600,
+                marginRight: 6,
+                display: "inline-block",
+              }}
+            >
+              {el.icon}
+            </span>
+          );
+        }
+      }
+
+      // ⬇ fontSize 마크 제거 + 텍스트 추출 (기존 로직 유지)
       const safeChildren = (el.children ?? []).map((child: any, i: number) =>
         renderNode(stripFontSizeFromDescendants(child), key ? `${key}-${i}` : i)
       );
@@ -3864,23 +4321,42 @@ function renderNode(
       const textContent = stripReact(safeChildren).trim();
       const baseId = toHeadingIdFromText(textContent);
 
+      // ✅ occ 계산
       const occ = ctx?.headingOccRef.current.get(baseId) ?? 0;
       ctx?.headingOccRef.current.set(baseId, occ + 1);
 
+      // ✅ DOM에 붙을 고유 id
       const domId = `${baseId}--${occ}`;
-      const level = node.type === "heading-one" ? 1 : node.type === "heading-two" ? 2 : 3;
+
+      const level =
+        node.type === "heading-one"
+          ? 1
+          : node.type === "heading-two"
+          ? 2
+          : 3;
+      const fontSize =
+        level === 1 ? "28px" : node.type === "heading-two" ? "22px" : "18px";
+      const Tag = `h${level}` as keyof JSX.IntrinsicElements;
 
       return (
-        <HeadingBlock
-          mode="read"
-          level={level}
-          textAlign={node.textAlign || "left"}
-          icon={el.icon}
-          domId={domId}
-          dataHeadingId={baseId}
+        <Tag
+          key={key}
+          id={domId}
+          suppressHydrationWarning
+          data-wiki-text={level === 1 ? "h1" : level === 2 ? "h2" : "h3"}
+          style={{
+            margin: level === 1 ? "18px 0 10px" : "14px 0 8px",
+            fontSize,
+            lineHeight: 1.35,
+            fontWeight: 800,
+            scrollMarginTop: "120px",
+            color: "var(--foreground)",
+          }}
         >
+          {iconHtml}
           {safeChildren}
-        </HeadingBlock>
+          <HeadingAnchorButton anchorId={domId} />
+        </Tag>
       );
     }
 
@@ -3915,12 +4391,157 @@ function renderNode(
     }
 
     case "divider": {
-      return (
-        <DividerBlock
-          mode="read"
-          styleType={node.style || 'default'}
-        />
-      );
+      const borderColor = "var(--border-strong)";
+      switch (node.style) {
+        case "bold":
+          return (
+            <div
+              key={key}
+              style={{ width: "95%", margin: "32px auto", textAlign: "center" }}
+            >
+              <hr
+                style={{
+                  border: 0,
+                  borderTop: `4px solid ${borderColor}`,
+                  width: "100%",
+                  margin: "0 auto",
+                }}
+              />
+            </div>
+          );
+        case "shortbold":
+          return (
+            <div
+              key={key}
+              style={{ width: 82, margin: "34px auto", textAlign: "center" }}
+            >
+              <hr
+                style={{
+                  border: 0,
+                  borderTop: `5px solid ${borderColor}`,
+                  width: "100%",
+                  margin: "0 auto",
+                }}
+              />
+            </div>
+          );
+        case "dotted":
+          return (
+            <div
+              key={key}
+              style={{ width: "95%", margin: "28px auto", textAlign: "center" }}
+            >
+              <hr
+                style={{
+                  border: 0,
+                  borderTop: `2px dotted ${borderColor}`,
+                  width: "100%",
+                  margin: "0 auto",
+                }}
+              />
+            </div>
+          );
+        case "diamond":
+          return (
+            <div
+              key={key}
+              style={{ width: "100%", margin: "34px 0", textAlign: "center" }}
+            >
+              <span
+                style={{
+                  fontSize: 24,
+                  letterSpacing: 12,
+                  color: "var(--muted)",
+                }}
+              >
+                ◇───◇
+              </span>
+            </div>
+          );
+        case "diamonddot":
+          return (
+            <div
+              key={key}
+              style={{ width: "100%", margin: "32px 0", textAlign: "center" }}
+            >
+              <span
+                style={{
+                  fontSize: 22,
+                  letterSpacing: 6,
+                  color: "var(--muted)",
+                }}
+              >
+                ◇ ⋅ ⋅ ⋅ ◇
+              </span>
+            </div>
+          );
+        case "dotdot":
+          return (
+            <div
+              key={key}
+              style={{ width: "100%", margin: "30px 0", textAlign: "center" }}
+            >
+              <span
+                style={{
+                  fontSize: 28,
+                  letterSpacing: 8,
+                  color: borderColor,
+                }}
+              >
+                • • • • • • •
+              </span>
+            </div>
+          );
+        case "slash":
+          return (
+            <div
+              key={key}
+              style={{ width: "100%", margin: "30px 0", textAlign: "center" }}
+            >
+              <span
+                style={{
+                  fontSize: 30,
+                  letterSpacing: 14,
+                  color: borderColor,
+                }}
+              >
+                /  /  /
+              </span>
+            </div>
+          );
+        case "bar":
+          return (
+            <div
+              key={key}
+              style={{ width: "100%", margin: "28px 0", textAlign: "center" }}
+            >
+              <span
+                style={{
+                  fontSize: 22,
+                  color: borderColor,
+                }}
+              >
+                |
+              </span>
+            </div>
+          );
+        default:
+          return (
+            <div
+              key={key}
+              style={{ width: "95%", margin: "24px auto", textAlign: "center" }}
+            >
+              <hr
+                style={{
+                  border: 0,
+                  borderTop: `1.5px solid ${borderColor}`,
+                  width: "100%",
+                  margin: "0 auto",
+                }}
+              />
+            </div>
+          );
+      }
     }
 
     case "link-block": {
@@ -3973,75 +4594,131 @@ function renderNode(
         node.variant ??
         node.tone ??
         node.infoType ??
-        "note";
+        "info";
 
-      const sourceChildren = env?.isMobile
-        ? (node.children ?? []).map(normalizeInfoBoxNodeForMobile)
-        : (node.children ?? []);
+      const type = String(raw).toLowerCase();
+      const { container, icon, role, showIcon } = getInfoboxPreset(type);
+
+      const sourceChildren =
+        env?.isMobile
+          ? (node.children ?? []).map(normalizeInfoBoxNodeForMobile)
+          : (node.children ?? []);
 
       const infoChildren = sourceChildren.map((child: any, i: number) =>
         renderNode(child, key ? `${key}-info-${i}` : i, ctx, handlers, env)
       );
 
       return (
-        <InfoBoxBlock
-          mode="read"
-          tone={raw}
-          noIcon={Boolean(node.noIcon)}
+        <div
+          key={key}
+          role={role}
+          data-wiki-block="info-box"
+          style={{ ...container, margin: "8px 0" }}
         >
-          {infoChildren}
-        </InfoBoxBlock>
+          {showIcon && icon && (
+            <span
+              aria-hidden="true"
+              data-wiki-part="info-box-icon"
+              style={icon as React.CSSProperties}
+            />
+          )}
+
+          <div
+            data-wiki-part="info-box-body"
+            style={{
+              flex: "1 1 auto",
+              minWidth: 0,
+              lineHeight: 1.55,
+              fontWeight: 560,
+              whiteSpace: env?.isMobile ? "pre-line" : "pre-wrap",
+            }}
+          >
+            {infoChildren}
+          </div>
+        </div>
       );
     }
 
     // 이미지 블록 (SmartImage로 최적화 + CDN/버전)
     case "image": {
-      const v = (node.updatedAt || node.version) as string | number | undefined;
+      const justify = flexJustifyFromAlign(node.textAlign);
+      const v = (node.updatedAt || node.version) as
+        | string
+        | number
+        | undefined;
       const src = withVersion(cdn(node.url), v);
+
       const w = node.width ? Number(node.width) : undefined;
       const h = node.height ? Number(node.height) : undefined;
 
       return (
-        <MediaBlock
-          mode="read"
-          kind="image"
-          src={src}
-          alt={node.alt || ""}
-          textAlign={node.textAlign}
-          width={w}
-          height={h}
-          renderImage={({ src, alt, width, height, style, className }) => (
-            <SmartImage
-              src={src}
-              alt={alt || ""}
-              width={width ?? 960}
-              height={height ?? 540}
-              className={className}
-              loading="lazy"
-              decoding="async"
-              style={style}
-            />
-          )}
-        />
+        <div key={key} style={{ margin: "16px 0" }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "row",
+              justifyContent: justify,
+              alignItems: "flex-start",
+              minHeight: 40,
+            }}
+          >
+            <div style={{ position: "relative", display: "inline-block" }}>
+              <SmartImage
+                src={src}
+                alt=""
+                width={w}
+                height={h}
+                sizes="(max-width: 768px) 90vw, 60vw"
+                rounded={10}
+                style={{ boxShadow: "0 2px 12px 0 #0001", background: "var(--surface-elevated)" }}
+              />
+            </div>
+          </div>
+        </div>
       );
     }
 
     // 영상 블록: 이미지와 동일한 정렬(textAlign) + CDN/버전 적용
     case "video": {
-      const v = (node.updatedAt || node.version) as string | number | undefined;
+      const justify = flexJustifyFromAlign(node.textAlign);
+      const v = (node.updatedAt || node.version) as
+        | string
+        | number
+        | undefined;
       const src = withVersion(cdn(node.url), v);
+
       const w = node.width ? Number(node.width) : undefined;
       const h = node.height ? Number(node.height) : undefined;
 
       return (
-        <MediaBlock
-          mode="read"
-          kind="video"
-          src={src}
-          textAlign={node.textAlign}
-          width={w}
-          height={h}
-        />
+        <div key={key} style={{ margin: "16px 0" }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "row",
+              justifyContent: justify,
+              alignItems: "flex-start",
+              minHeight: 40,
+            }}
+          >
+            <div style={{ position: "relative", display: "inline-block" }}>
+              <video
+                src={src}
+                controls
+                playsInline
+                preload="metadata"
+                style={{
+                  maxWidth: w ? `${w}px` : "90%",
+                  height: h ? `${h}px` : "auto",
+                  borderRadius: 10,
+                  boxShadow: "0 2px 12px 0 #0001",
+                  background: "#000",
+                  display: "block",
+                }}
+              />
+            </div>
+          </div>
+        </div>
       );
     }
 
@@ -4111,41 +4788,35 @@ function renderNode(
     case "table": {
       const align = node.align || "left";
       const justify = flexJustifyFromAlign(align);
+
       const widthPx =
         typeof node.maxWidth === "number" ? node.maxWidth : undefined;
-
       const tableWidth = widthPx
         ? `${widthPx}px`
         : node.fullWidth
-          ? "100%"
-          : "auto";
-
-      const tableNode = (
-        <table
-          style={{
-            width: tableWidth,
-            borderCollapse: "collapse",
-            tableLayout: node.fullWidth ? "fixed" : "auto",
-          }}
-        >
-          <tbody>{children}</tbody>
-        </table>
-      );
+        ? "100%"
+        : "auto";
 
       return (
         <div
+          key={key}
           style={{
+            margin: "12px 0",
             display: "flex",
             justifyContent: justify,
-            width: "100%",
           }}
         >
-          <TableBlock
-            mode="read"
-            table={tableNode}
-            scrollable
-            compact={Boolean(env?.inTableCell)}
-          />
+          <table
+            className="wiki-table"
+            style={{
+              borderCollapse: "collapse",
+              tableLayout: "fixed",
+              width: tableWidth,
+              maxWidth: "100%",
+            }}
+          >
+            <tbody>{children}</tbody>
+          </table>
         </div>
       );
     }
