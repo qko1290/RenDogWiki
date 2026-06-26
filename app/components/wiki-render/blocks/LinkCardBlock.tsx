@@ -129,8 +129,6 @@ export default function LinkCardBlock({
     >
       <div
         className="wiki-link-card-inner"
-        contentEditable={mode === 'edit' ? false : undefined}
-        suppressContentEditableWarning
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={cardStyle}
@@ -189,6 +187,7 @@ export default function LinkCardBlock({
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
+              fontWeight: mode === 'edit' ? 700 : undefined,
             }}
           >
             {title || children || '링크'}
@@ -197,6 +196,8 @@ export default function LinkCardBlock({
           {subtitle ? (
             <span
               className="wiki-link-card-subtitle"
+              contentEditable={false}
+              suppressContentEditableWarning
               style={{
                 fontSize: 12,
                 fontWeight: 600,
@@ -214,6 +215,8 @@ export default function LinkCardBlock({
           {metaText ? (
             <span
               className="wiki-link-card-meta"
+              contentEditable={false}
+              suppressContentEditableWarning
               style={{
                 fontSize: 11,
                 fontWeight: 600,
@@ -233,6 +236,8 @@ export default function LinkCardBlock({
         <span
           className="wiki-link-card-arrow"
           aria-hidden
+          contentEditable={false}
+          suppressContentEditableWarning
           style={{
             flex: '0 0 auto',
             color: 'var(--muted)',
@@ -243,8 +248,6 @@ export default function LinkCardBlock({
           →
         </span>
       </div>
-
-      {mode === 'edit' ? children : null}
     </div>
   );
 

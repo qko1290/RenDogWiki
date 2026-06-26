@@ -13,7 +13,8 @@ import { Node, Transforms, Path, Element as SlateElement } from 'slate';
 import { getHeadingId } from './helpers/getHeadingId';
 import ImageSizeModal from './ImageSizeModal';
 import ImageSelectModal from '@/components/image/ImageSelectModal';
-import { toProxyUrl } from '@lib/cdn';
+import { cdn, toProxyUrl, withVersion } from '@lib/cdn';
+import SmartImage from '@/components/common/SmartImage';
 import { extractHeadings } from '@/wiki/lib/extractHeadings';
 
 import type {
@@ -389,34 +390,28 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
 
   const icon = isWikiLink ? (
     wikiIcon ? (
-      wikiIcon.startsWith('http') ? (
-        <img
-          src={wikiIcon}
+      wikiIcon.startsWith('http') || wikiIcon.startsWith('/') ? (
+        <SmartImage
+          src={withVersion(cdn(wikiIcon))}
           alt=""
-          width={38}
-          height={38}
+          width={22}
+          height={22}
           style={{
-            width: 38,
-            height: 38,
-            borderRadius: 10,
-            objectFit: 'cover',
+            width: 22,
+            height: 22,
+            objectFit: 'contain',
+            display: 'block',
           }}
-          contentEditable={false}
         />
       ) : (
         <span
           style={{
-            width: 38,
-            height: 38,
-            borderRadius: 10,
+            fontSize: 20,
+            lineHeight: 1,
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: '#eef6ff',
-            color: '#2563eb',
-            fontSize: 20,
           }}
-          contentEditable={false}
         >
           {wikiIcon}
         </span>
@@ -424,40 +419,38 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
     ) : (
       <span
         style={{
-          width: 38,
-          height: 38,
-          borderRadius: 10,
+          fontSize: 18,
+          lineHeight: 1,
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: '#eef6ff',
-          color: '#2563eb',
-          fontSize: 20,
         }}
-        contentEditable={false}
+        aria-hidden
       >
-        📘
+        📄
       </span>
     )
   ) : externalFavicon ? (
     <img
       src={externalFavicon}
       alt=""
-      width={38}
-      height={38}
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
       onError={(e) => {
         (e.currentTarget as HTMLImageElement).style.display = 'none';
       }}
       style={{
-        width: 38,
-        height: 38,
-        borderRadius: 10,
-        objectFit: 'cover',
+        width: 20,
+        height: 20,
+        borderRadius: 4,
+        objectFit: 'contain',
+        display: 'block',
       }}
       contentEditable={false}
     />
   ) : (
-    <ExternalLinkIcon size={22} />
+    <ExternalLinkIcon size={18} />
   );
 
   const deleteButton = !isReadOnly ? (
