@@ -4145,8 +4145,13 @@ function renderNode(
     case "table": {
       const align = node.align || "left";
       const justify = flexJustifyFromAlign(align);
+
       const widthPx =
-        typeof node.maxWidth === "number" ? node.maxWidth : undefined;
+        typeof node.maxWidth === "number"
+          ? node.maxWidth
+          : typeof node.maxWidth === "string" && Number.isFinite(Number(node.maxWidth))
+            ? Number(node.maxWidth)
+            : undefined;
 
       const tableWidth = widthPx
         ? `${widthPx}px`
@@ -4157,9 +4162,10 @@ function renderNode(
       const tableNode = (
         <table
           style={{
-            width: tableWidth,
             borderCollapse: "collapse",
-            tableLayout: node.fullWidth ? "fixed" : "auto",
+            tableLayout: "fixed",
+            width: tableWidth,
+            maxWidth: "100%",
           }}
         >
           <tbody>{children}</tbody>
@@ -4167,20 +4173,17 @@ function renderNode(
       );
 
       return (
-        <div
-          style={{
+        <TableBlock
+          mode="read"
+          containerStyle={{
             display: "flex",
             justifyContent: justify,
             width: "100%",
+            margin: "16px 0",
           }}
-        >
-          <TableBlock
-            mode="read"
-            table={tableNode}
-            scrollable
-            compact={Boolean(env?.inTableCell)}
-          />
-        </div>
+          table={tableNode}
+          scrollable={false}
+        />
       );
     }
 

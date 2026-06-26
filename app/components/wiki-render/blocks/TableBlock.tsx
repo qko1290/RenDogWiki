@@ -20,11 +20,6 @@ type TableBlockProps = {
   editControls?: React.ReactNode;
   readControls?: React.ReactNode;
 
-  /**
-   * 이전 공통화 과정에서 추가된 옵션.
-   * 원본 디자인 복구 목적에서는 새 wrapper/scroll 영역을 만들지 않기 때문에
-   * props 호환용으로만 남겨둔다.
-   */
   scrollable?: boolean;
   compact?: boolean;
   tableInnerStyle?: React.CSSProperties;
@@ -57,11 +52,6 @@ export default function TableBlock({
         .filter(Boolean)
         .join(' ')}
       style={{
-        /**
-         * 핵심:
-         * WikiReadRenderer / TableElementRenderer에서 계산한 원본 wrapper style을
-         * TableBlock이 덮어쓰면 표의 크기, 정렬, 간격이 틀어진다.
-         */
         ...(containerStyle || {}),
         ...(attributes?.style || {}),
       }}
