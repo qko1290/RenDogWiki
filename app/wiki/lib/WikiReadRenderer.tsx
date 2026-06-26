@@ -4280,10 +4280,11 @@ function renderNode(
       const content = (
         <div
           style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 26,
-            alignItems: "flex-start",
+            display: "grid",
+            gridTemplateColumns: "repeat(5, 136px)",
+            columnGap: 32,
+            rowGap: 28,
+            alignItems: "start",
             justifyContent: "center",
             margin: "28px 0 46px",
             width: "100%",
@@ -4310,38 +4311,38 @@ function renderNode(
               <div
                 key={item.id ?? item.name_key ?? item.name ?? idx}
                 style={{
-                  width: 150,
-                  minHeight: 214,
-                  borderRadius: 16,
+                  width: 136,
+                  height: 192,
+                  borderRadius: 14,
                   background: "var(--surface-elevated)",
                   boxShadow: "var(--shadow-lg)",
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "flex-start",
-                  padding: "26px 12px 18px",
+                  padding: "22px 10px 16px",
                   boxSizing: "border-box",
                 }}
               >
                 <div
                   style={{
-                    width: 84,
-                    height: 84,
+                    width: 72,
+                    height: 72,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    marginBottom: 16,
+                    marginBottom: 14,
                   }}
                 >
                   {imgSrc ? (
                     <SmartImage
                       src={imgSrc}
                       alt=""
-                      width={84}
-                      height={84}
+                      width={72}
+                      height={72}
                       style={{
-                        width: 84,
-                        height: 84,
+                        width: 72,
+                        height: 72,
                         objectFit: "contain",
                         imageRendering: "pixelated",
                         display: "block",
@@ -4364,7 +4365,7 @@ function renderNode(
                   style={{
                     width: "100%",
                     textAlign: "center",
-                    fontSize: 17,
+                    fontSize: 16,
                     fontWeight: 800,
                     lineHeight: 1.35,
                     color: "var(--foreground)",
