@@ -1,171 +1,258 @@
 import React from 'react';
 import type { WikiRenderMode } from '../types';
 
-export type InfoBoxTone =
-  | 'note'
-  | 'warn'
-  | 'danger'
-  | 'tip'
-  | 'white'
-  | 'yellow'
-  | 'lime'
-  | 'pink'
-  | 'red';
-
 type InfoBoxBlockProps = {
   mode: WikiRenderMode;
   tone?: string | null;
   noIcon?: boolean;
   attributes?: React.HTMLAttributes<HTMLDivElement>;
   children?: React.ReactNode;
-
-  /**
-   * 편집/읽기 모드에서만 필요한 버튼이나 보조 UI를 넣기 위한 자리.
-   * 예: 삭제 버튼, 복사 버튼, 편집 버튼, 링크 이동 버튼 등.
-   */
   editControls?: React.ReactNode;
   readControls?: React.ReactNode;
 };
 
-export function resolveInfoBoxTone(rawTone?: string | null): InfoBoxTone {
-  const raw = String(rawTone ?? '').toLowerCase().trim();
+function normalizeInfoBoxType(raw: string | null | undefined) {
+  const v = String(raw || 'info').toLowerCase().trim();
 
-  if (raw === 'danger' || raw === 'error') return 'danger';
-  if (raw === 'warn' || raw === 'warning') return 'warn';
-  if (raw === 'tip' || raw === 'success') return 'tip';
+  if (v === 'note') return 'info';
+  if (v === 'warn') return 'warning';
+  if (v === 'error') return 'danger';
+  if (v === 'success') return 'tip';
+
+  if (v === 'white' || v === '하양' || v === '흰색') return 'white';
+  if (v === 'yellow' || v === '노랑' || v === '노란') return 'yellow';
 
   if (
-    raw === 'white' ||
-    raw === 'yellow' ||
-    raw === 'lime' ||
-    raw === 'pink' ||
-    raw === 'red'
+    v === 'lime' ||
+    v === 'green' ||
+    v === 'lightgreen' ||
+    v === 'mint' ||
+    v === '연두'
   ) {
-    return raw;
+    return 'lime';
   }
 
-  return 'note';
+  if (v === 'pink' || v === 'lightpink' || v === 'rose' || v === '연분홍') {
+    return 'pink';
+  }
+
+  if (v === 'red' || v === 'crimson' || v === '빨강' || v === '빨간') {
+    return 'red';
+  }
+
+  return v || 'info';
 }
 
-function isColorTone(tone: InfoBoxTone) {
-  return (
-    tone === 'white' ||
-    tone === 'yellow' ||
-    tone === 'lime' ||
-    tone === 'pink' ||
-    tone === 'red'
-  );
-}
+function getInfoboxPreset(
+  rawTone?: string | null,
+  forceNoIcon?: boolean
+): {
+  container: React.CSSProperties;
+  icon: (React.CSSProperties & Record<string, any>) | null;
+  role: 'note' | 'alert';
+  showIcon: boolean;
+  type: string;
+} {
+  const baseContainer: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 12,
+    padding: '12px 14px',
+    borderRadius: 12,
+    color: 'var(--foreground)',
+    boxShadow: 'var(--shadow-sm)',
+  };
 
-function getIcon(tone: InfoBoxTone) {
-  if (tone === 'warn') return '⚠️';
-  if (tone === 'danger') return '⛔';
-  if (tone === 'tip') return '💡';
-  return 'ℹ️';
-}
+  const map: Record<
+    string,
+    {
+      bg: string;
+      bd: string;
+      accent: string;
+      mask?: string;
+      role: 'note' | 'alert';
+      noIcon?: boolean;
+    }
+  > = {
+    info: {
+      bg: 'rgba(59,130,246,0.12)',
+      bd: 'rgba(96,165,250,0.28)',
+      accent: '#3b82f6',
+      mask:
+        'https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-info.svg?v=2&token=a463935e93',
+      role: 'note',
+    },
+    warning: {
+      bg: 'rgba(245,158,11,0.12)',
+      bd: 'rgba(251,191,36,0.30)',
+      accent: '#f59e0b',
+      mask:
+        'https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-exclamation.svg?v=2&token=a463935e93',
+      role: 'note',
+    },
+    danger: {
+      bg: 'rgba(239,68,68,0.12)',
+      bd: 'rgba(248,113,113,0.28)',
+      accent: '#ef4444',
+      mask:
+        'https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/triangle-exclamation.svg?v=2&token=a463935e93',
+      role: 'alert',
+    },
+    tip: {
+      bg: 'rgba(16,185,129,0.12)',
+      bd: 'rgba(52,211,153,0.28)',
+      accent: '#10b981',
+      mask:
+        'https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-exclamation.svg?v=2&token=a463935e93',
+      role: 'note',
+    },
 
-function getInlineStyle(tone: InfoBoxTone): React.CSSProperties | undefined {
-  if (tone === 'white') {
-    return {
-      background: '#ffffff',
-      border: '1px solid #d6d6d6',
-    };
-  }
+    white: {
+      bg: 'var(--surface-elevated)',
+      bd: 'var(--border)',
+      accent: 'var(--muted-2)',
+      role: 'note',
+      noIcon: true,
+    },
+    yellow: {
+      bg: 'rgba(250,204,21,0.14)',
+      bd: 'rgba(250,204,21,0.32)',
+      accent: '#ca8a04',
+      role: 'note',
+      noIcon: true,
+    },
+    green: {
+      bg: 'rgba(34,197,94,0.14)',
+      bd: 'rgba(74,222,128,0.28)',
+      accent: '#16a34a',
+      role: 'note',
+      noIcon: true,
+    },
+    lime: {
+      bg: 'rgba(34,197,94,0.14)',
+      bd: 'rgba(74,222,128,0.28)',
+      accent: '#16a34a',
+      role: 'note',
+      noIcon: true,
+    },
+    pink: {
+      bg: 'rgba(236,72,153,0.12)',
+      bd: 'rgba(244,114,182,0.28)',
+      accent: '#db2777',
+      role: 'note',
+      noIcon: true,
+    },
+    red: {
+      bg: 'rgba(239,68,68,0.12)',
+      bd: 'rgba(248,113,113,0.28)',
+      accent: '#dc2626',
+      role: 'alert',
+      noIcon: true,
+    },
+  };
 
-  if (tone === 'yellow') {
-    return {
-      background: '#fff6cc',
-      border: '1px solid #f0d36a',
-    };
-  }
+  const type = normalizeInfoBoxType(rawTone);
+  const sel = map[type] ?? map.info;
+  const noIcon = forceNoIcon || sel.noIcon;
 
-  if (tone === 'lime') {
-    return {
-      background: '#e9ffd0',
-      border: '1px solid #a7d86a',
-    };
-  }
+  const container: React.CSSProperties = {
+    ...baseContainer,
+    background: sel.bg,
+    border: `1px solid ${sel.bd}`,
+    ...(noIcon ? { gap: 0 } : null),
+  };
 
-  if (tone === 'pink') {
-    return {
-      background: '#ffe1ea',
-      border: '1px solid #f2a7c2',
-    };
-  }
+  const showIcon = !noIcon && !!sel.mask;
 
-  if (tone === 'red') {
-    return {
-      background: '#ffd7d7',
-      border: '1px solid #ff9a9a',
-    };
-  }
+  const icon: (React.CSSProperties & Record<string, any>) | null = showIcon
+    ? {
+        flex: '0 0 auto',
+        width: 18,
+        height: 18,
+        marginTop: 2,
+        backgroundColor: sel.accent,
+        WebkitMaskImage: `url(${sel.mask})`,
+        maskImage: `url(${sel.mask})`,
+        WebkitMaskRepeat: 'no-repeat',
+        maskRepeat: 'no-repeat',
+        WebkitMaskPosition: 'center',
+        maskPosition: 'center',
+        WebkitMaskSize: 'contain',
+        maskSize: 'contain',
+      }
+    : null;
 
-  return undefined;
-}
-
-function getRole(tone: InfoBoxTone): React.AriaRole | undefined {
-  if (tone === 'warn' || tone === 'danger') return 'note';
-  return undefined;
+  return {
+    container,
+    icon,
+    role: sel.role,
+    showIcon,
+    type,
+  };
 }
 
 export default function InfoBoxBlock({
   mode,
-  tone: rawTone,
+  tone,
   noIcon,
   attributes,
   children,
   editControls,
   readControls,
 }: InfoBoxBlockProps) {
-  const tone = resolveInfoBoxTone(rawTone);
-  const colorTone = isColorTone(tone);
-  const showIcon = !noIcon && !colorTone;
-  const controls = mode === 'edit' ? editControls : readControls;
+  const { container, icon, role, showIcon, type } = getInfoboxPreset(
+    tone,
+    noIcon
+  );
 
-  const className = [
-    'info-box',
-    `info-${tone}`,
-    `wiki-info-box`,
-    `wiki-info-box-${tone}`,
-    attributes?.className || '',
-  ]
-    .filter(Boolean)
-    .join(' ');
+  const controls = mode === 'edit' ? editControls : readControls;
 
   return (
     <div
       {...attributes}
-      className={className}
-      role={getRole(tone)}
+      role={role}
+      className={[
+        'info-box',
+        `info-${type}`,
+        attributes?.className || '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       style={{
-        position: 'relative',
-        ...(getInlineStyle(tone) || {}),
+        ...container,
         ...(attributes?.style || {}),
       }}
     >
-      {showIcon ? (
+      {showIcon && icon ? (
         <span
-          className="info-box-icon wiki-info-box-icon"
-          contentEditable={mode === 'edit' ? false : undefined}
+          aria-hidden
+          contentEditable={false}
           suppressContentEditableWarning
-          style={{
-            marginRight: 8,
-            userSelect: 'none',
-          }}
-        >
-          {getIcon(tone)}
-        </span>
+          style={icon}
+        />
       ) : null}
 
-      <div className="info-box-content wiki-info-box-content">
+      <div
+        style={{
+          flex: '1 1 auto',
+          minWidth: 0,
+          lineHeight: 1.65,
+          fontSize: 15,
+          wordBreak: 'keep-all',
+          overflowWrap: 'break-word',
+        }}
+      >
         {children}
       </div>
 
       {controls ? (
         <div
-          className="wiki-info-box-controls"
-          contentEditable={mode === 'edit' ? false : undefined}
+          contentEditable={false}
           suppressContentEditableWarning
+          style={{
+            flex: '0 0 auto',
+            marginLeft: 8,
+          }}
         >
           {controls}
         </div>
