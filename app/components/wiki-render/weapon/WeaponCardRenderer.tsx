@@ -95,6 +95,7 @@ function WeaponLevelSelector({
   const DOT = compact ? 26 : 30;
   const DOT_FONT = compact ? 12 : 13;
   const TOP_FONT = compact ? 13 : 14;
+
   const DOT_SHADOW =
     '0 10px 24px rgba(15,23,42,0.22), 0 2px 6px rgba(15,23,42,0.12)';
   const DOT_SHADOW_ACTIVE =
@@ -121,10 +122,13 @@ function WeaponLevelSelector({
         style={{
           border: 'none',
           outline: 'none',
-          background: 'transparent',
+          cursor: 'pointer',
           padding: 0,
           margin: 0,
-          cursor: 'pointer',
+          background: 'transparent',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
         title={fullLabel}
       >
@@ -155,7 +159,6 @@ function WeaponLevelSelector({
 
   return (
     <div
-      data-wiki-part="weapon-level-selector"
       style={{
         position: 'relative',
         marginLeft: overlay ? 0 : 10,
