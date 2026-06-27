@@ -50,6 +50,9 @@ import PriceTableBlock from '@/components/wiki-render/blocks/PriceTableBlock';
 
 import WeaponBlock from '@/components/wiki-render/blocks/WeaponBlock';
 
+import PriceTableRenderer from '@/components/wiki-render/price-table/PriceTableRenderer';
+import type { PriceTableRawItem } from '@/components/wiki-render/price-table/types';
+
 type Props = {
   content: Descendant[];
   readOnly?: boolean;
@@ -4122,6 +4125,70 @@ function normalizeInfoBoxNodeForMobile(node: any): any {
   return node;
 }
 
+function ReadPriceTableBlock({ node }: { node: any }) {
+  const items = React.useMemo<PriceTableRawItem[]>(() => {
+    return Array.isArray(node.items) ? node.items : [];
+  }, [node.items]);
+
+  const signature = React.useMemo(() => {
+    return items
+      .map((item, index) => {
+        return [
+          index,
+          item.id ?? '',
+          item.name_key ?? item.nameKey ?? '',
+          item.name ?? '',
+          item.mode ?? '',
+          Array.isArray(item.prices) ? item.prices.join(',') : '',
+        ].join(':');
+      })
+      .join('|');
+  }, [items]);
+
+  const [hoveredIndex, setHoveredIndex] = React.useState<number | null>(null);
+  const [stageIndexes, setStageIndexes] = React.useState<number[]>(() =>
+    items.map(() => 0),
+  );
+
+  React.useEffect(() => {
+    setHoveredIndex(null);
+    setStageIndexes(items.map(() => 0));
+  }, [signature, items]);
+
+  const moveStage = React.useCallback(
+    (index: number, delta: number, stageLength: number) => {
+      if (!Number.isFinite(index)) return;
+      if (!Number.isFinite(stageLength) || stageLength <= 0) return;
+
+      setStageIndexes((prev) => {
+        const next = items.map((_, i) => prev[i] ?? 0);
+        const current = next[index] ?? 0;
+        next[index] = (current + delta + stageLength) % stageLength;
+        return next;
+      });
+    },
+    [items],
+  );
+
+  if (items.length === 0) return null;
+
+  return (
+    <PriceTableRenderer
+      mode="read"
+      items={items}
+      stageIndexes={stageIndexes}
+      hoveredIndex={hoveredIndex}
+      onHoverIndexChange={setHoveredIndex}
+      onPrevStage={(index, stageLength) => {
+        moveStage(index, -1, stageLength);
+      }}
+      onNextStage={(index, stageLength) => {
+        moveStage(index, 1, stageLength);
+      }}
+    />
+  );
+}
+
 function renderNode(
   node: any,
   key?: React.Key,
@@ -4492,8 +4559,11 @@ function renderNode(
     }
 
     case "price-table-card": {
-      if (!Array.isArray(node.items)) return <div key={key}></div>;
-      return <PriceTableCardBlock node={node} keyProp={key ?? ""} />;
+      if (!Array.isArray(node.items) || node.items.length === 0) {
+        return null;
+      }
+
+      return <ReadPriceTableBlock key={key} node={node} />;
     }
 
     // 무기 카드 블록 (문서 보기용)
