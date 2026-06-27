@@ -51,6 +51,7 @@ import WeaponBlock from '@/components/wiki-render/blocks/WeaponBlock';
 
 import PriceTableRenderer from '@/components/wiki-render/price-table/PriceTableRenderer';
 import type { PriceTableRawItem } from '@/components/wiki-render/price-table/types';
+import WeaponCardRenderer from '@/components/wiki-render/weapon/WeaponCardRenderer';
 
 type Props = {
   content: Descendant[];
@@ -3008,278 +3009,41 @@ function WeaponCardRead({
 
   const content = (
     <>
-      {/* ✅ 카드 + 강수버튼을 "형제"로 두어서 오른쪽에 붙게 함 */}
-      <div
-        data-wiki-card-wrap="weapon-read"
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "flex-start",
-          gap: isMobile ? 0 : 10,
-          flexWrap: "nowrap",
-          position: isMobile ? "relative" : undefined,
-          width: isMobile ? `${cardWidth}px` : undefined,
-          margin: isMobile ? "0 auto" : undefined,
+      <WeaponCardRenderer
+        mode="read"
+        weapon={{
+          ...node,
+          weaponType,
+          name,
+          imageUrl: rawImage,
+          videoUrl: rawVideo,
         }}
-      >
-        {/* 카드 본체 – Element 와 거의 동일한 스타일 */}
-        <div
-          style={
-            isSpirit
-              ? spiritFrameStyle
-              : isTranscend
-              ? transcendFrameStyle
-              : undefined
-          }
-        >
-          <div
-            data-wiki-card="weapon-read"
-            style={{
-              width: cardWidth,
-              borderRadius: 18,
-              overflow: "hidden",
-              background: cardBg,
-              boxShadow: cardShadow,
-              fontFamily: "inherit",
-              paddingTop: 8,
-              ...(isSpirit
-                ? spiritInnerGlowStyle
-                : isTranscend
-                ? transcendInnerGlowStyle
-                : null),
-            }}
-          >
-            {isSpirit && <div style={spiritOverlayStyle} aria-hidden="true" />}
-
-            <div style={{ position: "relative", zIndex: 1 }}>
-            {/* 상단 타입 바 */}
-            <div
-              data-wiki-part="weapon-type-bar"
-              style={{
-                width: "100%",
-                background: isSpirit
-                  ? "linear-gradient(90deg, #020617 0%, #06383a 35%, #0f766e 55%, #020617 100%)"
-                  : meta.headerBg,
-                color: isSpirit ? "#d9fffb" : "#f9fafb",
-                textShadow: isSpirit
-                  ? "0 0 10px rgba(45, 212, 191, .65)"
-                  : undefined,
-                boxShadow: isSpirit
-                  ? "0 16px 28px rgba(1, 8, 9, .18)"
-                  : undefined,
-                padding: isMobile ? "5px 12px" : "10px 12px",
-                fontSize: 16,
-                fontWeight: 700,
-                letterSpacing: 1.5,
-                textAlign: "center",
-                position: "relative",
-              }}
-            >
-              {meta.label}
-
-              {levelLabels.length > 1 && isMobile && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "50%",
-                    right: 8,
-                    transform: "translateY(-50%)",
-                    zIndex: 8,
-                  }}
-                >
-                  <WeaponLevelSelector
-                    levelLabels={levelLabels}
-                    selectedIndex={selectedLevelIndex}
-                    onChange={(idx) => setSelectedLevelIndex(idx)}
-                    compact
-                    overlay
-                    spiritLayout={isSpirit}
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* 무기 이름 */}
-            <div
-              data-wiki-part="weapon-name"
-              style={{
-                padding: "10px 14px",
-                background: titleBg,
-                color: titleColor,
-                fontSize: 18,
-                fontWeight: 700,
-                textAlign: "center",
-                borderBottom: titleBorder,
-                textShadow: isSpirit
-                  ? "0 0 12px rgba(20, 184, 166, .35)"
-                  : undefined,
-              }}
-            >
-              {name}
-            </div>
-
-            {/* 이미지 영역 */}
-            <div
-              data-wiki-part="weapon-media"
-              style={{
-                background: mediaBg,
-                height: 140,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              {imageSrc ? (
-                <SmartImage
-                  src={imageSrc}
-                  alt={name}
-                  width={160}
-                  height={96}
-                  sizes="(max-width: 768px) 220px, 260px"
-                  rounded={10}
-                  style={{
-                    maxWidth: "80%",
-                    maxHeight: "80%",
-                    objectFit: "contain",
-                    background: "transparent",
-                    imageRendering: "pixelated",
-                    display: "block",
-                  }}
-                />
-              ) : (
-                <span
-                  style={{
-                    color: emptyTextColor,
-                    fontSize: 14,
-                  }}
-                >
-                  이미지 없음
-                </span>
-              )}
-            </div>
-
-            {/* 스탯 리스트 */}
-            <div
-              style={{
-                padding: "8px 10px 8px",
-                display: "flex",
-                flexDirection: "column",
-                gap: 6,
-              }}
-            >
-              {enabledStats.length === 0 && (
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: emptyTextColor,
-                    padding: "6px 8px",
-                    borderRadius: 10,
-                    background: statEmptyBg,
-                  }}
-                >
-                  표시할 정보가 없습니다.
-                </div>
-              )}
-
-              {enabledStats.map((stat) => {
-                const { value, unit } = getStatDisplay(stat);
-                return (
-                  <div
-                    data-wiki-part="weapon-stat-row"
-                    key={stat.key || stat.label}
-                    style={{
-                      borderRadius: 10,
-                      padding: "6px 8px",
-                      border: statRowBorder,
-                      background: statRowBg,
-                      boxShadow: isSpirit
-                        ? "0 0 18px rgba(20, 184, 166, .035) inset"
-                        : undefined,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: 12,
-                        color: statLabelColor,
-                        fontWeight: 500,
-                      }}
-                    >
-                      {stat.label}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: 13,
-                        color: statValueColor,
-                        fontWeight: 600,
-                      }}
-                    >
-                      {value || "-"}
-                      {unit ? ` ${unit}` : ""}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* 하단 공격 영상 버튼 */}
-            {supportsVideo && (
-              <div
-                style={{
-                  padding: "8px 10px 10px",
-                  display: "flex",
-                  justifyContent: "center",
-                }}
-              >
-                <button
-                  data-wiki-part="weapon-video-button"
-                  type="button"
-                  disabled={!videoSrc}
-                  onClick={() => videoSrc && setShowVideo(true)}
-                  style={{
-                    padding: "8px 10px",
-                    borderRadius: 999,
-                    border: "none",
-                    fontSize: 13,
-                    fontWeight: 600,
-                    background: videoSrc
-                      ? isSpirit
-                        ? "linear-gradient(90deg, #064e3b, #0f766e, #155e75)"
-                        : "linear-gradient(90deg,#1d4ed8,#3b82f6)"
-                      : disabledButtonBg,
-                    color: videoSrc ? "#f9fafb" : disabledButtonColor,
-                    cursor: videoSrc ? "pointer" : "default",
-                    minWidth: 160,
-                    textAlign: "center",
-                    boxShadow: videoSrc
-                      ? isSpirit
-                        ? "0 12px 34px rgba(20,184,166,.42), 0 0 18px rgba(45,212,191,.22)"
-                        : "0 12px 30px rgba(37,99,235,0.7)"
-                      : "none",
-                  }}
-                >
-                  스킬 사용 영상
-                </button>
-              </div>
-            )}
-            </div>
-          </div>
-        </div>
-
-        {/* ✅ 오른쪽 강수 선택 버튼 (카드의 형제) */}
-        {levelLabels.length > 1 && !isMobile && (
-          <WeaponLevelSelector
-            levelLabels={levelLabels}
-            selectedIndex={selectedLevelIndex}
-            onChange={(idx) => setSelectedLevelIndex(idx)}
-            spiritLayout={isSpirit}
+        meta={meta}
+        stats={stats}
+        imageSrc={imageSrc}
+        videoSrc={videoSrc}
+        supportsVideo={supportsVideo}
+        isDarkMode={isDarkMode}
+        isMobile={isMobile}
+        selectedLevelIndex={selectedLevelIndex}
+        levelLabels={levelLabels}
+        onLevelChange={(idx) => setSelectedLevelIndex(idx)}
+        onVideoClick={() => {
+          if (videoSrc) setShowVideo(true);
+        }}
+        renderImage={({ src, alt, width, height, style }) => (
+          <SmartImage
+            src={src}
+            alt={alt}
+            width={width}
+            height={height}
+            loading="lazy"
+            decoding="async"
+            style={style}
           />
         )}
-      </div>
+      />
 
-      {/* 영상 모달 */}
       {supportsVideo && videoSrc && (
         <WeaponVideoModal
           open={showVideo}
