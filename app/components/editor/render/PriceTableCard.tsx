@@ -19,6 +19,8 @@ import PriceTableBlock from '@/components/wiki-render/blocks/PriceTableBlock';
 
 import PriceItemSelectModal from '../PriceItemSelectModal';
 
+import PriceTableRenderer from '@/components/wiki-render/price-table/PriceTableRenderer';
+
 // -------------------- 형식/스테이지 정의 --------------------
 
 type PriceFormat =
@@ -804,6 +806,8 @@ export function PriceTableCard(props: PriceTableCardProps) {
   const [stageIdxArr, setStageIdxArr] = useState<number[]>(el.items.map(() => 0));
   const [hovered, setHovered] = useState<number | null>(null);
   const [liveMap, setLiveMap] = useState<Map<string, PickedPriceItem>>(new Map());
+  const [imageEditIndex, setImageEditIndex] = useState<number | null>(null);
+  const [selectEditIndex, setSelectEditIndex] = useState<number | null>(null);
 
   useEffect(() => {
     setStageIdxArr(el.items.map(() => 0));
@@ -900,6 +904,64 @@ export function PriceTableCard(props: PriceTableCardProps) {
     setStageIdxArr((arr) => arr.map((v, i) => (i === idx ? (v + 1) % len : v)));
   };
 
+  const patchItemAt = React.useCallback(
+    (idx: number, patch: Record<string, any>) => {
+      const current = Editor.node(editorStatic, path)[0] as PriceTableCardElement;
+      const currentItems = Array.isArray(current.items) ? current.items : [];
+
+      const nextItems = currentItems.map((item: any, i: number) =>
+        i === idx ? { ...item, ...patch } : item,
+      );
+
+      Transforms.setNodes(
+        editorStatic,
+        { items: nextItems },
+        { at: path },
+      );
+    },
+    [editorStatic, path],
+  );
+
+  const handleImageSelected = React.useCallback(
+    (url: string) => {
+      if (imageEditIndex == null) return;
+
+      patchItemAt(imageEditIndex, { image: url });
+      setImageEditIndex(null);
+    },
+    [imageEditIndex, patchItemAt],
+  );
+
+  const handlePickItem = React.useCallback(
+    (picked: PickedPriceItem) => {
+      if (selectEditIndex == null) return;
+
+      const newStages = stagesByFormat(picked.mode);
+      const raw = Array.isArray(picked.prices)
+        ? picked.prices.map((value) => String(value ?? ''))
+        : [];
+
+      const nextPrices = [...raw];
+      nextPrices.length = newStages.length;
+
+      for (let i = 0; i < newStages.length; i++) {
+        if (typeof nextPrices[i] === 'undefined') nextPrices[i] = '';
+      }
+
+      patchItemAt(selectEditIndex, {
+        id: picked.id,
+        name: picked.name,
+        name_key: picked.name_key,
+        mode: picked.mode,
+        stages: newStages,
+        prices: nextPrices,
+      });
+
+      setSelectEditIndex(null);
+    },
+    [selectEditIndex, patchItemAt],
+  );
+
   const deleteButton = (
     <button
       type="button"
@@ -936,54 +998,61 @@ export function PriceTableCard(props: PriceTableCardProps) {
   );
 
   const content = (
-    <div
-      contentEditable={false}
-      style={{
-        width: '100%',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        minHeight: 0,
-        boxSizing: 'border-box',
-        padding: '10px 0',
-        margin: '10px 0',
-        marginLeft: 10,
-        position: 'relative',
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'row',
-          gap: 25,
-          flexWrap: 'nowrap',
-          width: '100%',
-          justifyContent: 'center',
-          margin: '0 auto',
-          maxWidth: 1040,
+    <>
+      <PriceTableRenderer
+        mode="edit"
+        items={viewItems}
+        stageIndexes={stageIdxArr}
+        hoveredIndex={hovered}
+        onHoverIndexChange={setHovered}
+        onPrevStage={(idx, len) => handlePrev(idx, len)}
+        onNextStage={(idx, len) => handleNext(idx, len)}
+        resolveImageSrc={(src) =>
+          src.startsWith('http') ? toProxyUrl(src) : src
+        }
+        onImageClick={(_, idx, event) => {
+          event.stopPropagation();
+          setImageEditIndex(idx);
         }}
-      >
-        {viewItems.map((item, idx) => {
-          const stages = stagesByFormat(item?.mode);
+        onNameClick={(_, idx, event) => {
+          event.stopPropagation();
 
-          return (
-            <PriceCardItem
-              key={idx}
-              idx={idx}
-              item={item}
-              stageIndex={stageIdxArr[idx] ?? 0}
-              hovered={hovered === idx}
-              onHover={(h) => setHovered(h ? idx : null)}
-              editor={editorStatic}
-              path={path}
-              onPrevStage={(len) => handlePrev(idx, len)}
-              onNextStage={(len) => handleNext(idx, len)}
-              setPriceTableEdit={setPriceTableEdit}
-            />
+          try {
+            Transforms.deselect(editorStatic);
+          } catch {}
+
+          setSelectEditIndex(idx);
+        }}
+        onPriceClick={(item, idx, event) => {
+          event.stopPropagation();
+
+          window.dispatchEvent(
+            new CustomEvent('editor:capture-scroll:price'),
           );
-        })}
-      </div>
-    </div>
+
+          setPriceTableEdit({
+            blockPath: path,
+            idx,
+            item: {
+              ...item,
+              mode: item.mode ?? 'block',
+            },
+          });
+        }}
+      />
+
+      <ImageSelectModal
+        open={imageEditIndex != null}
+        onClose={() => setImageEditIndex(null)}
+        onSelectImage={handleImageSelected}
+      />
+
+      <PriceItemSelectModal
+        open={selectEditIndex != null}
+        onClose={() => setSelectEditIndex(null)}
+        onSelect={handlePickItem}
+      />
+    </>
   );
 
   return (
