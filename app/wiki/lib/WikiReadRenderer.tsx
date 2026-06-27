@@ -706,12 +706,11 @@ function isInternalWikiHref(rawHref: string) {
       typeof window !== "undefined" ? window.location.origin : "https://dummy.local";
     const u = new URL(rawHref, base);
 
-    const sameOrigin =
-      typeof window === "undefined" || u.origin === window.location.origin;
-
-    // 기존 코드는 pathname === '/wiki' 만 봤는데,
-    // 혹시 /wiki/... 같은 형태가 생겨도 안전하게 startsWith로 처리
-    return sameOrigin && u.pathname.startsWith("/wiki");
+    // Vercel preview 환경에서는 저장된 링크가 production host
+    // (ren-dog-wiki.vercel.app) 또는 다른 preview host일 수 있다.
+    // 원본 미리보기 흐름은 내부 위키 링크만 InternalWikiLinkInline을 타야 하므로,
+    // same-origin만 보지 말고 RDWIKI wiki URL 판정 함수를 그대로 사용한다.
+    return isRdwikiWikiUrl(u);
   } catch {
     return false;
   }
@@ -731,10 +730,10 @@ function parseInternalWikiHref(rawHref: string): ParsedWikiHref | null {
     const base =
       typeof window !== "undefined" ? window.location.origin : "https://dummy.local";
     const u = new URL(rawHref, base);
-    const sameOrigin =
-      typeof window === "undefined" || u.origin === window.location.origin;
 
-    if (!sameOrigin || !u.pathname.startsWith("/wiki")) return null;
+    // 미리보기/preview 배포 URL에서도 production wiki 링크를 내부 링크로 처리한다.
+    // 그래야 hover 시 /api/documents 조회와 문서 프리뷰 툴팁이 정상 동작한다.
+    if (!isRdwikiWikiUrl(u)) return null;
 
     const pathParam = (u.searchParams.get("path") ?? "").trim() || null;
     const titleParamRaw = (u.searchParams.get("title") ?? "").trim() || null;
@@ -4029,12 +4028,6 @@ function renderLeaf(
 
   // 색/배경
   if (node.color) style.color = node.color;
-
-  const leafText = String(node.text ?? '');
-
-  if (!node.color && /^[\s→←↑↓↔⇒⇐↦\-–—]+$/.test(leafText)) {
-    style.color = 'var(--muted)';
-  }
 
   const shouldIgnoreBgInDarkTable =
     env?.isDarkMode && env?.inDarkTableCell;
