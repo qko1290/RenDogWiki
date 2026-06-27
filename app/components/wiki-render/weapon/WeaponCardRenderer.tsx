@@ -59,24 +59,11 @@ function WeaponLevelSelector({
 
   if (levelLabels.length <= 1) return null;
 
-  const displayLevelLabels =
-    spiritLayout && levelLabels.length >= 15
-      ? levelLabels.map((label, idx) =>
-          idx === levelLabels.length - 1 ? 'MAX' : label,
-        )
-      : levelLabels;
-
+  const displayLevelLabels = normalizeWeaponLevelLabels(levelLabels, spiritLayout);
   const selectedLabel =
     selectedIndex != null ? displayLevelLabels[selectedIndex] : null;
   const selectedShort = selectedLabel ? shortLevelLabel(selectedLabel) : '-';
-
-  const isMaxLabel = (label: string | null | undefined, short: string) => {
-    if (!label && !short) return false;
-    const up = String(label ?? '').toUpperCase();
-    return up.includes('MAX') || up === 'M' || short === 'M';
-  };
-
-  const selectedIsMax = isMaxLabel(selectedLabel, selectedShort);
+  const selectedIsMax = isMaxLevelLabel(selectedLabel, selectedShort);
 
   const handleSelect = (idx: number) => {
     onChange?.(idx);
@@ -104,7 +91,7 @@ function WeaponLevelSelector({
   const renderLevelButton = (fullLabel: string, idx: number) => {
     const short = shortLevelLabel(fullLabel);
     const active = selectedIndex === idx;
-    const isMax = isMaxLabel(fullLabel, short);
+    const isMax = isMaxLevelLabel(fullLabel, short);
 
     const bg = isMax ? MAX_BG : BASE_BG;
     const textColor = isMax ? MAX_TEXT : BASE_TEXT;
@@ -158,141 +145,151 @@ function WeaponLevelSelector({
   };
 
   return (
-    <div
-      style={{
-        position: 'relative',
-        marginLeft: overlay ? 0 : 10,
-        alignSelf: 'flex-start',
-      }}
-    >
-      <button
-        type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setOpen((v) => !v);
-        }}
+    <>
+      <style jsx global>{`
+        @keyframes rdwikiWeaponLevelSelectorPop {
+          from {
+            opacity: 0;
+            transform: translateY(-4px) scale(0.98);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+      `}</style>
+
+      <div
+        data-wiki-part="weapon-level-selector"
+        contentEditable={false}
+        suppressContentEditableWarning
         style={{
-          border: 'none',
-          outline: 'none',
-          cursor: 'pointer',
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: 0,
-          background: 'transparent',
-          color: BASE_TEXT,
-          fontSize: TOP_FONT,
-          fontWeight: 650,
-          lineHeight: 1,
+          position: overlay ? 'absolute' : 'relative',
+          right: overlay ? -10 : undefined,
+          top: overlay ? 8 : undefined,
+          marginLeft: overlay ? 0 : 10,
+          alignSelf: 'flex-start',
+          zIndex: 10,
         }}
       >
-        <span
-          style={{
-            width: DOT,
-            height: DOT,
-            borderRadius: 999,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: DOT_FONT,
-            fontWeight: 800,
-            background: selectedIsMax ? MAX_BG : BASE_BG,
-            color: selectedIsMax ? MAX_TEXT : BASE_TEXT,
-            border: selectedIsMax ? MAX_BORDER : BASE_BORDER,
-            boxShadow: DOT_SHADOW,
-          }}
-        >
-          {selectedShort}
-        </span>
-
-        <span
-          style={{
-            fontSize: 12,
-            opacity: 0.8,
-            transform: open ? 'translateY(-1px)' : 'translateY(0)',
-            transition: 'transform 0.12s ease',
-            userSelect: 'none',
-          }}
-        >
-          {open ? '▲' : '▼'}
-        </span>
-      </button>
-
-      {open ? (
-        <div
-          style={{
-            position: 'absolute',
-            top: compact ? 34 : 38,
-            right: 0,
-            zIndex: 50,
-            padding: compact ? 8 : 10,
-            borderRadius: 14,
-            border: '1px solid rgba(148,163,184,0.35)',
-            background: 'rgba(2,6,23,0.98)',
-            boxShadow: '0 18px 44px rgba(0,0,0,0.55)',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
-          }}
-          onMouseDown={(e) => {
+        <button
+          type="button"
+          onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
+            setOpen((prev) => !prev);
           }}
+          style={{
+            border: 'none',
+            outline: 'none',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: 0,
+            background: 'transparent',
+            color: BASE_TEXT,
+            fontSize: TOP_FONT,
+            fontWeight: 650,
+            lineHeight: 1,
+          }}
+          title="강화 단계 선택"
         >
-          {spiritLayout ? (
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'row',
-                gap: compact ? 8 : 10,
-                alignItems: 'flex-start',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 10,
-                  alignItems: 'center',
-                }}
-              >
-                {displayLevelLabels
-                  .slice(0, 9)
-                  .map((fullLabel, idx) => renderLevelButton(fullLabel, idx))}
-              </div>
+          <span
+            style={{
+              width: DOT,
+              height: DOT,
+              borderRadius: 999,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: DOT_FONT,
+              fontWeight: 800,
+              background: selectedIsMax ? MAX_BG : BASE_BG,
+              color: selectedIsMax ? MAX_TEXT : BASE_TEXT,
+              border: selectedIsMax ? MAX_BORDER : BASE_BORDER,
+              boxShadow: DOT_SHADOW,
+            }}
+          >
+            {selectedShort}
+          </span>
 
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 10,
-                  alignItems: 'center',
-                }}
-              >
-                {displayLevelLabels
-                  .slice(9)
-                  .map((fullLabel, localIdx) =>
-                    renderLevelButton(fullLabel, localIdx + 9),
-                  )}
-              </div>
-            </div>
-          ) : (
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 10,
-                alignItems: 'center',
-              }}
-            >
-              {displayLevelLabels.map((fullLabel, idx) =>
+          <span
+            style={{
+              color: 'rgba(148,163,184,0.62)',
+              fontSize: 11,
+              lineHeight: 1,
+              opacity: 0.8,
+              transform: open ? 'translateY(-1px)' : 'translateY(0)',
+              transition: 'transform 0.12s ease',
+              userSelect: 'none',
+            }}
+          >
+            {open ? '▲' : '▼'}
+          </span>
+        </button>
+
+        {open ? (
+          <div
+            style={{
+              position: 'absolute',
+              top: compact ? 38 : 42,
+              right: 0,
+              zIndex: 50,
+              display: 'flex',
+              flexDirection: spiritLayout ? 'row' : 'column',
+              gap: compact ? 8 : 10,
+              alignItems: 'flex-start',
+              background: 'transparent',
+              border: 'none',
+              boxShadow: 'none',
+              padding: 0,
+              animation: 'rdwikiWeaponLevelSelectorPop 0.14s ease-out',
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          >
+            {spiritLayout ? (
+              <>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 10,
+                    alignItems: 'center',
+                  }}
+                >
+                  {displayLevelLabels
+                    .slice(0, 9)
+                    .map((fullLabel, idx) => renderLevelButton(fullLabel, idx))}
+                </div>
+
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 10,
+                    alignItems: 'center',
+                  }}
+                >
+                  {displayLevelLabels
+                    .slice(9)
+                    .map((fullLabel, localIdx) =>
+                      renderLevelButton(fullLabel, localIdx + 9),
+                    )}
+                </div>
+              </>
+            ) : (
+              displayLevelLabels.map((fullLabel, idx) =>
                 renderLevelButton(fullLabel, idx),
-              )}
-            </div>
-          )}
-        </div>
-      ) : null}
-    </div>
+              )
+            )}
+          </div>
+        ) : null}
+      </div>
+    </>
   );
 }
 
@@ -396,7 +393,7 @@ export default function WeaponCardRenderer({
   const isTranscend = isTranscendWeapon(weaponType, meta);
   const enabledStats = getEnabledWeaponStats(stats);
 
-  const cardWidth = isMobile ? 238 : 260;
+  const cardWidth = isMobile ? 220 : 260;
 
   const frame = createWeaponFrameStyles({
     meta,
