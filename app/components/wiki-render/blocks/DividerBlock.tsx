@@ -12,133 +12,20 @@ function normalizeDividerStyle(styleType?: string | null) {
   return String(styleType || 'default').trim().toLowerCase();
 }
 
-function getDividerText(styleType: string) {
-  switch (styleType) {
-    case 'diamond':
-      return '◇───◇';
+function HiddenChildren({
+  mode,
+  children,
+}: {
+  mode: WikiRenderMode;
+  children?: React.ReactNode;
+}) {
+  if (mode !== 'edit') return null;
 
-    case 'diamonddot':
-      return '◇ ⋅ ⋅ ⋅ ◇';
-
-    case 'dotdot':
-      return '• • • • • • •';
-
-    case 'slash':
-      return '/ / /';
-
-    case 'bar':
-      return '|';
-
-    case 'bold':
-    case 'shortbold':
-    case 'dotted':
-    case 'default':
-    default:
-      return '* * *';
-  }
-}
-
-function getDividerStyle(styleType: string): React.CSSProperties {
-  const base: React.CSSProperties = {
-    width: '100%',
-    textAlign: 'center',
-    color: 'var(--border-strong)',
-    userSelect: 'none',
-    boxSizing: 'border-box',
-    whiteSpace: 'nowrap',
-  };
-
-  switch (styleType) {
-    case 'bold':
-      return {
-        ...base,
-        margin: '24px 0',
-        fontSize: 24,
-        fontWeight: 900,
-        lineHeight: 1,
-        letterSpacing: '0.22em',
-      };
-
-    case 'shortbold':
-      return {
-        ...base,
-        margin: '18px 0',
-        fontSize: 20,
-        fontWeight: 900,
-        lineHeight: 1,
-        letterSpacing: '0.14em',
-      };
-
-    case 'dotted':
-      return {
-        ...base,
-        margin: '20px 0',
-        fontSize: 20,
-        fontWeight: 700,
-        lineHeight: 1,
-        letterSpacing: '0.34em',
-      };
-
-    case 'diamond':
-      return {
-        ...base,
-        margin: '22px 0',
-        fontSize: 18,
-        fontWeight: 700,
-        lineHeight: 1,
-        letterSpacing: '0.12em',
-      };
-
-    case 'diamonddot':
-      return {
-        ...base,
-        margin: '22px 0',
-        fontSize: 18,
-        fontWeight: 700,
-        lineHeight: 1,
-        letterSpacing: '0.12em',
-      };
-
-    case 'dotdot':
-      return {
-        ...base,
-        margin: '20px 0',
-        fontSize: 18,
-        fontWeight: 700,
-        lineHeight: 1,
-        letterSpacing: '0.1em',
-      };
-
-    case 'slash':
-      return {
-        ...base,
-        margin: '20px 0',
-        fontSize: 20,
-        fontWeight: 700,
-        lineHeight: 1,
-        letterSpacing: '0.25em',
-      };
-
-    case 'bar':
-      return {
-        ...base,
-        margin: '18px 0',
-        fontSize: 22,
-        fontWeight: 700,
-        lineHeight: 1,
-      };
-
-    case 'default':
-    default:
-      return {
-        ...base,
-        margin: '18px 0',
-        fontSize: 18,
-        fontWeight: 600,
-        lineHeight: 1,
-        letterSpacing: '0.16em',
-      };
-  }
+  return (
+    <span style={{ display: 'none' }}>
+      {children}
+    </span>
+  );
 }
 
 export default function DividerBlock({
@@ -147,35 +34,238 @@ export default function DividerBlock({
   attributes,
   children,
 }: DividerBlockProps) {
-  const normalized = normalizeDividerStyle(styleType);
-  const text = getDividerText(normalized);
-  const dividerStyle = getDividerStyle(normalized);
+  const style = normalizeDividerStyle(styleType);
+  const borderColor = 'var(--border-strong)';
 
-  return (
-    <div
-      {...attributes}
-      contentEditable={false}
-      suppressContentEditableWarning
-      className={[
-        'wiki-divider',
-        `wiki-divider-${normalized}`,
-        mode === 'edit' ? 'wiki-divider-edit' : 'wiki-divider-read',
-        attributes?.className || '',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-      style={{
-        ...dividerStyle,
-        ...(attributes?.style || {}),
-      }}
-    >
-      {text}
+  const commonClassName = [
+    'wiki-divider',
+    `wiki-divider-${style}`,
+    mode === 'edit' ? 'wiki-divider-edit' : 'wiki-divider-read',
+    attributes?.className || '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
-      {mode === 'edit' ? (
-        <span style={{ display: 'none' }}>
-          {children}
-        </span>
-      ) : null}
-    </div>
-  );
+  const wrapperBase: React.CSSProperties = {
+    width: '100%',
+    boxSizing: 'border-box',
+    userSelect: 'none',
+    ...(attributes?.style || {}),
+  };
+
+  switch (style) {
+    case 'bold':
+      return (
+        <div
+          {...attributes}
+          contentEditable={false}
+          suppressContentEditableWarning
+          className={commonClassName}
+          style={{
+            ...wrapperBase,
+            margin: '28px 0',
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              height: 0,
+              borderTop: `2px solid ${borderColor}`,
+            }}
+          />
+          <HiddenChildren mode={mode}>{children}</HiddenChildren>
+        </div>
+      );
+
+    case 'shortbold':
+      return (
+        <div
+          {...attributes}
+          contentEditable={false}
+          suppressContentEditableWarning
+          className={commonClassName}
+          style={{
+            ...wrapperBase,
+            margin: '24px 0',
+            display: 'flex',
+            justifyContent: 'center',
+          }}
+        >
+          <div
+            style={{
+              width: '42%',
+              height: 0,
+              borderTop: `2px solid ${borderColor}`,
+            }}
+          />
+          <HiddenChildren mode={mode}>{children}</HiddenChildren>
+        </div>
+      );
+
+    case 'dotted':
+      return (
+        <div
+          {...attributes}
+          contentEditable={false}
+          suppressContentEditableWarning
+          className={commonClassName}
+          style={{
+            ...wrapperBase,
+            margin: '26px 0',
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              height: 0,
+              borderTop: `2px dotted ${borderColor}`,
+            }}
+          />
+          <HiddenChildren mode={mode}>{children}</HiddenChildren>
+        </div>
+      );
+
+    case 'diamond':
+      return (
+        <div
+          {...attributes}
+          contentEditable={false}
+          suppressContentEditableWarning
+          className={commonClassName}
+          style={{
+            ...wrapperBase,
+            margin: '24px 0',
+            textAlign: 'center',
+            color: borderColor,
+            fontWeight: 700,
+            fontSize: 18,
+            lineHeight: 1,
+            letterSpacing: '0.12em',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          ◇───◇
+          <HiddenChildren mode={mode}>{children}</HiddenChildren>
+        </div>
+      );
+
+    case 'diamonddot':
+      return (
+        <div
+          {...attributes}
+          contentEditable={false}
+          suppressContentEditableWarning
+          className={commonClassName}
+          style={{
+            ...wrapperBase,
+            margin: '24px 0',
+            textAlign: 'center',
+            color: borderColor,
+            fontWeight: 700,
+            fontSize: 18,
+            lineHeight: 1,
+            letterSpacing: '0.12em',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          ◇ ⋅ ⋅ ⋅ ◇
+          <HiddenChildren mode={mode}>{children}</HiddenChildren>
+        </div>
+      );
+
+    case 'dotdot':
+      return (
+        <div
+          {...attributes}
+          contentEditable={false}
+          suppressContentEditableWarning
+          className={commonClassName}
+          style={{
+            ...wrapperBase,
+            margin: '24px 0',
+            textAlign: 'center',
+            color: borderColor,
+            fontWeight: 700,
+            fontSize: 18,
+            lineHeight: 1,
+            letterSpacing: '0.08em',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          • • • • • • •
+          <HiddenChildren mode={mode}>{children}</HiddenChildren>
+        </div>
+      );
+
+    case 'slash':
+      return (
+        <div
+          {...attributes}
+          contentEditable={false}
+          suppressContentEditableWarning
+          className={commonClassName}
+          style={{
+            ...wrapperBase,
+            margin: '24px 0',
+            textAlign: 'center',
+            color: borderColor,
+            fontWeight: 700,
+            fontSize: 18,
+            lineHeight: 1,
+            letterSpacing: '0.24em',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          / / /
+          <HiddenChildren mode={mode}>{children}</HiddenChildren>
+        </div>
+      );
+
+    case 'bar':
+      return (
+        <div
+          {...attributes}
+          contentEditable={false}
+          suppressContentEditableWarning
+          className={commonClassName}
+          style={{
+            ...wrapperBase,
+            margin: '24px 0',
+            textAlign: 'center',
+            color: borderColor,
+            fontWeight: 700,
+            fontSize: 20,
+            lineHeight: 1,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          |
+          <HiddenChildren mode={mode}>{children}</HiddenChildren>
+        </div>
+      );
+
+    case 'default':
+    default:
+      return (
+        <div
+          {...attributes}
+          contentEditable={false}
+          suppressContentEditableWarning
+          className={commonClassName}
+          style={{
+            ...wrapperBase,
+            margin: '28px 0',
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              height: 0,
+              borderTop: `1px solid ${borderColor}`,
+            }}
+          />
+          <HiddenChildren mode={mode}>{children}</HiddenChildren>
+        </div>
+      );
+  }
 }
