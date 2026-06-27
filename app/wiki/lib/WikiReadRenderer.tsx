@@ -4030,6 +4030,12 @@ function renderLeaf(
   // 색/배경
   if (node.color) style.color = node.color;
 
+  const leafText = String(node.text ?? '');
+
+  if (!node.color && /^[\s→←↑↓↔⇒⇐↦\-–—]+$/.test(leafText)) {
+    style.color = 'var(--muted)';
+  }
+
   const shouldIgnoreBgInDarkTable =
     env?.isDarkMode && env?.inDarkTableCell;
 

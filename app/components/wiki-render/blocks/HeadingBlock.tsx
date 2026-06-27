@@ -23,6 +23,12 @@ function getHeadingTag(level: HeadingLevel): 'h1' | 'h2' | 'h3' {
   return 'h3';
 }
 
+function getHeadingIconSize(level: HeadingLevel) {
+  if (level === 1) return 28;
+  if (level === 2) return 26;
+  return 22;
+}
+
 function getHeadingFontSize(level: HeadingLevel) {
   if (level === 1) return '28px';
   if (level === 2) return '22px';
@@ -42,11 +48,17 @@ function getJustify(textAlign?: string | null) {
 }
 
 function getTextAlign(
-  textAlign?: string | null
+  textAlign?: string | null,
 ): React.CSSProperties['textAlign'] {
   if (textAlign === 'center') return 'center';
   if (textAlign === 'right') return 'right';
   return 'left';
+}
+
+function getHeadingMargin(level: HeadingLevel): React.CSSProperties['margin'] {
+  if (level === 1) return '0 0 18px';
+  if (level === 2) return '34px 0 24px';
+  return '28px 0 18px';
 }
 
 function looksLikeImageIcon(icon: string) {
@@ -68,16 +80,19 @@ function looksLikeImageIcon(icon: string) {
 function HeadingIcon({
   icon,
   mode,
+  level,
   onIconClick,
 }: {
   icon: string;
   mode: WikiRenderMode;
+  level: HeadingLevel;
   onIconClick?: () => void;
 }) {
   const [imageFailed, setImageFailed] = React.useState(false);
 
   const safeIcon = String(icon ?? '').trim();
   const shouldRenderAsImage = looksLikeImageIcon(safeIcon) && !imageFailed;
+  const iconSize = getHeadingIconSize(level);
 
   return (
     <span
@@ -97,18 +112,22 @@ function HeadingIcon({
         marginRight: 8,
         display: 'inline-flex',
         alignItems: 'center',
+        justifyContent: 'center',
         flex: '0 0 auto',
+        width: iconSize,
+        height: iconSize,
+        lineHeight: 1,
       }}
     >
       {shouldRenderAsImage ? (
         <SmartImage
           src={withVersion(cdn(safeIcon))}
           alt=""
-          width={28}
-          height={28}
+          width={iconSize}
+          height={iconSize}
           style={{
-            width: 28,
-            height: 28,
+            width: iconSize,
+            height: iconSize,
             objectFit: 'contain',
             display: 'block',
           }}
@@ -117,10 +136,11 @@ function HeadingIcon({
       ) : (
         <span
           style={{
-            fontSize: 26,
+            fontSize: iconSize - 2,
             lineHeight: 1,
             display: 'inline-flex',
             alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
           {safeIcon}
@@ -164,6 +184,8 @@ export default function HeadingBlock({
         fontSize: getHeadingFontSize(level),
         fontWeight: getHeadingFontWeight(level),
         lineHeight: 1.25,
+        margin: getHeadingMargin(level),
+        color: 'var(--foreground)',
         ...(attributes?.style || {}),
       }}
     >
@@ -171,6 +193,7 @@ export default function HeadingBlock({
         <HeadingIcon
           icon={icon}
           mode={mode}
+          level={level}
           onIconClick={onIconClick}
         />
       ) : null}
