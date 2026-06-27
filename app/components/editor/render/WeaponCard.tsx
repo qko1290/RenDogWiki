@@ -25,7 +25,7 @@ import {
 } from './WeaponModals';
 import WeaponBlock from '@/components/wiki-render/blocks/WeaponBlock';
 
-// Element.tsx ?먯꽌 ?섍꺼二쇰뒗 ?ㅼ젣 props 紐⑥뼇?濡??뺤쓽
+// Element.tsx에서 넘겨주는 실제 props 모양대로 정의
 export interface WeaponCardProps {
   attributes: RenderElementProps['attributes'];
   children: React.ReactNode;
@@ -51,14 +51,14 @@ export function WeaponCard(props: WeaponCardProps) {
   const supportsVideo = !VIDEOLESS_TYPES.has(weaponType);
   const meta = WEAPON_TYPES_META[weaponType];
 
-  // ??TRANSCEND 移대뱶留??붾젮?섍쾶 留뚮뱾湲??꾪븳 ?뚮옒洹?
+  // ✅ TRANSCEND 카드만 화려하게 만들기 위한 플래그
   const isTranscend =
     (meta?.label ? meta.label.toUpperCase().startsWith('TRANSCEND') : false) ||
     String(weaponType || '').toLowerCase().startsWith('transcend');
 
   const isSpirit = weaponType === 'spirit';
 
-  // ???됱긽 -> rgba (WeaponCard.tsx?먮뒗 ?놁쑝???ш린?쒕쭔 濡쒖뺄濡?
+  // ✅ 색상 -> rgba (WeaponCard.tsx에는 없으니 여기서만 로컬로)
   const hexToRgba = (hex: string, alpha: number) => {
     const h = (hex || '').replace('#', '').trim();
     const a = Math.max(0, Math.min(1, alpha));
@@ -77,7 +77,7 @@ export function WeaponCard(props: WeaponCardProps) {
     return `rgba(255,255,255,${a})`;
   };
 
-  // ??珥덉썡 ?꾨젅??湲濡쒖슦/?ㅼ씤????媛믩뱾
+  // ✅ 초월 프레임/글로우/샤인에 쓸 값들
   const tBorder = meta?.border || '#a855f7';
   const tHeader = meta?.headerBg || '#7c3aed';
 
@@ -146,7 +146,7 @@ export function WeaponCard(props: WeaponCardProps) {
     React.useState<WeaponStatKey | null>(null);
   const [statSelectOpen, setStatSelectOpen] = React.useState(false);
 
-  // ???고겢由???젣 硫붾돱 ?꾩튂
+  // ✅ 우클릭 삭제 메뉴 위치
   const [contextMenuPos, setContextMenuPos] = React.useState<{
     x: number;
     y: number;
@@ -165,11 +165,11 @@ export function WeaponCard(props: WeaponCardProps) {
       weaponType: next,
       stats: nextStats,
 
-      // ??BOSS / MINI BOSS / MONSTER???곸긽 ?먯껜媛 ?놁쑝??湲곗〈 媛믩룄 ?쒓굅
+      // ✅ BOSS / MINI BOSS / MONSTER는 영상 자체가 없으니 기존 값도 제거
       ...(VIDEOLESS_TYPES.has(next) ? { videoUrl: null } : {}),
     });
 
-    // (?좏깮) ?뱀떆 ?대젮?덈뜕 紐⑤떖???덉쑝硫??レ븘二쇨린
+    // (선택) 혹시 열려있던 모달이 있으면 닫아주기
     if (VIDEOLESS_TYPES.has(next)) {
       setVideoSelectOpen(false);
       setVideoModalOpen(false);
@@ -195,7 +195,7 @@ export function WeaponCard(props: WeaponCardProps) {
   };
 
   const handleVideoSelected = (url: string) => {
-    if (!supportsVideo) return; // ??boss/mini-boss/monster 諛⑹뼱
+    if (!supportsVideo) return; // ✅ boss/mini-boss/monster 방어
     updateElement({ videoUrl: url });
     setVideoSelectOpen(false);
   };
@@ -212,13 +212,13 @@ export function WeaponCard(props: WeaponCardProps) {
       ? toProxyUrl(el.imageUrl)
       : el.imageUrl || '';
 
-  // ?먮뵒??紐⑤뱶?먯꽌留?蹂댁씠???ㅼ젙 踰꾪듉??
+  // 에디터 모드에서만 보이는 설정 버튼들
   const showConfigButtons = !isReadOnly;
 
   const content = (
     <>
 
-      {/* ??臾닿린 移대뱶 + ?뺣낫 ?ㅼ젙 踰꾪듉??以묒븰 ?뺣젹 */}
+      {/* ✅ 무기 카드 + 정보 설정 버튼을 중앙 정렬 */}
       <div
         contentEditable={false}
         style={{
@@ -229,7 +229,7 @@ export function WeaponCard(props: WeaponCardProps) {
           gap: 10,
         }}
         onContextMenu={(e) => {
-          // ???쎄린 ?꾩슜???꾨땺 ?뚮쭔 ??젣 而⑦뀓?ㅽ듃 硫붾돱
+          // ✅ 읽기 전용이 아닐 때만 삭제 컨텍스트 메뉴
           if (isReadOnly) return;
           e.preventDefault();
           e.stopPropagation();
@@ -284,7 +284,7 @@ export function WeaponCard(props: WeaponCardProps) {
             )}
 
             <div style={{ position: 'relative', zIndex: 1 }}>
-              {/* ?곷떒 ???諛?*/}
+              {/* 상단 타입 바 */}
               <button
                 type="button"
                 onClick={() => !isReadOnly && setTypeModalOpen(true)}
@@ -310,7 +310,7 @@ export function WeaponCard(props: WeaponCardProps) {
                 {meta.label}
               </button>
 
-              {/* 臾닿린 ?대쫫 */}
+              {/* 무기 이름 */}
               <div
                 onClick={() => !isReadOnly && setNameModalOpen(true)}
                 style={{
@@ -332,10 +332,10 @@ export function WeaponCard(props: WeaponCardProps) {
                     : undefined,
                 }}
               >
-                {el.name || '??臾닿린 ?대쫫'}
+                {el.name || '새 무기 이름'}
               </div>
 
-              {/* ?대?吏 ?곸뿭 */}
+              {/* 이미지 영역 */}
               <div
                 onClick={() => !isReadOnly && setImageModalOpen(true)}
                 style={{
@@ -373,12 +373,12 @@ export function WeaponCard(props: WeaponCardProps) {
                       fontSize: 14,
                     }}
                   >
-                    ?대?吏 ?놁쓬
+                    이미지 없음
                   </span>
                 )}
               </div>
 
-              {/* ?뺣낫 由ъ뒪??*/}
+              {/* 정보 리스트 */}
               <div
                 style={{
                   padding: '8px 10px 8px',
@@ -397,7 +397,7 @@ export function WeaponCard(props: WeaponCardProps) {
                       background: 'rgba(15,23,42,.75)',
                     }}
                   >
-                    ?쒖떆???뺣낫媛 ?놁뒿?덈떎. (?뺣낫 ?ㅼ젙 踰꾪듉?쇰줈 異붽?)
+                    표시할 정보가 없습니다. (정보 설정 버튼으로 추가)
                   </div>
                 )}
 
@@ -423,7 +423,7 @@ export function WeaponCard(props: WeaponCardProps) {
                       justifyContent: 'space-between',
                       cursor: 'pointer',
                     }}
-                    title="?대┃?댁꽌 媛뺥솕蹂??곸꽭 ?뺣낫 蹂닿린/?몄쭛"
+                    title="클릭해서 강화별 상세 정보 보기/편집"
                   >
                     <span
                       style={{
@@ -448,7 +448,7 @@ export function WeaponCard(props: WeaponCardProps) {
                 ))}
               </div>
 
-              {/* ?섎떒 ?곸긽 踰꾪듉 */}
+              {/* 하단 영상 버튼 */}
               {supportsVideo && (
                 <div
                   style={{
@@ -458,7 +458,7 @@ export function WeaponCard(props: WeaponCardProps) {
                     justifyContent: showConfigButtons ? 'stretch' : 'center',
                   }}
                 >
-                  {/* ??臾몄꽌 濡쒕뱶(readOnly)?먯꽌??媛?대뜲 ?뺣젹 + ?⑥씪 踰꾪듉 */}
+                  {/* ✅ 문서 로드(readOnly)에서는 가운데 정렬 + 단일 버튼 */}
                   <button
                     type="button"
                     disabled={!videoSrc}
@@ -487,10 +487,10 @@ export function WeaponCard(props: WeaponCardProps) {
                       textAlign: 'center',
                     }}
                   >
-                    ?ㅽ궗 ?ъ슜 ?곸긽
+                    스킬 사용 영상
                   </button>
 
-                  {/* ?곸긽 ?ㅼ젙 踰꾪듉? ?먮뵒?곗뿉?쒕쭔 ?쒖떆 */}
+                  {/* 영상 설정 버튼은 에디터에서만 표시 */}
                   {showConfigButtons && (
                     <button
                       type="button"
@@ -506,7 +506,7 @@ export function WeaponCard(props: WeaponCardProps) {
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      ?곸긽 ?ㅼ젙
+                      영상 설정
                     </button>
                   )}
                 </div>
@@ -515,7 +515,7 @@ export function WeaponCard(props: WeaponCardProps) {
           </div>
         </div>
 
-        {/* ???뺣낫 ?ㅼ젙 踰꾪듉: 移대뱶 ?쒕컰?앹뿉 諛곗튂 (?먮뵒?곗뿉?쒕쭔) */}
+        {/* ✅ 정보 설정 버튼: 카드 “밖”에 배치 (에디터에서만) */}
         {showConfigButtons && (
           <button
             type="button"
@@ -532,16 +532,16 @@ export function WeaponCard(props: WeaponCardProps) {
               cursor: 'pointer',
               whiteSpace: 'nowrap',
             }}
-            title="?쒖떆???뺣낫 ?좏깮"
+            title="표시할 정보 선택"
           >
-            ?뺣낫 ?ㅼ젙
+            정보 설정
           </button>
         )}
       </div>
 
       {children}
 
-      {/* ???고겢由???젣 而⑦뀓?ㅽ듃 硫붾돱 (?먮뵒?곗뿉?쒕쭔) */}
+      {/* ✅ 우클릭 삭제 컨텍스트 메뉴 (에디터에서만) */}
       {!isReadOnly && contextMenuPos && (
         <div
           style={{
@@ -588,14 +588,14 @@ export function WeaponCard(props: WeaponCardProps) {
                   cursor: 'pointer',
                 }}
               >
-                臾닿린 移대뱶 ??젣
+                무기 카드 삭제
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 紐⑤떖??(湲곗〈 濡쒖쭅 ?좎?) */}
+      {/* 모달들 (기존 로직 유지) */}
       <WeaponTypeSelectModal
         open={typeModalOpen && !isReadOnly}
         currentType={weaponType}
