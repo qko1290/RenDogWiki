@@ -107,6 +107,9 @@ export default function ParagraphBlock({
       .join(' ')
       .trim();
 
+    const isStart = indentClassName?.includes('start');
+    const isEnd = indentClassName?.includes('end');
+
     return (
       <p
         {...attributes}
@@ -114,6 +117,16 @@ export default function ParagraphBlock({
         style={{
           ...(attributes?.style || {}),
           textAlign: normalizedAlign,
+
+          ...(indentLine
+            ? {
+                borderLeft: '2px solid var(--border-strong)',
+                paddingLeft: 16,
+                marginTop: isStart ? 12 : 0,
+                marginBottom: isEnd ? 12 : 0,
+                color: 'inherit',
+              }
+            : null),
         }}
       >
         {children}

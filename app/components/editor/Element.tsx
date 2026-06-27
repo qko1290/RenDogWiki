@@ -836,10 +836,10 @@ const Element: React.FC<ElementRenderProps> = ({
       return (
         <ParagraphBlock
           mode="edit"
-          attributes={attributes}
+          attributes={attributes as any}
           textAlign={(el as any).textAlign}
           indentLine={Boolean(indentLine)}
-          indentClassName={extraClass}
+          indentClassName={extraClass.trim()}
         >
           {children}
         </ParagraphBlock>
