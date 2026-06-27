@@ -4357,50 +4357,139 @@ function renderNode(
       );
     }
 
-    case "inline-image":
+    case "inline-image": {
+      const rawSrc = String(node.url ?? node.src ?? "").trim();
+      const version = (node.updatedAt || node.version) as string | number | undefined;
+      const src = rawSrc ? withVersion(cdn(rawSrc), version) : "";
+
+      const width =
+        typeof node.width === "number"
+          ? node.width
+          : Number.isFinite(Number(node.width))
+            ? Number(node.width)
+            : 22;
+
+      const height =
+        typeof node.height === "number"
+          ? node.height
+          : Number.isFinite(Number(node.height))
+            ? Number(node.height)
+            : 22;
+
+      if (!src) return null;
+
       return (
-        <img
+        <SmartImage
           key={key}
-          src={cdn(node.url)}
+          src={src}
           alt=""
-          loading="lazy"
-          decoding="async"
-          fetchPriority="low"
+          width={width}
+          height={height}
           style={{
-            height: "1.6em",
-            width: "auto",
-            display: "inline",
+            width,
+            height,
+            objectFit: "contain",
+            display: "inline-block",
             verticalAlign: "middle",
+            imageRendering: "pixelated",
             margin: "0 2px",
-            borderRadius: 4,
           }}
         />
       );
+    }
 
     case "inline-mark":
       return (
         <span
           key={key}
           style={{
-            display: "inline-block",
-            fontWeight: "bold",
-            color: node.color || "var(--muted-2)",
-            fontSize: "1.08em",
-            marginRight: 8,
-            marginLeft: 2,
-            userSelect: "none",
+            display: "inline-flex",
+            alignItems: "center",
             verticalAlign: "middle",
+            lineHeight: 1,
+            margin: "0 2px",
           }}
         >
           {node.icon}
         </span>
       );
-    
+
     case "footnote": {
       const label = String((node as any).label ?? "").trim() || "각주";
       const content = String((node as any).content ?? "").trim();
 
-      return <FootnoteInline label={label} content={content} />;
+      return (
+        <FootnoteInline
+          key={key}
+          label={label}
+          content={content}
+        />
+      );
+    }
+
+    case "wiki-ref": {
+      const el = node as any;
+      const kind = (el.kind ?? el.refType) as any;
+      const id = Number(el.id ?? el.refId);
+      const label = el.label ?? (typeof kind === "string" ? kind : "ref");
+
+      const clickable =
+        !!handlers?.onWikiRefClick &&
+        (handlers?.readOnly ?? true) &&
+        Number.isFinite(id) &&
+        id > 0;
+
+      const open = () => {
+        if (!clickable) return;
+        handlers!.onWikiRefClick!(kind, id);
+      };
+
+      return (
+        <span
+          key={key}
+          role={clickable ? "button" : undefined}
+          tabIndex={clickable ? 0 : undefined}
+          title={String(label)}
+          onClick={
+            clickable
+              ? (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  open();
+                }
+              : undefined
+          }
+          onKeyDown={
+            clickable
+              ? (e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    open();
+                  }
+                }
+              : undefined
+          }
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            padding: "1px 5px",
+            borderRadius: 999,
+            background: "rgba(124, 58, 237, 0.10)",
+            border: "1px solid rgba(124, 58, 237, 0.18)",
+            color: "var(--accent)",
+            fontSize: "0.92em",
+            fontWeight: 700,
+            lineHeight: 1.35,
+            whiteSpace: "nowrap",
+            cursor: clickable ? "pointer" : "default",
+            verticalAlign: "baseline",
+          }}
+        >
+          {children}
+        </span>
+      );
     }
 
     case "price-table-card": {
