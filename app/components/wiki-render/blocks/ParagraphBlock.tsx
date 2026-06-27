@@ -3,18 +3,28 @@ import type { WikiRenderMode } from '../types';
 
 type ParagraphBlockProps = {
   mode: WikiRenderMode;
+
   textAlign?: string | null;
   indentLine?: boolean;
   indentClassName?: string;
+
   attributes?: React.HTMLAttributes<HTMLParagraphElement>;
   children?: React.ReactNode;
 
   /**
-   * WikiReadRenderer에서 이미 계산해서 넘기고 있으면 사용.
-   * 없으면 children에서 최대한 텍스트를 추출해서 계산.
+   * 문서 렌더러에서 이미 계산해서 넘길 수 있는 텍스트.
+   * 없으면 children에서 최대한 추출한다.
    */
   plainText?: string;
+
+  /**
+   * 문서 렌더러에서 빈 문단 여부를 직접 넘길 수 있음.
+   */
   isEmpty?: boolean;
+
+  /**
+   * 모바일 표 셀 안 문단이면 글자/줄간격을 줄인다.
+   */
   isMobileTableText?: boolean;
 };
 
@@ -39,9 +49,10 @@ function textFromReact(node: React.ReactNode): string {
 function autoFont(
   base: number,
   text: string,
-  steps?: Array<[number, number]>
+  steps?: Array<[number, number]>,
 ) {
   const len = Array.from(text ?? '').length;
+
   const rules: Array<[number, number]> =
     steps ??
     [
@@ -61,7 +72,7 @@ function autoFont(
 }
 
 function normalizeTextAlign(
-  textAlign?: string | null
+  textAlign?: string | null,
 ): React.CSSProperties['textAlign'] {
   if (textAlign === 'center') return 'center';
   if (textAlign === 'right') return 'right';
@@ -79,6 +90,41 @@ export default function ParagraphBlock({
   isEmpty: isEmptyProp,
   isMobileTableText,
 }: ParagraphBlockProps) {
+  const normalizedAlign = normalizeTextAlign(textAlign);
+
+  /**
+   * 에디터 모드:
+   * 원본 Element.tsx처럼 paragraph 자체 디자인을 새로 만들지 않는다.
+   * Slate attributes + textAlign + indent-line class만 유지한다.
+   */
+  if (mode === 'edit') {
+    const className = [
+      attributes?.className || '',
+      indentLine ? 'indent-line' : '',
+      indentLine ? indentClassName || '' : '',
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+
+    return (
+      <p
+        {...attributes}
+        className={className || undefined}
+        style={{
+          ...(attributes?.style || {}),
+          textAlign: normalizedAlign,
+        }}
+      >
+        {children}
+      </p>
+    );
+  }
+
+  /**
+   * 문서 렌더 모드:
+   * 원본 WikiReadRenderer.tsx의 paragraph case 기준.
+   */
   const plainText = (plainTextProp ?? textFromReact(children))
     .replace(/\u200B/g, '')
     .trim();
@@ -103,9 +149,9 @@ export default function ParagraphBlock({
           [450, baseFont - 6],
         ]);
 
-  const style: React.CSSProperties = {
+  const readStyle: React.CSSProperties = {
     ...(attributes?.style || {}),
-    textAlign: normalizeTextAlign(textAlign),
+    textAlign: normalizedAlign,
     margin: 0,
     lineHeight: mobileTable ? 1.45 : 1.6,
     minHeight: isEmpty ? (mobileTable ? '1.45em' : '1.6em') : undefined,
@@ -115,17 +161,15 @@ export default function ParagraphBlock({
   };
 
   if (indentLine) {
-    style.borderLeft = '2px solid var(--border-strong)';
-    style.paddingLeft = 16;
+    readStyle.borderLeft = '2px solid var(--border-strong)';
+    readStyle.paddingLeft = 16;
   }
 
   return (
     <p
       {...attributes}
-      className={[attributes?.className || '', indentClassName || '']
-        .filter(Boolean)
-        .join(' ')}
-      style={style}
+      className={attributes?.className}
+      style={readStyle}
     >
       {children}
     </p>
