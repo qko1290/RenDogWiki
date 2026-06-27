@@ -1,36 +1,34 @@
 import React from 'react';
 import type { WikiRenderMode } from '../types';
 
-type DividerStyle =
-  | 'default'
-  | 'bold'
-  | 'shortbold'
-  | 'dotted'
-  | 'diamond'
-  | 'diamonddot'
-  | 'dotdot'
-  | 'slash'
-  | 'bar';
-
 type DividerBlockProps = {
   mode: WikiRenderMode;
-  styleType?: DividerStyle | string | null;
+  styleType?: string | null;
   attributes?: React.HTMLAttributes<HTMLDivElement>;
   children?: React.ReactNode;
 };
 
-function getDividerContent(styleType?: string | null) {
+function normalizeDividerStyle(styleType?: string | null) {
+  return String(styleType || 'default').trim().toLowerCase();
+}
+
+function getDividerText(styleType: string) {
   switch (styleType) {
     case 'diamond':
       return '◇───◇';
+
     case 'diamonddot':
       return '◇ ⋅ ⋅ ⋅ ◇';
+
     case 'dotdot':
       return '• • • • • • •';
+
     case 'slash':
       return '/ / /';
+
     case 'bar':
       return '|';
+
     case 'bold':
     case 'shortbold':
     case 'dotted':
@@ -40,36 +38,35 @@ function getDividerContent(styleType?: string | null) {
   }
 }
 
-function getDividerStyle(styleType?: string | null): React.CSSProperties {
-  const borderColor = 'var(--border-strong)';
-
+function getDividerStyle(styleType: string): React.CSSProperties {
   const base: React.CSSProperties = {
     width: '100%',
     textAlign: 'center',
-    color: borderColor,
+    color: 'var(--border-strong)',
     userSelect: 'none',
     boxSizing: 'border-box',
+    whiteSpace: 'nowrap',
   };
 
   switch (styleType) {
     case 'bold':
       return {
         ...base,
-        margin: '22px 0',
-        fontSize: 22,
-        fontWeight: 800,
+        margin: '24px 0',
+        fontSize: 24,
+        fontWeight: 900,
         lineHeight: 1,
-        letterSpacing: '0.2em',
+        letterSpacing: '0.22em',
       };
 
     case 'shortbold':
       return {
         ...base,
-        margin: '14px 0',
-        fontSize: 18,
-        fontWeight: 800,
+        margin: '18px 0',
+        fontSize: 20,
+        fontWeight: 900,
         lineHeight: 1,
-        letterSpacing: '0.12em',
+        letterSpacing: '0.14em',
       };
 
     case 'dotted':
@@ -79,7 +76,7 @@ function getDividerStyle(styleType?: string | null): React.CSSProperties {
         fontSize: 20,
         fontWeight: 700,
         lineHeight: 1,
-        letterSpacing: '0.35em',
+        letterSpacing: '0.34em',
       };
 
     case 'diamond':
@@ -150,8 +147,9 @@ export default function DividerBlock({
   attributes,
   children,
 }: DividerBlockProps) {
-  const content = getDividerContent(styleType);
-  const dividerStyle = getDividerStyle(styleType);
+  const normalized = normalizeDividerStyle(styleType);
+  const text = getDividerText(normalized);
+  const dividerStyle = getDividerStyle(normalized);
 
   return (
     <div
@@ -160,7 +158,7 @@ export default function DividerBlock({
       suppressContentEditableWarning
       className={[
         'wiki-divider',
-        `wiki-divider-${styleType || 'default'}`,
+        `wiki-divider-${normalized}`,
         mode === 'edit' ? 'wiki-divider-edit' : 'wiki-divider-read',
         attributes?.className || '',
       ]
@@ -171,14 +169,10 @@ export default function DividerBlock({
         ...(attributes?.style || {}),
       }}
     >
-      {content}
+      {text}
 
       {mode === 'edit' ? (
-        <span
-          style={{
-            display: 'none',
-          }}
-        >
+        <span style={{ display: 'none' }}>
           {children}
         </span>
       ) : null}
