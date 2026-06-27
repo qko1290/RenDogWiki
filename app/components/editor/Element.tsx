@@ -846,6 +846,20 @@ const Element: React.FC<ElementRenderProps> = ({
       );
     }
 
+    case 'divider': {
+      const el = element as any;
+
+      return (
+        <DividerBlock
+          mode="edit"
+          styleType={el.style || 'default'}
+          attributes={attributes as any}
+        >
+          {children}
+        </DividerBlock>
+      );
+    }
+
     // -------------------- 인포박스 --------------------
     case 'info-box': {
       const raw =
