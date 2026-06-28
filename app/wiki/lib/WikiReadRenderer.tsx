@@ -55,6 +55,7 @@ import {
 import {
   InlineImage,
   InlineMark,
+  LeafRenderer,
   WikiRefInline,
 } from '@/components/wiki-render/inline';
 
@@ -762,34 +763,6 @@ function autoFont(base: number, text: string, steps?: Array<[number, number]>) {
   return Math.max(11, (rules.at(-1)?.[1] ?? base) - 2);
 }
 
-/** 숫자/문자 폰트 크기를 정규화: 숫자는 px, 단위가 있으면 그대로 */
-function normalizeFontSize(v: unknown): string | number | undefined {
-  if (v == null) return undefined;
-  if (typeof v === "number") return Math.max(1, v);
-  if (typeof v === "string") {
-    const s = v.trim();
-    if (!s) return undefined;
-    if (/(px|rem|em|%|vh|vw)$/i.test(s)) return s; // 이미 단위가 있으면 그대로
-    if (/^\d+(\.\d+)?$/.test(s)) return `${s}px`; // 숫자면 px
-    return s;
-  }
-  return undefined;
-}
-
-/** "16px" → 16 추출 (px만 파싱) */
-function toPxNumber(v: string | number | undefined): number | undefined {
-  if (v == null) return undefined;
-  if (typeof v === "number") return v;
-  const m = /^(-?\d+(?:\.\d+)?)px$/i.exec(v);
-  return m ? parseFloat(m[1]) : undefined;
-}
-
-/** 손글씨 계열은 기본보다 살짝 크게 보정 */
-const HANDWRITING_SCALE: Record<string, number> = {
-  BareunHippy: 1.18, // 나눔손글씨 바른히피
-  NanumHandwritingMiddleSchool: 1.14, // 나눔손글씨 중학생
-};
-
 /** 무기 타입 */
 type WeaponType =
   | "epic"
@@ -1462,91 +1435,15 @@ function renderLeaf(
     isDarkMode?: boolean;
     inDarkTableCell?: boolean;
     inTableCell?: boolean;
-  }
+  },
 ): React.ReactNode {
-  let children = node.text;
-  if (node.bold) children = <strong>{children}</strong>;
-  if (node.italic) children = <em>{children}</em>;
-  if (node.underline) children = <u>{children}</u>;
-  if (node.strikethrough) children = <s>{children}</s>;
-
-  const style: React.CSSProperties = {};
-
-  // 색/배경
-  if (node.color) style.color = node.color;
-
-  const shouldIgnoreBgInDarkTable =
-    env?.isDarkMode && env?.inDarkTableCell;
-
-  if (!shouldIgnoreBgInDarkTable && node.backgroundColor) {
-    style.backgroundColor = node.backgroundColor;
-  }
-
-  // 🎯 폰트 패밀리 (boolean 방어 + 기본값 적용)
-  const rawFamily = node.fontFamily;
-  let familyKey: string;
-  let familyCss: string;
-
-  if (typeof rawFamily === "string" && rawFamily.trim()) {
-    familyKey = rawFamily.trim();
-    familyCss = familyKey;
-  } else {
-    familyKey = "NanumSquareRound";
-    familyCss =
-      "'NanumSquareRound', -apple-system, BlinkMacSystemFont, system-ui, sans-serif";
-  }
-
-  style.fontFamily = familyCss;
-
-  // ✅ 원본 fontSize mark 유무
-  const hasCustomFontSize =
-    node.fontSize != null &&
-    String(node.fontSize).trim() !== "";
-
-  // 폰트 크기 + 손글씨 보정
-  const normalized = normalizeFontSize(node.fontSize);
-  const basePx = toPxNumber(normalized as any);
-  const scale = HANDWRITING_SCALE[familyKey] ?? 1;
-
-  // ✅ 최종 px 값을 따로 보관 (모바일에서 -4px 하기 위함)
-  let finalFontPx: number | undefined;
-
-  if (scale !== 1) {
-    if (typeof basePx === "number") {
-      finalFontPx = Math.round(basePx * scale);
-      style.fontSize = `${finalFontPx}px`;
-    } else if (normalized !== undefined) {
-      style.fontSize = normalized as any;
-    } else {
-      style.fontSize = `${scale}em`;
-    }
-    style.lineHeight = style.lineHeight ?? 1.35;
-  } else {
-    if (normalized !== undefined) {
-      style.fontSize = normalized as any;
-      if (typeof basePx === "number") {
-        finalFontPx = basePx;
-      }
-    }
-  }
-
-  const extraProps: Record<string, any> = {};
-
-  // ✅ 모바일 전용 조정을 위한 표시
-  // fontSize가 따로 지정된 텍스트만 data attr 부여
-  if (hasCustomFontSize) {
-    extraProps["data-wiki-inline-font"] = "custom";
-
-    // px로 환산 가능한 경우에만 CSS 변수로 전달
-    if (typeof finalFontPx === "number" && Number.isFinite(finalFontPx)) {
-      (style as any)["--wiki-inline-font-px"] = finalFontPx;
-    }
-  }
-
   return (
-    <span key={key} style={style} {...extraProps}>
-      {children}
-    </span>
+    <LeafRenderer
+      key={key}
+      mode="read"
+      leaf={node}
+      env={env}
+    />
   );
 }
 
