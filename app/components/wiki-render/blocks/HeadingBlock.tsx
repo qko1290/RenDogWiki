@@ -1,4 +1,5 @@
 import React from 'react';
+
 import SmartImage from '@/components/common/SmartImage';
 import { cdn, withVersion } from '@lib/cdn';
 import type { WikiRenderMode } from '../types';
@@ -13,7 +14,7 @@ type HeadingBlockProps = {
   domId?: string;
   dataHeadingId?: string;
   onIconClick?: () => void;
-  attributes?: React.HTMLAttributes<HTMLHeadingElement>;
+  attributes?: React.HTMLAttributes<HTMLElement>;
   children?: React.ReactNode;
 };
 
@@ -29,6 +30,12 @@ function getHeadingIconSize(level: HeadingLevel) {
   return 22;
 }
 
+/**
+ * main 원본 WikiReadRenderer 기준:
+ * h1: 28px
+ * h2: 22px
+ * h3: 18px
+ */
 function getHeadingFontSize(level: HeadingLevel) {
   if (level === 1) return '28px';
   if (level === 2) return '22px';
@@ -94,14 +101,16 @@ function HeadingIcon({
   const shouldRenderAsImage = looksLikeImageIcon(safeIcon) && !imageFailed;
   const iconSize = getHeadingIconSize(level);
 
+  if (!safeIcon) return null;
+
   return (
     <span
-      onClick={
-        mode === 'edit'
-          ? (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onIconClick?.();
+      onMouseDown={
+        mode === 'edit' && onIconClick
+          ? (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onIconClick();
             }
           : undefined
       }
@@ -125,18 +134,18 @@ function HeadingIcon({
           alt=""
           width={iconSize}
           height={iconSize}
+          onError={() => setImageFailed(true)}
           style={{
             width: iconSize,
             height: iconSize,
             objectFit: 'contain',
             display: 'block',
           }}
-          onError={() => setImageFailed(true)}
         />
       ) : (
         <span
           style={{
-            fontSize: iconSize - 2,
+            fontSize: iconSize,
             lineHeight: 1,
             display: 'inline-flex',
             alignItems: 'center',
@@ -164,41 +173,56 @@ export default function HeadingBlock({
   const Tag = getHeadingTag(level);
 
   return (
-    <Tag
-      {...attributes}
-      id={domId}
-      data-heading-id={dataHeadingId}
-      className={[
-        mode === 'read' ? 'wiki-heading' : '',
-        attributes?.className || '',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-      suppressHydrationWarning={mode === 'read' ? true : undefined}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: getJustify(textAlign),
-        gap: 0,
-        textAlign: getTextAlign(textAlign),
-        fontSize: getHeadingFontSize(level),
-        fontWeight: getHeadingFontWeight(level),
-        lineHeight: 1.25,
-        margin: getHeadingMargin(level),
-        color: 'var(--foreground)',
-        ...(attributes?.style || {}),
-      }}
-    >
-      {icon ? (
-        <HeadingIcon
-          icon={icon}
-          mode={mode}
-          level={level}
-          onIconClick={onIconClick}
-        />
-      ) : null}
+    <>
+      <style>
+        {`
+          [data-rdwiki-heading="true"] [data-wiki-leaf="true"] {
+            font-size: inherit !important;
+            font-weight: inherit;
+            line-height: inherit;
+          }
 
-      {children}
-    </Tag>
+          [data-rdwiki-heading="true"] [data-wiki-leaf="true"] * {
+            font-size: inherit !important;
+            line-height: inherit;
+          }
+        `}
+      </style>
+
+      <Tag
+        {...attributes}
+        id={domId ?? attributes?.id}
+        data-rdwiki-heading="true"
+        data-wiki-mode={mode}
+        data-heading-id={dataHeadingId}
+        suppressHydrationWarning
+        style={{
+          ...(attributes?.style ?? {}),
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: getJustify(textAlign),
+          textAlign: getTextAlign(textAlign),
+          margin: getHeadingMargin(level),
+          padding: 0,
+          color: 'var(--foreground)',
+          fontSize: getHeadingFontSize(level),
+          fontWeight: getHeadingFontWeight(level),
+          lineHeight: 1.35,
+          letterSpacing: '-0.02em',
+          scrollMarginTop: 96,
+        }}
+      >
+        {icon ? (
+          <HeadingIcon
+            icon={icon}
+            mode={mode}
+            level={level}
+            onIconClick={onIconClick}
+          />
+        ) : null}
+
+        {children}
+      </Tag>
+    </>
   );
 }
