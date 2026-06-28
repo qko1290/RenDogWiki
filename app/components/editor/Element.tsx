@@ -45,7 +45,7 @@ import HeadingBlock from '@/components/wiki-render/blocks/HeadingBlock';
 import InfoBoxBlock from '@/components/wiki-render/blocks/InfoBoxBlock';
 import MediaBlock from '@/components/wiki-render/blocks/MediaBlock';
 import LinkCardRenderer from '@/components/wiki-render/link/LinkCardRenderer';
-import { WikiRefInline } from '@/components/wiki-render/inline';
+import { FootnoteInline, WikiRefInline } from '@/components/wiki-render/inline';
 
 export type ElementProps = RenderElementProps & {
   editor: any;
@@ -713,11 +713,10 @@ const Element: React.FC<ElementRenderProps> = ({
       const el = element as FootnoteElement;
 
       return (
-        <span
-          {...attributes}
-          contentEditable={false}
-          suppressContentEditableWarning
-          data-footnote="true"
+        <FootnoteInline
+          mode="edit"
+          label={el.label}
+          attributes={attributes as React.HTMLAttributes<HTMLSpanElement>}
           title="우클릭하여 각주 수정"
           onContextMenu={(e) => {
             if (!openFootnoteEditor) return;
@@ -731,29 +730,9 @@ const Element: React.FC<ElementRenderProps> = ({
               openFootnoteEditor(path, el);
             } catch {}
           }}
-          style={{
-            display: 'inline-block',
-            verticalAlign: 'super',
-            position: 'relative',
-            top: '-0.05em',
-            marginLeft: 1,
-            marginRight: 1,
-            padding: 0,
-            background: 'transparent',
-            borderRadius: 0,
-            color: '#7c3aed',
-            fontSize: '12px',
-            fontWeight: 500,
-            lineHeight: 1,
-            letterSpacing: 0,
-            userSelect: 'none',
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-          }}
         >
-          [{(el.label ?? '').trim() || '각주'}]
           {children}
-        </span>
+        </FootnoteInline>
       );
     }
 
