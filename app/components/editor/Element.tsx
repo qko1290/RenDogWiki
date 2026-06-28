@@ -45,7 +45,12 @@ import HeadingBlock from '@/components/wiki-render/blocks/HeadingBlock';
 import InfoBoxBlock from '@/components/wiki-render/blocks/InfoBoxBlock';
 import MediaBlock from '@/components/wiki-render/blocks/MediaBlock';
 import LinkCardRenderer from '@/components/wiki-render/link/LinkCardRenderer';
-import { FootnoteInline, WikiRefInline } from '@/components/wiki-render/inline';
+import {
+  FootnoteInline,
+  InlineImage,
+  InlineMark,
+  WikiRefInline,
+} from '@/components/wiki-render/inline';
 
 export type ElementProps = RenderElementProps & {
   editor: any;
@@ -657,29 +662,13 @@ const Element: React.FC<ElementRenderProps> = ({
       const src = el.url?.startsWith('http') ? toProxyUrl(el.url) : el.url;
 
       return (
-        <span
-          {...attributes}
-          contentEditable={false}
-          style={{ display: 'inline-block', verticalAlign: 'middle' }}
+        <InlineImage
+          mode="edit"
+          src={src}
+          attributes={attributes as React.HTMLAttributes<HTMLSpanElement>}
         >
-          <img
-            src={src}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            fetchPriority="low"
-            draggable={false}
-            style={{
-              height: '2em',
-              width: 'auto',
-              display: 'inline',
-              verticalAlign: 'middle',
-              margin: '0 2px',
-              borderRadius: 4,
-            }}
-          />
           {children}
-        </span>
+        </InlineImage>
       );
     }
 
@@ -687,25 +676,14 @@ const Element: React.FC<ElementRenderProps> = ({
       const el = element as InlineMarkElement;
 
       return (
-        <span
-          {...attributes}
-          contentEditable={false}
-          style={{
-            display: 'inline-block',
-            fontWeight: 'bold',
-            color: el.color || '#888',
-            fontSize: '1.08em',
-            marginRight: 8,
-            marginLeft: 2,
-            marginTop: 0,
-            userSelect: 'none',
-            verticalAlign: 'middle',
-          }}
-          className="inline-mark"
+        <InlineMark
+          mode="edit"
+          icon={el.icon}
+          color={el.color}
+          attributes={attributes as React.HTMLAttributes<HTMLSpanElement>}
         >
-          {el.icon}
           {children}
-        </span>
+        </InlineMark>
       );
     }
 

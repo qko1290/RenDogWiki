@@ -52,7 +52,11 @@ import {
   normalizeToAppHref as sharedNormalizeToAppHref,
 } from '@/components/wiki-render/link/linkUtils';
 
-import { WikiRefInline } from '@/components/wiki-render/inline';
+import {
+  InlineImage,
+  InlineMark,
+  WikiRefInline,
+} from '@/components/wiki-render/inline';
 
 type Props = {
   content: Descendant[];
@@ -1891,43 +1895,27 @@ function renderNode(
             ? Number(node.height)
             : 22;
 
-      if (!src) return null;
-
       return (
-        <SmartImage
-          key={key}
+        <InlineImage
+          mode="read"
           src={src}
-          alt=""
           width={width}
           height={height}
-          style={{
-            width,
-            height,
-            objectFit: "contain",
-            display: "inline-block",
-            verticalAlign: "middle",
-            imageRendering: "pixelated",
-            margin: "0 2px",
-          }}
         />
       );
     }
 
-    case "inline-mark":
+    case "inline-mark": {
       return (
-        <span
-          key={key}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            verticalAlign: "middle",
-            lineHeight: 1,
-            margin: "0 2px",
-          }}
+        <InlineMark
+          mode="read"
+          icon={node.icon}
+          color={node.color}
         >
-          {node.icon}
-        </span>
+          {children}
+        </InlineMark>
       );
+    }
 
     case "footnote": {
       const label = String((node as any).label ?? "").trim() || "각주";
