@@ -201,8 +201,7 @@ export default function HeadingBlock({
             flex: 0 0 auto;
           }
 
-          [data-rdwiki-heading="true"]:hover .wiki-heading-anchor-btn,
-          [data-rdwiki-heading="true"]:focus-within .wiki-heading-anchor-btn {
+          [data-rdwiki-heading="true"]:hover .wiki-heading-anchor-btn {
             opacity: 1;
             transform: translateX(0);
           }

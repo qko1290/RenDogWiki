@@ -19,6 +19,7 @@ export default function HeadingAnchorButton({
   const handleClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     event.preventDefault();
+    event.currentTarget.blur();
 
     if (!anchorId) return;
 
