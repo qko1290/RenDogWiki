@@ -92,6 +92,12 @@ import {
   LinkBlockRowReadAdapter,
 } from './read/LinkBlockReadAdapter';
 
+import {
+  DividerReadAdapter,
+  InfoBoxReadAdapter,
+  ParagraphReadAdapter,
+} from './read/BasicBlockReadAdapters';
+
 type Props = {
   content: Descendant[];
   readOnly?: boolean;
@@ -287,20 +293,13 @@ function renderNode(
 
   switch (node.type) {
     case "paragraph": {
-      const indentLine = node.indentLine;
-      const plainText = stripReact(children).replace(/\u200B/g, "").trim();
-      const isMobileTableText = !!env?.isMobile && !!env?.inTableCell;
-
       return (
-        <ParagraphBlock
-          mode="read"
-          textAlign={node.textAlign || "left"}
-          indentLine={Boolean(indentLine)}
-          plainText={plainText}
-          isMobileTableText={isMobileTableText}
+        <ParagraphReadAdapter
+          node={node}
+          env={env}
         >
           {children}
-        </ParagraphBlock>
+        </ParagraphReadAdapter>
       );
     }
 
@@ -386,12 +385,7 @@ function renderNode(
     }
 
     case "divider": {
-      return (
-        <DividerBlock
-          mode="read"
-          styleType={node.style || 'default'}
-        />
-      );
+      return <DividerReadAdapter node={node} />;
     }
 
     case "link-block": {
@@ -419,29 +413,15 @@ function renderNode(
     }
 
     case "info-box": {
-      const raw =
-        node.boxType ??
-        node.variant ??
-        node.tone ??
-        node.infoType ??
-        "note";
-
-      const sourceChildren = env?.isMobile
-        ? (node.children ?? []).map(normalizeInfoBoxNodeForMobile)
-        : (node.children ?? []);
-
-      const infoChildren = sourceChildren.map((child: any, i: number) =>
-        renderNode(child, key ? `${key}-info-${i}` : i, ctx, handlers, env)
-      );
-
       return (
-        <InfoBoxBlock
-          mode="read"
-          tone={raw}
-          noIcon={Boolean(node.noIcon)}
-        >
-          {infoChildren}
-        </InfoBoxBlock>
+        <InfoBoxReadAdapter
+          node={node}
+          keyProp={key}
+          ctx={ctx}
+          handlers={handlers}
+          env={env}
+          renderNode={renderNode}
+        />
       );
     }
 
