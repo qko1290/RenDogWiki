@@ -22,11 +22,11 @@ import PriceTableRenderer from '@/components/wiki-render/price-table/PriceTableR
 import PriceItemSelectModal from '../PriceItemSelectModal';
 
 import {
-  fetchLatestPriceItem,
-  makePriceCacheKey,
   normalizePickedPrices,
   type PickedPriceItem,
 } from '@/components/wiki-render/price-table/priceTableLiveService';
+
+import { useLivePriceTableItems } from '@/components/wiki-render/price-table/useLivePriceTableItems';
 
 import { usePriceTableStageState } from '@/components/wiki-render/price-table/usePriceTableStageState';
 
@@ -71,94 +71,10 @@ export function PriceTableCard(props: PriceTableCardProps) {
 
   const sourceItems = Array.isArray(el.items) ? el.items : [];
 
-  const [liveMap, setLiveMap] = useState<Map<string, PickedPriceItem>>(
-    () => new Map(),
-  );
   const [imageEditIndex, setImageEditIndex] = useState<number | null>(null);
   const [selectEditIndex, setSelectEditIndex] = useState<number | null>(null);
 
-  const itemsSignature = useMemo(() => {
-    return (Array.isArray(el.items) ? el.items : [])
-      .map((it: any) => makePriceCacheKey(it?.id ?? null, it?.name_key ?? null))
-      .filter(Boolean)
-      .join('|');
-  }, [el.items]);
-
-  useEffect(() => {
-    let alive = true;
-
-    (async () => {
-      const items = Array.isArray(el.items) ? el.items : [];
-      const targets = items
-        .map((it: any) => {
-          const key = makePriceCacheKey(it?.id ?? null, it?.name_key ?? null);
-
-          return {
-            key,
-            id: it?.id ?? null,
-            name_key: it?.name_key ?? null,
-          };
-        })
-        .filter((target) => !!target.key);
-
-      if (targets.length === 0) {
-        if (alive) setLiveMap(new Map());
-
-        return;
-      }
-
-      const results = await Promise.all(
-        targets.map(async (target) => {
-          const latest = await fetchLatestPriceItem(
-            target.id,
-            target.name_key,
-          );
-
-          return {
-            key: target.key,
-            latest,
-          };
-        }),
-      );
-
-      if (!alive) return;
-
-      const next = new Map<string, PickedPriceItem>();
-
-      for (const result of results) {
-        if (result.latest) next.set(result.key, result.latest);
-      }
-
-      setLiveMap(next);
-    })();
-
-    return () => {
-      alive = false;
-    };
-  }, [itemsSignature, el.items]);
-
-  const viewItems = useMemo(() => {
-    const items = Array.isArray(el.items) ? el.items : [];
-
-    return items.map((it: any) => {
-      const key = makePriceCacheKey(it?.id ?? null, it?.name_key ?? null);
-      const latest = key ? liveMap.get(key) : null;
-
-      if (!latest) return it;
-
-      const normalized = normalizePickedPrices(latest);
-
-      return {
-        ...it,
-        id: latest.id ?? it.id,
-        name: latest.name ?? it.name,
-        name_key: latest.name_key ?? it.name_key,
-        mode: latest.mode ?? it.mode,
-        stages: normalized.stages,
-        prices: normalized.prices,
-      };
-    });
-  }, [el.items, liveMap]);
+  const viewItems = useLivePriceTableItems(sourceItems as any[]);
 
   const {
     hoveredIndex: hovered,
