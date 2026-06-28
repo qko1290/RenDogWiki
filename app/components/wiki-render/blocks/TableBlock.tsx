@@ -1,9 +1,10 @@
 import React from 'react';
+
 import type { WikiRenderMode } from '../types';
+import { WikiTableRenderer } from '../table/TableRenderer';
 
 type TableBlockProps = {
   mode: WikiRenderMode;
-
   attributes?: React.HTMLAttributes<HTMLDivElement>;
   children?: React.ReactNode;
 
@@ -16,7 +17,6 @@ type TableBlockProps = {
 
   table: React.ReactNode;
   overlay?: React.ReactNode;
-
   editControls?: React.ReactNode;
   readControls?: React.ReactNode;
 
@@ -24,6 +24,10 @@ type TableBlockProps = {
   compact?: boolean;
   tableInnerStyle?: React.CSSProperties;
 };
+
+function normalizeMode(mode: WikiRenderMode): 'read' | 'edit' {
+  return mode === 'edit' ? 'edit' : 'read';
+}
 
 export default function TableBlock({
   mode,
@@ -38,31 +42,29 @@ export default function TableBlock({
   overlay,
   editControls,
   readControls,
+  scrollable = false,
+  compact = false,
+  tableInnerStyle,
 }: TableBlockProps) {
-  const controls = mode === 'edit' ? editControls : readControls;
+  const normalizedMode = normalizeMode(mode);
 
   return (
-    <div
-      {...attributes}
-      ref={containerRef}
-      className={[
-        mode === 'edit' ? 'wiki-table-edit' : 'wiki-table-read',
-        attributes?.className || '',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-      style={{
-        ...(containerStyle || {}),
-        ...(attributes?.style || {}),
-      }}
+    <WikiTableRenderer
+      mode={normalizedMode}
+      attributes={attributes}
+      containerRef={containerRef}
+      style={containerStyle}
+      table={table}
+      overlay={overlay}
+      editControls={editControls}
+      readControls={readControls}
+      scrollable={scrollable}
+      compact={compact}
+      tableInnerStyle={tableInnerStyle}
       onMouseMoveCapture={onMouseMoveCapture}
       onMouseDownCapture={onMouseDownCapture}
       onMouseUpCapture={onMouseUpCapture}
-    >
-      {table}
-      {overlay}
-      {controls}
-      {mode === 'edit' ? children : null}
-    </div>
+      afterContent={normalizedMode === 'edit' ? children : null}
+    />
   );
 }

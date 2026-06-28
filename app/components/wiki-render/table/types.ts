@@ -20,12 +20,27 @@ export type WikiTableRendererProps = {
   className?: string;
   style?: React.CSSProperties;
 
+  /**
+   * 새 구조:
+   * children으로 row를 받으면 내부에서 table을 만든다.
+   *
+   * 호환 구조:
+   * 기존 TableBlock처럼 완성된 table을 넘기면 그대로 출력한다.
+   */
+  table?: React.ReactNode;
+
   tableClassName?: string;
   tableStyle?: React.CSSProperties;
 
   overlay?: React.ReactNode;
   editControls?: React.ReactNode;
   readControls?: React.ReactNode;
+
+  afterContent?: React.ReactNode;
+
+  scrollable?: boolean;
+  compact?: boolean;
+  tableInnerStyle?: React.CSSProperties;
 
   onMouseMoveCapture?: React.MouseEventHandler<HTMLDivElement>;
   onMouseDownCapture?: React.MouseEventHandler<HTMLDivElement>;

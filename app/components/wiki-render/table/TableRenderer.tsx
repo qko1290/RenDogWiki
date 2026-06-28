@@ -22,17 +22,44 @@ export function WikiTableRenderer({
   containerRef,
   className,
   style,
+  table,
   tableClassName,
   tableStyle,
   overlay,
   editControls,
   readControls,
+  afterContent,
+  scrollable = false,
+  tableInnerStyle,
   onMouseMoveCapture,
   onMouseDownCapture,
   onMouseUpCapture,
 }: WikiTableRendererProps) {
   const controls = mode === 'edit' ? editControls : readControls;
   const attrStyle = attributes?.style;
+
+  const tableNode =
+    table ?? (
+      <table
+        className={tableClassName}
+        onDragStart={(e) => e.preventDefault()}
+        style={{
+          ...tableElementBaseStyle,
+          ...tableStyle,
+        }}
+      >
+        <tbody>{children}</tbody>
+      </table>
+    );
+
+  const content = (
+    <>
+      {tableNode}
+      {overlay}
+      {controls}
+      {afterContent}
+    </>
+  );
 
   return (
     <div
@@ -49,19 +76,19 @@ export function WikiTableRenderer({
         ...attrStyle,
       }}
     >
-      <table
-        className={tableClassName}
-        onDragStart={(e) => e.preventDefault()}
-        style={{
-          ...tableElementBaseStyle,
-          ...tableStyle,
-        }}
-      >
-        <tbody>{children}</tbody>
-      </table>
-
-      {overlay}
-      {controls}
+      {scrollable ? (
+        <div
+          style={{
+            overflowX: 'auto',
+            maxWidth: '100%',
+            ...tableInnerStyle,
+          }}
+        >
+          {content}
+        </div>
+      ) : (
+        content
+      )}
     </div>
   );
 }
