@@ -1,14 +1,12 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import {
   RenderElementProps,
   ReactEditor,
-  useSelected,
-  useFocused,
   useSlate,
 } from 'slate-react';
-import { Node, Transforms, Path, Element as SlateElement } from 'slate';
+import { Node, Path } from 'slate';
 
 import { toProxyUrl } from '@lib/cdn';
 
@@ -29,6 +27,8 @@ import type {
 } from '@/types/slate';
 
 import type { PriceTableEditState } from './render/types';
+import type { ElementRenderProps, WikiRefKind } from './render/types';
+
 import PriceTableCard from './render/PriceTableCard';
 import {
   TableElementRenderer,
@@ -36,22 +36,21 @@ import {
   TableCellRenderer,
 } from './render/Table';
 import WeaponCard from './render/WeaponCard';
-import type { ElementRenderProps, WikiRefKind } from './render/types';
 
 import DividerBlock from '@/components/wiki-render/blocks/DividerBlock';
 import ParagraphBlock from '@/components/wiki-render/blocks/ParagraphBlock';
 import HeadingBlock from '@/components/wiki-render/blocks/HeadingBlock';
 import InfoBoxBlock from '@/components/wiki-render/blocks/InfoBoxBlock';
-import MediaBlock from '@/components/wiki-render/blocks/MediaBlock';
-import LinkCardRenderer from '@/components/wiki-render/link/LinkCardRenderer';
+
 import {
   FootnoteInline,
   InlineImage,
   InlineMark,
   WikiRefInline,
 } from '@/components/wiki-render/inline';
-import InlineLinkRenderer from '@/components/wiki-render/link/InlineLinkRenderer';
 
+import InlineLinkRenderer from '@/components/wiki-render/link/InlineLinkRenderer';
+import LinkBlockEditorAdapter from './render/link/LinkBlockEditorAdapter';
 import { ImageBlock, VideoBlock } from './render/media/MediaEditorBlocks';
 
 export type ElementProps = RenderElementProps & {
@@ -59,240 +58,6 @@ export type ElementProps = RenderElementProps & {
   onIconClick: (element: CustomElement) => void;
   priceTableEdit: PriceTableEditState;
   setPriceTableEdit: React.Dispatch<React.SetStateAction<PriceTableEditState>>;
-};
-
-type BlockComponentProps<E extends CustomElement = CustomElement> = {
-  attributes: RenderElementProps['attributes'];
-  children: React.ReactNode;
-  element: E;
-  editor: any;
-};
-
-function getParsedUrl(url?: string | null) {
-  if (!url) return null;
-
-  try {
-    const base =
-      typeof window !== 'undefined'
-        ? window.location.origin
-        : 'https://dummy.local';
-
-    return new URL(url, base);
-  } catch {
-    return null;
-  }
-}
-
-function normalizeHostForWikiLink(hostname: string | null | undefined) {
-  return String(hostname ?? '')
-    .trim()
-    .replace(/^www\./i, '')
-    .toLowerCase();
-}
-
-function isKnownRdwikiHost(hostname: string | null | undefined) {
-  const host = normalizeHostForWikiLink(hostname);
-
-  if (!host) return false;
-
-  return (
-    host === 'ren-dog-wiki.vercel.app' ||
-    (host.startsWith('ren-dog-wiki-') && host.endsWith('.vercel.app')) ||
-    host.endsWith('qko1290s-projects.vercel.app')
-  );
-}
-
-function isRdwikiWikiUrl(urlObj: URL) {
-  if (!urlObj.pathname.startsWith('/wiki')) return false;
-
-  if (typeof window === 'undefined') {
-    return true;
-  }
-
-  const currentHost = normalizeHostForWikiLink(window.location.hostname);
-  const targetHost = normalizeHostForWikiLink(urlObj.hostname);
-
-  return targetHost === currentHost || isKnownRdwikiHost(targetHost);
-}
-
-const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
-  attributes,
-  children,
-  element,
-  editor,
-}) => {
-  const el = element;
-  const isReadOnly = ReactEditor.isReadOnly(editor);
-
-  const parsedUrl = useMemo(() => getParsedUrl(el.url), [el.url]);
-
-  const isWikiLink = useMemo(() => {
-    if (el.isWiki) return true;
-    if (!parsedUrl) return false;
-
-    return isRdwikiWikiUrl(parsedUrl);
-  }, [el.isWiki, parsedUrl]);
-
-  let displaySitename = el.sitename;
-
-  if (!isWikiLink && !displaySitename && parsedUrl) {
-    displaySitename = parsedUrl.hostname.replace(/^www\./, '');
-  }
-
-  const isSmall = el.size === 'small' || (el as any).size === 'half';
-
-  let inRow = false;
-
-  try {
-    const path = ReactEditor.findPath(editor, element);
-    const parent = Node.parent(editor as any, path);
-
-    inRow =
-      SlateElement.isElement(parent) &&
-      (parent as any).type === 'link-block-row';
-  } catch {}
-
-  const siteLabel = useMemo(() => {
-    const clean = (s?: string | null) => (s ?? '').trim();
-
-    const isGarbage = (s: string) =>
-      !s ||
-      /path\s*=|title\s*=|#heading-|https?:\/\/|\/wiki|[?&]=|%[0-9A-Fa-f]{2}/.test(
-        s,
-      );
-
-    if (isWikiLink) return 'RenDog Wiki';
-
-    const s = clean(el.sitename);
-
-    if (s && !isGarbage(s)) return s;
-
-    if (parsedUrl) return parsedUrl.hostname.replace(/^www\./, '');
-
-    return '';
-  }, [isWikiLink, parsedUrl, el.sitename]);
-
-  const compactSubText = useMemo(() => {
-    if (!parsedUrl) return '';
-
-    const dot = ' · ';
-    const parts: string[] = [];
-
-    if (isWikiLink) {
-      const p =
-        parsedUrl.searchParams.get('path') ??
-        ((el as any).wikiPath != null ? String((el as any).wikiPath) : null);
-
-      const t =
-        parsedUrl.searchParams.get('title') ??
-        ((el as any).wikiTitle != null ? String((el as any).wikiTitle) : null);
-
-      if (p) parts.push(`path=${p}`);
-      if (t) parts.push(`title=${t}`);
-
-      const rawHash = parsedUrl.hash ? parsedUrl.hash.slice(1) : '';
-      const decoded = rawHash
-        ? (() => {
-            try {
-              return decodeURIComponent(rawHash);
-            } catch {
-              return rawHash;
-            }
-          })()
-        : '';
-
-      if (decoded) {
-        const clean = decoded.startsWith('heading-')
-          ? decoded.slice(8)
-          : decoded;
-        const short = clean.length > 26 ? `${clean.slice(0, 26)}…` : clean;
-
-        parts.push(`#${short}`);
-      }
-
-      return parts.join(dot) || 'wiki';
-    }
-
-    const host = parsedUrl.hostname.replace(/^www\./, '');
-    const pathname = (parsedUrl.pathname || '').trim();
-    const pathShort =
-      pathname && pathname !== '/'
-        ? pathname.length > 18
-          ? `${pathname.slice(0, 18)}…`
-          : pathname
-        : '';
-
-    return [host, pathShort].filter(Boolean).join(dot);
-  }, [parsedUrl, isWikiLink, el]);
-
-  const title = isReadOnly
-    ? Node.string(el) ||
-      (isWikiLink
-        ? (el as any).wikiTitle || el.sitename || '문서'
-        : displaySitename || el.url)
-    : children;
-
-  const deleteButton = !isReadOnly ? (
-    <button
-      type="button"
-      aria-label="링크 카드 삭제"
-      onMouseDown={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        const path = ReactEditor.findPath(editor, element);
-
-        Transforms.removeNodes(editor, { at: path });
-      }}
-      style={{
-        width: 26,
-        height: 26,
-        borderRadius: 999,
-        background: '#fff',
-        border: '1.5px solid #cbd5e1',
-        boxShadow: '0 10px 22px rgba(15,23,42,0.10)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: 'pointer',
-        padding: 0,
-      }}
-      contentEditable={false}
-      tabIndex={-1}
-    >
-      ×
-    </button>
-  ) : null;
-
-  return (
-    <LinkCardRenderer
-      mode={isReadOnly ? 'read' : 'edit'}
-      url={el.url}
-      isWiki={el.isWiki}
-      wikiPath={(el as any).wikiPath}
-      wikiTitle={(el as any).wikiTitle}
-      sitename={el.sitename}
-      size={el.size}
-      docIcon={(el as any).docIcon}
-      labelText={
-        isReadOnly
-          ? Node.string(el) ||
-            (isWikiLink
-              ? (el as any).wikiTitle || el.sitename || '문서'
-              : displaySitename || el.url || '링크')
-          : undefined
-      }
-      titleContent={title}
-      subtitle={siteLabel}
-      metaText={isReadOnly ? compactSubText : undefined}
-      inRow={inRow}
-      attributes={attributes as any}
-      editControls={deleteButton}
-      clickableInReadMode={false}
-    >
-      {children}
-    </LinkCardRenderer>
-  );
 };
 
 const Element: React.FC<ElementRenderProps> = ({
@@ -325,13 +90,13 @@ const Element: React.FC<ElementRenderProps> = ({
 
     case 'link-block': {
       return (
-        <LinkBlockView
+        <LinkBlockEditorAdapter
           attributes={attributes}
           element={element as LinkBlockElement}
           editor={editor}
         >
           {children}
-        </LinkBlockView>
+        </LinkBlockEditorAdapter>
       );
     }
 
@@ -342,6 +107,7 @@ const Element: React.FC<ElementRenderProps> = ({
         | HeadingOneElement
         | HeadingTwoElement
         | HeadingThreeElement;
+
       const level =
         el.type === 'heading-one' ? 1 : el.type === 'heading-two' ? 2 : 3;
 
@@ -442,7 +208,11 @@ const Element: React.FC<ElementRenderProps> = ({
 
     case 'image': {
       return (
-        <ImageBlock attributes={attributes} element={element as any} editor={editor}>
+        <ImageBlock
+          attributes={attributes}
+          element={element as any}
+          editor={editor}
+        >
           {children}
         </ImageBlock>
       );
@@ -487,11 +257,11 @@ const Element: React.FC<ElementRenderProps> = ({
           label={el.label}
           attributes={attributes as React.HTMLAttributes<HTMLSpanElement>}
           title="우클릭하여 각주 수정"
-          onContextMenu={(e) => {
+          onContextMenu={(event) => {
             if (!openFootnoteEditor) return;
 
-            e.preventDefault();
-            e.stopPropagation();
+            event.preventDefault();
+            event.stopPropagation();
 
             try {
               const path = ReactEditor.findPath(slateEditor, element);
@@ -584,15 +354,21 @@ const Element: React.FC<ElementRenderProps> = ({
     case 'quest-embed':
     case 'npc-embed':
     case 'qna-embed': {
-      const t = element.type;
+      const type = element.type;
+
       const id =
-        t === 'quest-embed'
+        type === 'quest-embed'
           ? (element as any).questId
-          : t === 'npc-embed'
+          : type === 'npc-embed'
             ? (element as any).npcId
             : (element as any).qnaId;
+
       const label =
-        t === 'quest-embed' ? '퀘스트' : t === 'npc-embed' ? 'NPC' : 'QNA';
+        type === 'quest-embed'
+          ? '퀘스트'
+          : type === 'npc-embed'
+            ? 'NPC'
+            : 'QNA';
 
       return (
         <div
