@@ -8,6 +8,20 @@ export type WeaponMetaLike = {
   headerBg?: string;
 };
 
+export type WeaponStatLevelLike =
+  | string
+  | number
+  | null
+  | undefined
+  | {
+      label?: string;
+      name?: string;
+      value?: string | number | null;
+      summary?: string | number | null;
+      unit?: string | null;
+      [key: string]: any;
+    };
+
 export type WeaponStatLike = {
   key?: string;
   label?: string;
@@ -16,7 +30,10 @@ export type WeaponStatLike = {
   enabled?: boolean;
   value?: string | number | null;
   values?: Array<string | number | null | undefined>;
-  levels?: Array<string | number | null | undefined>;
+
+  // 중요: 실제 WeaponStatDetail[]도 받을 수 있어야 함
+  levels?: WeaponStatLevelLike[];
+
   levelLabels?: string[];
   [key: string]: any;
 };
