@@ -25,7 +25,8 @@ import { useLivePriceTableItems } from '@/components/wiki-render/price-table/use
 
 import { usePriceTableStageState } from '@/components/wiki-render/price-table/usePriceTableStageState';
 
-import { usePriceTableEditorActions } from './usePriceTableEditorActions';
+import { usePriceTableEditorActions } from './price-table/usePriceTableEditorActions';
+import { usePriceTableBlockGuard } from './price-table/usePriceTableBlockGuard';
 
 // -------------------- 메인 렌더러 --------------------
 
@@ -43,27 +44,7 @@ export function PriceTableCard(props: PriceTableCardProps) {
   const editorStatic = useSlateStatic();
   const el = element as PriceTableCardElement;
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const { selection } = editorStatic;
-
-      if (!selection || !ReactEditor.isFocused(editorStatic)) return;
-
-      const [node] = Editor.node(editorStatic, selection, { depth: 1 });
-
-      if (
-        SlateElement.isElement(node) &&
-        (node as any).type === 'price-table-card' &&
-        e.key === 'Backspace'
-      ) {
-        e.preventDefault();
-      }
-    };
-
-    window.addEventListener('keydown', handler, true);
-
-    return () => window.removeEventListener('keydown', handler, true);
-  }, [editorStatic]);
+  usePriceTableBlockGuard(editorStatic);
 
   const sourceItems = Array.isArray(el.items) ? el.items : [];
 
