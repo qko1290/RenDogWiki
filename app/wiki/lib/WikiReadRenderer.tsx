@@ -48,10 +48,10 @@ import TableBlock from '@/components/wiki-render/blocks/TableBlock';
 
 
 import WeaponBlock from '@/components/wiki-render/blocks/WeaponBlock';
+import WeaponCardRenderer from '@/components/wiki-render/weapon/WeaponCardRenderer';
 
 import PriceTableRenderer from '@/components/wiki-render/price-table/PriceTableRenderer';
 import type { PriceTableRawItem } from '@/components/wiki-render/price-table/types';
-import WeaponCardRenderer from '@/components/wiki-render/weapon/WeaponCardRenderer';
 
 type Props = {
   content: Descendant[];
@@ -2178,28 +2178,6 @@ type WeaponVideoModalProps = {
   onClose: () => void;
 };
 
-function isTranscendLabel(label: string) {
-  const up = (label || "").toUpperCase();
-  return up.startsWith("TRANSCEND");
-}
-
-function hexToRgba(hex: string, alpha: number) {
-  const h = (hex || "").replace("#", "").trim();
-  const a = Math.max(0, Math.min(1, alpha));
-  if (h.length === 3) {
-    const r = parseInt(h[0] + h[0], 16);
-    const g = parseInt(h[1] + h[1], 16);
-    const b = parseInt(h[2] + h[2], 16);
-    return `rgba(${r},${g},${b},${a})`;
-  }
-  if (h.length === 6) {
-    const r = parseInt(h.slice(0, 2), 16);
-    const g = parseInt(h.slice(2, 4), 16);
-    const b = parseInt(h.slice(4, 6), 16);
-    return `rgba(${r},${g},${b},${a})`;
-  }
-  return `rgba(255,255,255,${a})`;
-}
 
 function WeaponVideoModal({ open, url, onClose }: WeaponVideoModalProps) {
   if (!open) return null;
@@ -2534,277 +2512,27 @@ export default function WikiReadRenderer({
 
 /* ======================= 🔫 무기 카드 (문서 읽기용) ======================= */
 
-function shortLevelLabel(label: string): string {
-  const raw = (label ?? "").trim();
-  if (!raw) return "?";
+function getDefaultWeaponLevelIndex(levelLabels: string[]) {
+  if (!levelLabels.length) return null;
 
-  const upper = raw.toUpperCase();
-  if (upper === "MAX" || upper === "M") return "M"; // MAX/M → M
+  const idxMax = levelLabels.findIndex((label) => {
+    const upper = String(label ?? '').trim().toUpperCase();
+    return upper === 'MAX' || upper === 'M';
+  });
 
-  const numMatch = raw.match(/\d+/);
-  if (numMatch) return numMatch[0]; // "1강" → "1", "10강" → "10"
-
-  return raw[0] ?? "?";
+  return idxMax >= 0 ? idxMax : levelLabels.length - 1;
 }
 
-type WeaponLevelSelectorProps = {
-  levelLabels: string[];
-  selectedIndex: number | null;
-  onChange: (idx: number) => void;
-  compact?: boolean;
-  overlay?: boolean;
-  spiritLayout?: boolean;
-};
-
-/** 카드 오른쪽 바깥에 붙는 강수 선택 버튼 (단색 뱃지 + MAX만 다른 색) */
-function WeaponLevelSelector({
-  levelLabels,
-  selectedIndex,
-  onChange,
-  compact = false,
-  overlay = false,
-  spiritLayout = false,
-}: WeaponLevelSelectorProps) {
-  const [open, setOpen] = useState(false);
-
-  // ✅ 단계가 0~1개면 버튼 자체를 렌더하지 않음
-  if (levelLabels.length <= 1) return null;
-
-  const displayLevelLabels =
-    spiritLayout && levelLabels.length >= 15
-      ? levelLabels.map((label, idx) =>
-          idx === levelLabels.length - 1 ? "MAX" : label
-        )
-      : levelLabels;
-
-  const selectedLabel =
-    selectedIndex != null ? displayLevelLabels[selectedIndex] : null;
-  const selectedShort = selectedLabel ? shortLevelLabel(selectedLabel) : "-";
-
-  const isMaxLabel = (label: string | null | undefined, short: string) => {
-    if (!label && !short) return false;
-    const up = (label ?? "").toUpperCase();
-    return up.includes("MAX") || up === "M" || short === "M";
-  };
-
-  const selectedIsMax = isMaxLabel(selectedLabel, selectedShort);
-
-  const handleSelect = (idx: number) => {
-    onChange(idx);
-    setOpen(false);
-  };
-
-  // ✅ 기존 톤 유지 (색은 거의 그대로)
-  const BASE_BG = "rgba(15,23,42,0.96)";
-  const BASE_TEXT = "#e5e7eb";
-  const BASE_BORDER = "1px solid rgba(148,163,184,0.95)";
-  const ACTIVE_BORDER = "1px solid rgba(96,165,250,0.95)";
-
-  const MAX_BG = "#facc15";
-  const MAX_TEXT = "#111827";
-  const MAX_BORDER = "1px solid #fbbf24";
-
-  // ✅ 하얀 배경에서 또렷하게: 크기/그림자만 업그레이드
-  const DOT = compact ? 26 : 30;
-  const DOT_FONT = compact ? 12 : 13;
-  const TOP_FONT = compact ? 13 : 14;
-  const DOT_SHADOW = "0 10px 24px rgba(15,23,42,0.22), 0 2px 6px rgba(15,23,42,0.12)";
-  const DOT_SHADOW_ACTIVE = "0 12px 28px rgba(37,99,235,0.18), 0 2px 8px rgba(15,23,42,0.12)";
-
-  return (
-    <div
-      data-wiki-part="weapon-level-selector"
-      style={{
-        position: "relative",
-        marginLeft: overlay ? 0 : 10,
-        alignSelf: "flex-start",
-      }}
-    >
-      {/* 상단 버튼: 선택된 강수 뱃지 + 화살표 */}
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        style={{
-          border: "none",
-          outline: "none",
-          cursor: "pointer",
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 8,
-          padding: 0,
-          background: "transparent",
-          color: BASE_TEXT,
-          fontSize: TOP_FONT,
-          fontWeight: 650,
-          lineHeight: 1,
-        }}
-      >
-        <span
-          style={{
-            width: DOT,
-            height: DOT,
-            borderRadius: 999,
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: DOT_FONT,
-            fontWeight: 800,
-            background: selectedIsMax ? MAX_BG : BASE_BG,
-            color: selectedIsMax ? MAX_TEXT : BASE_TEXT,
-            border: selectedIsMax ? MAX_BORDER : BASE_BORDER,
-            boxShadow: DOT_SHADOW,
-          }}
-        >
-          {selectedShort}
-        </span>
-
-        <span
-          style={{
-            fontSize: 12,
-            opacity: 0.8,
-            transform: open ? "translateY(-1px)" : "translateY(0)",
-            transition: "transform 0.12s ease",
-            userSelect: "none",
-          }}
-        >
-          {open ? "▲" : "▼"}
-        </span>
-      </button>
-
-      {/* 펼쳐지는 강수 리스트 */}
-      <div
-        style={{
-          position: "absolute",
-          top: "100%",
-          right: spiritLayout ? -21 : overlay ? 0 : 17,
-          marginTop: 8,
-          zIndex: 40,
-          pointerEvents: open ? "auto" : "none",
-          opacity: open ? 1 : 0,
-          transform: open ? "translateY(0)" : "translateY(-6px)",
-          transition: "opacity 0.16s ease-out, transform 0.16s ease-out",
-        }}
-      >
-        <div
-          style={{
-            padding: 0,
-            borderRadius: 0,
-            background: "transparent",
-            border: "none",
-            boxShadow: "none",
-            display: "flex",
-            flexDirection: "column",
-            gap: 10,
-            alignItems: "center",
-          }}
-        >
-          {(() => {
-            const renderLevelButton = (fullLabel: string, idx: number) => {
-              const short = shortLevelLabel(fullLabel);
-              const active = selectedIndex === idx;
-              const isMax = isMaxLabel(fullLabel, short);
-
-              const bg = isMax ? MAX_BG : BASE_BG;
-              const textColor = isMax ? MAX_TEXT : BASE_TEXT;
-
-              const border = isMax
-                ? MAX_BORDER
-                : active
-                ? ACTIVE_BORDER
-                : BASE_BORDER;
-
-              return (
-                <button
-                  key={`${fullLabel}-${idx}`}
-                  type="button"
-                  onClick={() => handleSelect(idx)}
-                  style={{
-                    border: "none",
-                    outline: "none",
-                    cursor: "pointer",
-                    padding: 0,
-                    margin: 0,
-                    background: "transparent",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <span
-                    style={{
-                      width: DOT,
-                      height: DOT,
-                      borderRadius: 999,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: DOT_FONT,
-                      fontWeight: active ? 900 : 800,
-                      background: bg,
-                      color: textColor,
-                      border,
-                      boxShadow: active ? DOT_SHADOW_ACTIVE : DOT_SHADOW,
-                      transform: active ? "translateY(-1px)" : "translateY(0)",
-                      transition:
-                        "transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease",
-                    }}
-                  >
-                    {short}
-                  </span>
-                </button>
-              );
-            };
-
-            if (spiritLayout) {
-              const left = displayLevelLabels.slice(0, 9);
-              const right = displayLevelLabels.slice(9);
-
-              return (
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "row",
-                    gap: compact ? 8 : 10,
-                    alignItems: "flex-start",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 10,
-                      alignItems: "center",
-                    }}
-                  >
-                    {left.map((fullLabel, idx) =>
-                      renderLevelButton(fullLabel, idx)
-                    )}
-                  </div>
-
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 10,
-                      alignItems: "center",
-                    }}
-                  >
-                    {right.map((fullLabel, localIdx) =>
-                      renderLevelButton(fullLabel, localIdx + 9)
-                    )}
-                  </div>
-                </div>
-              );
-            }
-
-            return displayLevelLabels.map((fullLabel, idx) =>
-              renderLevelButton(fullLabel, idx)
-            );
-          })()}
-        </div>
-      </div>
-    </div>
+function getWeaponLevelLabelsFromStats(enabledStats: any[]) {
+  const baseStatWithLevels = enabledStats.find(
+    (stat) => Array.isArray(stat?.levels) && stat.levels.length > 0,
   );
+
+  if (!baseStatWithLevels) return [];
+
+  return baseStatWithLevels.levels
+    .map((level: any) => String(level?.levelLabel ?? level?.label ?? '').trim())
+    .filter(Boolean);
 }
 
 function WeaponCardRead({
@@ -2819,95 +2547,30 @@ function WeaponCardRead({
   isMobile?: boolean;
 }) {
   const stats: any[] = Array.isArray(node.stats) ? node.stats : [];
-  const enabledStats = stats.filter((s) => s && s.enabled);
+  const enabledStats = stats.filter((stat) => stat && stat.enabled);
 
-  // 🔹 levels 는 "첫 번째로 levels 가 있는 스탯" 기준
-  const baseStatWithLevels = enabledStats.find(
-    (s) => Array.isArray(s.levels) && s.levels.length > 0
+  const levelLabels = useMemo(
+    () => getWeaponLevelLabelsFromStats(enabledStats),
+    [enabledStats],
   );
-  const levelLabels: string[] = baseStatWithLevels
-    ? baseStatWithLevels.levels
-        .map((lv: any) => String(lv.levelLabel ?? "").trim())
-        .filter(Boolean)
-    : [];
-  const hasLevelSelector = levelLabels.length > 1;
 
-  // 기본 선택: MAX 있으면 MAX, 없으면 마지막 단계
+  const levelSignature = levelLabels.join('|');
+
   const [selectedLevelIndex, setSelectedLevelIndex] = useState<number | null>(
-    () => {
-      if (!levelLabels.length) return null;
-      const idxMax = levelLabels.findIndex(
-        (x) => x.toUpperCase() === "MAX" || x.toUpperCase() === "M"
-      );
-      return idxMax >= 0 ? idxMax : levelLabels.length - 1;
-    }
+    () => getDefaultWeaponLevelIndex(levelLabels),
   );
+
+  useEffect(() => {
+    setSelectedLevelIndex(getDefaultWeaponLevelIndex(levelLabels));
+  }, [levelSignature]);
 
   const [showVideo, setShowVideo] = useState(false);
 
-  // 🔹 Element 쪽과 같은 메타 사용
-  const weaponType: WeaponType = (node.weaponType as WeaponType) || "epic";
+  const weaponType: WeaponType = (node.weaponType as WeaponType) || 'epic';
   const meta = WEAPON_TYPES_META[weaponType] ?? WEAPON_TYPES_META.epic;
 
-  const isTranscend =
-    meta.label.startsWith("TRANSCEND") || weaponType.startsWith("transcend-");
+  const name = String(node.name ?? '').trim() || '무기 이름 없음';
 
-  const isSpirit = weaponType === "spirit";
-
-  const transcendFrameStyle: React.CSSProperties = {
-    padding: 2,
-    borderRadius: 20,
-    background: `linear-gradient(135deg, ${meta.headerBg} 0%, ${meta.border} 45%, #ffffff 60%, ${meta.headerBg} 100%)`,
-    boxShadow: `0 0 0 1px rgba(255,255,255,.18) inset,
-      0 18px 55px rgba(0,0,0,.55),
-      0 0 28px rgba(255,255,255,.12),
-      0 0 40px ${meta.headerBg}55`,
-  };
-
-  const transcendInnerGlowStyle: React.CSSProperties = {
-    borderRadius: 18,
-    overflow: "hidden",
-    background: `radial-gradient(circle at 20% 0%, ${meta.border}22, transparent 55%),
-      radial-gradient(circle at 100% 0%, ${meta.headerBg}2a, transparent 60%),
-      radial-gradient(circle at 50% 110%, rgba(255,255,255,.08), transparent 50%),
-      #020617`,
-    boxShadow: `0 0 0 1px rgba(255,255,255,.10) inset`,
-    position: "relative",
-  };
-
-  const spiritFrameStyle: React.CSSProperties = {
-    padding: 2,
-    borderRadius: 20,
-    background:
-      "linear-gradient(135deg, #021011 0%, #06383a 28%, #15c8bc 48%, #071112 62%, #0b1f2a 100%)",
-    boxShadow:
-      "0 0 0 1px rgba(29, 211, 199, .22) inset, 0 20px 55px rgba(0,0,0,.72), 0 0 34px rgba(20, 184, 166, .24), 0 0 80px rgba(8, 47, 73, .35)",
-  };
-
-  const spiritInnerGlowStyle: React.CSSProperties = {
-    borderRadius: 18,
-    overflow: "hidden",
-    position: "relative",
-    background:
-      "radial-gradient(circle at 18% 5%, rgba(29, 211, 199, .12), transparent 36%), radial-gradient(circle at 88% 12%, rgba(56, 189, 248, .06), transparent 34%), radial-gradient(circle at 50% 115%, rgba(4, 120, 87, .18), transparent 50%), linear-gradient(180deg, #02090a 0%, #031112 48%, #010506 100%)",
-    boxShadow: "0 0 34px rgba(20, 184, 166, .045) inset",
-  };
-
-  const spiritOverlayStyle: React.CSSProperties = {
-    position: "absolute",
-    inset: 0,
-    pointerEvents: "none",
-    opacity: 0.9,
-    backgroundImage:
-      "radial-gradient(circle at 16% 22%, rgba(125, 255, 239, .22) 0 1px, transparent 2px), radial-gradient(circle at 78% 32%, rgba(56, 189, 248, .20) 0 1px, transparent 2px), radial-gradient(circle at 42% 68%, rgba(45, 212, 191, .16) 0 1px, transparent 2px), linear-gradient(135deg, transparent 0%, rgba(20, 184, 166, .08) 44%, transparent 62%)",
-    backgroundSize: "72px 72px, 96px 96px, 120px 120px, 100% 100%",
-    mixBlendMode: "screen",
-    zIndex: 0,
-  };
-
-  const name = (node.name ?? "").trim() || "무기 이름 없음";
-
-  // 공용 버전 파라미터
   const versionBase =
     node.imageUpdatedAt ||
     node.imageVersion ||
@@ -2916,96 +2579,22 @@ function WeaponCardRead({
     node.updatedAt ||
     node.version;
 
-  const rawImage = node.imageUrl || node.image || "";
-  const imageSrc = rawImage ? withVersion(cdn(rawImage), versionBase) : "";
+  const rawImage = node.imageUrl || node.image || '';
+  const imageSrc = rawImage ? withVersion(cdn(rawImage), versionBase) : '';
 
   const VIDEOLESS_TYPES: WeaponType[] = [
-    "boss",
-    "miniBoss",
-    "mini-boss",
-    "rune",
-    "fishing-rod",
-    "monster",
-    "armor"
+    'boss',
+    'miniBoss',
+    'mini-boss',
+    'rune',
+    'fishing-rod',
+    'monster',
+    'armor',
   ];
+
   const supportsVideo = !VIDEOLESS_TYPES.includes(weaponType);
-
-  const rawVideo = supportsVideo ? node.videoUrl || "" : "";
-  const videoSrc = rawVideo ? withVersion(cdn(rawVideo), versionBase) : "";
-
-  const getStatDisplay = (stat: any): { value: string; unit?: string } => {
-    const unit = stat.unit || "";
-    if (
-      selectedLevelIndex == null ||
-      !Array.isArray(stat.levels) ||
-      !stat.levels.length
-    ) {
-      return { value: String(stat.summary ?? ""), unit };
-    }
-    const lv = stat.levels[selectedLevelIndex];
-    const v =
-      lv && lv.value != null && lv.value !== ""
-        ? String(lv.value)
-        : String(stat.summary ?? "");
-    return { value: v, unit };
-  };
-
-  const cardWidth = isMobile ? 220 : 260;
-
-  const cardBg = isSpirit
-    ? "#02090a"
-    : isDarkMode
-    ? "var(--surface-elevated)"
-    : "#020617";
-  const cardShadow = isSpirit
-    ? "0 18px 45px rgba(0,0,0,.58)"
-    : isDarkMode
-    ? "0 18px 45px rgba(2, 6, 23, 0.46)"
-    : "0 18px 45px rgba(0,0,0,.45)";
-
-  const titleBg = isSpirit
-    ? "linear-gradient(180deg, rgba(2, 6, 23, .98), rgba(3, 24, 27, .96))"
-    : isDarkMode
-    ? "linear-gradient(180deg, rgba(15,23,42,.98), rgba(17,24,39,.96))"
-    : "#020617";
-  const titleColor = isSpirit
-    ? "#e6fffb"
-    : isDarkMode
-    ? "var(--foreground)"
-    : "#e5e7eb";
-  const titleBorder = isSpirit
-    ? "1px solid rgba(45, 212, 191, .055)"
-    : isDarkMode
-    ? "1px solid var(--border)"
-    : "1px solid #111827";
-
-  const mediaBg = isSpirit
-    ? "radial-gradient(circle at 18% 12%, rgba(29, 211, 199, .12), transparent 40%), radial-gradient(circle at 78% 22%, rgba(14, 165, 233, .07), transparent 44%), radial-gradient(circle at 50% 95%, rgba(6, 78, 59, .18), transparent 52%), linear-gradient(180deg, rgba(3, 24, 27, .94) 0%, rgba(1, 8, 9, .98) 72%, #010607 100%)"
-    : isDarkMode
-    ? "radial-gradient(circle at 20% 0%, rgba(56,189,248,0.12), transparent 55%), radial-gradient(circle at 100% 0%, rgba(129,140,248,0.14), transparent 55%), linear-gradient(180deg, rgba(15,23,42,.96), rgba(11,18,32,.98))"
-    : "radial-gradient(circle at 20% 0%, rgba(56,189,248,0.18), transparent 55%), radial-gradient(circle at 100% 0%, rgba(129,140,248,0.22), transparent 55%), #020617";
-
-  const emptyTextColor = isDarkMode ? "var(--muted-2)" : "#6b7280";
-  const statEmptyBg = isDarkMode ? "rgba(15,23,42,.82)" : "rgba(15,23,42,.75)";
-  const statRowBorder = isSpirit
-    ? "1px solid rgba(45, 212, 191, .085)"
-    : isDarkMode
-    ? "1px solid var(--border)"
-    : "1px solid #111827";
-  const statRowBg = isSpirit
-    ? "linear-gradient(90deg, rgba(2, 18, 20, .82), rgba(4, 32, 35, .72))"
-    : isDarkMode
-    ? "linear-gradient(90deg, rgba(15,23,42,.82), rgba(17,24,39,.96))"
-    : "linear-gradient(90deg, rgba(15,23,42,.95), rgba(15,23,42,.85))";
-  const statLabelColor = isDarkMode ? "var(--muted)" : "#9ca3af";
-  const statValueColor = isSpirit
-    ? "#e6fffb"
-    : isDarkMode
-    ? "var(--foreground)"
-    : "#e5e7eb";
-
-  const disabledButtonBg = isDarkMode ? "var(--surface)" : "#111827";
-  const disabledButtonColor = isDarkMode ? "var(--muted-2)" : "#6b7280";
+  const rawVideo = supportsVideo ? node.videoUrl || '' : '';
+  const videoSrc = rawVideo ? withVersion(cdn(rawVideo), versionBase) : '';
 
   const content = (
     <>
@@ -3019,7 +2608,7 @@ function WeaponCardRead({
           videoUrl: rawVideo,
         }}
         meta={meta}
-        stats={stats}
+        stats={enabledStats}
         imageSrc={imageSrc}
         videoSrc={videoSrc}
         supportsVideo={supportsVideo}
@@ -3037,20 +2626,26 @@ function WeaponCardRead({
             alt={alt}
             width={width}
             height={height}
+            sizes="(max-width: 768px) 220px, 260px"
             loading="lazy"
             decoding="async"
-            style={style}
+            rounded={10}
+            style={{
+              ...style,
+              background: 'transparent',
+              imageRendering: 'pixelated',
+            }}
           />
         )}
       />
 
-      {supportsVideo && videoSrc && (
+      {supportsVideo && videoSrc ? (
         <WeaponVideoModal
           open={showVideo}
           url={videoSrc}
           onClose={() => setShowVideo(false)}
         />
-      )}
+      ) : null}
     </>
   );
 
