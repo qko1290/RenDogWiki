@@ -53,6 +53,7 @@ import {
 } from '@/components/wiki-render/link/linkUtils';
 
 import {
+  FootnoteInline as SharedFootnoteInline,
   InlineImage,
   InlineMark,
   LeafRenderer,
@@ -457,8 +458,12 @@ const FootnoteInline: React.FC<FootnoteInlineProps> = ({ label, content }) => {
 
   return (
     <>
-      <span
+      <SharedFootnoteInline
         ref={rootRef}
+        mode="read"
+        label={safeLabel}
+        tabIndex={hasContent ? 0 : -1}
+        ariaLabel={hasContent ? `각주: ${safeContent}` : `각주 ${safeLabel}`}
         onMouseEnter={() => {
           notifyFootnoteHover();
           openDesktop();
@@ -470,30 +475,10 @@ const FootnoteInline: React.FC<FootnoteInlineProps> = ({ label, content }) => {
         }}
         onBlur={closeDesktop}
         onClick={openMobileModal}
-        tabIndex={hasContent ? 0 : -1}
-        aria-label={hasContent ? `각주: ${safeContent}` : `각주 ${safeLabel}`}
         style={{
-          position: "relative",
-          display: "inline-block",
-          verticalAlign: "super",
-          top: "-0.05em",
-          marginLeft: 1,
-          marginRight: 1,
-          padding: 0,
-          background: "transparent",
-          color: "#7c3aed",
-          fontSize: "12px",
-          fontWeight: 500,
-          lineHeight: 1,
-          letterSpacing: 0,
-          whiteSpace: "nowrap",
-          cursor: hasContent ? (isMobileViewport ? "pointer" : "help") : "default",
-          WebkitTapHighlightColor: "transparent",
-          touchAction: "manipulation",
+          cursor: hasContent ? (isMobileViewport ? 'pointer' : 'help') : 'default',
         }}
-      >
-        [{safeLabel}]
-      </span>
+      />
 
       {desktopTooltip}
       {mobileModal}
