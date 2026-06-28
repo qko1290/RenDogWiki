@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState, useEffect, useMemo } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import {
   RenderElementProps,
   ReactEditor,
@@ -10,12 +10,8 @@ import {
 } from 'slate-react';
 import { Node, Transforms, Path, Element as SlateElement } from 'slate';
 
-import { getHeadingId } from './helpers/getHeadingId';
 import ImageSizeModal from './ImageSizeModal';
-import ImageSelectModal from '@/components/image/ImageSelectModal';
-import { cdn, toProxyUrl, withVersion } from '@lib/cdn';
-import SmartImage from '@/components/common/SmartImage';
-import { extractHeadings } from '@/wiki/lib/extractHeadings';
+import { toProxyUrl } from '@lib/cdn';
 
 import type {
   InlineMarkElement,
@@ -42,45 +38,42 @@ import {
 } from './render/Table';
 import WeaponCard from './render/WeaponCard';
 import type { ElementRenderProps, WikiRefKind } from './render/types';
+
 import DividerBlock from '@/components/wiki-render/blocks/DividerBlock';
 import ParagraphBlock from '@/components/wiki-render/blocks/ParagraphBlock';
 import HeadingBlock from '@/components/wiki-render/blocks/HeadingBlock';
 import InfoBoxBlock from '@/components/wiki-render/blocks/InfoBoxBlock';
 import MediaBlock from '@/components/wiki-render/blocks/MediaBlock';
-import LinkCardBlock from '@/components/wiki-render/blocks/LinkCardBlock';
+import LinkCardRenderer from '@/components/wiki-render/link/LinkCardRenderer';
 
-// -------------------- 모듈 전역 캐시 (HMR 안전) --------------------
-const WIKI_ICON_CACHE_KEY = '__rdwiki_doc_icon_cache__';
-const WIKI_DOCS_ALL_KEY = '__rdwiki_docs_all__';
-const WIKI_DOC_DETAIL_CACHE_KEY = '__rdwiki_doc_detail_cache__';
-
-const wikiDocIconCache: Map<string, string> =
-  (globalThis as any)[WIKI_ICON_CACHE_KEY] ?? new Map<string, string>();
-(globalThis as any)[WIKI_ICON_CACHE_KEY] = wikiDocIconCache;
-
-let wikiDocsAll: any[] | null = (globalThis as any)[WIKI_DOCS_ALL_KEY] ?? null;
-const setWikiDocsAll = (rows: any[]) => {
-  wikiDocsAll = rows;
-  (globalThis as any)[WIKI_DOCS_ALL_KEY] = rows;
+export type ElementProps = RenderElementProps & {
+  editor: any;
+  onIconClick: (element: CustomElement) => void;
+  priceTableEdit: PriceTableEditState;
+  setPriceTableEdit: React.Dispatch<React.SetStateAction<PriceTableEditState>>;
 };
 
-type WikiDocHeadingMeta = { id: string; icon?: string | null };
-type WikiDocDetail = { icon?: string | null; headings: WikiDocHeadingMeta[] };
+type BlockComponentProps<E extends CustomElement = CustomElement> = {
+  attributes: RenderElementProps['attributes'];
+  children: React.ReactNode;
+  element: E;
+  editor: any;
+};
 
-const wikiDocDetailCache: Map<string, WikiDocDetail> =
-  (globalThis as any)[WIKI_DOC_DETAIL_CACHE_KEY] ??
-  new Map<string, WikiDocDetail>();
-(globalThis as any)[WIKI_DOC_DETAIL_CACHE_KEY] = wikiDocDetailCache;
+function getParsedUrl(url?: string | null) {
+  if (!url) return null;
 
-// 외부 링크용 인라인 아이콘
-const ExternalLinkIcon: React.FC<{ size?: number }> = ({ size = 18 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
-    <path
-      d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42 9.3-9.29H14V3zM19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7z"
-      fill="currentColor"
-    />
-  </svg>
-);
+  try {
+    const base =
+      typeof window !== 'undefined'
+        ? window.location.origin
+        : 'https://dummy.local';
+
+    return new URL(url, base);
+  } catch {
+    return null;
+  }
+}
 
 function normalizeHostForWikiLink(hostname: string | null | undefined) {
   return String(hostname ?? '')
@@ -114,22 +107,6 @@ function isRdwikiWikiUrl(urlObj: URL) {
   return targetHost === currentHost || isKnownRdwikiHost(targetHost);
 }
 
-// -------------------- 타입 --------------------
-export type ElementProps = RenderElementProps & {
-  editor: any;
-  onIconClick: (element: CustomElement) => void;
-  priceTableEdit: PriceTableEditState;
-  setPriceTableEdit: React.Dispatch<React.SetStateAction<PriceTableEditState>>;
-};
-
-type BlockComponentProps<E extends CustomElement = CustomElement> = {
-  attributes: RenderElementProps['attributes'];
-  children: React.ReactNode;
-  element: E;
-  editor: any;
-};
-
-// -------------------- 하위 컴포넌트: 링크 카드 --------------------
 const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
   attributes,
   children,
@@ -139,20 +116,7 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
   const el = element;
   const isReadOnly = ReactEditor.isReadOnly(editor);
 
-  const parsedUrl = useMemo(() => {
-    if (!el.url) return null;
-
-    try {
-      const base =
-        typeof window !== 'undefined'
-          ? window.location.origin
-          : 'https://dummy.local';
-
-      return new URL(el.url, base);
-    } catch {
-      return null;
-    }
-  }, [el.url]);
+  const parsedUrl = useMemo(() => getParsedUrl(el.url), [el.url]);
 
   const isWikiLink = useMemo(() => {
     if (el.isWiki) return true;
@@ -165,136 +129,6 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
 
   if (!isWikiLink && !displaySitename && parsedUrl) {
     displaySitename = parsedUrl.hostname.replace(/^www\./, '');
-  }
-
-  const [wikiIcon, setWikiIcon] = useState(
-    el.isWiki ? (el as any).docIcon ?? null : null
-  );
-
-  useEffect(() => {
-    if (!isWikiLink || !parsedUrl) return;
-    if (typeof window === 'undefined') return;
-
-    const urlObj = parsedUrl;
-    const pathParam = urlObj.searchParams.get('path');
-    const titleParam = urlObj.searchParams.get('title');
-    const rawHash = urlObj.hash ? urlObj.hash.slice(1) : '';
-    const decodedHash = rawHash ? decodeURIComponent(rawHash) : '';
-
-    const docKeyParts: string[] = [];
-
-    if (pathParam) docKeyParts.push(`p:${pathParam}`);
-    if (titleParam) docKeyParts.push(`t:${titleParam}`);
-
-    const baseDocKey = docKeyParts.join('|') || urlObj.pathname;
-    const cacheKey = `${baseDocKey}#${decodedHash || 'root'}`;
-
-    if (wikiDocIconCache.has(cacheKey)) {
-      const cached = wikiDocIconCache.get(cacheKey);
-
-      if (cached) setWikiIcon(cached);
-      return;
-    }
-
-    let cancelled = false;
-
-    (async () => {
-      try {
-        let detail = wikiDocDetailCache.get(baseDocKey);
-
-        if (!detail) {
-          let res: Response | null = null;
-
-          if (pathParam || titleParam) {
-            const qs: string[] = [];
-
-            if (pathParam) qs.push(`path=${encodeURIComponent(pathParam)}`);
-            if (titleParam) qs.push(`title=${encodeURIComponent(titleParam)}`);
-
-            const query = qs.join('&');
-            res = await fetch(`/api/documents?${query}`, { cache: 'force-cache' });
-          }
-
-          if (!res || !res.ok) {
-            wikiDocIconCache.set(cacheKey, '');
-            return;
-          }
-
-          const data = await res.json();
-          const rawContent = (data as any).content;
-          const slateContent =
-            typeof rawContent === 'string' ? JSON.parse(rawContent) : rawContent;
-
-          let headingsMeta: WikiDocHeadingMeta[] = [];
-
-          try {
-            const hs = extractHeadings(Array.isArray(slateContent) ? slateContent : []);
-
-            headingsMeta = hs.map((h: any) => ({
-              id: String(h.id ?? ''),
-              icon: h.icon ?? null,
-            }));
-          } catch {
-            headingsMeta = [];
-          }
-
-          detail = {
-            icon: ((data as any).icon ?? '').trim() || null,
-            headings: headingsMeta,
-          };
-
-          wikiDocDetailCache.set(baseDocKey, detail);
-        }
-
-        let iconCandidate: string | null = null;
-
-        if (decodedHash && detail.headings.length > 0) {
-          const target = decodedHash;
-          const normalizedTarget = target.startsWith('heading-')
-            ? target
-            : `heading-${target}`;
-
-          const matched = detail.headings.find((h) => {
-            const hid = h.id || '';
-            const hidNorm = hid.startsWith('heading-') ? hid : `heading-${hid}`;
-
-            return (
-              hid === target ||
-              hid === normalizedTarget ||
-              hidNorm === target ||
-              hidNorm === normalizedTarget
-            );
-          });
-
-          if (matched?.icon) iconCandidate = matched.icon || null;
-        }
-
-        if (!iconCandidate) {
-          iconCandidate = detail.icon || null;
-        }
-
-        if (!cancelled) {
-          if (iconCandidate) {
-            setWikiIcon(iconCandidate);
-            wikiDocIconCache.set(cacheKey, iconCandidate);
-          } else {
-            wikiDocIconCache.set(cacheKey, '');
-          }
-        }
-      } catch {
-        if (!cancelled) wikiDocIconCache.set(cacheKey, '');
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isWikiLink, parsedUrl]);
-
-  let externalFavicon: string | null = null;
-
-  if (!isWikiLink && parsedUrl) {
-    externalFavicon = `${parsedUrl.origin}/favicon.ico`;
   }
 
   const isSmall = el.size === 'small' || (el as any).size === 'half';
@@ -315,13 +149,16 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
 
     const isGarbage = (s: string) =>
       !s ||
-      /path\s*=|title\s*=|#heading-|https?:\/\/|\/wiki|[?&]=|%[0-9A-Fa-f]{2}/.test(s);
+      /path\s*=|title\s*=|#heading-|https?:\/\/|\/wiki|[?&]=|%[0-9A-Fa-f]{2}/.test(
+        s,
+      );
 
     if (isWikiLink) return 'RenDog Wiki';
 
     const s = clean(el.sitename);
 
     if (s && !isGarbage(s)) return s;
+
     if (parsedUrl) return parsedUrl.hostname.replace(/^www\./, '');
 
     return '';
@@ -360,8 +197,8 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
         const clean = decoded.startsWith('heading-')
           ? decoded.slice(8)
           : decoded;
-
         const short = clean.length > 26 ? `${clean.slice(0, 26)}…` : clean;
+
         parts.push(`#${short}`);
       }
 
@@ -370,7 +207,6 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
 
     const host = parsedUrl.hostname.replace(/^www\./, '');
     const pathname = (parsedUrl.pathname || '').trim();
-
     const pathShort =
       pathname && pathname !== '/'
         ? pathname.length > 18
@@ -388,71 +224,6 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
         : displaySitename || el.url)
     : children;
 
-  const icon = isWikiLink ? (
-    wikiIcon ? (
-      wikiIcon.startsWith('http') || wikiIcon.startsWith('/') ? (
-        <SmartImage
-          src={withVersion(cdn(wikiIcon))}
-          alt=""
-          width={22}
-          height={22}
-          style={{
-            width: 22,
-            height: 22,
-            objectFit: 'contain',
-            display: 'block',
-          }}
-        />
-      ) : (
-        <span
-          style={{
-            fontSize: 20,
-            lineHeight: 1,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          {wikiIcon}
-        </span>
-      )
-    ) : (
-      <span
-        style={{
-          fontSize: 18,
-          lineHeight: 1,
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-        aria-hidden
-      >
-        📄
-      </span>
-    )
-  ) : externalFavicon ? (
-    <img
-      src={externalFavicon}
-      alt=""
-      loading="lazy"
-      decoding="async"
-      referrerPolicy="no-referrer"
-      onError={(e) => {
-        (e.currentTarget as HTMLImageElement).style.display = 'none';
-      }}
-      style={{
-        width: 20,
-        height: 20,
-        borderRadius: 4,
-        objectFit: 'contain',
-        display: 'block',
-      }}
-      contentEditable={false}
-    />
-  ) : (
-    <ExternalLinkIcon size={18} />
-  );
-
   const deleteButton = !isReadOnly ? (
     <button
       type="button"
@@ -462,6 +233,7 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
         e.stopPropagation();
 
         const path = ReactEditor.findPath(editor, element);
+
         Transforms.removeNodes(editor, { at: path });
       }}
       style={{
@@ -485,26 +257,36 @@ const LinkBlockView: React.FC<BlockComponentProps<LinkBlockElement>> = ({
   ) : null;
 
   return (
-    <LinkCardBlock
+    <LinkCardRenderer
       mode={isReadOnly ? 'read' : 'edit'}
-      href={el.url}
-      title={title}
+      url={el.url}
+      isWiki={el.isWiki}
+      wikiPath={(el as any).wikiPath}
+      wikiTitle={(el as any).wikiTitle}
+      sitename={el.sitename}
+      size={el.size}
+      docIcon={(el as any).docIcon}
+      labelText={
+        isReadOnly
+          ? Node.string(el) ||
+            (isWikiLink
+              ? (el as any).wikiTitle || el.sitename || '문서'
+              : displaySitename || el.url || '링크')
+          : undefined
+      }
+      titleContent={title}
       subtitle={siteLabel}
       metaText={isReadOnly ? compactSubText : undefined}
-      icon={icon}
-      size={isSmall ? 'half' : 'normal'}
       inRow={inRow}
-      isWikiLink={isWikiLink}
       attributes={attributes as any}
       editControls={deleteButton}
       clickableInReadMode={false}
     >
       {children}
-    </LinkCardBlock>
+    </LinkCardRenderer>
   );
 };
 
-// -------------------- 하위 컴포넌트: 본문 이미지 --------------------
 const ImageBlock: React.FC<BlockComponentProps<any>> = ({
   attributes,
   children,
@@ -514,7 +296,6 @@ const ImageBlock: React.FC<BlockComponentProps<any>> = ({
   const el: any = element;
   const selected = useSelected();
   const focused = useFocused();
-
   const [modalOpen, setModalOpen] = useState(false);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [initSize, setInitSize] = useState<{ w?: number; h?: number }>({});
@@ -545,12 +326,7 @@ const ImageBlock: React.FC<BlockComponentProps<any>> = ({
   const handleSaveSize = (width: number, height: number) => {
     const path = ReactEditor.findPath(editor, element);
 
-    Transforms.setNodes(
-      editor,
-      { width, height },
-      { at: path }
-    );
-
+    Transforms.setNodes(editor, { width, height }, { at: path });
     setModalOpen(false);
   };
 
@@ -568,7 +344,6 @@ const ImageBlock: React.FC<BlockComponentProps<any>> = ({
     const rectH = Math.round(img?.getBoundingClientRect().height || 0);
     const natW = img?.naturalWidth || 0;
     const natH = img?.naturalHeight || 0;
-
     const w = el.width || rectW || natW || 256;
     const h = el.height || rectH || natH || 256;
 
@@ -635,7 +410,6 @@ const ImageBlock: React.FC<BlockComponentProps<any>> = ({
   );
 };
 
-// -------------------- 하위 컴포넌트: video --------------------
 const VideoBlock: React.FC<BlockComponentProps<VideoElement>> = ({
   attributes,
   children,
@@ -645,18 +419,12 @@ const VideoBlock: React.FC<BlockComponentProps<VideoElement>> = ({
   const el = element as VideoElement;
   const selected = useSelected();
   const focused = useFocused();
-
   const [modalOpen, setModalOpen] = useState(false);
 
   const handleSaveSize = (width: number, height: number) => {
     const path = ReactEditor.findPath(editor, element);
 
-    Transforms.setNodes(
-      editor,
-      { width, height },
-      { at: path }
-    );
-
+    Transforms.setNodes(editor, { width, height }, { at: path });
     setModalOpen(false);
   };
 
@@ -728,7 +496,6 @@ const VideoBlock: React.FC<BlockComponentProps<VideoElement>> = ({
   );
 };
 
-// -------------------- 메인 렌더러 --------------------
 const Element: React.FC<ElementRenderProps> = ({
   attributes,
   children,
@@ -745,7 +512,6 @@ const Element: React.FC<ElementRenderProps> = ({
   const slateEditor = useSlate();
 
   switch (element.type) {
-    // -------------------- 인라인 링크 --------------------
     case 'link': {
       return (
         <a
@@ -760,7 +526,6 @@ const Element: React.FC<ElementRenderProps> = ({
       );
     }
 
-    // -------------------- 카드형 링크 블록 (void) --------------------
     case 'link-block': {
       return (
         <LinkBlockView
@@ -773,7 +538,6 @@ const Element: React.FC<ElementRenderProps> = ({
       );
     }
 
-    // -------------------- Heading --------------------
     case 'heading-one':
     case 'heading-two':
     case 'heading-three': {
@@ -781,8 +545,8 @@ const Element: React.FC<ElementRenderProps> = ({
         | HeadingOneElement
         | HeadingTwoElement
         | HeadingThreeElement;
-
-      const level = el.type === 'heading-one' ? 1 : el.type === 'heading-two' ? 2 : 3;
+      const level =
+        el.type === 'heading-one' ? 1 : el.type === 'heading-two' ? 2 : 3;
 
       return (
         <HeadingBlock
@@ -798,16 +562,13 @@ const Element: React.FC<ElementRenderProps> = ({
       );
     }
 
-    // -------------------- 기본 문단 --------------------
     case 'paragraph': {
       const el = element as ParagraphElement;
       const indentLine = (el as any).indentLine;
-
       let extraClass = '';
 
       if (indentLine) {
         const path = ReactEditor.findPath(slateEditor, element);
-
         let isFirst = true;
         let isLast = true;
 
@@ -860,7 +621,6 @@ const Element: React.FC<ElementRenderProps> = ({
       );
     }
 
-    // -------------------- 인포박스 --------------------
     case 'info-box': {
       const raw =
         (element as any).boxType ||
@@ -883,7 +643,6 @@ const Element: React.FC<ElementRenderProps> = ({
       );
     }
 
-    // -------------------- 본문 이미지 (void) --------------------
     case 'image': {
       return (
         <ImageBlock attributes={attributes} element={element as any} editor={editor}>
@@ -892,10 +651,10 @@ const Element: React.FC<ElementRenderProps> = ({
       );
     }
 
-    // -------------------- 인라인 이미지 --------------------
     case 'inline-image': {
       const el = element as InlineImageElement;
       const src = el.url?.startsWith('http') ? toProxyUrl(el.url) : el.url;
+
       return (
         <span
           {...attributes}
@@ -923,9 +682,9 @@ const Element: React.FC<ElementRenderProps> = ({
       );
     }
 
-    // -------------------- 인라인 마크 --------------------
     case 'inline-mark': {
       const el = element as InlineMarkElement;
+
       return (
         <span
           {...attributes}
@@ -949,7 +708,6 @@ const Element: React.FC<ElementRenderProps> = ({
       );
     }
 
-    // -------------------- 각주 (inline void) --------------------
     case 'footnote': {
       const el = element as FootnoteElement;
 
@@ -962,15 +720,15 @@ const Element: React.FC<ElementRenderProps> = ({
           title="우클릭하여 각주 수정"
           onContextMenu={(e) => {
             if (!openFootnoteEditor) return;
+
             e.preventDefault();
             e.stopPropagation();
 
             try {
               const path = ReactEditor.findPath(slateEditor, element);
+
               openFootnoteEditor(path, el);
-            } catch {
-              // path 찾기 실패 시 조용히 무시
-            }
+            } catch {}
           }}
           style={{
             display: 'inline-block',
@@ -998,7 +756,6 @@ const Element: React.FC<ElementRenderProps> = ({
       );
     }
 
-    // -------------------- 가격표 카드 (void, 분리 컴포넌트) --------------------
     case 'price-table-card': {
       return (
         <PriceTableCard
@@ -1013,16 +770,16 @@ const Element: React.FC<ElementRenderProps> = ({
       );
     }
 
-    // -------------------- 링크 블록 Row --------------------
     case 'link-block-row': {
       return (
         <div
           {...attributes}
           style={{
             display: 'flex',
-            flexWrap: 'wrap',
             gap: 12,
+            margin: '8px 0',
             width: '100%',
+            flexWrap: 'wrap',
             alignItems: 'stretch',
           }}
         >
@@ -1031,7 +788,6 @@ const Element: React.FC<ElementRenderProps> = ({
       );
     }
 
-    // -------------------- 표(Table) : 분리 컴포넌트 --------------------
     case 'table': {
       return (
         <TableElementRenderer
@@ -1046,7 +802,7 @@ const Element: React.FC<ElementRenderProps> = ({
 
     case 'table-row': {
       return (
-        <TableRowRenderer attributes={attributes} element={element}>
+        <TableRowRenderer attributes={attributes} element={element as any}>
           {children}
         </TableRowRenderer>
       );
@@ -1056,7 +812,7 @@ const Element: React.FC<ElementRenderProps> = ({
       return (
         <TableCellRenderer
           attributes={attributes}
-          element={element}
+          element={element as any}
           editor={editor}
         >
           {children}
@@ -1064,7 +820,6 @@ const Element: React.FC<ElementRenderProps> = ({
       );
     }
 
-    // -------------------- video --------------------
     case 'video': {
       return (
         <VideoBlock
@@ -1077,7 +832,6 @@ const Element: React.FC<ElementRenderProps> = ({
       );
     }
 
-    // -------------------- Wiki DB Embed (Quest/NPC/QNA) --------------------
     case 'quest-embed':
     case 'npc-embed':
     case 'qna-embed': {
@@ -1086,41 +840,31 @@ const Element: React.FC<ElementRenderProps> = ({
         t === 'quest-embed'
           ? (element as any).questId
           : t === 'npc-embed'
-          ? (element as any).npcId
-          : (element as any).qnaId;
-
-      const label = t === 'quest-embed' ? '퀘스트' : t === 'npc-embed' ? 'NPC' : 'QNA';
+            ? (element as any).npcId
+            : (element as any).qnaId;
+      const label =
+        t === 'quest-embed' ? '퀘스트' : t === 'npc-embed' ? 'NPC' : 'QNA';
 
       return (
-        <div {...attributes}>
-          <div
-            contentEditable={false}
-            style={{
-              border: '1px solid #e5e7eb',
-              borderRadius: 14,
-              padding: '12px 14px',
-              background: '#fff',
-              boxShadow: '0 8px 24px rgba(16,24,40,0.04)',
-              margin: '10px 0',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 12,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 18 }}>🧩</span>
-              <div style={{ fontWeight: 900 }}>{label} 삽입</div>
-              <div style={{ color: '#64748b', fontSize: 13 }}>ID: {String(id ?? '-')}</div>
-            </div>
-            <div style={{ color: '#94a3b8', fontSize: 12.5 }}>나중에 id로 데이터 로드</div>
-          </div>
+        <div
+          {...attributes}
+          contentEditable={false}
+          style={{
+            border: '1px solid #d0d7de',
+            borderRadius: 8,
+            padding: 12,
+            margin: '12px 0',
+            background: '#f8fafc',
+          }}
+        >
+          <strong>{label} 삽입</strong>
+          <div>ID: {String(id ?? '-')}</div>
+          <div>나중에 id로 데이터 로드</div>
           {children}
         </div>
       );
     }
 
-    // -------------------- Weapon Card (무기 정보 박스) : 분리 컴포넌트 --------------------
     case 'weapon-card': {
       return (
         <WeaponCard
@@ -1142,26 +886,36 @@ const Element: React.FC<ElementRenderProps> = ({
         <span
           {...attributes}
           role={readOnly ? 'button' : undefined}
-          tabIndex={readOnly ? 0 : -1}
-          title={`${String(kind).toUpperCase()} #${refId}`}
-          style={{
-            color: '#2563eb',
-            textDecoration: 'underline',
-            cursor: readOnly && open ? 'pointer' : 'default',
-          }}
-          onMouseDown={(e) => {
+          tabIndex={readOnly ? 0 : undefined}
+          contentEditable={!readOnly}
+          suppressContentEditableWarning
+          onClick={(e) => {
             if (!readOnly) return;
             if (!open) return;
+
             e.preventDefault();
             open(kind, refId);
           }}
           onKeyDown={(e) => {
             if (!readOnly) return;
             if (!open) return;
+
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
               open(kind, refId);
             }
+          }}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            borderRadius: 999,
+            padding: '1px 7px',
+            border: '1px solid rgba(124,58,237,.25)',
+            background: 'rgba(124,58,237,.08)',
+            color: '#6d28d9',
+            fontWeight: 700,
+            cursor: readOnly && open ? 'pointer' : 'default',
           }}
         >
           {children}
@@ -1169,10 +923,10 @@ const Element: React.FC<ElementRenderProps> = ({
       );
     }
 
-    // -------------------- 기본 fallback --------------------
     default: {
       const el = element as any;
       const textAlign = 'textAlign' in el ? el.textAlign : 'left';
+
       if (
         Array.isArray(children) &&
         children.length === 1 &&
@@ -1180,9 +934,13 @@ const Element: React.FC<ElementRenderProps> = ({
       ) {
         return <span {...attributes}>{children}</span>;
       }
+
       return React.createElement(
         'p',
-        { ...attributes, style: { textAlign } },
+        {
+          ...attributes,
+          style: { textAlign },
+        },
         children,
       );
     }
