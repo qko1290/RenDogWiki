@@ -6,7 +6,7 @@
 // - ✅ 카드 UI는 공통 PriceTableRenderer 사용
 // - ✅ 에디터 전용 동작은 이 파일에 유지
 // =============================================
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ReactEditor, useSlateStatic } from 'slate-react';
 import type { RenderElementProps } from 'slate-react';
 import { Editor, Element as SlateElement, Transforms } from 'slate';
@@ -21,14 +21,11 @@ import PriceTableRenderer from '@/components/wiki-render/price-table/PriceTableR
 
 import PriceItemSelectModal from '../PriceItemSelectModal';
 
-import {
-  normalizePickedPrices,
-  type PickedPriceItem,
-} from '@/components/wiki-render/price-table/priceTableLiveService';
-
 import { useLivePriceTableItems } from '@/components/wiki-render/price-table/useLivePriceTableItems';
 
 import { usePriceTableStageState } from '@/components/wiki-render/price-table/usePriceTableStageState';
+
+import { usePriceTableEditorActions } from './usePriceTableEditorActions';
 
 // -------------------- 메인 렌더러 --------------------
 
@@ -45,7 +42,6 @@ export function PriceTableCard(props: PriceTableCardProps) {
   const { attributes, children, element, setPriceTableEdit } = props;
   const editorStatic = useSlateStatic();
   const el = element as PriceTableCardElement;
-  const path = ReactEditor.findPath(editorStatic, el);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -74,6 +70,21 @@ export function PriceTableCard(props: PriceTableCardProps) {
   const [imageEditIndex, setImageEditIndex] = useState<number | null>(null);
   const [selectEditIndex, setSelectEditIndex] = useState<number | null>(null);
 
+  const {
+    handleImageSelected,
+    handlePickItem,
+    openPriceEdit,
+    removeBlock,
+  } = usePriceTableEditorActions({
+    editor: editorStatic,
+    element: el,
+    setPriceTableEdit,
+    imageEditIndex,
+    setImageEditIndex,
+    selectEditIndex,
+    setSelectEditIndex,
+  });
+
   const viewItems = useLivePriceTableItems(sourceItems as any[]);
 
   const {
@@ -83,56 +94,6 @@ export function PriceTableCard(props: PriceTableCardProps) {
     onPrevStage: handlePrev,
     onNextStage: handleNext,
   } = usePriceTableStageState(sourceItems);
-
-  const patchItemAt = React.useCallback(
-    (idx: number, patch: Record<string, any>) => {
-      const current = Editor.node(editorStatic, path)[0] as PriceTableCardElement;
-      const currentItems = Array.isArray(current.items) ? current.items : [];
-
-      const nextItems = currentItems.map((item: any, i: number) =>
-        i === idx ? { ...item, ...patch } : item,
-      );
-
-      Transforms.setNodes(
-        editorStatic,
-        {
-          items: nextItems,
-        },
-        { at: path },
-      );
-    },
-    [editorStatic, path],
-  );
-
-  const handleImageSelected = React.useCallback(
-    (url: string) => {
-      if (imageEditIndex == null) return;
-
-      patchItemAt(imageEditIndex, { image: url });
-      setImageEditIndex(null);
-    },
-    [imageEditIndex, patchItemAt],
-  );
-
-  const handlePickItem = React.useCallback(
-    (picked: PickedPriceItem) => {
-      if (selectEditIndex == null) return;
-
-      const normalized = normalizePickedPrices(picked);
-
-      patchItemAt(selectEditIndex, {
-        id: picked.id,
-        name: picked.name,
-        name_key: picked.name_key,
-        mode: picked.mode,
-        stages: normalized.stages,
-        prices: normalized.prices,
-      });
-
-      setSelectEditIndex(null);
-    },
-    [selectEditIndex, patchItemAt],
-  );
 
   const deleteButton = (
     <button
@@ -160,9 +121,7 @@ export function PriceTableCard(props: PriceTableCardProps) {
       onClick={(e) => {
         e.stopPropagation();
 
-        const pathToRemove = ReactEditor.findPath(editorStatic, element);
-
-        Transforms.removeNodes(editorStatic, { at: pathToRemove });
+        removeBlock();
       }}
     >
       ×
@@ -197,19 +156,7 @@ export function PriceTableCard(props: PriceTableCardProps) {
         }}
         onPriceClick={(item, idx, event) => {
           event.stopPropagation();
-
-          window.dispatchEvent(
-            new CustomEvent('editor:capture-scroll:price'),
-          );
-
-          setPriceTableEdit({
-            blockPath: path,
-            idx,
-            item: {
-              ...item,
-              mode: item.mode ?? 'block',
-            },
-          });
+          openPriceEdit(item, idx);
         }}
       />
 
