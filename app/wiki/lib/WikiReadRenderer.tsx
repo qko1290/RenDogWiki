@@ -53,6 +53,13 @@ import WeaponCardRenderer from '@/components/wiki-render/weapon/WeaponCardRender
 import PriceTableRenderer from '@/components/wiki-render/price-table/PriceTableRenderer';
 import type { PriceTableRawItem } from '@/components/wiki-render/price-table/types';
 
+import InlineWikiLink from '@/components/wiki-render/link/InlineWikiLink';
+import LinkCardRenderer from '@/components/wiki-render/link/LinkCardRenderer';
+import {
+  isInternalWikiHref as sharedIsInternalWikiHref,
+  normalizeToAppHref as sharedNormalizeToAppHref,
+} from '@/components/wiki-render/link/linkUtils';
+
 type Props = {
   content: Descendant[];
   readOnly?: boolean;
@@ -2913,28 +2920,31 @@ function renderNode(
 
     case "link": {
       const rawHref = String(node.url ?? "");
-      const internal = isInternalWikiHref(rawHref);
-      const href = normalizeToAppHref(rawHref);
+      const internal = sharedIsInternalWikiHref(rawHref);
+      const href = sharedNormalizeToAppHref(rawHref);
 
       if (internal) {
         return (
-          <InternalWikiLinkInline
+          <InlineWikiLink
             key={key}
             href={href}
             onWikiNavigate={env?.onWikiNavigate}
           >
             {children}
-          </InternalWikiLinkInline>
+          </InlineWikiLink>
         );
       }
 
       return (
         <a
           key={key}
-          href={href}
+          href={href || "#"}
           target="_blank"
           rel="noopener noreferrer nofollow"
-          style={{ color: "var(--accent)", textDecoration: "none" }}
+          style={{
+            color: "var(--accent)",
+            textDecoration: "none",
+          }}
         >
           {children}
         </a>
@@ -2952,16 +2962,23 @@ function renderNode(
 
     case "link-block": {
       const isHalfSized = node?.size === "small" || node?.size === "half";
+      const labelText = nodeToPlainText(node.children);
 
       return (
-        <LinkBlockView
+        <LinkCardRenderer
           key={key}
-          node={node}
+          mode="read"
+          url={node.url}
+          isWiki={node.isWiki}
+          wikiPath={node.wikiPath}
+          wikiTitle={node.wikiTitle}
+          sitename={node.sitename}
+          size={node.size}
+          docIcon={node.docIcon}
+          labelText={labelText}
           compactMobile={!!env?.isMobile && !!env?.inLinkBlockRow && isHalfSized}
           onWikiNavigate={env?.onWikiNavigate}
-        >
-          {children}
-        </LinkBlockView>
+        />
       );
     }
 
