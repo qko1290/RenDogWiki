@@ -87,6 +87,11 @@ import {
   TableRowReadAdapter,
 } from './read/TableReadAdapter';
 
+import {
+  LinkBlockReadAdapter,
+  LinkBlockRowReadAdapter,
+} from './read/LinkBlockReadAdapter';
+
 type Props = {
   content: Descendant[];
   readOnly?: boolean;
@@ -202,50 +207,25 @@ export default function WikiReadRenderer({
       const b: any = normalized[i + 1];
 
       rendered.push(
-        <div
-          key={`link-block-row-${i}`}
-          style={{
-            display: "flex",
-            gap: 12,
-            margin: "8px 0",
-            width: "100%",
-            flexWrap: "wrap",
-            alignItems: "stretch",
+        <LinkBlockRowReadAdapter
+          key={`link-row-${i}`}
+          node={{
+            type: 'link-block-row',
+            children: [a, b],
           }}
-        >
-          <LinkCardRenderer
-            key={`link-block-row-${i}-a`}
-            mode="read"
-            url={(a as any).url}
-            isWiki={(a as any).isWiki}
-            wikiPath={(a as any).wikiPath}
-            wikiTitle={(a as any).wikiTitle}
-            sitename={(a as any).sitename}
-            size={(a as any).size}
-            docIcon={(a as any).docIcon}
-            labelText={nodeToPlainText((a as any).children)}
-            compactMobile={isMobile}
-            onWikiNavigate={onWikiNavigate}
-          />
-
-          <LinkCardRenderer
-            key={`link-block-row-${i}-b`}
-            mode="read"
-            url={(b as any).url}
-            isWiki={(b as any).isWiki}
-            wikiPath={(b as any).wikiPath}
-            wikiTitle={(b as any).wikiTitle}
-            sitename={(b as any).sitename}
-            size={(b as any).size}
-            docIcon={(b as any).docIcon}
-            labelText={nodeToPlainText((b as any).children)}
-            compactMobile={isMobile}
-            onWikiNavigate={onWikiNavigate}
-          />
-        </div>
+          keyProp={`link-row-${i}`}
+          ctx={ctx}
+          handlers={handlers}
+          env={{
+            isMobile,
+            isDarkMode,
+            onWikiNavigate,
+          }}
+          renderNode={renderNode}
+        />,
       );
 
-      i += 1; // 2개 처리했으니 한 칸 더 스킵
+      i += 1;
       continue;
     }
 
@@ -415,53 +395,26 @@ function renderNode(
     }
 
     case "link-block": {
-      const isHalfSized = node?.size === "small" || node?.size === "half";
-      const labelText = nodeToPlainText(node.children);
-
       return (
-        <LinkCardRenderer
-          key={key}
-          mode="read"
-          url={node.url}
-          isWiki={node.isWiki}
-          wikiPath={node.wikiPath}
-          wikiTitle={node.wikiTitle}
-          sitename={node.sitename}
-          size={node.size}
-          docIcon={node.docIcon}
-          labelText={labelText}
-          compactMobile={!!env?.isMobile && !!env?.inLinkBlockRow && isHalfSized}
-          onWikiNavigate={env?.onWikiNavigate}
-        />
+        <LinkBlockReadAdapter
+          node={node}
+          env={env}
+        >
+          {children}
+        </LinkBlockReadAdapter>
       );
     }
 
     case "link-block-row": {
       return (
-        <div
-          key={key}
-          style={{
-            display: "flex",
-            gap: 12,
-            margin: "8px 0",
-            width: "100%",
-            flexWrap: "wrap",
-            alignItems: "stretch",
-          }}
-        >
-          {node.children?.map((child: any, i: number) =>
-            renderNode(
-              child,
-              key ? `${key}-${i}` : i,
-              ctx,
-              handlers,
-              {
-                ...env,
-                inLinkBlockRow: true,
-              }
-            )
-          )}
-        </div>
+        <LinkBlockRowReadAdapter
+          node={node}
+          keyProp={key}
+          ctx={ctx}
+          handlers={handlers}
+          env={env}
+          renderNode={renderNode}
+        />
       );
     }
 
