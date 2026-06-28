@@ -98,6 +98,8 @@ import {
   ParagraphReadAdapter,
 } from './read/BasicBlockReadAdapters';
 
+import HeadingReadAdapter from './read/HeadingReadAdapter';
+
 type Props = {
   content: Descendant[];
   readOnly?: boolean;
@@ -306,52 +308,15 @@ function renderNode(
     case "heading-one":
     case "heading-two":
     case "heading-three": {
-      const el = node;
-
-      /**
-       * main 원본 동작:
-       * heading 내부 텍스트에 남아있는 fontSize mark는 제거하고,
-       * heading 자체 크기(h1/h2/h3)를 우선 적용한다.
-       */
-      const safeChildren = (el.children ?? []).map((child: any, i: number) =>
-        renderNode(
-          stripFontSizeFromDescendants(child),
-          key ? `${key}-${i}` : i,
-          ctx,
-          handlers,
-          env,
-        ),
-      );
-
-      const textContent = stripReact(safeChildren).trim();
-      const baseId = toHeadingIdFromText(textContent);
-
-      const occ = ctx?.headingOccRef.current.get(baseId) ?? 0;
-      ctx?.headingOccRef.current.set(baseId, occ + 1);
-
-      const domId = `${baseId}--${occ}`;
-
-      const level =
-        node.type === "heading-one"
-          ? 1
-          : node.type === "heading-two"
-            ? 2
-            : 3;
-
       return (
-        <HeadingBlock
-          key={key}
-          mode="read"
-          level={level}
-          textAlign={el.textAlign}
-          icon={el.icon}
-          domId={domId}
-          dataHeadingId={baseId}
-        >
-          {safeChildren}
-
-          <HeadingAnchorButton anchorId={baseId} />
-        </HeadingBlock>
+        <HeadingReadAdapter
+          node={node}
+          keyProp={key}
+          ctx={ctx}
+          handlers={handlers}
+          env={env}
+          renderNode={renderNode}
+        />
       );
     }
 
