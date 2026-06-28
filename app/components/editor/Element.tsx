@@ -37,7 +37,6 @@ import {
 import WeaponCard from './render/WeaponCard';
 
 import DividerBlock from '@/components/wiki-render/blocks/DividerBlock';
-import HeadingBlock from '@/components/wiki-render/blocks/HeadingBlock';
 import InfoBoxBlock from '@/components/wiki-render/blocks/InfoBoxBlock';
 
 import {
@@ -52,6 +51,7 @@ import LinkBlockEditorAdapter from './render/link/LinkBlockEditorAdapter';
 import { ImageBlock, VideoBlock } from './render/media/MediaEditorBlocks';
 
 import ParagraphEditorAdapter from './render/blocks/ParagraphEditorAdapter';
+import HeadingEditorAdapter from './render/blocks/HeadingEditorAdapter';
 
 export type ElementProps = RenderElementProps & {
   editor: any;
@@ -103,25 +103,19 @@ const Element: React.FC<ElementRenderProps> = ({
     case 'heading-one':
     case 'heading-two':
     case 'heading-three': {
-      const el = element as
-        | HeadingOneElement
-        | HeadingTwoElement
-        | HeadingThreeElement;
-
-      const level =
-        el.type === 'heading-one' ? 1 : el.type === 'heading-two' ? 2 : 3;
-
       return (
-        <HeadingBlock
-          mode="edit"
-          level={level}
-          textAlign={el.textAlign}
-          icon={el.icon}
+        <HeadingEditorAdapter
           attributes={attributes}
-          onIconClick={() => onIconClick(el)}
+          element={
+            element as
+              | HeadingOneElement
+              | HeadingTwoElement
+              | HeadingThreeElement
+          }
+          onIconClick={onIconClick}
         >
           {children}
-        </HeadingBlock>
+        </HeadingEditorAdapter>
       );
     }
 
