@@ -2484,16 +2484,32 @@ export default function WikiReadRenderer({
             alignItems: "stretch",
           }}
         >
-          <LinkBlockView
+          <LinkCardRenderer
             key={`link-block-row-${i}-a`}
-            node={a}
+            mode="read"
+            url={(a as any).url}
+            isWiki={(a as any).isWiki}
+            wikiPath={(a as any).wikiPath}
+            wikiTitle={(a as any).wikiTitle}
+            sitename={(a as any).sitename}
+            size={(a as any).size}
+            docIcon={(a as any).docIcon}
+            labelText={nodeToPlainText((a as any).children)}
             compactMobile={isMobile}
             onWikiNavigate={onWikiNavigate}
           />
 
-          <LinkBlockView
+          <LinkCardRenderer
             key={`link-block-row-${i}-b`}
-            node={b}
+            mode="read"
+            url={(b as any).url}
+            isWiki={(b as any).isWiki}
+            wikiPath={(b as any).wikiPath}
+            wikiTitle={(b as any).wikiTitle}
+            sitename={(b as any).sitename}
+            size={(b as any).size}
+            docIcon={(b as any).docIcon}
+            labelText={nodeToPlainText((b as any).children)}
             compactMobile={isMobile}
             onWikiNavigate={onWikiNavigate}
           />
