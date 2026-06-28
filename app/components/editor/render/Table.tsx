@@ -2,18 +2,28 @@
 import React from 'react';
 import { ReactEditor } from 'slate-react';
 import type { RenderElementProps } from 'slate-react';
-import { Node, Transforms } from 'slate';
+import { Transforms } from 'slate';
+
 import type { TableElement } from '@/types/slate';
-import TableBlock from '@/components/wiki-render/blocks/TableBlock';
+
+import {
+  WikiTableCellRenderer,
+  WikiTableRenderer,
+  WikiTableRowRenderer,
+} from '@/components/wiki-render/table/TableRenderer';
+
+import { getTableContainerStyle } from '@/components/wiki-render/table/tableLayout';
+
 import {
   tablePathKey,
   useDragRect,
   beginDrag,
   hoverCell,
-  isDragPrimedOrActive,
 } from '../helpers/tableDrag';
 
-export function TableElementRenderer(props: RenderElementProps & { editor: any }) {
+export function TableElementRenderer(
+  props: RenderElementProps & { editor: any },
+) {
   const { attributes, children, element, editor } = props;
   const table = element as TableElement;
 
@@ -29,7 +39,7 @@ export function TableElementRenderer(props: RenderElementProps & { editor: any }
     typeof table.maxWidth === 'number' ? table.maxWidth : null;
 
   const [liveWidth, setLiveWidth] = React.useState<number | null>(
-    widthFromNode
+    widthFromNode,
   );
 
   React.useEffect(() => {
@@ -47,7 +57,7 @@ export function TableElementRenderer(props: RenderElementProps & { editor: any }
 
     const q = (r: number, c: number) =>
       wrap.querySelector(
-        `td.slate-table__cell[data-tkey="${tkey}"][data-r="${r}"][data-c="${c}"]`
+        `td.slate-table__cell[data-tkey="${tkey}"][data-r="${r}"][data-c="${c}"]`,
       ) as HTMLElement | null;
 
     const a = q(rect.r0, rect.c0);
@@ -102,6 +112,7 @@ export function TableElementRenderer(props: RenderElementProps & { editor: any }
 
     const MIN = 400;
     const MAX = Math.max(MIN, containerWidth - 16);
+
     let latest = startWidth;
 
     const onMove = (ev: MouseEvent) => {
@@ -135,7 +146,7 @@ export function TableElementRenderer(props: RenderElementProps & { editor: any }
             maxWidth: null,
             fullWidth: true,
           } as Partial<TableElement>,
-          { at: tablePath }
+          { at: tablePath },
         );
       } else {
         Transforms.setNodes<TableElement>(
@@ -144,7 +155,7 @@ export function TableElementRenderer(props: RenderElementProps & { editor: any }
             maxWidth: Math.round(latest),
             fullWidth: false,
           } as Partial<TableElement>,
-          { at: tablePath }
+          { at: tablePath },
         );
       }
     };
@@ -152,28 +163,6 @@ export function TableElementRenderer(props: RenderElementProps & { editor: any }
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
   };
-
-  const wrapWidth = liveWidth ?? widthFromNode;
-  const tableAlign = table.align ?? 'left';
-
-  const wrapStyle: React.CSSProperties = {
-    position: 'relative',
-    width: wrapWidth ? `${wrapWidth}px` : table.fullWidth ? '100%' : undefined,
-    maxWidth: '100%',
-  };
-
-  if (!table.fullWidth) {
-    if (tableAlign === 'center') {
-      wrapStyle.marginLeft = 'auto';
-      wrapStyle.marginRight = 'auto';
-    } else if (tableAlign === 'right') {
-      wrapStyle.marginLeft = 'auto';
-      wrapStyle.marginRight = 0;
-    } else {
-      wrapStyle.marginLeft = 0;
-      wrapStyle.marginRight = 'auto';
-    }
-  }
 
   const mergedRef = React.useCallback(
     (el: HTMLDivElement | null) => {
@@ -184,24 +173,10 @@ export function TableElementRenderer(props: RenderElementProps & { editor: any }
       if (typeof attrRef === 'function') {
         attrRef(el);
       } else if (attrRef && typeof attrRef === 'object') {
-        (attrRef as { current: any }).current = el;
+        (attrRef as { current: HTMLDivElement | null }).current = el;
       }
     },
-    [attributes]
-  );
-
-  const tableNode = (
-    <table
-      className="slate-table"
-      onDragStart={(e) => e.preventDefault()}
-      style={{
-        borderCollapse: 'collapse',
-        tableLayout: 'fixed',
-        width: '100%',
-      }}
-    >
-      <tbody>{children}</tbody>
-    </table>
+    [attributes],
   );
 
   const overlayNode = (
@@ -256,7 +231,7 @@ export function TableElementRenderer(props: RenderElementProps & { editor: any }
   );
 
   return (
-    <TableBlock
+    <WikiTableRenderer
       mode="edit"
       attributes={
         {
@@ -265,23 +240,36 @@ export function TableElementRenderer(props: RenderElementProps & { editor: any }
         } as React.HTMLAttributes<HTMLDivElement>
       }
       containerRef={mergedRef}
-      containerStyle={wrapStyle}
-      table={tableNode}
+      style={getTableContainerStyle({
+        liveWidth: liveWidth ?? widthFromNode,
+        maxWidth: widthFromNode,
+        fullWidth: table.fullWidth,
+        align: table.align,
+      })}
+      tableClassName="slate-table"
       overlay={overlayNode}
       editControls={resizeHandle}
-      scrollable={false}
-    />
+    >
+      {children}
+    </WikiTableRenderer>
   );
 }
 
 export function TableRowRenderer(props: RenderElementProps) {
   const { attributes, children } = props;
 
-  return <tr {...attributes}>{children}</tr>;
+  return (
+    <WikiTableRowRenderer attributes={attributes}>
+      {children}
+    </WikiTableRowRenderer>
+  );
 }
 
-export function TableCellRenderer(props: RenderElementProps & { editor: any }) {
+export function TableCellRenderer(
+  props: RenderElementProps & { editor: any },
+) {
   const { attributes, children, element, editor } = props;
+
   const el = element as any;
 
   const colSpan = Math.max(1, Number(el.colspan) || 1);
@@ -290,12 +278,12 @@ export function TableCellRenderer(props: RenderElementProps & { editor: any }) {
   const path = ReactEditor.findPath(editor, element);
   const tablePath = path.slice(0, -2);
   const tkey = tablePathKey(tablePath);
+
   const r = path[path.length - 2] as number;
   const c = path[path.length - 1] as number;
 
   const onDown: React.MouseEventHandler<HTMLTableCellElement> = (e) => {
     if (e.button !== 0) return;
-
     if (!e.shiftKey) return;
 
     e.preventDefault();
@@ -312,34 +300,33 @@ export function TableCellRenderer(props: RenderElementProps & { editor: any }) {
 
     window.dispatchEvent(
       new CustomEvent('editor:table-menu', {
-        detail: { x: e.clientX, y: e.clientY, cellPath: path },
-      })
+        detail: {
+          x: e.clientX,
+          y: e.clientY,
+          cellPath: path,
+        },
+      }),
     );
   };
 
   return (
-    <td
-      {...attributes}
-      data-tkey={tkey}
-      data-r={r}
-      data-c={c}
+    <WikiTableCellRenderer
+      mode="edit"
+      attributes={attributes as React.TdHTMLAttributes<HTMLTableCellElement>}
+      dataAttributes={{
+        'data-tkey': tkey,
+        'data-r': r,
+        'data-c': c,
+      }}
       colSpan={colSpan}
       rowSpan={rowSpan}
       onMouseDown={onDown}
       onMouseEnter={onEnter}
       onContextMenu={onCtx}
-      onDragStart={(e) => e.preventDefault()}
-      draggable={false}
       className="slate-table__cell"
-      style={{
-        border: '1px solid #e5e7eb',
-        background: '#ffffff',
-        padding: '4px 6px',
-        verticalAlign: 'middle',
-      }}
     >
       {children}
-    </td>
+    </WikiTableCellRenderer>
   );
 }
 
