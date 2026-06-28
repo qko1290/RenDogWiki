@@ -60,6 +60,8 @@ import {
   WikiRefInline,
 } from '@/components/wiki-render/inline';
 
+import InlineLinkRenderer from '@/components/wiki-render/link/InlineLinkRenderer';
+
 type Props = {
   content: Descendant[];
   readOnly?: boolean;
@@ -1588,14 +1590,12 @@ function renderNode(
     }
 
     case "link": {
-      const rawHref = String(node.url ?? "");
-      const internal = sharedIsInternalWikiHref(rawHref);
-      const href = sharedNormalizeToAppHref(rawHref);
+      const href = String(node.url ?? node.href ?? "").trim();
+      const isInternalWikiLink = href ? sharedIsInternalWikiHref(href) : false;
 
-      if (internal) {
+      if (isInternalWikiLink) {
         return (
           <InlineWikiLink
-            key={key}
             href={href}
             onWikiNavigate={env?.onWikiNavigate}
           >
@@ -1605,18 +1605,16 @@ function renderNode(
       }
 
       return (
-        <a
-          key={key}
+        <InlineLinkRenderer
+          mode="read"
           href={href || "#"}
-          target="_blank"
-          rel="noopener noreferrer nofollow"
-          style={{
-            color: "var(--accent)",
-            textDecoration: "none",
+          attributes={{
+            target: "_blank",
+            rel: "noopener noreferrer nofollow",
           }}
         >
           {children}
-        </a>
+        </InlineLinkRenderer>
       );
     }
 
