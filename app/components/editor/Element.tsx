@@ -6,8 +6,6 @@ import {
   useSlate,
 } from 'slate-react';
 
-import { toProxyUrl } from '@lib/cdn';
-
 import type {
   InlineMarkElement,
   InlineImageElement,
@@ -55,6 +53,8 @@ import {
   InlineMarkEditorAdapter,
   WikiRefEditorAdapter,
 } from './render/inline/InlineEditorAdapters';
+
+import EmbedPlaceholderEditorAdapter from './render/embed/EmbedPlaceholderEditorAdapter';
 
 export type ElementProps = RenderElementProps & {
   editor: any;
@@ -272,39 +272,13 @@ const Element: React.FC<ElementRenderProps> = ({
     case 'quest-embed':
     case 'npc-embed':
     case 'qna-embed': {
-      const type = element.type;
-
-      const id =
-        type === 'quest-embed'
-          ? (element as any).questId
-          : type === 'npc-embed'
-            ? (element as any).npcId
-            : (element as any).qnaId;
-
-      const label =
-        type === 'quest-embed'
-          ? '퀘스트'
-          : type === 'npc-embed'
-            ? 'NPC'
-            : 'QNA';
-
       return (
-        <div
-          {...attributes}
-          contentEditable={false}
-          style={{
-            border: '1px solid #d0d7de',
-            borderRadius: 8,
-            padding: 12,
-            margin: '12px 0',
-            background: '#f8fafc',
-          }}
+        <EmbedPlaceholderEditorAdapter
+          attributes={attributes}
+          element={element}
         >
-          <strong>{label} 삽입</strong>
-          <div>ID: {String(id ?? '-')}</div>
-          <div>나중에 id로 데이터 로드</div>
           {children}
-        </div>
+        </EmbedPlaceholderEditorAdapter>
       );
     }
 
