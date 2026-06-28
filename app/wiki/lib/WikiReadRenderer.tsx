@@ -1075,8 +1075,19 @@ function renderNode(
     case "heading-three": {
       const el = node;
 
+      /**
+       * main 원본 동작:
+       * heading 내부 텍스트에 남아있는 fontSize mark는 제거하고,
+       * heading 자체 크기(h1/h2/h3)를 우선 적용한다.
+       */
       const safeChildren = (el.children ?? []).map((child: any, i: number) =>
-        renderNode(stripFontSizeFromDescendants(child), key ? `${key}-${i}` : i)
+        renderNode(
+          stripFontSizeFromDescendants(child),
+          key ? `${key}-${i}` : i,
+          ctx,
+          handlers,
+          env,
+        ),
       );
 
       const textContent = stripReact(safeChildren).trim();
@@ -1086,18 +1097,27 @@ function renderNode(
       ctx?.headingOccRef.current.set(baseId, occ + 1);
 
       const domId = `${baseId}--${occ}`;
-      const level = node.type === "heading-one" ? 1 : node.type === "heading-two" ? 2 : 3;
+
+      const level =
+        node.type === "heading-one"
+          ? 1
+          : node.type === "heading-two"
+            ? 2
+            : 3;
 
       return (
         <HeadingBlock
+          key={key}
           mode="read"
           level={level}
-          textAlign={node.textAlign || "left"}
+          textAlign={el.textAlign}
           icon={el.icon}
           domId={domId}
           dataHeadingId={baseId}
         >
           {safeChildren}
+
+          <HeadingAnchorButton anchorId={baseId} />
         </HeadingBlock>
       );
     }
