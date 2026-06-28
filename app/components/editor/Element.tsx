@@ -35,12 +35,6 @@ import {
 } from './render/Table';
 import WeaponCard from './render/WeaponCard';
 
-import {
-  InlineImage,
-  InlineMark,
-  WikiRefInline,
-} from '@/components/wiki-render/inline';
-
 import InlineLinkRenderer from '@/components/wiki-render/link/InlineLinkRenderer';
 import LinkBlockEditorAdapter from './render/link/LinkBlockEditorAdapter';
 import { ImageBlock, VideoBlock } from './render/media/MediaEditorBlocks';
@@ -55,6 +49,12 @@ import {
 } from './render/blocks/BasicBlockEditorAdapters';
 
 import FootnoteEditorAdapter from './render/inline/FootnoteEditorAdapter';
+
+import {
+  InlineImageEditorAdapter,
+  InlineMarkEditorAdapter,
+  WikiRefEditorAdapter,
+} from './render/inline/InlineEditorAdapters';
 
 export type ElementProps = RenderElementProps & {
   editor: any;
@@ -169,32 +169,24 @@ const Element: React.FC<ElementRenderProps> = ({
     }
 
     case 'inline-image': {
-      const el = element as InlineImageElement;
-      const src = el.url?.startsWith('http') ? toProxyUrl(el.url) : el.url;
-
       return (
-        <InlineImage
-          mode="edit"
-          src={src}
-          attributes={attributes as React.HTMLAttributes<HTMLSpanElement>}
+        <InlineImageEditorAdapter
+          attributes={attributes}
+          element={element as InlineImageElement}
         >
           {children}
-        </InlineImage>
+        </InlineImageEditorAdapter>
       );
     }
 
     case 'inline-mark': {
-      const el = element as InlineMarkElement;
-
       return (
-        <InlineMark
-          mode="edit"
-          icon={el.icon}
-          color={el.color}
-          attributes={attributes as React.HTMLAttributes<HTMLSpanElement>}
+        <InlineMarkEditorAdapter
+          attributes={attributes}
+          element={element as InlineMarkElement}
         >
           {children}
-        </InlineMark>
+        </InlineMarkEditorAdapter>
       );
     }
 
@@ -329,25 +321,16 @@ const Element: React.FC<ElementRenderProps> = ({
     }
 
     case 'wiki-ref': {
-      const kind = (element as any).kind as WikiRefKind;
-      const refId = Number((element as any).id);
-      const open = onWikiRefClick ?? onOpenWikiRef;
-
       return (
-        <WikiRefInline
-          mode="edit"
-          attributes={attributes as React.HTMLAttributes<HTMLSpanElement>}
-          contentEditable={!readOnly}
-          clickable={Boolean(readOnly && open && Number.isFinite(refId))}
-          onOpen={() => {
-            if (!readOnly) return;
-            if (!open) return;
-
-            open(kind, refId);
-          }}
+        <WikiRefEditorAdapter
+          attributes={attributes}
+          element={element}
+          readOnly={readOnly}
+          onWikiRefClick={onWikiRefClick}
+          onOpenWikiRef={onOpenWikiRef}
         >
           {children}
-        </WikiRefInline>
+        </WikiRefEditorAdapter>
       );
     }
 
