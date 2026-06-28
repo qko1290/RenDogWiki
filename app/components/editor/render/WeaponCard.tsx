@@ -23,7 +23,7 @@ import {
   ensureWeaponStats,
   normalizeStatsForWeaponType,
   getWeaponLevelLabels,
-} from './weaponStatUtils';
+} from './weapon/weaponStatUtils';
 
 import {
   WeaponTypeSelectModal,
@@ -31,7 +31,7 @@ import {
   WeaponStatEditModal,
   WeaponStatSelectModal,
   WeaponVideoModal,
-} from './WeaponModals';
+} from './weapon/WeaponModals';
 
 import WeaponBlock from '@/components/wiki-render/blocks/WeaponBlock';
 import WeaponCardRenderer from '@/components/wiki-render/weapon/WeaponCardRenderer';
