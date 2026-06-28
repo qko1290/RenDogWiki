@@ -52,6 +52,7 @@ import { ImageBlock, VideoBlock } from './render/media/MediaEditorBlocks';
 
 import ParagraphEditorAdapter from './render/blocks/ParagraphEditorAdapter';
 import HeadingEditorAdapter from './render/blocks/HeadingEditorAdapter';
+import LinkBlockRowEditorAdapter from './render/link/LinkBlockRowEditorAdapter';
 
 export type ElementProps = RenderElementProps & {
   editor: any;
@@ -252,19 +253,9 @@ const Element: React.FC<ElementRenderProps> = ({
 
     case 'link-block-row': {
       return (
-        <div
-          {...attributes}
-          style={{
-            display: 'flex',
-            gap: 12,
-            margin: '8px 0',
-            width: '100%',
-            flexWrap: 'wrap',
-            alignItems: 'stretch',
-          }}
-        >
+        <LinkBlockRowEditorAdapter attributes={attributes}>
           {children}
-        </div>
+        </LinkBlockRowEditorAdapter>
       );
     }
 
