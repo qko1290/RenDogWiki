@@ -220,11 +220,31 @@ export default function HeadingBlock({
             line-height: 1;
             background: transparent;
             border: 1px solid transparent;
+            position: relative;
             transition:
               background 0.14s ease,
               border-color 0.14s ease,
               color 0.14s ease,
               transform 0.14s ease;
+          }
+
+          [data-rdwiki-heading="true"] .wiki-heading-anchor-pill::before {
+            content: "";
+            width: 13px;
+            height: 13px;
+            display: block;
+            opacity: 0.78;
+            background: currentColor;
+            -webkit-mask:
+              url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L11.5 4.43'/%3E%3Cpath d='M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07l1.33-1.33'/%3E%3C/svg%3E")
+              center / contain no-repeat;
+            mask:
+              url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L11.5 4.43'/%3E%3Cpath d='M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07l1.33-1.33'/%3E%3C/svg%3E")
+              center / contain no-repeat;
+          }
+
+          [data-rdwiki-heading="true"] .wiki-heading-anchor-pill--copied::before {
+            display: none;
           }
 
           [data-rdwiki-heading="true"] .wiki-heading-anchor-btn:hover .wiki-heading-anchor-pill {
