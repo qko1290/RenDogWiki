@@ -18,117 +18,15 @@ import type { PriceTableCardElement } from '@/types/slate';
 import type { PriceTableEditState } from './types';
 import PriceTableBlock from '@/components/wiki-render/blocks/PriceTableBlock';
 import PriceTableRenderer from '@/components/wiki-render/price-table/PriceTableRenderer';
-import { stagesByFormat } from '@/components/wiki-render/price-table/priceTableViewModel';
 
 import PriceItemSelectModal from '../PriceItemSelectModal';
 
-// -------------------- 선택 모달에서 받는 데이터 타입 --------------------
-
-type PickedPriceItem = {
-  id: number;
-  name: string;
-  name_key: string;
-  mode: string;
-  prices: string[];
-};
-
-// -------------------- 라이브 시세 로딩/캐시 --------------------
-
-const PRICE_CACHE_TTL_MS = 60_000;
-
-type CacheEntry = {
-  ts: number;
-  item: PickedPriceItem;
-};
-
-const priceCache = new Map<string, CacheEntry>();
-const inflight = new Map<string, Promise<PickedPriceItem | null>>();
-
-function makeCacheKey(id?: number | null, nameKey?: string | null) {
-  if (Number.isFinite(id as any) && (id as number) > 0) return `id:${id}`;
-
-  const nk = String(nameKey ?? '').trim();
-
-  if (nk) return `key:${nk}`;
-
-  return '';
-}
-
-async function fetchLatestPriceItem(
-  id?: number | null,
-  nameKey?: string | null,
-) {
-  const key = makeCacheKey(id, nameKey);
-
-  if (!key) return null;
-
-  const now = Date.now();
-  const hit = priceCache.get(key);
-
-  if (hit && now - hit.ts <= PRICE_CACHE_TTL_MS) return hit.item;
-
-  const inFlight = inflight.get(key);
-
-  if (inFlight) return inFlight;
-
-  const p = (async () => {
-    try {
-      const url = key.startsWith('id:')
-        ? `/api/prices/get?id=${encodeURIComponent(String(id))}`
-        : `/api/prices/get?name_key=${encodeURIComponent(String(nameKey ?? ''))}`;
-
-      const res = await fetch(url, { cache: 'no-store' });
-
-      if (!res.ok) return null;
-
-      const data = (await res.json()) as any;
-      const it = data?.item;
-
-      if (!it) return null;
-
-      const normalized: PickedPriceItem = {
-        id: Number(it.id),
-        name: String(it.name ?? ''),
-        name_key: String(it.name_key ?? ''),
-        mode: String(it.mode ?? ''),
-        prices: Array.isArray(it.prices)
-          ? it.prices.map((v: any) => String(v ?? ''))
-          : [],
-      };
-
-      priceCache.set(key, { ts: Date.now(), item: normalized });
-
-      return normalized;
-    } catch {
-      return null;
-    } finally {
-      inflight.delete(key);
-    }
-  })();
-
-  inflight.set(key, p);
-
-  return p;
-}
-
-function normalizePickedPrices(picked: PickedPriceItem) {
-  const newStages = stagesByFormat(picked.mode);
-  const raw = Array.isArray(picked.prices)
-    ? picked.prices.map((value) => String(value ?? ''))
-    : [];
-
-  const nextPrices = [...raw];
-  nextPrices.length = newStages.length;
-
-  for (let i = 0; i < newStages.length; i++) {
-    if (typeof nextPrices[i] === 'undefined') nextPrices[i] = '';
-  }
-
-  return {
-    stages: newStages,
-    prices: nextPrices,
-  };
-}
+import {
+  fetchLatestPriceItem,
+  makePriceCacheKey,
+  normalizePickedPrices,
+  type PickedPriceItem,
+} from '@/components/wiki-render/price-table/priceTableLiveService';
 
 // -------------------- 메인 렌더러 --------------------
 
@@ -190,7 +88,7 @@ export function PriceTableCard(props: PriceTableCardProps) {
 
   const itemsSignature = useMemo(() => {
     return (Array.isArray(el.items) ? el.items : [])
-      .map((it: any) => makeCacheKey(it?.id ?? null, it?.name_key ?? null))
+      .map((it: any) => makePriceCacheKey(it?.id ?? null, it?.name_key ?? null))
       .filter(Boolean)
       .join('|');
   }, [el.items]);
@@ -202,7 +100,7 @@ export function PriceTableCard(props: PriceTableCardProps) {
       const items = Array.isArray(el.items) ? el.items : [];
       const targets = items
         .map((it: any) => {
-          const key = makeCacheKey(it?.id ?? null, it?.name_key ?? null);
+          const key = makePriceCacheKey(it?.id ?? null, it?.name_key ?? null);
 
           return {
             key,
@@ -252,7 +150,7 @@ export function PriceTableCard(props: PriceTableCardProps) {
     const items = Array.isArray(el.items) ? el.items : [];
 
     return items.map((it: any) => {
-      const key = makeCacheKey(it?.id ?? null, it?.name_key ?? null);
+      const key = makePriceCacheKey(it?.id ?? null, it?.name_key ?? null);
       const latest = key ? liveMap.get(key) : null;
 
       if (!latest) return it;
