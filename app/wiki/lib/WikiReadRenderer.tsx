@@ -76,6 +76,11 @@ import FootnoteReadAdapter from './read/FootnoteReadAdapter';
 
 import HeadingAnchorButton from './read/HeadingAnchorButton';
 
+import {
+  ImageReadAdapter,
+  VideoReadAdapter,
+} from './read/MediaReadAdapter';
+
 type Props = {
   content: Descendant[];
   readOnly?: boolean;
@@ -483,53 +488,12 @@ function renderNode(
 
     // 이미지 블록 (SmartImage로 최적화 + CDN/버전)
     case "image": {
-      const v = (node.updatedAt || node.version) as string | number | undefined;
-      const src = withVersion(cdn(node.url), v);
-      const w = node.width ? Number(node.width) : undefined;
-      const h = node.height ? Number(node.height) : undefined;
-
-      return (
-        <MediaBlock
-          mode="read"
-          kind="image"
-          src={src}
-          alt={node.alt || ""}
-          textAlign={node.textAlign}
-          width={w}
-          height={h}
-          renderImage={({ src, alt, width, height, style, className }) => (
-            <SmartImage
-              src={src}
-              alt={alt || ""}
-              width={width ?? 960}
-              height={height ?? 540}
-              className={className}
-              loading="lazy"
-              decoding="async"
-              style={style}
-            />
-          )}
-        />
-      );
+      return <ImageReadAdapter node={node} />;
     }
 
     // 영상 블록: 이미지와 동일한 정렬(textAlign) + CDN/버전 적용
     case "video": {
-      const v = (node.updatedAt || node.version) as string | number | undefined;
-      const src = withVersion(cdn(node.url), v);
-      const w = node.width ? Number(node.width) : undefined;
-      const h = node.height ? Number(node.height) : undefined;
-
-      return (
-        <MediaBlock
-          mode="read"
-          kind="video"
-          src={src}
-          textAlign={node.textAlign}
-          width={w}
-          height={h}
-        />
-      );
+      return <VideoReadAdapter node={node} />;
     }
 
     case "inline-image": {
