@@ -36,9 +36,6 @@ import {
 } from './render/Table';
 import WeaponCard from './render/WeaponCard';
 
-import DividerBlock from '@/components/wiki-render/blocks/DividerBlock';
-import InfoBoxBlock from '@/components/wiki-render/blocks/InfoBoxBlock';
-
 import {
   FootnoteInline,
   InlineImage,
@@ -53,6 +50,11 @@ import { ImageBlock, VideoBlock } from './render/media/MediaEditorBlocks';
 import ParagraphEditorAdapter from './render/blocks/ParagraphEditorAdapter';
 import HeadingEditorAdapter from './render/blocks/HeadingEditorAdapter';
 import LinkBlockRowEditorAdapter from './render/link/LinkBlockRowEditorAdapter';
+
+import {
+  DividerEditorAdapter,
+  InfoBoxEditorAdapter,
+} from './render/blocks/BasicBlockEditorAdapters';
 
 export type ElementProps = RenderElementProps & {
   editor: any;
@@ -133,38 +135,24 @@ const Element: React.FC<ElementRenderProps> = ({
     }
 
     case 'divider': {
-      const el = element as any;
-
       return (
-        <DividerBlock
-          mode="edit"
-          styleType={el.style || 'default'}
-          attributes={attributes as any}
+        <DividerEditorAdapter
+          attributes={attributes}
+          element={element}
         >
           {children}
-        </DividerBlock>
+        </DividerEditorAdapter>
       );
     }
 
     case 'info-box': {
-      const raw =
-        (element as any).boxType ||
-        (element as any).variant ||
-        (element as any).tone ||
-        (element as any).infoType ||
-        'note';
-
-      const noIcon = Boolean((element as any).noIcon);
-
       return (
-        <InfoBoxBlock
-          mode="edit"
-          tone={raw}
-          noIcon={noIcon}
+        <InfoBoxEditorAdapter
           attributes={attributes}
+          element={element}
         >
           {children}
-        </InfoBoxBlock>
+        </InfoBoxEditorAdapter>
       );
     }
 
