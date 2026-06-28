@@ -16,6 +16,15 @@ import {
 
 import { getWikiDocDetailByHref } from './linkPreviewService';
 
+type LinkCardInputSize =
+  | 'small'
+  | 'large'
+  | 'half'
+  | 'full'
+  | 'normal'
+  | null
+  | undefined;
+
 type LinkCardRendererProps = {
   mode: 'read' | 'edit';
 
@@ -24,15 +33,32 @@ type LinkCardRendererProps = {
   wikiPath?: string | number | null;
   wikiTitle?: string | null;
   sitename?: string | null;
-  size?: 'small' | 'half' | 'full';
+
+  /**
+   * main 기존 Slate 데이터는 small | large 를 사용한다.
+   * refactor 공통 렌더러 내부에서는 small | half | full | normal 계열을 사용하므로
+   * 여기서 main 값을 그대로 받아서 렌더링 직전에만 해석한다.
+   */
+  size?: LinkCardInputSize;
+
   docIcon?: string | null;
-
   labelText?: string;
-  compactMobile?: boolean;
 
+  /**
+   * Element.tsx 기존 호출부 호환 props
+   */
+  titleContent?: React.ReactNode;
+  subtitle?: React.ReactNode;
+  metaText?: React.ReactNode;
+  inRow?: boolean;
+  attributes?: React.HTMLAttributes<HTMLElement>;
+  editControls?: React.ReactNode;
+  readControls?: React.ReactNode;
+  clickableInReadMode?: boolean;
+
+  compactMobile?: boolean;
   onWikiNavigate?: (href: string) => void;
   onClick?: (event: React.MouseEvent) => void;
-
   children?: React.ReactNode;
 };
 
@@ -84,6 +110,21 @@ function looksLikeImageIcon(icon: string | null | undefined) {
   );
 }
 
+function isHalfLinkCardSize(size: LinkCardInputSize) {
+  return size === 'small' || size === 'half';
+}
+
+function toLinkCardBlockSize(size: LinkCardInputSize): 'half' | 'normal' {
+  if (isHalfLinkCardSize(size)) return 'half';
+
+  /**
+   * main의 large는 기존 전체폭 카드 의미다.
+   * LinkCardBlock에서는 full/large를 새 저장 타입으로 쓰지 않고,
+   * 기존 전체폭 디자인을 유지하기 위해 normal로 넘긴다.
+   */
+  return 'normal';
+}
+
 export default function LinkCardRenderer({
   mode,
   url,
@@ -93,6 +134,14 @@ export default function LinkCardRenderer({
   size,
   docIcon,
   labelText,
+  titleContent,
+  subtitle,
+  metaText,
+  inRow,
+  attributes,
+  editControls,
+  readControls,
+  clickableInReadMode = true,
   compactMobile = false,
   onWikiNavigate,
   onClick,
@@ -115,7 +164,6 @@ export default function LinkCardRenderer({
   );
 
   const [faviconFailed, setFaviconFailed] = React.useState(false);
-
   const [resolvedDocIcon, setResolvedDocIcon] = React.useState<string | null>(
     () => String(docIcon ?? '').trim() || null,
   );
@@ -142,16 +190,19 @@ export default function LinkCardRenderer({
         const { parsed, detail } = loaded;
 
         let iconCandidate: string | null = null;
+
         const hash = String(parsed.hash ?? '').trim();
 
         if (hash && Array.isArray(detail.headings)) {
           const target = hash;
+
           const normalizedTarget = target.startsWith('heading-')
             ? target
             : `heading-${target}`;
 
           const matched = detail.headings.find((heading) => {
             const headingId = String(heading.id ?? '');
+
             const normalizedHeadingId = headingId.startsWith('heading-')
               ? headingId
               : `heading-${headingId}`;
@@ -195,16 +246,17 @@ export default function LinkCardRenderer({
   const externalFavicon: string | null =
     !isWikiLink && parsedUrl ? `${parsedUrl.origin}/favicon.ico` : null;
 
-  const isSmall = size === 'small' || size === 'half';
-  const isCompactTwoColMobile = compactMobile && isSmall;
+  const isHalf = isHalfLinkCardSize(size);
+  const blockSize = toLinkCardBlockSize(size);
+  const isCompactTwoColMobile = compactMobile && isHalf;
 
-  const safeLabel =
+  const fallbackTitleText =
     labelText ||
     (isWikiLink
       ? decodeTitleForDisplay(wikiTitle) || sitename || '문서'
       : displaySitename || url || '링크');
 
-  const subText = isWikiLink
+  const fallbackSubtitle = isWikiLink
     ? 'RenDog Wiki'
     : displaySitename ||
       (parsedUrl ? parsedUrl.origin.replace(/^https?:\/\//, '') : '');
@@ -265,6 +317,11 @@ export default function LinkCardRenderer({
     </span>
   );
 
+  const renderedTitleContent =
+    titleContent !== undefined && titleContent !== null
+      ? titleContent
+      : fallbackTitleText;
+
   const titleNode = (
     <span
       style={{
@@ -272,38 +329,34 @@ export default function LinkCardRenderer({
         fontWeight: 750,
       }}
     >
-      {safeLabel}
+      {renderedTitleContent}
     </span>
   );
 
-  const card = (
-    <LinkCardBlock
-      mode={mode}
-      href={normalizedHref}
-      title={titleNode}
-      subtitle={isCompactTwoColMobile ? undefined : subText}
-      icon={iconNode}
-      size={isSmall ? 'half' : 'normal'}
-      inRow={isCompactTwoColMobile}
-      isWikiLink={isWikiLink}
-      clickableInReadMode={false}
-    />
-  );
+  const renderedSubtitle =
+    subtitle !== undefined && subtitle !== null
+      ? subtitle
+      : isCompactTwoColMobile
+        ? undefined
+        : fallbackSubtitle;
 
-  const handleClick = (event: React.MouseEvent) => {
+  const handleReadClick = (event: React.MouseEvent) => {
     onClick?.(event);
 
     if (event.defaultPrevented) return;
 
+    if (!clickableInReadMode) {
+      event.preventDefault();
+      return;
+    }
+
     if (!isWikiLink) return;
 
-    const anyEvent = event as any;
-
     if (
-      anyEvent.metaKey ||
-      anyEvent.ctrlKey ||
-      anyEvent.shiftKey ||
-      anyEvent.altKey
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
     ) {
       return;
     }
@@ -323,35 +376,82 @@ export default function LinkCardRenderer({
     router.push(normalizedHref);
   };
 
+  const card = (
+    <LinkCardBlock
+      mode={mode}
+      href={normalizedHref}
+      title={titleNode}
+      subtitle={renderedSubtitle}
+      metaText={metaText}
+      icon={iconNode}
+      size={blockSize}
+      inRow={inRow}
+      isWikiLink={isWikiLink}
+      editControls={editControls}
+      readControls={readControls}
+      clickableInReadMode={false}
+    />
+  );
+
+  const outerStyle: React.CSSProperties = {
+    position: 'relative',
+    flex: isHalf ? '1 1 calc(50% - 6px)' : undefined,
+    width: isHalf ? 'calc(50% - 6px)' : '100%',
+    maxWidth: isHalf ? 'calc(50% - 6px)' : '100%',
+    boxSizing: 'border-box',
+    display: 'block',
+  };
+
+  const mergedAttributes = attributes ?? {};
+
   return (
     <div
+      {...mergedAttributes}
       data-wiki-block="link-block"
       data-wiki-link-kind={isWikiLink ? 'internal' : 'external'}
       style={{
-        position: 'relative',
-        flex: isSmall ? '1 1 calc(50% - 6px)' : undefined,
-        width: isSmall ? 'calc(50% - 6px)' : '100%',
-        maxWidth: isSmall ? 'calc(50% - 6px)' : '100%',
-        boxSizing: 'border-box',
-        display: 'block',
+        ...outerStyle,
+        ...(mergedAttributes.style ?? {}),
       }}
     >
-      <a
-        href={normalizedHref}
-        onClick={isWikiLink ? handleClick : onClick}
-        target={isWikiLink ? undefined : '_blank'}
-        rel={isWikiLink ? undefined : 'noopener noreferrer nofollow'}
-        style={{
-          textDecoration: 'none',
-          color: 'inherit',
-          display: 'block',
-        }}
-        aria-label={safeLabel}
-      >
-        {card}
-      </a>
+      {mode === 'read' ? (
+        <a
+          href={normalizedHref}
+          onClick={handleReadClick}
+          target={isWikiLink ? undefined : '_blank'}
+          rel={isWikiLink ? undefined : 'noopener noreferrer nofollow'}
+          style={{
+            textDecoration: 'none',
+            color: 'inherit',
+            display: 'block',
+          }}
+          aria-label={
+            typeof fallbackTitleText === 'string' ? fallbackTitleText : '링크'
+          }
+        >
+          {card}
+        </a>
+      ) : (
+        <div
+          onClick={onClick}
+          style={{
+            display: 'block',
+            color: 'inherit',
+          }}
+        >
+          {card}
+        </div>
+      )}
 
-      {children}
+      {mode === 'read' && children ? (
+        <span
+          style={{
+            display: 'none',
+          }}
+        >
+          {children}
+        </span>
+      ) : null}
     </div>
   );
 }
