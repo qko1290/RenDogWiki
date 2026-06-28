@@ -13,6 +13,12 @@ type LeafRendererProps = {
   children?: React.ReactNode;
   env?: LeafEnv;
   attributes?: React.HTMLAttributes<HTMLSpanElement>;
+
+  /**
+   * read 렌더러는 기존 WikiReadRenderer처럼 기본 폰트 패밀리를 명시하고,
+   * editor 렌더러는 기존 Leaf.tsx처럼 fontFamily가 있을 때만 적용한다.
+   */
+  useDefaultFontFamily?: boolean;
 };
 
 function normalizeFontSize(v: unknown): string | number | undefined {
@@ -55,6 +61,7 @@ export default function LeafRenderer({
   children,
   env,
   attributes,
+  useDefaultFontFamily,
 }: LeafRendererProps) {
   let renderedChildren = children ?? String(leaf?.text ?? '');
 
@@ -77,38 +84,39 @@ export default function LeafRenderer({
   const style: React.CSSProperties & Record<string, string | number> = {};
 
   if (leaf?.color) {
-    style.color = leaf.color;
+    style.color = String(leaf.color);
   }
 
   const shouldIgnoreBgInDarkTable =
     env?.isDarkMode && env?.inDarkTableCell;
 
   if (!shouldIgnoreBgInDarkTable && leaf?.backgroundColor) {
-    style.backgroundColor = leaf.backgroundColor;
+    style.backgroundColor = String(leaf.backgroundColor);
   }
 
   const rawFamily = leaf?.fontFamily;
+  const hasFamily = typeof rawFamily === 'string' && rawFamily.trim();
 
-  let familyKey: string;
-  let familyCss: string;
+  const shouldApplyDefaultFamily =
+    useDefaultFontFamily ?? mode === 'read';
 
-  if (typeof rawFamily === 'string' && rawFamily.trim()) {
-    familyKey = rawFamily.trim();
-    familyCss = familyKey;
-  } else {
+  let familyKey: string | undefined;
+
+  if (hasFamily) {
+    familyKey = String(rawFamily).trim();
+    style.fontFamily = familyKey;
+  } else if (shouldApplyDefaultFamily) {
     familyKey = 'NanumSquareRound';
-    familyCss =
+    style.fontFamily =
       "'NanumSquareRound', -apple-system, BlinkMacSystemFont, system-ui, sans-serif";
   }
-
-  style.fontFamily = familyCss;
 
   const hasCustomFontSize =
     leaf?.fontSize != null && String(leaf.fontSize).trim() !== '';
 
   const normalized = normalizeFontSize(leaf?.fontSize);
   const basePx = toPxNumber(normalized);
-  const scale = HANDWRITING_SCALE[familyKey] ?? 1;
+  const scale = familyKey ? HANDWRITING_SCALE[familyKey] ?? 1 : 1;
 
   let finalFontPx: number | undefined;
 
