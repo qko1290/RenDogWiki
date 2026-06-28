@@ -384,7 +384,7 @@ export default function LinkCardRenderer({
       subtitle={renderedSubtitle}
       metaText={metaText}
       icon={iconNode}
-      size={blockSize}
+      size="normal"
       inRow={inRow}
       isWikiLink={isWikiLink}
       editControls={editControls}
