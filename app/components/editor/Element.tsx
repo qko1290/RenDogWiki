@@ -6,7 +6,6 @@ import {
   ReactEditor,
   useSlate,
 } from 'slate-react';
-import { Node, Path } from 'slate';
 
 import { toProxyUrl } from '@lib/cdn';
 
@@ -38,7 +37,6 @@ import {
 import WeaponCard from './render/WeaponCard';
 
 import DividerBlock from '@/components/wiki-render/blocks/DividerBlock';
-import ParagraphBlock from '@/components/wiki-render/blocks/ParagraphBlock';
 import HeadingBlock from '@/components/wiki-render/blocks/HeadingBlock';
 import InfoBoxBlock from '@/components/wiki-render/blocks/InfoBoxBlock';
 
@@ -52,6 +50,8 @@ import {
 import InlineLinkRenderer from '@/components/wiki-render/link/InlineLinkRenderer';
 import LinkBlockEditorAdapter from './render/link/LinkBlockEditorAdapter';
 import { ImageBlock, VideoBlock } from './render/media/MediaEditorBlocks';
+
+import ParagraphEditorAdapter from './render/blocks/ParagraphEditorAdapter';
 
 export type ElementProps = RenderElementProps & {
   editor: any;
@@ -126,47 +126,14 @@ const Element: React.FC<ElementRenderProps> = ({
     }
 
     case 'paragraph': {
-      const el = element as ParagraphElement;
-      const indentLine = (el as any).indentLine;
-      let extraClass = '';
-
-      if (indentLine) {
-        const path = ReactEditor.findPath(slateEditor, element);
-        let isFirst = true;
-        let isLast = true;
-
-        try {
-          const prevPath = Path.previous(path);
-          const prevNode = Node.get(slateEditor, prevPath) as any;
-
-          if (prevNode && prevNode.indentLine) {
-            isFirst = false;
-          }
-        } catch {}
-
-        try {
-          const nextPath = Path.next(path);
-          const nextNode = Node.get(slateEditor, nextPath) as any;
-
-          if (nextNode && nextNode.indentLine) {
-            isLast = false;
-          }
-        } catch {}
-
-        if (isFirst) extraClass += ' start';
-        if (isLast) extraClass += ' end';
-      }
-
       return (
-        <ParagraphBlock
-          mode="edit"
-          attributes={attributes as any}
-          textAlign={(el as any).textAlign}
-          indentLine={Boolean(indentLine)}
-          indentClassName={extraClass.trim()}
+        <ParagraphEditorAdapter
+          attributes={attributes}
+          element={element as ParagraphElement}
+          editor={slateEditor}
         >
           {children}
-        </ParagraphBlock>
+        </ParagraphEditorAdapter>
       );
     }
 
