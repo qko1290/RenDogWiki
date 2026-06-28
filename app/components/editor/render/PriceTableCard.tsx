@@ -28,6 +28,8 @@ import {
   type PickedPriceItem,
 } from '@/components/wiki-render/price-table/priceTableLiveService';
 
+import { usePriceTableStageState } from '@/components/wiki-render/price-table/usePriceTableStageState';
+
 // -------------------- 메인 렌더러 --------------------
 
 export interface PriceTableCardProps {
@@ -69,22 +71,11 @@ export function PriceTableCard(props: PriceTableCardProps) {
 
   const sourceItems = Array.isArray(el.items) ? el.items : [];
 
-  const [stageIdxArr, setStageIdxArr] = useState<number[]>(() =>
-    sourceItems.map(() => 0),
-  );
-  const [hovered, setHovered] = useState<number | null>(null);
   const [liveMap, setLiveMap] = useState<Map<string, PickedPriceItem>>(
     () => new Map(),
   );
   const [imageEditIndex, setImageEditIndex] = useState<number | null>(null);
   const [selectEditIndex, setSelectEditIndex] = useState<number | null>(null);
-
-  useEffect(() => {
-    const nextItems = Array.isArray(el.items) ? el.items : [];
-
-    setStageIdxArr(nextItems.map(() => 0));
-    setHovered(null);
-  }, [el.items]);
 
   const itemsSignature = useMemo(() => {
     return (Array.isArray(el.items) ? el.items : [])
@@ -169,21 +160,13 @@ export function PriceTableCard(props: PriceTableCardProps) {
     });
   }, [el.items, liveMap]);
 
-  const handlePrev = (idx: number, len: number) => {
-    if (!Number.isFinite(idx) || !Number.isFinite(len) || len <= 0) return;
-
-    setStageIdxArr((arr) =>
-      arr.map((v, i) => (i === idx ? (v - 1 + len) % len : v)),
-    );
-  };
-
-  const handleNext = (idx: number, len: number) => {
-    if (!Number.isFinite(idx) || !Number.isFinite(len) || len <= 0) return;
-
-    setStageIdxArr((arr) =>
-      arr.map((v, i) => (i === idx ? (v + 1) % len : v)),
-    );
-  };
+  const {
+    hoveredIndex: hovered,
+    setHoveredIndex: setHovered,
+    stageIndexes: stageIdxArr,
+    onPrevStage: handlePrev,
+    onNextStage: handleNext,
+  } = usePriceTableStageState(sourceItems);
 
   const patchItemAt = React.useCallback(
     (idx: number, patch: Record<string, any>) => {
