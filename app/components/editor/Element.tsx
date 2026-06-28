@@ -51,6 +51,7 @@ import {
   InlineMark,
   WikiRefInline,
 } from '@/components/wiki-render/inline';
+import InlineLinkRenderer from '@/components/wiki-render/link/InlineLinkRenderer';
 
 export type ElementProps = RenderElementProps & {
   editor: any;
@@ -520,15 +521,13 @@ const Element: React.FC<ElementRenderProps> = ({
   switch (element.type) {
     case 'link': {
       return (
-        <a
-          {...attributes}
+        <InlineLinkRenderer
+          mode="edit"
           href={(element as any).url}
-          style={{ color: '#2676ff' }}
-          target="_blank"
-          rel="noopener noreferrer nofollow"
+          attributes={attributes as React.AnchorHTMLAttributes<HTMLAnchorElement>}
         >
           {children}
-        </a>
+        </InlineLinkRenderer>
       );
     }
 
