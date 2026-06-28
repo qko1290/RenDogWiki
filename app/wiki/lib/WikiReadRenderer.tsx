@@ -64,6 +64,19 @@ import {
 import WeaponCardRead from '@/components/wiki-render/weapon/WeaponCardRead';
 import PriceTableRead from '@/components/wiki-render/price-table/PriceTableRead';
 
+import {
+  compactReadContent,
+  decodeTitleForDisplay,
+  encodeTitleForShare,
+  flexJustifyFromAlign,
+  getCurrentThemeIsDark,
+  nodeToPlainText,
+  normalizeInfoBoxNodeForMobile,
+  stripFontSizeFromDescendants,
+  stripReact,
+  toHeadingIdFromText,
+} from './readRendererUtils';
+
 type Props = {
   content: Descendant[];
   readOnly?: boolean;
@@ -72,38 +85,6 @@ type Props = {
 };
 
 const FOOTNOTE_HOVER_EVENT = "rdwiki:footnote-hover";
-
-function decodeTitleForDisplay(raw: string | null | undefined) {
-  // URL에서 들어온 title: 언더스코어를 공백으로 취급
-  const s = String(raw ?? "");
-  return s.replace(/_/g, " ").trim();
-}
-
-function encodeTitleForShare(raw: string | null | undefined) {
-  // 공유(복사용) title: 공백을 언더스코어로
-  const s = String(raw ?? "").trim();
-  return s.replace(/\s+/g, "_");
-}
-
-function toHeadingIdFromText(text: string) {
-  const cleaned = text
-    .replace(/[\u{1F300}-\u{1FAFF}]/gu, "")
-    .trim();
-
-  const slug =
-    cleaned.toLowerCase().replace(/\s+/g, "-") ||
-    `untitled-${Math.random().toString(36).slice(2, 6)}`;
-  return `heading-${slug}`;
-}
-
-/** textAlign → flex justify-content 매핑 */
-function flexJustifyFromAlign(
-  align?: string | null
-): "flex-start" | "center" | "flex-end" {
-  if (align === "center") return "center";
-  if (align === "right") return "flex-end";
-  return "flex-start";
-}
 
 /** heading 링크 복사용 컨텍스트 */
 type HeadingCopyCtx = {
@@ -724,72 +705,11 @@ function getInfoboxPreset(
   return { container, icon, role: sel.role, showIcon };
 }
 
-// 내부 텍스트 추출 함수 (Element 쪽에서 Node.string 대신 사용하는 버전)
-function nodeToPlainText(node: any): string {
-  if (!node) return '';
-  if (Text.isText(node)) return node.text ?? '';
-  if (Array.isArray(node)) return node.map(nodeToPlainText).join('');
-  if (Array.isArray(node.children)) return node.children.map(nodeToPlainText).join('');
-  return '';
-}
-
 // ✅ 빈 paragraph 판정 (기존 그대로 써도 됨)
 function isEmptyParagraphNode(n: any): boolean {
   if (!n || n.type !== "paragraph") return false;
   const plain = nodeToPlainText(n.children).replace(/\u200B/g, "").trim();
   return plain.length === 0;
-}
-
-function compactReadContent(nodes: Descendant[]): Descendant[] {
-  const out: Descendant[] = [];
-
-  const isImage = (n: any) => n?.type === "image";
-
-  // ✅ link-block 2개(half) 묶기 때문에, 문서에는 link-block-row가 top-level로 존재할 수 있음
-  const isLinkish = (n: any) =>
-    n?.type === "link-block" || n?.type === "link-block-row";
-
-  const isInfoboxish = (n: any) => n?.type === "info-box";
-
-  for (let i = 0; i < nodes.length; i++) {
-    const prev: any = nodes[i - 1];
-    const cur: any = nodes[i];
-    const next: any = nodes[i + 1];
-
-    // 빈 단락이 아니면 그대로 유지
-    if (!isEmptyParagraphNode(cur)) {
-      out.push(cur);
-      continue;
-    }
-
-    // ✅ (1) 사진과 사진 사이의 빈단락 제거
-    if (isImage(prev) && isImage(next)) continue;
-
-    // ✅ (2) 링크 블럭(단일/row) 사이의 빈단락 제거
-    if (isLinkish(prev) && isLinkish(next)) continue;
-
-    // ✅ (3) 정보 블럭(info-box) 사이의 빈단락 제거
-    if (isInfoboxish(prev) && isInfoboxish(next)) continue;
-
-    // 그 외의 빈 단락은 유지 (의도된 줄바꿈 가능성)
-    out.push(cur);
-  }
-
-  return out;
-}
-
-function getCurrentThemeIsDark() {
-  if (typeof document === "undefined") return false;
-
-  const html = document.documentElement;
-  const body = document.body;
-
-  return (
-    html.dataset.theme === "dark" ||
-    body?.dataset?.theme === "dark" ||
-    html.classList.contains("dark") ||
-    body?.classList?.contains("dark")
-  );
 }
 
 // 메인 렌더 컴포넌트
@@ -1009,24 +929,6 @@ function renderLeaf(
       env={env}
     />
   );
-}
-
-function normalizeInfoBoxNodeForMobile(node: any): any {
-  if (Text.isText(node)) {
-    return {
-      ...node,
-      text: String(node.text ?? "").replace(/[^\S\r\n]{2,}/g, " "),
-    };
-  }
-
-  if (node && Array.isArray(node.children)) {
-    return {
-      ...node,
-      children: node.children.map(normalizeInfoBoxNodeForMobile),
-    };
-  }
-
-  return node;
 }
 
 function renderNode(
@@ -1481,27 +1383,4 @@ function renderNode(
     default:
       return <div key={key}>{children}</div>;
   }
-}
-
-// 텍스트 노드에서 fontSize만 제거하면서 자식 전체를 재귀적으로 복제
-function stripFontSizeFromDescendants(node: any): any {
-  if (Text.isText(node)) {
-    const { fontSize, ...rest } = node;
-    return rest;
-  }
-  if (node && Array.isArray(node.children)) {
-    return {
-      ...node,
-      children: node.children.map(stripFontSizeFromDescendants),
-    };
-  }
-  return node;
-}
-
-// React Node의 텍스트만 추출
-function stripReact(node: React.ReactNode): string {
-  if (typeof node === "string" || typeof node === "number") return String(node);
-  if (Array.isArray(node)) return node.map(stripReact).join("");
-  if (React.isValidElement(node)) return stripReact((node as any).props.children);
-  return "";
 }
