@@ -62,6 +62,11 @@ import {
 
 import InlineLinkRenderer from '@/components/wiki-render/link/InlineLinkRenderer';
 
+import {
+  WikiTableCellRenderer,
+  WikiTableRowRenderer,
+} from '@/components/wiki-render/table/TableRenderer';
+
 type Props = {
   content: Descendant[];
   readOnly?: boolean;
@@ -1802,71 +1807,6 @@ function renderNode(
       );
     }
 
-    case "wiki-ref": {
-      const el = node as any;
-      const kind = (el.kind ?? el.refType) as any;
-      const id = Number(el.id ?? el.refId);
-      const label = el.label ?? (typeof kind === "string" ? kind : "ref");
-
-      const clickable =
-        !!handlers?.onWikiRefClick &&
-        (handlers?.readOnly ?? true) &&
-        Number.isFinite(id) &&
-        id > 0;
-
-      const open = () => {
-        if (!clickable) return;
-        handlers!.onWikiRefClick!(kind, id);
-      };
-
-      return (
-        <span
-          key={key}
-          role={clickable ? "button" : undefined}
-          tabIndex={clickable ? 0 : undefined}
-          title={String(label)}
-          onClick={
-            clickable
-              ? (e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  open();
-                }
-              : undefined
-          }
-          onKeyDown={
-            clickable
-              ? (e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    open();
-                  }
-                }
-              : undefined
-          }
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 4,
-            padding: "1px 5px",
-            borderRadius: 999,
-            background: "rgba(124, 58, 237, 0.10)",
-            border: "1px solid rgba(124, 58, 237, 0.18)",
-            color: "var(--accent)",
-            fontSize: "0.92em",
-            fontWeight: 700,
-            lineHeight: 1.35,
-            whiteSpace: "nowrap",
-            cursor: clickable ? "pointer" : "default",
-            verticalAlign: "baseline",
-          }}
-        >
-          {children}
-        </span>
-      );
-    }
-
     case "price-table-card": {
       if (!Array.isArray(node.items) || node.items.length === 0) {
         return null;
@@ -1933,7 +1873,11 @@ function renderNode(
     }
 
     case "table-row": {
-      return <tr key={key}>{children}</tr>;
+      return (
+        <WikiTableRowRenderer key={key}>
+          {children}
+        </WikiTableRowRenderer>
+      );
     }
 
     case "table-cell": {
@@ -1944,8 +1888,8 @@ function renderNode(
         typeof node.backgroundColor === "string" && node.backgroundColor.trim()
           ? node.backgroundColor
           : typeof node.bgColor === "string" && node.bgColor.trim()
-          ? node.bgColor
-          : undefined;
+            ? node.bgColor
+            : undefined;
 
       const resolvedCellBg = env?.isDarkMode
         ? "var(--surface-elevated)"
@@ -1961,13 +1905,14 @@ function renderNode(
             ...env,
             inDarkTableCell: !!env?.isDarkMode,
             inTableCell: true,
-          }
-        )
+          },
+        ),
       );
 
       return (
-        <td
+        <WikiTableCellRenderer
           key={key}
+          mode="read"
           colSpan={colSpan}
           rowSpan={rowSpan}
           style={{
@@ -1979,7 +1924,7 @@ function renderNode(
           }}
         >
           {cellChildren}
-        </td>
+        </WikiTableCellRenderer>
       );
     }
 
