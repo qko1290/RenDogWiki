@@ -11,14 +11,10 @@
  */
 
 import React, {
-  useCallback,
   useEffect,
-  useLayoutEffect,
   useState,
-  useMemo,
   useRef,
 } from "react";
-import { createPortal } from "react-dom";
 import { Descendant, Text } from "slate";
 
 // ⬇️ 추가: CDN 치환/버전 유틸 + 최적화 이미지 컴포넌트
@@ -47,7 +43,6 @@ import {
 } from '@/components/wiki-render/link/linkUtils';
 
 import {
-  FootnoteInline as SharedFootnoteInline,
   InlineImage,
   InlineMark,
   LeafRenderer,
@@ -77,6 +72,10 @@ import {
   toHeadingIdFromText,
 } from './readRendererUtils';
 
+import FootnoteReadAdapter from './read/FootnoteReadAdapter';
+
+import HeadingAnchorButton from './read/HeadingAnchorButton';
+
 type Props = {
   content: Descendant[];
   readOnly?: boolean;
@@ -84,12 +83,8 @@ type Props = {
   onWikiNavigate?: (href: string) => void;
 };
 
-const FOOTNOTE_HOVER_EVENT = "rdwiki:footnote-hover";
-
 /** heading 링크 복사용 컨텍스트 */
 type HeadingCopyCtx = {
-  copiedHeadingId: string | null;
-  onCopyHeading: (id?: string) => void;
   headingOccRef: React.MutableRefObject<Map<string, number>>;
 };
 
@@ -99,440 +94,6 @@ type WikiRefHandlers = {
   onWikiRefClick?: (kind: any, id: number) => void;
 };
 
-type FootnoteInlineProps = {
-  label: string;
-  content: string;
-};
-
-const FootnoteInline: React.FC<FootnoteInlineProps> = ({ label, content }) => {
-  const rootRef = useRef<HTMLSpanElement | null>(null);
-  const desktopTooltipRef = useRef<HTMLSpanElement | null>(null);
-
-  const [open, setOpen] = useState(false);
-  const [isMobileViewport, setIsMobileViewport] = useState(false);
-  const [portalReady, setPortalReady] = useState(false);
-
-  const [desktopTooltipPos, setDesktopTooltipPos] = useState<{
-    left: number;
-    top: number;
-    arrowLeft: number;
-  }>({
-    left: 0,
-    top: 0,
-    arrowLeft: 20,
-  });
-
-  const safeLabel = String(label ?? "").trim() || "각주";
-  const safeContent = String(content ?? "").trim();
-  const hasContent = safeContent.length > 0;
-
-  const notifyFootnoteHover = useCallback(() => {
-    if (typeof window === "undefined") return;
-    window.dispatchEvent(new CustomEvent(FOOTNOTE_HOVER_EVENT));
-  }, []);
-
-  useEffect(() => {
-    setPortalReady(true);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const mq = window.matchMedia("(max-width: 768px)");
-    const apply = () => setIsMobileViewport(mq.matches);
-
-    apply();
-
-    if (typeof mq.addEventListener === "function") {
-      mq.addEventListener("change", apply);
-      return () => mq.removeEventListener("change", apply);
-    }
-
-    mq.addListener(apply);
-    return () => mq.removeListener(apply);
-  }, []);
-
-  useEffect(() => {
-    if (!open) return;
-
-    const handlePointerDown = (e: MouseEvent | TouchEvent) => {
-      const target = e.target as Node | null;
-      if (!target) return;
-
-      if (isMobileViewport) return;
-
-      if (rootRef.current?.contains(target)) return;
-      if (desktopTooltipRef.current?.contains(target)) return;
-
-      setOpen(false);
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("touchstart", handlePointerDown, { passive: true });
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("touchstart", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open, isMobileViewport]);
-
-  useEffect(() => {
-    if (!isMobileViewport) return;
-    if (!open) return;
-
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [open, isMobileViewport]);
-
-  const updateDesktopTooltipPosition = useCallback(() => {
-    if (typeof window === "undefined") return;
-    if (!rootRef.current || !desktopTooltipRef.current) return;
-
-    const triggerRect = rootRef.current.getBoundingClientRect();
-    const tooltipRect = desktopTooltipRef.current.getBoundingClientRect();
-
-    const sidePadding = 12;
-    const gap = 10;
-
-    let left = triggerRect.left + triggerRect.width / 2 - tooltipRect.width / 2;
-    left = Math.max(
-      sidePadding,
-      Math.min(left, window.innerWidth - sidePadding - tooltipRect.width)
-    );
-
-    let top = triggerRect.top - gap - tooltipRect.height;
-    top = Math.max(12, top);
-
-    const triggerCenterX = triggerRect.left + triggerRect.width / 2;
-    let arrowLeft = triggerCenterX - left;
-    arrowLeft = Math.max(14, Math.min(arrowLeft, tooltipRect.width - 14));
-
-    setDesktopTooltipPos({
-      left,
-      top,
-      arrowLeft,
-    });
-  }, []);
-
-  useLayoutEffect(() => {
-    if (!portalReady || !open || isMobileViewport || !hasContent) return;
-
-    let raf = 0;
-
-    const schedule = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        updateDesktopTooltipPosition();
-      });
-    };
-
-    schedule();
-
-    window.addEventListener("resize", schedule);
-    window.addEventListener("scroll", schedule, true);
-
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener("resize", schedule);
-      window.removeEventListener("scroll", schedule, true);
-    };
-  }, [portalReady, open, isMobileViewport, hasContent, updateDesktopTooltipPosition]);
-
-  const openDesktop = () => {
-    if (!hasContent || isMobileViewport) return;
-    notifyFootnoteHover();
-    setOpen(true);
-  };
-
-  const closeDesktop = () => {
-    if (isMobileViewport) return;
-    setOpen(false);
-  };
-
-  const openMobileModal = (e: React.MouseEvent<HTMLSpanElement>) => {
-    if (!hasContent || !isMobileViewport) return;
-    e.preventDefault();
-    e.stopPropagation();
-    notifyFootnoteHover();
-    setOpen(true);
-  };
-
-  const closeMobileModal = () => {
-    setOpen(false);
-  };
-  const showDesktopTooltip = portalReady && !isMobileViewport && open && hasContent;
-  const tooltipVisible = showDesktopTooltip;
-
-  const desktopTooltipStyle: React.CSSProperties = {
-    pointerEvents: "none",
-    position: "fixed",
-    left: desktopTooltipPos.left,
-    top: desktopTooltipPos.top,
-    transform: tooltipVisible ? "translateY(0)" : "translateY(6px)",
-    opacity: tooltipVisible ? 1 : 0,
-    visibility: tooltipVisible ? "visible" : "hidden",
-    zIndex: 9998,
-
-    width: "max-content",
-    minWidth: 120,
-    maxWidth: 340,
-    whiteSpace: "normal",
-    wordBreak: "keep-all",
-    overflowWrap: "break-word",
-
-    padding: "10px 12px",
-    borderRadius: 12,
-    border: "1px solid var(--border)",
-    background: "var(--surface-elevated)",
-    color: "var(--foreground)",
-    boxShadow: "var(--shadow-lg)",
-
-    fontSize: 13,
-    fontWeight: 500,
-    lineHeight: 1.55,
-    letterSpacing: "-0.1px",
-    textAlign: "left",
-
-    transition:
-      "opacity 0.16s ease, transform 0.16s ease, visibility 0.16s ease",
-  };
-
-  const desktopTooltip =
-    showDesktopTooltip
-      ? createPortal(
-          <span
-            ref={desktopTooltipRef}
-            role="tooltip"
-            aria-hidden={!open}
-            style={desktopTooltipStyle}
-          >
-            {safeContent}
-            <span
-              aria-hidden
-              style={{
-                position: "absolute",
-                left: desktopTooltipPos.arrowLeft,
-                bottom: -7,
-                width: 12,
-                height: 12,
-                transform: tooltipVisible
-                  ? "translateX(-50%) rotate(45deg)"
-                  : "translateX(-50%) translateY(-2px) rotate(45deg)",
-                opacity: tooltipVisible ? 1 : 0,
-                visibility: tooltipVisible ? "visible" : "hidden",
-                background: "var(--surface-elevated)",
-                borderRight: "1px solid var(--border)",
-                borderBottom: "1px solid var(--border)",
-                transition:
-                  "opacity 0.16s ease, transform 0.16s ease, visibility 0.16s ease",
-              }}
-            />
-          </span>,
-          document.body
-        )
-      : null;
-
-  const mobileModal =
-  portalReady && isMobileViewport && hasContent
-    ? createPortal(
-        <div
-          onClick={closeMobileModal}
-          role="dialog"
-          aria-modal="true"
-          aria-label={`각주 ${safeLabel}`}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 9999,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "20px",
-            background: open ? "rgba(15, 23, 42, 0.38)" : "rgba(15, 23, 42, 0)",
-            backdropFilter: open ? "blur(2px)" : "blur(0px)",
-            WebkitBackdropFilter: open ? "blur(2px)" : "blur(0px)",
-            opacity: open ? 1 : 0,
-            visibility: open ? "visible" : "hidden",
-            pointerEvents: open ? "auto" : "none",
-            transition:
-              "opacity 0.16s ease, visibility 0.16s ease, background 0.16s ease",
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "min(420px, calc(100vw - 32px))",
-              maxHeight: "min(70vh, 520px)",
-              overflowY: "auto",
-              borderRadius: 16,
-              border: "1px solid var(--border)",
-              background: "var(--surface-elevated)",
-              color: "var(--foreground)",
-              boxShadow: "var(--shadow-lg)",
-              padding: "16px 16px 14px",
-              transform: open ? "translateY(0) scale(1)" : "translateY(8px) scale(0.985)",
-              transition: "transform 0.16s ease, opacity 0.16s ease",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 12,
-                marginBottom: 10,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 14,
-                  fontWeight: 800,
-                  color: "#7c3aed",
-                  lineHeight: 1.2,
-                }}
-              >
-                [{safeLabel}]
-              </div>
-
-              <button
-                type="button"
-                onClick={closeMobileModal}
-                aria-label="각주 닫기"
-                style={{
-                  border: "1px solid var(--border)",
-                  background: "transparent",
-                  color: "var(--foreground)",
-                  borderRadius: 10,
-                  padding: "6px 10px",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  cursor: "pointer",
-                }}
-              >
-                닫기
-              </button>
-            </div>
-
-            <div
-              style={{
-                fontSize: 14,
-                fontWeight: 500,
-                lineHeight: 1.65,
-                whiteSpace: "pre-wrap",
-                wordBreak: "keep-all",
-                overflowWrap: "break-word",
-              }}
-            >
-              {safeContent}
-            </div>
-          </div>
-        </div>,
-        document.body
-      )
-    : null;
-
-  return (
-    <>
-      <SharedFootnoteInline
-        ref={rootRef}
-        mode="read"
-        label={safeLabel}
-        tabIndex={hasContent ? 0 : -1}
-        ariaLabel={hasContent ? `각주: ${safeContent}` : `각주 ${safeLabel}`}
-        onMouseEnter={() => {
-          notifyFootnoteHover();
-          openDesktop();
-        }}
-        onMouseLeave={closeDesktop}
-        onFocus={() => {
-          notifyFootnoteHover();
-          openDesktop();
-        }}
-        onBlur={closeDesktop}
-        onClick={openMobileModal}
-        style={{
-          cursor: hasContent ? (isMobileViewport ? 'pointer' : 'help') : 'default',
-        }}
-      />
-
-      {desktopTooltip}
-      {mobileModal}
-    </>
-  );
-};
-
-type HeadingAnchorButtonProps = {
-  anchorId: string;
-};
-
-const HeadingAnchorButton: React.FC<HeadingAnchorButtonProps> = ({
-  anchorId,
-}) => {
-  const [copied, setCopied] = useState(false);
-
-  const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
-    e.preventDefault();
-
-    const hash = anchorId ? `#${anchorId}` : "";
-
-    const url =
-      typeof window !== "undefined"
-        ? (() => {
-            const u = new URL(window.location.href);
-
-            // ✅ title 공백 → '_' 로 바꿔서 공유
-            const t = u.searchParams.get("title");
-            if (t) u.searchParams.set("title", encodeTitleForShare(decodeTitleForDisplay(t)));
-
-            const hash = anchorId ? `#${anchorId}` : "";
-            // decodeURIComponent 같은 건 하지 말고 URL 객체 기반으로 안전하게 조립
-            return `${u.origin}${u.pathname}?${u.searchParams.toString()}${hash}`;
-          })()
-        : hash;
-
-    try {
-      if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(url);
-      }
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1200);
-    } catch {
-      if (typeof window !== "undefined" && hash) {
-        window.location.hash = hash;
-      }
-    }
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={handleClick}
-      className="wiki-heading-anchor-btn"
-      aria-label="이 제목 링크 복사"
-    >
-      <span
-        className={
-          "wiki-heading-anchor-pill" +
-          (copied ? " wiki-heading-anchor-pill--copied" : "")
-        }
-      >
-        {copied ? "✔" : "🔗"}
-      </span>
-    </button>
-  );
-};
-
 // 메인 렌더 컴포넌트
 export default function WikiReadRenderer({
   content,
@@ -540,7 +101,6 @@ export default function WikiReadRenderer({
   onWikiRefClick,
   onWikiNavigate,
 }: Props) {
-  const [copiedHeadingId, setCopiedHeadingId] = useState<string | null>(null);
 
   const headingOccRef = useRef<Map<string, number>>(new Map());
 
@@ -611,47 +171,7 @@ export default function WikiReadRenderer({
 
   const handlers: WikiRefHandlers = { readOnly, onWikiRefClick };
 
-  const handleCopyHeadingLink = async (headingId?: string) => {
-    if (!headingId) return;
-    if (
-      typeof window === "undefined" ||
-      typeof navigator === "undefined" ||
-      !navigator.clipboard
-    ) {
-      return;
-    }
-    try {
-      const u = new URL(window.location.href);
-
-      // ✅ title 공백 → '_' 로 바꿔서 공유
-      const t = u.searchParams.get("title");
-      if (t) u.searchParams.set("title", encodeTitleForShare(decodeTitleForDisplay(t)));
-
-      const url = `${u.origin}${u.pathname}?${u.searchParams.toString()}#${encodeURIComponent(headingId)}`;
-
-      await navigator.clipboard.writeText(url);
-      setCopiedHeadingId(headingId);
-      // 필요시 외부에서 감지할 수 있도록 이벤트만 발행(선택 사항, 기존 기능에는 영향 없음)
-      try {
-        window.dispatchEvent(
-          new CustomEvent("wiki:heading-link-copied", {
-            detail: { id: headingId },
-          })
-        );
-      } catch {
-        // noop
-      }
-      setTimeout(() => {
-        setCopiedHeadingId((prev) => (prev === headingId ? null : prev));
-      }, 1500);
-    } catch (e) {
-      console.error("Failed to copy heading link", e);
-    }
-  };
-
   const ctx: HeadingCopyCtx = {
-    copiedHeadingId,
-    onCopyHeading: handleCopyHeadingLink,
     headingOccRef,
   };
 
@@ -1046,14 +566,10 @@ function renderNode(
     }
 
     case "footnote": {
-      const label = String((node as any).label ?? "").trim() || "각주";
-      const content = String((node as any).content ?? "").trim();
-
       return (
-        <FootnoteInline
-          key={key}
-          label={label}
-          content={content}
+        <FootnoteReadAdapter
+          label={(node as any).label}
+          content={(node as any).content}
         />
       );
     }
