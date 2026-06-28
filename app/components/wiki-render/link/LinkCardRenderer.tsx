@@ -14,6 +14,8 @@ import {
   normalizeToAppHref,
 } from './linkUtils';
 
+import { getWikiDocDetailByHref } from './linkPreviewService';
+
 type LinkCardRendererProps = {
   mode: 'read' | 'edit';
 
@@ -66,6 +68,22 @@ function ExternalLinkIcon({ size = 18 }: { size?: number }) {
   );
 }
 
+function looksLikeImageIcon(icon: string | null | undefined) {
+  const value = String(icon ?? '').trim();
+
+  if (!value) return false;
+
+  return (
+    value.startsWith('http://') ||
+    value.startsWith('https://') ||
+    value.startsWith('/api/') ||
+    value.startsWith('/uploads/') ||
+    value.startsWith('/images/') ||
+    value.startsWith('/_next/') ||
+    /\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(value)
+  );
+}
+
 export default function LinkCardRenderer({
   mode,
   url,
@@ -91,11 +109,82 @@ export default function LinkCardRenderer({
     return isRdwikiWikiUrl(parsedUrl);
   }, [isWiki, parsedUrl]);
 
+  const normalizedHref = React.useMemo(
+    () => normalizeToAppHref(url || '#'),
+    [url],
+  );
+
   const [faviconFailed, setFaviconFailed] = React.useState(false);
+
+  const [resolvedDocIcon, setResolvedDocIcon] = React.useState<string | null>(
+    () => String(docIcon ?? '').trim() || null,
+  );
 
   React.useEffect(() => {
     setFaviconFailed(false);
   }, [url, isWikiLink]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const fallbackIcon = String(docIcon ?? '').trim() || null;
+    setResolvedDocIcon(fallbackIcon);
+
+    if (!isWikiLink) return;
+    if (!normalizedHref || normalizedHref === '#') return;
+
+    (async () => {
+      try {
+        const loaded = await getWikiDocDetailByHref(normalizedHref);
+
+        if (!loaded || cancelled) return;
+
+        const { parsed, detail } = loaded;
+
+        let iconCandidate: string | null = null;
+        const hash = String(parsed.hash ?? '').trim();
+
+        if (hash && Array.isArray(detail.headings)) {
+          const target = hash;
+          const normalizedTarget = target.startsWith('heading-')
+            ? target
+            : `heading-${target}`;
+
+          const matched = detail.headings.find((heading) => {
+            const headingId = String(heading.id ?? '');
+            const normalizedHeadingId = headingId.startsWith('heading-')
+              ? headingId
+              : `heading-${headingId}`;
+
+            return (
+              headingId === target ||
+              headingId === normalizedTarget ||
+              normalizedHeadingId === target ||
+              normalizedHeadingId === normalizedTarget
+            );
+          });
+
+          if (matched?.icon) {
+            iconCandidate = String(matched.icon).trim() || null;
+          }
+        }
+
+        if (!iconCandidate && detail.icon) {
+          iconCandidate = String(detail.icon).trim() || null;
+        }
+
+        if (!cancelled && iconCandidate) {
+          setResolvedDocIcon(iconCandidate);
+        }
+      } catch {
+        // 문서 아이콘 로딩 실패 시 기존 fallback 유지
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [docIcon, isWikiLink, normalizedHref]);
 
   let displaySitename = sitename ?? '';
 
@@ -109,11 +198,6 @@ export default function LinkCardRenderer({
   const isSmall = size === 'small' || size === 'half';
   const isCompactTwoColMobile = compactMobile && isSmall;
 
-  const normalizedHref = React.useMemo(
-    () => normalizeToAppHref(url || '#'),
-    [url],
-  );
-
   const safeLabel =
     labelText ||
     (isWikiLink
@@ -126,10 +210,10 @@ export default function LinkCardRenderer({
       (parsedUrl ? parsedUrl.origin.replace(/^https?:\/\//, '') : '');
 
   const iconNode = isWikiLink ? (
-    docIcon ? (
-      docIcon.startsWith('http') ? (
+    resolvedDocIcon ? (
+      looksLikeImageIcon(resolvedDocIcon) ? (
         <SmartImage
-          src={withVersion(cdn(docIcon))}
+          src={withVersion(cdn(resolvedDocIcon))}
           alt="doc icon"
           width={22}
           height={22}
@@ -141,7 +225,9 @@ export default function LinkCardRenderer({
           }}
         />
       ) : (
-        <span style={{ fontSize: 20, lineHeight: 1 }}>{docIcon}</span>
+        <span style={{ fontSize: 20, lineHeight: 1 }}>
+          {resolvedDocIcon}
+        </span>
       )
     ) : (
       <span style={{ fontSize: 18, lineHeight: 1 }} aria-hidden>
