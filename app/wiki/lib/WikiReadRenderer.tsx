@@ -81,6 +81,12 @@ import {
   VideoReadAdapter,
 } from './read/MediaReadAdapter';
 
+import {
+  TableCellReadAdapter,
+  TableReadAdapter,
+  TableRowReadAdapter,
+} from './read/TableReadAdapter';
+
 type Props = {
   content: Descendant[];
   readOnly?: boolean;
@@ -555,103 +561,31 @@ function renderNode(
     }
 
     case "table": {
-      const align = node.align || "left";
-      const justify = flexJustifyFromAlign(align);
-
-      const widthPx =
-        typeof node.maxWidth === "number"
-          ? node.maxWidth
-          : typeof node.maxWidth === "string" && Number.isFinite(Number(node.maxWidth))
-            ? Number(node.maxWidth)
-            : undefined;
-
-      const tableWidth = widthPx
-        ? `${widthPx}px`
-        : node.fullWidth
-          ? "100%"
-          : "auto";
-
-      const tableNode = (
-        <table
-          style={{
-            borderCollapse: "collapse",
-            tableLayout: "fixed",
-            width: tableWidth,
-            maxWidth: "100%",
-          }}
-        >
-          <tbody>{children}</tbody>
-        </table>
-      );
-
       return (
-        <TableBlock
-          mode="read"
-          containerStyle={{
-            display: "flex",
-            justifyContent: justify,
-            width: "100%",
-            margin: "16px 0",
-          }}
-          table={tableNode}
-          scrollable={false}
-        />
+        <TableReadAdapter node={node}>
+          {children}
+        </TableReadAdapter>
       );
     }
 
     case "table-row": {
       return (
-        <WikiTableRowRenderer key={key}>
+        <TableRowReadAdapter>
           {children}
-        </WikiTableRowRenderer>
+        </TableRowReadAdapter>
       );
     }
 
     case "table-cell": {
-      const colSpan = Math.max(1, Number(node.colspan) || 1);
-      const rowSpan = Math.max(1, Number(node.rowspan) || 1);
-
-      const customCellBg =
-        typeof node.backgroundColor === "string" && node.backgroundColor.trim()
-          ? node.backgroundColor
-          : typeof node.bgColor === "string" && node.bgColor.trim()
-            ? node.bgColor
-            : undefined;
-
-      const resolvedCellBg = env?.isDarkMode
-        ? "var(--surface-elevated)"
-        : customCellBg || "var(--surface-elevated)";
-
-      const cellChildren = node.children?.map((n: any, i: number) =>
-        renderNode(
-          n,
-          key ? `${key}-${i}` : i,
-          ctx,
-          handlers,
-          {
-            ...env,
-            inDarkTableCell: !!env?.isDarkMode,
-            inTableCell: true,
-          },
-        ),
-      );
-
       return (
-        <WikiTableCellRenderer
-          key={key}
-          mode="read"
-          colSpan={colSpan}
-          rowSpan={rowSpan}
-          style={{
-            border: "1px solid var(--border)",
-            padding: "6px 8px",
-            verticalAlign: "top",
-            background: resolvedCellBg,
-            color: "var(--foreground)",
-          }}
-        >
-          {cellChildren}
-        </WikiTableCellRenderer>
+        <TableCellReadAdapter
+          node={node}
+          keyProp={key}
+          ctx={ctx}
+          handlers={handlers}
+          env={env}
+          renderNode={renderNode}
+        />
       );
     }
 
