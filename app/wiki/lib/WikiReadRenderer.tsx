@@ -1881,26 +1881,18 @@ function renderNode(
       const version = (node.updatedAt || node.version) as string | number | undefined;
       const src = rawSrc ? withVersion(cdn(rawSrc), version) : "";
 
-      const width =
-        typeof node.width === "number"
-          ? node.width
-          : Number.isFinite(Number(node.width))
-            ? Number(node.width)
-            : 22;
+      const hasExplicitWidth =
+        node.width != null && Number.isFinite(Number(node.width));
 
-      const height =
-        typeof node.height === "number"
-          ? node.height
-          : Number.isFinite(Number(node.height))
-            ? Number(node.height)
-            : 22;
+      const hasExplicitHeight =
+        node.height != null && Number.isFinite(Number(node.height));
 
       return (
         <InlineImage
           mode="read"
           src={src}
-          width={width}
-          height={height}
+          width={hasExplicitWidth ? Number(node.width) : undefined}
+          height={hasExplicitHeight ? Number(node.height) : undefined}
         />
       );
     }
