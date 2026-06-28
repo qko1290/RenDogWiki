@@ -68,6 +68,20 @@ export function isMaxLevelLabel(label?: string | null, short?: string | null) {
   return up === 'MAX' || up === 'M' || s === 'MAX' || s === 'M';
 }
 
+function hasDisplayValue(value: unknown) {
+  const text = String(value ?? '').trim();
+  return text !== '' && text !== '-';
+}
+
+function readLevelValue(level: unknown) {
+  if (level && typeof level === 'object') {
+    const lv = level as any;
+    return lv.value ?? lv.summary ?? '';
+  }
+
+  return level ?? '';
+}
+
 export function getWeaponStatDisplay(
   stat: WeaponStatLike,
   selectedLevelIndex: number | null | undefined,
@@ -82,36 +96,34 @@ export function getWeaponStatDisplay(
       ? selectedLevelIndex
       : null;
 
-  let raw: unknown = stat.summary ?? stat.value ?? '';
+  let raw: unknown = '';
 
   if (idx != null) {
     if (values && idx < values.length) {
-      raw = values[idx] ?? stat.summary ?? stat.value ?? '';
+      raw = values[idx] ?? '';
     } else if (levels && idx < levels.length) {
-      const level = levels[idx] as any;
-
-      if (level && typeof level === 'object') {
-        raw = level.value ?? level.summary ?? stat.summary ?? stat.value ?? '';
-      } else {
-        raw = level ?? stat.summary ?? stat.value ?? '';
-      }
+      raw = readLevelValue(levels[idx]);
     }
   }
 
-  // 단일 단계 타입 방어:
-  // weapon / limited / hidden / block 등은 값이 levels[0].value에만 있을 수 있음
-  if ((raw == null || raw === '') && levels && levels.length > 0) {
-    const firstLevel = levels[0] as any;
+  if (!hasDisplayValue(raw)) {
+    raw = stat.value ?? stat.summary ?? '';
+  }
 
-    if (firstLevel && typeof firstLevel === 'object') {
-      raw = firstLevel.value ?? firstLevel.summary ?? raw;
-    } else {
-      raw = firstLevel ?? raw;
-    }
+  if (!hasDisplayValue(raw) && values) {
+    raw = values.find((value) => hasDisplayValue(value)) ?? '';
+  }
+
+  if (!hasDisplayValue(raw) && levels) {
+    const firstFilled = levels.find((level) =>
+      hasDisplayValue(readLevelValue(level)),
+    );
+
+    raw = firstFilled ? readLevelValue(firstFilled) : '';
   }
 
   return {
-    value: String(raw ?? ''),
+    value: hasDisplayValue(raw) ? String(raw) : '',
     unit: stat.unit ? String(stat.unit) : '',
   };
 }
