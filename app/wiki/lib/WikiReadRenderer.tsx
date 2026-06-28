@@ -74,6 +74,8 @@ import {
   type WeaponType,
 } from '@/components/wiki-render/weapon/weaponMeta';
 
+import WeaponVideoModal from '@/components/wiki-render/weapon/WeaponVideoModal';
+
 type Props = {
   content: Descendant[];
   readOnly?: boolean;
@@ -1023,92 +1025,6 @@ function getWeaponLevelLabelsFromStats(enabledStats: any[]) {
   return baseStatWithLevels.levels
     .map((level: any) => String(level?.levelLabel ?? level?.label ?? '').trim())
     .filter(Boolean);
-}
-
-type WeaponVideoModalProps = {
-  open: boolean;
-  url: string;
-  onClose: () => void;
-};
-
-function WeaponVideoModal({ open, url, onClose }: WeaponVideoModalProps) {
-  if (!open) return null;
-
-  return createPortal(
-    <div
-      role="dialog"
-      aria-modal="true"
-      onClick={onClose}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 10000,
-        background: 'rgba(0,0,0,.72)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 20,
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: 'min(960px, 90vw)',
-          maxHeight: '80vh',
-          background: '#020617',
-          borderRadius: 14,
-          boxShadow: '0 20px 50px rgba(0,0,0,.75)',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-        }}
-      >
-        <div
-          style={{
-            height: 44,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '0 14px',
-            borderBottom: '1px solid #1f2937',
-            color: '#e5e7eb',
-            fontWeight: 700,
-          }}
-        >
-          <span>공격 영상</span>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              border: 'none',
-              background: 'transparent',
-              color: '#e5e7eb',
-              cursor: 'pointer',
-              fontSize: 20,
-              lineHeight: 1,
-            }}
-            aria-label="공격 영상 닫기"
-          >
-            ×
-          </button>
-        </div>
-
-        <video
-          src={url}
-          controls
-          autoPlay
-          playsInline
-          style={{
-            width: '100%',
-            maxHeight: 'calc(80vh - 44px)',
-            objectFit: 'contain',
-            background: '#000',
-          }}
-        />
-      </div>
-    </div>,
-    document.body,
-  );
 }
 
 function WeaponCardRead({
