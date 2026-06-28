@@ -45,6 +45,7 @@ import HeadingBlock from '@/components/wiki-render/blocks/HeadingBlock';
 import InfoBoxBlock from '@/components/wiki-render/blocks/InfoBoxBlock';
 import MediaBlock from '@/components/wiki-render/blocks/MediaBlock';
 import LinkCardRenderer from '@/components/wiki-render/link/LinkCardRenderer';
+import { WikiRefInline } from '@/components/wiki-render/inline';
 
 export type ElementProps = RenderElementProps & {
   editor: any;
@@ -883,43 +884,20 @@ const Element: React.FC<ElementRenderProps> = ({
       const open = onWikiRefClick ?? onOpenWikiRef;
 
       return (
-        <span
-          {...attributes}
-          role={readOnly ? 'button' : undefined}
-          tabIndex={readOnly ? 0 : undefined}
+        <WikiRefInline
+          mode="edit"
+          attributes={attributes as React.HTMLAttributes<HTMLSpanElement>}
           contentEditable={!readOnly}
-          suppressContentEditableWarning
-          onClick={(e) => {
+          clickable={Boolean(readOnly && open && Number.isFinite(refId))}
+          onOpen={() => {
             if (!readOnly) return;
             if (!open) return;
 
-            e.preventDefault();
             open(kind, refId);
-          }}
-          onKeyDown={(e) => {
-            if (!readOnly) return;
-            if (!open) return;
-
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              open(kind, refId);
-            }
-          }}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 4,
-            borderRadius: 999,
-            padding: '1px 7px',
-            border: '1px solid rgba(124,58,237,.25)',
-            background: 'rgba(124,58,237,.08)',
-            color: '#6d28d9',
-            fontWeight: 700,
-            cursor: readOnly && open ? 'pointer' : 'default',
           }}
         >
           {children}
-        </span>
+        </WikiRefInline>
       );
     }
 

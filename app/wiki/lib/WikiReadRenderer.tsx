@@ -52,6 +52,8 @@ import {
   normalizeToAppHref as sharedNormalizeToAppHref,
 } from '@/components/wiki-render/link/linkUtils';
 
+import { WikiRefInline } from '@/components/wiki-render/inline';
+
 type Props = {
   content: Descendant[];
   readOnly?: boolean;
@@ -2121,55 +2123,29 @@ function renderNode(
       );
     }
 
-    case 'wiki-ref': {
+    case "wiki-ref": {
       const el = node as any;
       const kind = (el.kind ?? el.refType) as any;
       const id = Number(el.id ?? el.refId);
-      const label = el.label ?? (typeof kind === 'string' ? kind : 'ref');
 
       const clickable =
-        !!handlers?.onWikiRefClick && (handlers?.readOnly ?? true) && Number.isFinite(id) && id > 0;
-
-      const open = () => {
-        if (!clickable) return;
-        handlers!.onWikiRefClick!(kind, id);
-      };
+        !!handlers?.onWikiRefClick &&
+        (handlers?.readOnly ?? true) &&
+        Number.isFinite(id) &&
+        id > 0;
 
       return (
-        <span
-          key={key}
-          className="wiki-ref-inline"
-          role={clickable ? 'button' : undefined}
-          tabIndex={clickable ? 0 : undefined}
-          title={Number.isFinite(id) ? `${label} #${id}` : undefined}
-          style={{
-            color: 'var(--accent)',
-            cursor: clickable ? 'pointer' : 'default',
-            textDecoration: 'none',
+        <WikiRefInline
+          mode="read"
+          clickable={clickable}
+          onOpen={() => {
+            if (!clickable) return;
+
+            handlers!.onWikiRefClick!(kind, id);
           }}
-          onClick={
-            clickable
-              ? (e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  open();
-                }
-              : undefined
-          }
-          onKeyDown={
-            clickable
-              ? (e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    open();
-                  }
-                }
-              : undefined
-          }
         >
           {children}
-        </span>
+        </WikiRefInline>
       );
     }
 
