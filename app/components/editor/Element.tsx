@@ -3,7 +3,6 @@
 import React from 'react';
 import {
   RenderElementProps,
-  ReactEditor,
   useSlate,
 } from 'slate-react';
 
@@ -37,7 +36,6 @@ import {
 import WeaponCard from './render/WeaponCard';
 
 import {
-  FootnoteInline,
   InlineImage,
   InlineMark,
   WikiRefInline,
@@ -55,6 +53,8 @@ import {
   DividerEditorAdapter,
   InfoBoxEditorAdapter,
 } from './render/blocks/BasicBlockEditorAdapters';
+
+import FootnoteEditorAdapter from './render/inline/FootnoteEditorAdapter';
 
 export type ElementProps = RenderElementProps & {
   editor: any;
@@ -199,29 +199,15 @@ const Element: React.FC<ElementRenderProps> = ({
     }
 
     case 'footnote': {
-      const el = element as FootnoteElement;
-
       return (
-        <FootnoteInline
-          mode="edit"
-          label={el.label}
-          attributes={attributes as React.HTMLAttributes<HTMLSpanElement>}
-          title="우클릭하여 각주 수정"
-          onContextMenu={(event) => {
-            if (!openFootnoteEditor) return;
-
-            event.preventDefault();
-            event.stopPropagation();
-
-            try {
-              const path = ReactEditor.findPath(slateEditor, element);
-
-              openFootnoteEditor(path, el);
-            } catch {}
-          }}
+        <FootnoteEditorAdapter
+          attributes={attributes}
+          element={element as FootnoteElement}
+          editor={editor}
+          openFootnoteEditor={openFootnoteEditor}
         >
           {children}
-        </FootnoteInline>
+        </FootnoteEditorAdapter>
       );
     }
 
