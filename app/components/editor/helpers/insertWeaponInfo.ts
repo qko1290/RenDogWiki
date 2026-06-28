@@ -24,7 +24,7 @@ import type {
 import {
   normalizeStatsForWeaponType,
   WEAPON_STAT_PRESET,
-} from '@/components/editor/render/weaponStatUtils';
+} from '@/components/editor/render/weapon/weaponStatUtils';
 
 // 처음 생성 시 기본으로 켤 스탯 키
 const DEFAULT_ENABLED_KEYS: WeaponStatKey[] = ['damage', 'cooldown'];
