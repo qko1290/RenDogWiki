@@ -31,10 +31,7 @@ function getHeadingIconSize(level: HeadingLevel) {
 }
 
 /**
- * main 원본 WikiReadRenderer 기준:
- * h1: 28px
- * h2: 22px
- * h3: 18px
+ * main 원본 WikiReadRenderer 기준 heading 크기.
  */
 function getHeadingFontSize(level: HeadingLevel) {
   if (level === 1) return '28px';
@@ -98,10 +95,11 @@ function HeadingIcon({
   const [imageFailed, setImageFailed] = React.useState(false);
 
   const safeIcon = String(icon ?? '').trim();
-  const shouldRenderAsImage = looksLikeImageIcon(safeIcon) && !imageFailed;
-  const iconSize = getHeadingIconSize(level);
 
   if (!safeIcon) return null;
+
+  const shouldRenderAsImage = looksLikeImageIcon(safeIcon) && !imageFailed;
+  const iconSize = getHeadingIconSize(level);
 
   return (
     <span
@@ -185,6 +183,61 @@ export default function HeadingBlock({
           [data-rdwiki-heading="true"] [data-wiki-leaf="true"] * {
             font-size: inherit !important;
             line-height: inherit;
+          }
+
+          [data-rdwiki-heading="true"] .wiki-heading-anchor-btn {
+            margin-left: 8px;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            color: inherit;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transform: translateX(-2px);
+            transition: opacity 0.14s ease, transform 0.14s ease;
+            flex: 0 0 auto;
+          }
+
+          [data-rdwiki-heading="true"]:hover .wiki-heading-anchor-btn,
+          [data-rdwiki-heading="true"]:focus-within .wiki-heading-anchor-btn {
+            opacity: 1;
+            transform: translateX(0);
+          }
+
+          [data-rdwiki-heading="true"] .wiki-heading-anchor-pill {
+            width: 20px;
+            height: 20px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 800;
+            line-height: 1;
+            background: transparent;
+            border: 1px solid transparent;
+            transition:
+              background 0.14s ease,
+              border-color 0.14s ease,
+              color 0.14s ease,
+              transform 0.14s ease;
+          }
+
+          [data-rdwiki-heading="true"] .wiki-heading-anchor-btn:hover .wiki-heading-anchor-pill {
+            background: var(--surface-soft);
+            border-color: var(--border);
+            color: var(--foreground);
+          }
+
+          [data-rdwiki-heading="true"] .wiki-heading-anchor-pill--copied {
+            background: var(--accent-soft);
+            border-color: var(--accent);
+            color: var(--accent);
+            transform: scale(1.04);
           }
         `}
       </style>

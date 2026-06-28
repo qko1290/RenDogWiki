@@ -16,27 +16,29 @@ export default function HeadingAnchorButton({
 }: HeadingAnchorButtonProps) {
   const [copied, setCopied] = React.useState(false);
 
-  const handleClick = async (event: React.MouseEvent) => {
+  const handleClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     event.preventDefault();
 
-    const hash = anchorId ? `#${anchorId}` : '';
+    if (!anchorId) return;
+
+    const hash = `#${anchorId}`;
 
     const url =
       typeof window !== 'undefined'
         ? (() => {
-            const u = new URL(window.location.href);
+            const currentUrl = new URL(window.location.href);
 
-            const title = u.searchParams.get('title');
+            const title = currentUrl.searchParams.get('title');
 
             if (title) {
-              u.searchParams.set(
+              currentUrl.searchParams.set(
                 'title',
                 encodeTitleForShare(decodeTitleForDisplay(title)),
               );
             }
 
-            return `${u.origin}${u.pathname}?${u.searchParams.toString()}${hash}`;
+            return `${currentUrl.origin}${currentUrl.pathname}?${currentUrl.searchParams.toString()}${hash}`;
           })()
         : hash;
 
@@ -46,7 +48,10 @@ export default function HeadingAnchorButton({
       }
 
       setCopied(true);
-      setTimeout(() => setCopied(false), 1200);
+
+      setTimeout(() => {
+        setCopied(false);
+      }, 1200);
     } catch {
       if (typeof window !== 'undefined' && hash) {
         window.location.hash = hash;
@@ -57,22 +62,18 @@ export default function HeadingAnchorButton({
   return (
     <button
       type="button"
-      aria-label="제목 링크 복사"
-      title="제목 링크 복사"
       onClick={handleClick}
-      style={{
-        marginLeft: 8,
-        border: 'none',
-        background: 'transparent',
-        color: 'var(--muted)',
-        cursor: 'pointer',
-        fontSize: 14,
-        lineHeight: 1,
-        padding: '2px 4px',
-        opacity: copied ? 1 : 0.65,
-      }}
+      className="wiki-heading-anchor-btn"
+      aria-label="이 제목 링크 복사"
     >
-      {copied ? '✔' : '#'}
+      <span
+        className={
+          'wiki-heading-anchor-pill' +
+          (copied ? ' wiki-heading-anchor-pill--copied' : '')
+        }
+      >
+        {copied ? '✔' : ''}
+      </span>
     </button>
   );
 }
