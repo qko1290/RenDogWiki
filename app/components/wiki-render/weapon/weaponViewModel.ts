@@ -1,3 +1,4 @@
+import type React from 'react';
 import type { WeaponCardData, WeaponMetaLike, WeaponStatLike } from './types';
 
 export const VIDEOLESS_WEAPON_TYPES = new Set([
@@ -71,6 +72,9 @@ export function getWeaponStatDisplay(
   stat: WeaponStatLike,
   selectedLevelIndex: number | null | undefined,
 ) {
+  const values = Array.isArray(stat.values) ? stat.values : null;
+  const levels = Array.isArray(stat.levels) ? stat.levels : null;
+
   const idx =
     typeof selectedLevelIndex === 'number' &&
     Number.isFinite(selectedLevelIndex) &&
@@ -81,16 +85,28 @@ export function getWeaponStatDisplay(
   let raw: unknown = stat.summary ?? stat.value ?? '';
 
   if (idx != null) {
-    if (Array.isArray(stat.values) && idx < stat.values.length) {
-      raw = stat.values[idx] ?? stat.summary ?? stat.value ?? '';
-    } else if (Array.isArray(stat.levels) && idx < stat.levels.length) {
-      const level = stat.levels[idx] as any;
+    if (values && idx < values.length) {
+      raw = values[idx] ?? stat.summary ?? stat.value ?? '';
+    } else if (levels && idx < levels.length) {
+      const level = levels[idx] as any;
 
       if (level && typeof level === 'object') {
         raw = level.value ?? level.summary ?? stat.summary ?? stat.value ?? '';
       } else {
         raw = level ?? stat.summary ?? stat.value ?? '';
       }
+    }
+  }
+
+  // 단일 단계 타입 방어:
+  // weapon / limited / hidden / block 등은 값이 levels[0].value에만 있을 수 있음
+  if ((raw == null || raw === '') && levels && levels.length > 0) {
+    const firstLevel = levels[0] as any;
+
+    if (firstLevel && typeof firstLevel === 'object') {
+      raw = firstLevel.value ?? firstLevel.summary ?? raw;
+    } else {
+      raw = firstLevel ?? raw;
     }
   }
 
@@ -101,7 +117,9 @@ export function getWeaponStatDisplay(
 }
 
 export function getEnabledWeaponStats(stats?: WeaponStatLike[] | null) {
-  return Array.isArray(stats) ? stats.filter((stat) => stat.enabled !== false) : [];
+  return Array.isArray(stats)
+    ? stats.filter((stat) => stat.enabled !== false)
+    : [];
 }
 
 export function createWeaponFrameStyles({
@@ -120,8 +138,7 @@ export function createWeaponFrameStyles({
     padding: 2,
     borderRadius: 20,
     background: `linear-gradient(135deg, ${headerBg} 0%, ${border} 45%, #ffffff 60%, ${headerBg} 100%)`,
-    boxShadow:
-      `0 0 0 1px rgba(255,255,255,.18) inset,
+    boxShadow: `0 0 0 1px rgba(255,255,255,.18) inset,
       0 18px 55px rgba(0,0,0,.55),
       0 0 28px rgba(255,255,255,.12),
       0 0 40px ${headerBg}55`,
@@ -130,8 +147,7 @@ export function createWeaponFrameStyles({
   const transcendInnerGlowStyle: React.CSSProperties = {
     borderRadius: 18,
     overflow: 'hidden',
-    background:
-      `radial-gradient(circle at 20% 0%, ${border}22, transparent 55%),
+    background: `radial-gradient(circle at 20% 0%, ${border}22, transparent 55%),
       radial-gradient(circle at 100% 0%, ${headerBg}2a, transparent 60%),
       radial-gradient(circle at 50% 110%, rgba(255,255,255,.08), transparent 50%),
       #020617`,
