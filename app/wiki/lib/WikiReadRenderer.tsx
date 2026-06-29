@@ -27,8 +27,6 @@ import DividerBlock from '@/components/wiki-render/blocks/DividerBlock';
 
 import ParagraphBlock from '@/components/wiki-render/blocks/ParagraphBlock';
 
-import HeadingBlock from '@/components/wiki-render/blocks/HeadingBlock';
-
 import InfoBoxBlock from '@/components/wiki-render/blocks/InfoBoxBlock';
 
 import MediaBlock from '@/components/wiki-render/blocks/MediaBlock';
@@ -67,14 +65,9 @@ import {
   getCurrentThemeIsDark,
   nodeToPlainText,
   normalizeInfoBoxNodeForMobile,
-  stripFontSizeFromDescendants,
-  stripReact,
-  toHeadingIdFromText,
 } from './readRendererUtils';
 
 import FootnoteReadAdapter from './read/FootnoteReadAdapter';
-
-import HeadingAnchorButton from './read/HeadingAnchorButton';
 
 import {
   ImageReadAdapter,
