@@ -16,25 +16,11 @@ import React, {
   useRef,
 } from "react";
 import { Descendant, Text } from "slate";
-
-// ⬇️ 추가: CDN 치환/버전 유틸 + 최적화 이미지 컴포넌트
-import SmartImage from "@/components/common/SmartImage";
 import { cdn, withVersion } from "@lib/cdn";
 
 import type { WikiRefKind } from '@/components/editor/render/types';
 
-import DividerBlock from '@/components/wiki-render/blocks/DividerBlock';
-
-import ParagraphBlock from '@/components/wiki-render/blocks/ParagraphBlock';
-
-import InfoBoxBlock from '@/components/wiki-render/blocks/InfoBoxBlock';
-
-import MediaBlock from '@/components/wiki-render/blocks/MediaBlock';
-
-import TableBlock from '@/components/wiki-render/blocks/TableBlock';
-
 import InlineWikiLink from '@/components/wiki-render/link/InlineWikiLink';
-import LinkCardRenderer from '@/components/wiki-render/link/LinkCardRenderer';
 import {
   isInternalWikiHref as sharedIsInternalWikiHref,
   normalizeToAppHref as sharedNormalizeToAppHref,
@@ -49,22 +35,12 @@ import {
 
 import InlineLinkRenderer from '@/components/wiki-render/link/InlineLinkRenderer';
 
-import {
-  WikiTableCellRenderer,
-  WikiTableRowRenderer,
-} from '@/components/wiki-render/table/TableRenderer';
-
 import WeaponCardRead from '@/components/wiki-render/weapon/WeaponCardRead';
 import PriceTableRead from '@/components/wiki-render/price-table/PriceTableRead';
 
 import {
   compactReadContent,
-  decodeTitleForDisplay,
-  encodeTitleForShare,
-  flexJustifyFromAlign,
   getCurrentThemeIsDark,
-  nodeToPlainText,
-  normalizeInfoBoxNodeForMobile,
 } from './readRendererUtils';
 
 import FootnoteReadAdapter from './read/FootnoteReadAdapter';
