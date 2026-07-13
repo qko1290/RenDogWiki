@@ -20,20 +20,9 @@ import { cdn, withVersion } from "@lib/cdn";
 
 import type { WikiRefKind } from '@/components/editor/render/types';
 
-import InlineWikiLink from '@/components/wiki-render/link/InlineWikiLink';
 import {
-  isInternalWikiHref as sharedIsInternalWikiHref,
-  normalizeToAppHref as sharedNormalizeToAppHref,
-} from '@/components/wiki-render/link/linkUtils';
-
-import {
-  InlineImage,
-  InlineMark,
   LeafRenderer,
-  WikiRefInline,
 } from '@/components/wiki-render/inline';
-
-import InlineLinkRenderer from '@/components/wiki-render/link/InlineLinkRenderer';
 
 import WeaponCardRead from '@/components/wiki-render/weapon/WeaponCardRead';
 import PriceTableRead from '@/components/wiki-render/price-table/PriceTableRead';
@@ -74,6 +63,8 @@ import {
   InlineMarkReadAdapter,
   WikiRefReadAdapter,
 } from './read/InlineReadAdapters';
+
+import InlineLinkReadAdapter from './read/InlineLinkReadAdapter';
 
 type Props = {
   content: Descendant[];
@@ -296,31 +287,13 @@ function renderNode(
     }
 
     case "link": {
-      const href = String(node.url ?? node.href ?? "").trim();
-      const isInternalWikiLink = href ? sharedIsInternalWikiHref(href) : false;
-
-      if (isInternalWikiLink) {
-        return (
-          <InlineWikiLink
-            href={href}
-            onWikiNavigate={env?.onWikiNavigate}
-          >
-            {children}
-          </InlineWikiLink>
-        );
-      }
-
       return (
-        <InlineLinkRenderer
-          mode="read"
-          href={href || "#"}
-          attributes={{
-            target: "_blank",
-            rel: "noopener noreferrer nofollow",
-          }}
+        <InlineLinkReadAdapter
+          node={node}
+          onWikiNavigate={env?.onWikiNavigate}
         >
           {children}
-        </InlineLinkRenderer>
+        </InlineLinkReadAdapter>
       );
     }
 
