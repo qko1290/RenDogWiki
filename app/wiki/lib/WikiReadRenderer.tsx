@@ -69,6 +69,12 @@ import {
 
 import HeadingReadAdapter from './read/HeadingReadAdapter';
 
+import {
+  InlineImageReadAdapter,
+  InlineMarkReadAdapter,
+  WikiRefReadAdapter,
+} from './read/InlineReadAdapters';
+
 type Props = {
   content: Descendant[];
   readOnly?: boolean;
@@ -370,35 +376,14 @@ function renderNode(
     }
 
     case "inline-image": {
-      const rawSrc = String(node.url ?? node.src ?? "").trim();
-      const version = (node.updatedAt || node.version) as string | number | undefined;
-      const src = rawSrc ? withVersion(cdn(rawSrc), version) : "";
-
-      const hasExplicitWidth =
-        node.width != null && Number.isFinite(Number(node.width));
-
-      const hasExplicitHeight =
-        node.height != null && Number.isFinite(Number(node.height));
-
-      return (
-        <InlineImage
-          mode="read"
-          src={src}
-          width={hasExplicitWidth ? Number(node.width) : undefined}
-          height={hasExplicitHeight ? Number(node.height) : undefined}
-        />
-      );
+      return <InlineImageReadAdapter node={node} />;
     }
 
     case "inline-mark": {
       return (
-        <InlineMark
-          mode="read"
-          icon={node.icon}
-          color={node.color}
-        >
+        <InlineMarkReadAdapter node={node}>
           {children}
-        </InlineMark>
+        </InlineMarkReadAdapter>
       );
     }
 
@@ -457,28 +442,13 @@ function renderNode(
     }
 
     case "wiki-ref": {
-      const el = node as any;
-      const kind = (el.kind ?? el.refType) as any;
-      const id = Number(el.id ?? el.refId);
-
-      const clickable =
-        !!handlers?.onWikiRefClick &&
-        (handlers?.readOnly ?? true) &&
-        Number.isFinite(id) &&
-        id > 0;
-
       return (
-        <WikiRefInline
-          mode="read"
-          clickable={clickable}
-          onOpen={() => {
-            if (!clickable) return;
-
-            handlers!.onWikiRefClick!(kind, id);
-          }}
+        <WikiRefReadAdapter
+          node={node}
+          handlers={handlers}
         >
           {children}
-        </WikiRefInline>
+        </WikiRefReadAdapter>
       );
     }
 
