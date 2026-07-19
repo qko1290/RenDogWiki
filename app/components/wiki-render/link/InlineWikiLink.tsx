@@ -18,7 +18,6 @@ import type { InlineWikiLinkProps, WikiLinkPreviewData } from './types';
 import { FOOTNOTE_HOVER_EVENT } from './types';
 import { getWikiLinkPreviewData } from './linkPreviewService';
 import { normalizeToAppHref } from './linkUtils';
-import { navigateSameDocumentHash } from './sameDocumentHashNavigation';
 
 export default function InlineWikiLink({
   href,
@@ -256,10 +255,6 @@ export default function InlineWikiLink({
 
     setOpen(false);
     onBeforeNavigate?.();
-
-    if (navigateSameDocumentHash(normalizedHref)) {
-      return;
-    }
 
     if (onWikiNavigate) {
       onWikiNavigate(normalizedHref);
