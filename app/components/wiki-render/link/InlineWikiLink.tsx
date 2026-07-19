@@ -18,6 +18,7 @@ import type { InlineWikiLinkProps, WikiLinkPreviewData } from './types';
 import { FOOTNOTE_HOVER_EVENT } from './types';
 import { getWikiLinkPreviewData } from './linkPreviewService';
 import { normalizeToAppHref } from './linkUtils';
+import { navigateSameDocumentHash } from './sameDocumentHashNavigation';
 
 export default function InlineWikiLink({
   href,
@@ -236,7 +237,7 @@ export default function InlineWikiLink({
     updateTooltipPosition,
   ]);
 
-  const handleClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+  const handleClick = (event: React.MouseEvent) => {
     const anyEvent = event as any;
 
     if (
@@ -255,6 +256,10 @@ export default function InlineWikiLink({
 
     setOpen(false);
     onBeforeNavigate?.();
+
+    if (navigateSameDocumentHash(normalizedHref)) {
+      return;
+    }
 
     if (onWikiNavigate) {
       onWikiNavigate(normalizedHref);

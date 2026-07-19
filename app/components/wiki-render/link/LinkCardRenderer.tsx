@@ -15,6 +15,7 @@ import {
 } from './linkUtils';
 
 import { getWikiDocDetailByHref } from './linkPreviewService';
+import { navigateSameDocumentHash } from './sameDocumentHashNavigation';
 
 type LinkCardInputSize =
   | 'small'
@@ -365,6 +366,10 @@ export default function LinkCardRenderer({
 
     event.preventDefault();
     event.stopPropagation();
+
+    if (navigateSameDocumentHash(normalizedHref)) {
+      return;
+    }
 
     markNextDocViewSource('link');
 
