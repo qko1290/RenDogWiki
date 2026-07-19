@@ -30,7 +30,7 @@ import {
 } from '@/components/wiki-render/inline';
 
 import WeaponCardRead from '@/components/wiki-render/weapon/WeaponCardRead';
-import PriceTableRead from '@/components/wiki-render/price-table/PriceTableRead';
+import PriceTableReadAdapter from './read/PriceTableReadAdapter';
 
 import {
   compactReadContent,
@@ -354,7 +354,7 @@ function renderNode(
     }
 
     case "price-table-card": {
-      return <PriceTableRead key={key} node={node} />;
+      return <PriceTableReadAdapter node={node} />;
     }
 
     // 무기 카드 블록 (문서 보기용)

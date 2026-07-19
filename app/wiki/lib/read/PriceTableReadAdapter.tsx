@@ -2,11 +2,11 @@
 
 import React from 'react';
 
-import PriceTableRenderer from './PriceTableRenderer';
-import type { PriceTableRawItem } from './types';
-import { usePriceTableStageState } from './usePriceTableStageState';
+import PriceTableRenderer from '@/components/wiki-render/price-table/PriceTableRenderer';
+import type { PriceTableRawItem } from '@/components/wiki-render/price-table/types';
+import { usePriceTableStageState } from '@/components/wiki-render/price-table/usePriceTableStageState';
 
-type PriceTableReadProps = {
+type PriceTableReadAdapterProps = {
   node: any;
 };
 
@@ -14,8 +14,13 @@ function getPriceTableItems(node: any): PriceTableRawItem[] {
   return Array.isArray(node?.items) ? node.items : [];
 }
 
-export default function PriceTableRead({ node }: PriceTableReadProps) {
-  const items = React.useMemo(() => getPriceTableItems(node), [node]);
+export default function PriceTableReadAdapter({
+  node,
+}: PriceTableReadAdapterProps) {
+  const items = React.useMemo(
+    () => getPriceTableItems(node),
+    [node],
+  );
 
   const {
     hoveredIndex,
@@ -25,7 +30,9 @@ export default function PriceTableRead({ node }: PriceTableReadProps) {
     onNextStage,
   } = usePriceTableStageState(items);
 
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    return null;
+  }
 
   return (
     <PriceTableRenderer
