@@ -12,26 +12,11 @@ import {
   toHeadingIdFromText,
 } from '../readRendererUtils';
 
-type HeadingCopyCtx = {
-  headingOccRef: React.MutableRefObject<Map<string, number>>;
-};
-
-type ReadRenderEnv = {
-  isMobile?: boolean;
-  isDarkMode?: boolean;
-  inDarkTableCell?: boolean;
-  inTableCell?: boolean;
-  inLinkBlockRow?: boolean;
-  onWikiNavigate?: (href: string) => void;
-};
-
-type RenderNodeFn = (
-  node: any,
-  key?: React.Key,
-  ctx?: HeadingCopyCtx,
-  handlers?: any,
-  env?: ReadRenderEnv,
-) => React.ReactNode;
+import type {
+  HeadingCopyCtx,
+  ReadRenderEnv,
+  ReadRenderNode,
+} from './types';
 
 type HeadingReadAdapterProps = {
   node: any;
@@ -39,7 +24,7 @@ type HeadingReadAdapterProps = {
   ctx?: HeadingCopyCtx;
   handlers?: any;
   env?: ReadRenderEnv;
-  renderNode: RenderNodeFn;
+  renderNode: ReadRenderNode;
 };
 
 function getHeadingLevel(type: string): 1 | 2 | 3 {

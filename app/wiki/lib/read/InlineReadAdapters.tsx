@@ -10,11 +10,7 @@ import {
 
 import { cdn, withVersion } from '@lib/cdn';
 import type { WikiRefKind } from '@/components/editor/render/types';
-
-type WikiRefHandlers = {
-  readOnly?: boolean;
-  onWikiRefClick?: (kind: any, id: number) => void;
-};
+import type { WikiRefHandlers } from './types';
 
 export function InlineImageReadAdapter({ node }: { node: any }) {
   const rawSrc = String(node.url ?? node.src ?? '').trim();

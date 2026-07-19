@@ -11,22 +11,10 @@ import { tableElementBaseStyle } from '@/components/wiki-render/table/tableLayou
 
 import { flexJustifyFromAlign } from '../readRendererUtils';
 
-type ReadRenderEnv = {
-  isMobile?: boolean;
-  isDarkMode?: boolean;
-  inDarkTableCell?: boolean;
-  inTableCell?: boolean;
-  inLinkBlockRow?: boolean;
-  onWikiNavigate?: (href: string) => void;
-};
-
-type RenderNodeFn = (
-  node: any,
-  key?: React.Key,
-  ctx?: any,
-  handlers?: any,
-  env?: ReadRenderEnv,
-) => React.ReactNode;
+import type {
+  ReadRenderEnv,
+  ReadRenderNode,
+} from './types';
 
 type TableReadAdapterProps = {
   node: any;
@@ -101,7 +89,7 @@ type TableCellReadAdapterProps = {
   ctx?: any;
   handlers?: any;
   env?: ReadRenderEnv;
-  renderNode: RenderNodeFn;
+  renderNode: ReadRenderNode;
 };
 
 export function TableCellReadAdapter({

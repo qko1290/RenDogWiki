@@ -16,7 +16,12 @@ import React, {
   useRef,
 } from "react";
 import { Descendant, Text } from "slate";
-import { cdn, withVersion } from "@lib/cdn";
+
+import type {
+  HeadingCopyCtx,
+  ReadRenderEnv,
+  WikiRefHandlers,
+} from './read/types';
 
 import type { WikiRefKind } from '@/components/editor/render/types';
 
@@ -71,17 +76,6 @@ type Props = {
   readOnly?: boolean;
   onWikiRefClick?: (kind: WikiRefKind, id: number) => void | Promise<void>;
   onWikiNavigate?: (href: string) => void;
-};
-
-/** heading 링크 복사용 컨텍스트 */
-type HeadingCopyCtx = {
-  headingOccRef: React.MutableRefObject<Map<string, number>>;
-};
-
-/** 읽기 전용 렌더러에서 위키 참조 클릭을 상위로 전달하기 위한 핸들러 */
-type WikiRefHandlers = {
-  readOnly?: boolean;
-  onWikiRefClick?: (kind: any, id: number) => void;
 };
 
 // 메인 렌더 컴포넌트
@@ -220,12 +214,7 @@ export default function WikiReadRenderer({
 function renderLeaf(
   node: any,
   key?: React.Key,
-  env?: {
-    isMobile?: boolean;
-    isDarkMode?: boolean;
-    inDarkTableCell?: boolean;
-    inTableCell?: boolean;
-  },
+  env?: ReadRenderEnv,
 ): React.ReactNode {
   return (
     <LeafRenderer
@@ -244,14 +233,7 @@ function renderNode(
   key?: React.Key,
   ctx?: HeadingCopyCtx,
   handlers?: WikiRefHandlers,
-  env?: {
-    isMobile?: boolean;
-    isDarkMode?: boolean;
-    inDarkTableCell?: boolean;
-    inTableCell?: boolean;
-    inLinkBlockRow?: boolean;
-    onWikiNavigate?: (href: string) => void;
-  },
+  env?: ReadRenderEnv,
 ): React.ReactNode {
   if (Text.isText(node)) {
     return renderLeaf(node, key, env);

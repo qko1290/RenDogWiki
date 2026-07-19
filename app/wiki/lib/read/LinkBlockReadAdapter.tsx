@@ -5,22 +5,10 @@ import React from 'react';
 import LinkCardRenderer from '@/components/wiki-render/link/LinkCardRenderer';
 import { nodeToPlainText } from '../readRendererUtils';
 
-type ReadRenderEnv = {
-  isMobile?: boolean;
-  isDarkMode?: boolean;
-  inDarkTableCell?: boolean;
-  inTableCell?: boolean;
-  inLinkBlockRow?: boolean;
-  onWikiNavigate?: (href: string) => void;
-};
-
-type RenderNodeFn = (
-  node: any,
-  key?: React.Key,
-  ctx?: any,
-  handlers?: any,
-  env?: ReadRenderEnv,
-) => React.ReactNode;
+import type {
+  ReadRenderEnv,
+  ReadRenderNode,
+} from './types';
 
 type LinkBlockReadAdapterProps = {
   node: any;
@@ -62,7 +50,7 @@ type LinkBlockRowReadAdapterProps = {
   ctx?: any;
   handlers?: any;
   env?: ReadRenderEnv;
-  renderNode: RenderNodeFn;
+  renderNode: ReadRenderNode;
 };
 
 export function LinkBlockRowReadAdapter({
