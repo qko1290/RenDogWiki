@@ -233,7 +233,9 @@ function renderLeaf(
       mode="read"
       leaf={node}
       env={env}
-    />
+    >
+      {String(node?.text ?? '')}
+    </LeafRenderer>
   );
 }
 
