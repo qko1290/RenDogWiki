@@ -1,0 +1,28 @@
+[1mdiff --git a/app/components/wiki-render/link/useResolvedWikiDocIcon.ts b/app/components/wiki-render/link/useResolvedWikiDocIcon.ts[m
+[1mindex 25dab08..b7f76d3 100644[m
+[1m--- a/app/components/wiki-render/link/useResolvedWikiDocIcon.ts[m
+[1m+++ b/app/components/wiki-render/link/useResolvedWikiDocIcon.ts[m
+[36m@@ -2,7 +2,9 @@[m
+ [m
+ import React from 'react';[m
+ [m
+[31m-import { getWikiDocDetailByHref } from './linkPreviewService';[m
+[32m+[m[32mimport {[m
+[32m+[m[32m  getWikiDocDetailByHref,[m
+[32m+[m[32m} from './wikiDocDetailService';[m
+ import { normalizeToAppHref } from './linkUtils';[m
+ [m
+ type UseResolvedWikiDocIconOptions = {[m
+[1mdiff --git a/app/wiki/lib/read/link/InlineWikiLinkRead.tsx b/app/wiki/lib/read/link/InlineWikiLinkRead.tsx[m
+[1mindex 04c063c..c131ae8 100644[m
+[1m--- a/app/wiki/lib/read/link/InlineWikiLinkRead.tsx[m
+[1m+++ b/app/wiki/lib/read/link/InlineWikiLinkRead.tsx[m
+[36m@@ -27,7 +27,7 @@[m [mimport {[m
+ [m
+ import {[m
+   getWikiLinkPreviewData,[m
+[31m-} from '@/components/wiki-render/link/linkPreviewService';[m
+[32m+[m[32m} from './wikiLinkPreviewService';[m
+ [m
+ import {[m
+   normalizeToAppHref,[m
