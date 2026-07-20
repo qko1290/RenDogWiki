@@ -7,11 +7,11 @@ import type { RenderElementProps } from 'slate-react';
 
 import type { TableElement } from '@/types/slate';
 
-import TableBlock from '@/components/wiki-render/blocks/TableBlock';
 import {
+  TableBlock,
   WikiTableCellRenderer,
   WikiTableRowRenderer,
-} from '@/components/wiki-render/table/TableRenderer';
+} from '@/components/wiki-render';
 import {
   getTableContainerStyle,
   tableElementBaseStyle,
