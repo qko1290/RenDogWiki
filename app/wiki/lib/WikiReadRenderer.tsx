@@ -1,92 +1,51 @@
-// =============================================
-// File: app/wiki/lib/WikiReadRenderer.tsx
-// (이미지 lazy/async/fetchPriority 적용 + 외부 파비콘 네트워크 호출 제거)
-// + CloudFront CDN 치환(cdn) 및 버전 파라미터(withVersion) 적용
-// + 문서 렌더러 내부 요소 다크모드 테마 토큰 적용
-// =============================================
-/**
- * Slate JSON(Descendant[])을 React JSX로 렌더링하는 컴포넌트
- * - heading, info-box, divider, 링크, 이미지, 인라인마크, price-table-card 등 지원
- * - 서버/클라이언트 헤딩 ID 불일치 경고 억제를 위해 heading에 suppressHydrationWarning 사용
- */
-
 import React, {
   useEffect,
-  useState,
   useRef,
-} from "react";
-import { Descendant, Text } from "slate";
-
-import type {
-  HeadingCopyCtx,
-  ReadRenderEnv,
-  WikiRefHandlers,
-} from './read/types';
+  useState,
+} from 'react';
+import type { Descendant } from 'slate';
 
 import type { WikiRefKind } from '@/components/editor/render/types';
 
 import {
-  LeafRenderer,
-} from '@/components/wiki-render/inline';
-
-import WeaponCardReadAdapter from './read/weapon/WeaponCardReadAdapter';
-import PriceTableReadAdapter from './read/PriceTableReadAdapter';
-
+  LinkBlockRowReadAdapter,
+} from './read/LinkBlockReadAdapter';
+import { renderReadNode } from './read/WikiReadNodeRenderer';
+import type {
+  HeadingCopyCtx,
+  WikiRefHandlers,
+} from './read/types';
 import {
   compactReadContent,
   getCurrentThemeIsDark,
 } from './readRendererUtils';
 
-import FootnoteReadAdapter from './read/FootnoteReadAdapter';
-
-import {
-  ImageReadAdapter,
-  VideoReadAdapter,
-} from './read/MediaReadAdapter';
-
-import {
-  TableCellReadAdapter,
-  TableReadAdapter,
-  TableRowReadAdapter,
-} from './read/TableReadAdapter';
-
-import {
-  LinkBlockReadAdapter,
-  LinkBlockRowReadAdapter,
-} from './read/LinkBlockReadAdapter';
-
-import {
-  DividerReadAdapter,
-  InfoBoxReadAdapter,
-  ParagraphReadAdapter,
-} from './read/BasicBlockReadAdapters';
-
-import HeadingReadAdapter from './read/HeadingReadAdapter';
-
-import {
-  InlineImageReadAdapter,
-  InlineMarkReadAdapter,
-  WikiRefReadAdapter,
-} from './read/InlineReadAdapters';
-
-import InlineLinkReadAdapter from './read/InlineLinkReadAdapter';
-
-type Props = {
+type WikiReadRendererProps = {
   content: Descendant[];
   readOnly?: boolean;
-  onWikiRefClick?: (kind: WikiRefKind, id: number) => void | Promise<void>;
+  onWikiRefClick?: (
+    kind: WikiRefKind,
+    id: number,
+  ) => void | Promise<void>;
   onWikiNavigate?: (href: string) => void;
 };
 
-// 메인 렌더 컴포넌트
+function isHalfLinkBlock(node: any) {
+  return (
+    node?.type === 'link-block' &&
+    (node?.size === 'small' || node?.size === 'half')
+  );
+}
+
 export default function WikiReadRenderer({
   content,
   readOnly = true,
   onWikiRefClick,
   onWikiNavigate,
-}: Props) {
-
-  const headingOccRef = useRef<Map<string, number>>(new Map());
+}: WikiReadRendererProps) {
+  const headingOccRef = useRef<Map<string, number>>(
+    new Map(),
+  );
 
   headingOccRef.current = new Map();
 
@@ -94,36 +53,52 @@ export default function WikiReadRenderer({
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === 'undefined') return;
 
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const mediaQuery = window.matchMedia(
+      '(prefers-color-scheme: dark)',
+    );
 
     const apply = () => {
-      setIsDarkMode(mq.matches);
+      setIsDarkMode(mediaQuery.matches);
     };
 
     apply();
 
-    const onChange = () => apply();
+    if (
+      typeof mediaQuery.addEventListener === 'function'
+    ) {
+      mediaQuery.addEventListener('change', apply);
 
-    if (typeof mq.addEventListener === "function") {
-      mq.addEventListener("change", onChange);
-      return () => mq.removeEventListener("change", onChange);
+      return () => {
+        mediaQuery.removeEventListener('change', apply);
+      };
     }
 
-    mq.addListener(onChange);
-    return () => mq.removeListener(onChange);
+    mediaQuery.addListener(apply);
+
+    return () => {
+      mediaQuery.removeListener(apply);
+    };
   }, []);
 
   useEffect(() => {
-    const apply = () => setIsMobile(window.innerWidth <= 768);
+    if (typeof window === 'undefined') return;
+
+    const apply = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+
     apply();
-    window.addEventListener("resize", apply);
-    return () => window.removeEventListener("resize", apply);
+    window.addEventListener('resize', apply);
+
+    return () => {
+      window.removeEventListener('resize', apply);
+    };
   }, []);
 
   useEffect(() => {
-    if (typeof document === "undefined") return;
+    if (typeof document === 'undefined') return;
 
     const apply = () => {
       setIsDarkMode(getCurrentThemeIsDark());
@@ -134,283 +109,86 @@ export default function WikiReadRenderer({
     const html = document.documentElement;
     const body = document.body;
 
-    const observer = new MutationObserver(() => {
-      apply();
-    });
+    const observer = new MutationObserver(apply);
 
     observer.observe(html, {
       attributes: true,
-      attributeFilter: ["class", "data-theme"],
+      attributeFilter: ['class', 'data-theme'],
     });
 
     if (body) {
       observer.observe(body, {
         attributes: true,
-        attributeFilter: ["class", "data-theme"],
+        attributeFilter: ['class', 'data-theme'],
       });
     }
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+    };
   }, []);
 
-  const handlers: WikiRefHandlers = { readOnly, onWikiRefClick };
+  const handlers: WikiRefHandlers = {
+    readOnly,
+    onWikiRefClick,
+  };
 
   const ctx: HeadingCopyCtx = {
     headingOccRef,
   };
 
+  const env = {
+    isMobile,
+    isDarkMode,
+    onWikiNavigate,
+  };
+
   const normalized = compactReadContent(content);
-
-  // ✅ 추가: 최상위에서 link-block(half) 2개씩 묶어서 row로 렌더링
   const rendered: React.ReactNode[] = [];
-  const isHalfLinkBlock = (n: any) =>
-    n?.type === "link-block" && (n?.size === "small" || n?.size === "half");
 
-  for (let i = 0; i < normalized.length; i++) {
-    const node: any = normalized[i];
+  for (
+    let index = 0;
+    index < normalized.length;
+    index += 1
+  ) {
+    const node: any = normalized[index];
+    const nextNode: any = normalized[index + 1];
 
-    // (1) link-block half가 연속 2개면 row로 묶기
-    if (isHalfLinkBlock(node) && isHalfLinkBlock(normalized[i + 1] as any)) {
-      const a = node;
-      const b: any = normalized[i + 1];
+    if (
+      isHalfLinkBlock(node) &&
+      isHalfLinkBlock(nextNode)
+    ) {
+      const rowKey = `link-row-${index}`;
 
       rendered.push(
         <LinkBlockRowReadAdapter
-          key={`link-row-${i}`}
+          key={rowKey}
           node={{
             type: 'link-block-row',
-            children: [a, b],
+            children: [node, nextNode],
           }}
-          keyProp={`link-row-${i}`}
+          keyProp={rowKey}
           ctx={ctx}
           handlers={handlers}
-          env={{
-            isMobile,
-            isDarkMode,
-            onWikiNavigate,
-          }}
-          renderNode={renderNode}
+          env={env}
+          renderNode={renderReadNode}
         />,
       );
 
-      i += 1;
+      index += 1;
       continue;
     }
 
-    // (2) 나머지는 기존처럼 단건 렌더
     rendered.push(
-      renderNode(node, i, ctx, handlers, {
-        isMobile,
-        isDarkMode,
-        onWikiNavigate,
-      })
+      renderReadNode(
+        node,
+        index,
+        ctx,
+        handlers,
+        env,
+      ),
     );
   }
 
   return <>{rendered}</>;
-}
-
-// 텍스트 노드 처리
-function renderLeaf(
-  node: any,
-  key?: React.Key,
-  env?: ReadRenderEnv,
-): React.ReactNode {
-  return (
-    <LeafRenderer
-      key={key}
-      mode="read"
-      leaf={node}
-      env={env}
-    >
-      {String(node?.text ?? '')}
-    </LeafRenderer>
-  );
-}
-
-function renderNode(
-  node: any,
-  key?: React.Key,
-  ctx?: HeadingCopyCtx,
-  handlers?: WikiRefHandlers,
-  env?: ReadRenderEnv,
-): React.ReactNode {
-  if (Text.isText(node)) {
-    return renderLeaf(node, key, env);
-  }
-
-  const children = node.children?.map((n: any, i: number) =>
-    renderNode(n, key ? `${key}-${i}` : i, ctx, handlers, env)
-  );
-
-  switch (node.type) {
-    case "paragraph": {
-      return (
-        <ParagraphReadAdapter
-          node={node}
-          env={env}
-        >
-          {children}
-        </ParagraphReadAdapter>
-      );
-    }
-
-    case "heading-one":
-    case "heading-two":
-    case "heading-three": {
-      return (
-        <HeadingReadAdapter
-          node={node}
-          keyProp={key}
-          ctx={ctx}
-          handlers={handlers}
-          env={env}
-          renderNode={renderNode}
-        />
-      );
-    }
-
-    case "link": {
-      return (
-        <InlineLinkReadAdapter
-          node={node}
-          onWikiNavigate={env?.onWikiNavigate}
-        >
-          {children}
-        </InlineLinkReadAdapter>
-      );
-    }
-
-    case "divider": {
-      return <DividerReadAdapter node={node} />;
-    }
-
-    case "link-block": {
-      return (
-        <LinkBlockReadAdapter
-          node={node}
-          env={env}
-        >
-          {children}
-        </LinkBlockReadAdapter>
-      );
-    }
-
-    case "link-block-row": {
-      return (
-        <LinkBlockRowReadAdapter
-          node={node}
-          keyProp={key}
-          ctx={ctx}
-          handlers={handlers}
-          env={env}
-          renderNode={renderNode}
-        />
-      );
-    }
-
-    case "info-box": {
-      return (
-        <InfoBoxReadAdapter
-          node={node}
-          keyProp={key}
-          ctx={ctx}
-          handlers={handlers}
-          env={env}
-          renderNode={renderNode}
-        />
-      );
-    }
-
-    // 이미지 블록 (SmartImage로 최적화 + CDN/버전)
-    case "image": {
-      return <ImageReadAdapter node={node} />;
-    }
-
-    // 영상 블록: 이미지와 동일한 정렬(textAlign) + CDN/버전 적용
-    case "video": {
-      return <VideoReadAdapter node={node} />;
-    }
-
-    case "inline-image": {
-      return <InlineImageReadAdapter node={node} />;
-    }
-
-    case "inline-mark": {
-      return (
-        <InlineMarkReadAdapter node={node}>
-          {children}
-        </InlineMarkReadAdapter>
-      );
-    }
-
-    case "footnote": {
-      return (
-        <FootnoteReadAdapter
-          label={(node as any).label}
-          content={(node as any).content}
-        />
-      );
-    }
-
-    case "price-table-card": {
-      return <PriceTableReadAdapter node={node} />;
-    }
-
-    // 무기 카드 블록 (문서 보기용)
-    case "weapon-card": {
-      return (
-        <WeaponCardReadAdapter
-          key={key}
-          keyProp={key}
-          node={node}
-          isDarkMode={env?.isDarkMode}
-          isMobile={env?.isMobile}
-        />
-      );
-    }
-
-    case "table": {
-      return (
-        <TableReadAdapter node={node}>
-          {children}
-        </TableReadAdapter>
-      );
-    }
-
-    case "table-row": {
-      return (
-        <TableRowReadAdapter>
-          {children}
-        </TableRowReadAdapter>
-      );
-    }
-
-    case "table-cell": {
-      return (
-        <TableCellReadAdapter
-          node={node}
-          keyProp={key}
-          ctx={ctx}
-          handlers={handlers}
-          env={env}
-          renderNode={renderNode}
-        />
-      );
-    }
-
-    case "wiki-ref": {
-      return (
-        <WikiRefReadAdapter
-          node={node}
-          handlers={handlers}
-        >
-          {children}
-        </WikiRefReadAdapter>
-      );
-    }
-
-    default:
-      return <div key={key}>{children}</div>;
-  }
 }
