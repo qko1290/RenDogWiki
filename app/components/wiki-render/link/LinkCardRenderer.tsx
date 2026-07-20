@@ -9,9 +9,8 @@ import { cdn, withVersion } from '@lib/cdn';
 
 import {
   decodeTitleForDisplay,
-  isRdwikiWikiUrl,
   normalizeToAppHref,
-  parseLinkUrl,
+  resolveLinkCardTarget,
 } from './linkUtils';
 
 type LinkCardInputSize =
@@ -118,17 +117,10 @@ export default function LinkCardRenderer({
   onClick,
   children,
 }: LinkCardRendererProps) {
-  const parsedUrl = React.useMemo(
-    () => parseLinkUrl(url),
-    [url],
+  const { parsedUrl, isWikiLink } = resolveLinkCardTarget(
+    url,
+    isWiki,
   );
-
-  const isWikiLink = React.useMemo(() => {
-    if (isWiki) return true;
-    if (!parsedUrl) return false;
-
-    return isRdwikiWikiUrl(parsedUrl);
-  }, [isWiki, parsedUrl]);
 
   const normalizedHref = React.useMemo(
     () => normalizeToAppHref(url || '#'),

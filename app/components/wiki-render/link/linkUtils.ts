@@ -85,6 +85,26 @@ export function isRdwikiWikiUrl(urlObj: URL) {
   );
 }
 
+
+export type LinkCardTarget = {
+  parsedUrl: URL | null;
+  isWikiLink: boolean;
+};
+
+export function resolveLinkCardTarget(
+  rawHref: string | null | undefined,
+  isWiki?: boolean,
+): LinkCardTarget {
+  const parsedUrl = parseLinkUrl(rawHref);
+
+  return {
+    parsedUrl,
+    isWikiLink: Boolean(
+      isWiki || (parsedUrl && isRdwikiWikiUrl(parsedUrl)),
+    ),
+  };
+}
+
 export function normalizeToAppHref(rawHref: string) {
   const url = parseLinkUrl(rawHref);
 

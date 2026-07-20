@@ -31,7 +31,7 @@ import type {
 } from '@/components/wiki-render/weapon/types';
 import {
   useWeaponLevelSelection,
-} from '@/components/wiki-render/weapon/useWeaponLevelSelection';
+} from '@/components/wiki-render/weapon/weaponLevelSelection';
 
 import type {
   WeaponCardElement,

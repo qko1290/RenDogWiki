@@ -18,13 +18,11 @@ import {
 } from '@/components/wiki-render/weapon/weaponNodeUtils';
 import {
   getWeaponLevelLabelsFromStats,
-} from '@/components/wiki-render/weapon/weaponLevelUtils';
+  useWeaponLevelSelection,
+} from '@/components/wiki-render/weapon/weaponLevelSelection';
 import type {
   WeaponImageRenderArgs,
 } from '@/components/wiki-render/weapon/types';
-import {
-  useWeaponLevelSelection,
-} from '@/components/wiki-render/weapon/useWeaponLevelSelection';
 
 import {
   cdn,

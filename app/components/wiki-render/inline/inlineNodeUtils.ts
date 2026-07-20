@@ -66,3 +66,22 @@ export function resolveWikiRefNode(
     id,
   };
 }
+
+export type ResolvedFootnoteNode = {
+  label: string;
+  content: string;
+  hasContent: boolean;
+};
+
+export function resolveFootnoteNode(
+  node: InlineNodeLike,
+): ResolvedFootnoteNode {
+  const label = String(node?.label ?? '').trim() || '각주';
+  const content = String(node?.content ?? '').trim();
+
+  return {
+    label,
+    content,
+    hasContent: content.length > 0,
+  };
+}

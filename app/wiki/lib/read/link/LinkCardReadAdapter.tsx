@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   LinkCardRenderer,
 } from '@/components/wiki-render';
-import useLinkCardTarget from '@/components/wiki-render/link/useLinkCardTarget';
+import { resolveLinkCardTarget } from '@/components/wiki-render/link/linkUtils';
 import useResolvedWikiDocIcon from '@/components/wiki-render/link/useResolvedWikiDocIcon';
 import { markNextDocViewSource } from '@/wiki/lib/viewSource';
 
@@ -50,12 +50,7 @@ export default function LinkCardReadAdapter({
 }: LinkCardReadAdapterProps) {
   const router = useRouter();
 
-  const {
-    isWikiLink,
-  } = useLinkCardTarget({
-    url,
-    isWiki,
-  });
+  const { isWikiLink } = resolveLinkCardTarget(url, isWiki);
 
   const resolvedDocIcon = useResolvedWikiDocIcon({
     href: url,

@@ -10,7 +10,7 @@ import type { LinkBlockElement } from '@/types/slate';
 import {
   LinkCardRenderer,
 } from '@/components/wiki-render';
-import useLinkCardTarget from '@/components/wiki-render/link/useLinkCardTarget';
+import { resolveLinkCardTarget } from '@/components/wiki-render/link/linkUtils';
 import useResolvedWikiDocIcon from '@/components/wiki-render/link/useResolvedWikiDocIcon';
 
 type LinkBlockEditorAdapterProps = {
@@ -110,13 +110,10 @@ export default function LinkBlockEditorAdapter({
   const el = element;
   const isReadOnly = ReactEditor.isReadOnly(editor);
 
-  const {
-    parsedUrl,
-    isWikiLink,
-  } = useLinkCardTarget({
-    url: el.url,
-    isWiki: el.isWiki,
-  });
+  const { parsedUrl, isWikiLink } = resolveLinkCardTarget(
+    el.url,
+    el.isWiki,
+  );
 
   const resolvedDocIcon = useResolvedWikiDocIcon({
     href: el.url,

@@ -16,7 +16,7 @@ import {
 } from '@/components/wiki-render';
 import {
   resolveFootnoteNode,
-} from '@/components/wiki-render/inline/footnoteNodeUtils';
+} from '@/components/wiki-render/inline/inlineNodeUtils';
 
 import {
   FOOTNOTE_HOVER_EVENT,
