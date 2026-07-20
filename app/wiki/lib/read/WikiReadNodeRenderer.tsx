@@ -180,8 +180,7 @@ export function renderReadNode(
     case 'footnote': {
       return (
         <FootnoteReadAdapter
-          label={node.label}
-          content={node.content}
+          node={node}
         />
       );
     }
