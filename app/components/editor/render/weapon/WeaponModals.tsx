@@ -1,78 +1,109 @@
-// components/editor/render/WeaponModals.tsx
+// app/components/editor/render/weapon/WeaponModals.tsx
 import React from 'react';
 import ReactDOM from 'react-dom';
+
 import type {
-  WeaponType,
   WeaponStatConfig,
   WeaponStatKey,
+  WeaponType,
 } from '@/types/slate';
+
 import {
   WEAPON_TYPES_META,
-  ensureWeaponStats,
   createEmptyWeaponStat,
-  normalizeStatLevels,
+  ensureWeaponStats,
   getWeaponLevelLabels,
+  normalizeStatLevels,
 } from './weaponStatUtils';
 
 // -------------------- 공통 Portal 래퍼 --------------------
 
-const ModalPortal: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // SSR 환경에서는 document 가 없으니 방어
+const ModalPortal: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
+  // SSR 환경에서는 document가 없으므로 방어
   if (typeof document === 'undefined') return null;
+
   return ReactDOM.createPortal(children, document.body);
 };
 
 // -------------------- 공통: 모달 키보드 핫키 --------------------
 // - Enter: 확인/저장
 // - Escape: 닫기
-// - Slate/에디터가 이벤트를 먹는 경우가 있어 capture=true 로 먼저 잡음
+// - Slate/에디터가 이벤트를 먹는 경우가 있어 capture=true로 먼저 잡음
 // - 한글 IME 조합 중 Enter 오작동 방지
-// - textarea/contentEditable 에서는 Enter를 뺏지 않음(확장 대비)
+// - textarea/contentEditable에서는 Enter를 뺏지 않음
 const useModalHotkeys = (params: {
   open: boolean;
   onEnter?: () => void;
   onEscape?: () => void;
   disabled?: boolean;
 }) => {
-  const { open, onEnter, onEscape, disabled } = params;
+  const {
+    open,
+    onEnter,
+    onEscape,
+    disabled,
+  } = params;
 
   React.useEffect(() => {
     if (!open) return;
 
-    const onKeyDown = (e: KeyboardEvent) => {
+    const onKeyDown = (event: KeyboardEvent) => {
       if (disabled) return;
+
+      const composingEvent = event as KeyboardEvent & {
+        isComposing?: boolean;
+        keyCode?: number;
+      };
 
       // IME(한글 조합) 중 Enter 트리거 방지
       // 일부 환경에서는 keyCode=229로도 들어옴
-      // @ts-ignore
-      if ((e as any).isComposing || (e as any).keyCode === 229) return;
+      if (
+        composingEvent.isComposing ||
+        composingEvent.keyCode === 229
+      ) {
+        return;
+      }
 
-      const target = e.target as HTMLElement | null;
-      const tag = target?.tagName?.toLowerCase();
-      const isTextArea = tag === 'textarea';
-      const isContentEditable = !!target && (target as any).isContentEditable;
+      const target = event.target as HTMLElement | null;
+      const tagName = target?.tagName?.toLowerCase();
 
-      if (e.key === 'Escape') {
+      const isTextArea = tagName === 'textarea';
+      const isContentEditable = Boolean(
+        target && target.isContentEditable,
+      );
+
+      if (event.key === 'Escape') {
         if (!onEscape) return;
-        e.preventDefault();
-        e.stopPropagation();
+
+        event.preventDefault();
+        event.stopPropagation();
         onEscape();
         return;
       }
 
-      if (e.key === 'Enter') {
+      if (event.key === 'Enter') {
         if (!onEnter) return;
         if (isTextArea || isContentEditable) return;
 
-        e.preventDefault();
-        e.stopPropagation();
+        event.preventDefault();
+        event.stopPropagation();
         onEnter();
       }
     };
 
     window.addEventListener('keydown', onKeyDown, true);
-    return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [open, onEnter, onEscape, disabled]);
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown, true);
+    };
+  }, [
+    open,
+    onEnter,
+    onEscape,
+    disabled,
+  ]);
 };
 
 // -------------------- Weapon Type Select Modal --------------------
@@ -81,17 +112,17 @@ export type WeaponTypeSelectModalProps = {
   open: boolean;
   currentType: WeaponType;
   onClose: () => void;
-  onSelect: (t: WeaponType) => void;
+  onSelect: (type: WeaponType) => void;
 };
 
-export const WeaponTypeSelectModal: React.FC<WeaponTypeSelectModalProps> = ({
+export const WeaponTypeSelectModal: React.FC<
+  WeaponTypeSelectModalProps
+> = ({
   open,
   currentType,
   onClose,
   onSelect,
 }) => {
-  if (!open) return null;
-
   const types: WeaponType[] = [
     'block',
     'epic',
@@ -118,12 +149,14 @@ export const WeaponTypeSelectModal: React.FC<WeaponTypeSelectModalProps> = ({
     'spirit',
   ];
 
-  // (선택 모달은 Enter로 확인이 뚜렷하지 않아서 기존 동작 유지)
-  // Esc로 닫기만 자연스럽게 추가
+  // 선택 모달은 Enter로 확정할 대상이 명확하지 않으므로
+  // 기존 선택 방식은 유지하고 Esc 닫기만 제공한다.
   useModalHotkeys({
     open,
     onEscape: onClose,
   });
+
+  if (!open) return null;
 
   return (
     <ModalPortal>
@@ -141,7 +174,9 @@ export const WeaponTypeSelectModal: React.FC<WeaponTypeSelectModalProps> = ({
         onMouseDown={onClose}
       >
         <div
-          onMouseDown={(e) => e.stopPropagation()}
+          onMouseDown={(event) => {
+            event.stopPropagation();
+          }}
           style={{
             width: 360,
             maxWidth: '90%',
@@ -152,9 +187,16 @@ export const WeaponTypeSelectModal: React.FC<WeaponTypeSelectModalProps> = ({
             color: '#e5e7eb',
           }}
         >
-          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 10 }}>
+          <div
+            style={{
+              fontSize: 16,
+              fontWeight: 700,
+              marginBottom: 10,
+            }}
+          >
             무기 유형 선택
           </div>
+
           <div
             style={{
               display: 'grid',
@@ -163,22 +205,29 @@ export const WeaponTypeSelectModal: React.FC<WeaponTypeSelectModalProps> = ({
               marginBottom: 14,
             }}
           >
-            {types.map((t) => {
-              const meta = WEAPON_TYPES_META[t];
-              const active = t === currentType;
+            {types.map((type) => {
+              const meta = WEAPON_TYPES_META[type];
+              const active = type === currentType;
+
               return (
                 <button
-                  key={t}
+                  key={type}
                   type="button"
-                  onClick={() => onSelect(t)}
+                  onClick={() => {
+                    onSelect(type);
+                  }}
                   style={{
                     borderRadius: 999,
-                    border: active ? 'none' : '1px solid #1f2937',
+                    border: active
+                      ? 'none'
+                      : '1px solid #1f2937',
                     padding: '6px 0',
                     background: active
                       ? meta.headerBg
                       : 'linear-gradient(90deg,#020617,#020617)',
-                    color: active ? '#f9fafb' : '#9ca3af',
+                    color: active
+                      ? '#f9fafb'
+                      : '#9ca3af',
                     fontSize: 12,
                     fontWeight: 600,
                     letterSpacing: 1,
@@ -190,6 +239,7 @@ export const WeaponTypeSelectModal: React.FC<WeaponTypeSelectModalProps> = ({
               );
             })}
           </div>
+
           <div style={{ textAlign: 'right' }}>
             <button
               type="button"
@@ -222,23 +272,34 @@ export type WeaponNameEditModalProps = {
   onSave: (name: string) => void;
 };
 
-export const WeaponNameEditModal: React.FC<WeaponNameEditModalProps> = ({
+export const WeaponNameEditModal: React.FC<
+  WeaponNameEditModalProps
+> = ({
   open,
   initialName,
   onClose,
   onSave,
 }) => {
-  const [name, setName] = React.useState(initialName || '');
+  const [name, setName] = React.useState(
+    initialName || '',
+  );
 
   React.useEffect(() => {
-    if (open) setName(initialName || '');
-  }, [open, initialName]);
+    if (!open) return;
+
+    setName(initialName || '');
+  }, [
+    open,
+    initialName,
+  ]);
 
   const handleSave = React.useCallback(() => {
     onSave(name.trim() || '새 무기 이름');
-  }, [name, onSave]);
+  }, [
+    name,
+    onSave,
+  ]);
 
-  // ✅ Enter=저장, Esc=닫기
   useModalHotkeys({
     open,
     onEnter: handleSave,
@@ -263,7 +324,9 @@ export const WeaponNameEditModal: React.FC<WeaponNameEditModalProps> = ({
         onMouseDown={onClose}
       >
         <div
-          onMouseDown={(e) => e.stopPropagation()}
+          onMouseDown={(event) => {
+            event.stopPropagation();
+          }}
           style={{
             width: 420,
             maxWidth: '90%',
@@ -274,12 +337,21 @@ export const WeaponNameEditModal: React.FC<WeaponNameEditModalProps> = ({
             color: '#e5e7eb',
           }}
         >
-          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>
+          <div
+            style={{
+              fontSize: 16,
+              fontWeight: 700,
+              marginBottom: 12,
+            }}
+          >
             무기 이름 수정
           </div>
+
           <input
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(event) => {
+              setName(event.target.value);
+            }}
             placeholder="무기 이름"
             autoFocus
             style={{
@@ -293,6 +365,7 @@ export const WeaponNameEditModal: React.FC<WeaponNameEditModalProps> = ({
               outline: 'none',
             }}
           />
+
           <div
             style={{
               marginTop: 14,
@@ -316,6 +389,7 @@ export const WeaponNameEditModal: React.FC<WeaponNameEditModalProps> = ({
             >
               닫기
             </button>
+
             <button
               type="button"
               onClick={handleSave}
@@ -351,7 +425,9 @@ export type WeaponStatEditModalProps = {
   onSave: (nextStat: WeaponStatConfig) => void;
 };
 
-export const WeaponStatEditModal: React.FC<WeaponStatEditModalProps> = ({
+export const WeaponStatEditModal: React.FC<
+  WeaponStatEditModalProps
+> = ({
   open,
   weaponType,
   stats,
@@ -360,35 +436,75 @@ export const WeaponStatEditModal: React.FC<WeaponStatEditModalProps> = ({
   onClose,
   onSave,
 }) => {
-  if (!open || !statKey) return null;
+  // Hook은 모든 렌더에서 같은 순서로 호출해야 하므로
+  // statKey가 없을 때도 유효한 임시 키로 초기 상태를 만든다.
+  const activeStatKey: WeaponStatKey =
+    statKey ?? 'damage';
 
   const original =
-    stats.find((s) => s.key === statKey) ||
-    createEmptyWeaponStat(statKey, weaponType, true);
+    stats.find(
+      (stat) => stat.key === activeStatKey,
+    ) ||
+    createEmptyWeaponStat(
+      activeStatKey,
+      weaponType,
+      true,
+    );
 
-  const [local, setLocal] = React.useState<WeaponStatConfig>({
-    ...original,
-    levels: normalizeStatLevels(original.levels, weaponType),
-  });
+  const [local, setLocal] =
+    React.useState<WeaponStatConfig>({
+      ...original,
+      levels: normalizeStatLevels(
+        original.levels,
+        weaponType,
+      ),
+    });
 
   React.useEffect(() => {
     if (!open || !statKey) return;
+
     const base =
-      stats.find((s) => s.key === statKey) ||
-      createEmptyWeaponStat(statKey, weaponType, true);
+      stats.find(
+        (stat) => stat.key === statKey,
+      ) ||
+      createEmptyWeaponStat(
+        statKey,
+        weaponType,
+        true,
+      );
+
     setLocal({
       ...base,
-      levels: normalizeStatLevels(base.levels, weaponType),
+      levels: normalizeStatLevels(
+        base.levels,
+        weaponType,
+      ),
     });
-  }, [open, statKey, stats, weaponType]);
+  }, [
+    open,
+    statKey,
+    stats,
+    weaponType,
+  ]);
 
-  const levels = getWeaponLevelLabels(weaponType);
+  const levels = getWeaponLevelLabels(
+    weaponType,
+  );
 
-  const handleLevelChange = (idx: number, value: string) => {
-    setLocal((prev) => ({
-      ...prev,
-      levels: prev.levels.map((lv, i) =>
-        i === idx ? { ...lv, value } : lv,
+  const handleLevelChange = (
+    index: number,
+    value: string,
+  ) => {
+    setLocal((previous) => ({
+      ...previous,
+      levels: previous.levels.map(
+        (level, levelIndex) =>
+          levelIndex === index
+            ? {
+                ...level,
+                value,
+              }
+            : level,
       ),
     }));
   };
@@ -396,16 +512,26 @@ export const WeaponStatEditModal: React.FC<WeaponStatEditModalProps> = ({
   const handleSave = React.useCallback(() => {
     onSave({
       ...local,
-      levels: normalizeStatLevels(local.levels, weaponType),
+      levels: normalizeStatLevels(
+        local.levels,
+        weaponType,
+      ),
     });
-  }, [local, onSave, weaponType]);
+  }, [
+    local,
+    onSave,
+    weaponType,
+  ]);
 
-  // ✅ Enter=저장(읽기 전용 제외), Esc=닫기
   useModalHotkeys({
-    open: open && !!statKey,
-    onEnter: readOnly ? undefined : handleSave,
+    open: open && Boolean(statKey),
+    onEnter: readOnly
+      ? undefined
+      : handleSave,
     onEscape: onClose,
   });
+
+  if (!open || !statKey) return null;
 
   return (
     <ModalPortal>
@@ -423,7 +549,9 @@ export const WeaponStatEditModal: React.FC<WeaponStatEditModalProps> = ({
         onMouseDown={onClose}
       >
         <div
-          onMouseDown={(e) => e.stopPropagation()}
+          onMouseDown={(event) => {
+            event.stopPropagation();
+          }}
           style={{
             width: 420,
             maxWidth: '95%',
@@ -436,7 +564,13 @@ export const WeaponStatEditModal: React.FC<WeaponStatEditModalProps> = ({
             color: '#e5e7eb',
           }}
         >
-          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>
+          <div
+            style={{
+              fontSize: 16,
+              fontWeight: 700,
+              marginBottom: 12,
+            }}
+          >
             무기 정보 편집
           </div>
 
@@ -466,9 +600,12 @@ export const WeaponStatEditModal: React.FC<WeaponStatEditModalProps> = ({
             <input
               value={local.label}
               readOnly={readOnly}
-              onChange={(e) =>
-                setLocal((p) => ({ ...p, label: e.target.value }))
-              }
+              onChange={(event) => {
+                setLocal((previous) => ({
+                  ...previous,
+                  label: event.target.value,
+                }));
+              }}
               style={{
                 borderRadius: 8,
                 border: '1px solid #4b5563',
@@ -480,12 +617,16 @@ export const WeaponStatEditModal: React.FC<WeaponStatEditModalProps> = ({
                 outline: 'none',
               }}
             />
+
             <input
               value={local.summary}
               readOnly={readOnly}
-              onChange={(e) =>
-                setLocal((p) => ({ ...p, summary: e.target.value }))
-              }
+              onChange={(event) => {
+                setLocal((previous) => ({
+                  ...previous,
+                  summary: event.target.value,
+                }));
+              }}
               style={{
                 borderRadius: 8,
                 border: '1px solid #4b5563',
@@ -497,12 +638,16 @@ export const WeaponStatEditModal: React.FC<WeaponStatEditModalProps> = ({
                 outline: 'none',
               }}
             />
+
             <input
               value={local.unit ?? ''}
               readOnly={readOnly}
-              onChange={(e) =>
-                setLocal((p) => ({ ...p, unit: e.target.value }))
-              }
+              onChange={(event) => {
+                setLocal((previous) => ({
+                  ...previous,
+                  unit: event.target.value,
+                }));
+              }}
               style={{
                 borderRadius: 8,
                 border: '1px solid #4b5563',
@@ -525,6 +670,7 @@ export const WeaponStatEditModal: React.FC<WeaponStatEditModalProps> = ({
           >
             강화별 상세 값
           </div>
+
           <div
             style={{
               display: 'grid',
@@ -532,7 +678,7 @@ export const WeaponStatEditModal: React.FC<WeaponStatEditModalProps> = ({
               gap: 6,
             }}
           >
-            {levels.map((label, idx) => (
+            {levels.map((label, index) => (
               <React.Fragment key={label}>
                 <div
                   style={{
@@ -543,10 +689,19 @@ export const WeaponStatEditModal: React.FC<WeaponStatEditModalProps> = ({
                 >
                   {label}
                 </div>
+
                 <input
-                  value={local.levels[idx]?.value ?? ''}
+                  value={
+                    local.levels[index]?.value ??
+                    ''
+                  }
                   readOnly={readOnly}
-                  onChange={(e) => handleLevelChange(idx, e.target.value)}
+                  onChange={(event) => {
+                    handleLevelChange(
+                      index,
+                      event.target.value,
+                    );
+                  }}
                   style={{
                     borderRadius: 8,
                     border: '1px solid #4b5563',
@@ -584,7 +739,8 @@ export const WeaponStatEditModal: React.FC<WeaponStatEditModalProps> = ({
             >
               닫기
             </button>
-            {!readOnly && (
+
+            {!readOnly ? (
               <button
                 type="button"
                 onClick={handleSave}
@@ -601,7 +757,7 @@ export const WeaponStatEditModal: React.FC<WeaponStatEditModalProps> = ({
               >
                 저장
               </button>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
@@ -616,97 +772,157 @@ export type WeaponStatSelectModalProps = {
   weaponType: WeaponType;
   stats: WeaponStatConfig[];
   onClose: () => void;
-  onSave: (nextStats: WeaponStatConfig[]) => void;
+  onSave: (
+    nextStats: WeaponStatConfig[],
+  ) => void;
 };
 
-export const WeaponStatSelectModal: React.FC<WeaponStatSelectModalProps> = ({
+export const WeaponStatSelectModal: React.FC<
+  WeaponStatSelectModalProps
+> = ({
   open,
   weaponType,
   stats,
   onClose,
   onSave,
 }) => {
-  if (!open) return null;
-
   const base = React.useMemo(
-    () => ensureWeaponStats(stats, weaponType),
-    [stats, weaponType],
+    () =>
+      ensureWeaponStats(
+        stats,
+        weaponType,
+      ),
+    [
+      stats,
+      weaponType,
+    ],
   );
 
   const maxCount = base.length;
 
-  // 현재 활성화(enabled=true) 된 항목 수
-  const getEnabledCount = () => base.filter((s) => s.enabled).length;
+  const getEnabledCount =
+    React.useCallback(
+      () =>
+        base.filter(
+          (stat) => stat.enabled,
+        ).length,
+      [base],
+    );
 
-  const [count, setCount] = React.useState<number>(() => getEnabledCount());
+  const [count, setCount] =
+    React.useState<number>(
+      () => getEnabledCount(),
+    );
 
-  // 모달이 다시 열릴 때마다 현재 상태를 기준으로 초기값 리셋
+  // 모달을 다시 열거나 실제 스탯 구성이 바뀌면
+  // 현재 enabled 상태를 기준으로 입력값을 초기화한다.
   React.useEffect(() => {
-    if (open) {
-      setCount(getEnabledCount());
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, stats, weaponType]);
+    if (!open) return;
+
+    setCount(getEnabledCount());
+  }, [
+    open,
+    getEnabledCount,
+  ]);
 
   const clamp = React.useCallback(
-    (n: number) => {
-      if (Number.isNaN(n)) return 0;
-      if (n < 0) return 0;
-      if (n > maxCount) return maxCount;
-      return n;
+    (value: number) => {
+      if (Number.isNaN(value)) return 0;
+      if (value < 0) return 0;
+      if (value > maxCount) {
+        return maxCount;
+      }
+
+      return value;
     },
     [maxCount],
   );
 
-  const handleChange = (next: number) => {
-    setCount(clamp(next));
+  const handleChange = (
+    nextCount: number,
+  ) => {
+    setCount(clamp(nextCount));
   };
 
   const handleSave = React.useCallback(() => {
-    // 기존 enabled 패턴을 기준으로 개수만 맞춰 조정
-    const originalEnabledIndices: number[] = [];
-    base.forEach((s, idx) => {
-      if (s.enabled) originalEnabledIndices.push(idx);
+    const originalEnabledIndices:
+      number[] = [];
+
+    base.forEach((stat, index) => {
+      if (stat.enabled) {
+        originalEnabledIndices.push(
+          index,
+        );
+      }
     });
 
-    const oldCount = originalEnabledIndices.length;
+    const oldCount =
+      originalEnabledIndices.length;
+
     const target = clamp(count);
 
-    // 깊은 복사(불변성 유지)
-    const nextStats = base.map((s) => ({ ...s }));
+    // 깊은 복사로 기존 데이터의 불변성을 유지한다.
+    const nextStats = base.map(
+      (stat) => ({
+        ...stat,
+      }),
+    );
 
     if (target === oldCount) {
-      // 개수 변화 없음 → 그대로 저장
       onSave(nextStats);
       return;
     }
 
     if (target < oldCount) {
-      // 줄어드는 경우: 현재 enabled 중 "뒤에서부터" 끄기
-      const toDisable = originalEnabledIndices.slice(target);
-      toDisable.forEach((idx) => {
-        nextStats[idx] = { ...nextStats[idx], enabled: false };
+      // 현재 활성화된 항목 중 뒤쪽부터 비활성화한다.
+      const toDisable =
+        originalEnabledIndices.slice(
+          target,
+        );
+
+      toDisable.forEach((index) => {
+        nextStats[index] = {
+          ...nextStats[index],
+          enabled: false,
+        };
       });
     } else {
-      // 늘어나는 경우: 아직 disabled 인 것들 중 "앞에서부터" 켜기
-      let need = target - oldCount;
-      for (let i = 0; i < nextStats.length && need > 0; i++) {
-        if (!nextStats[i].enabled) {
-          nextStats[i] = { ...nextStats[i], enabled: true };
-          need--;
+      // 비활성 항목 중 앞쪽부터 필요한 수만큼 활성화한다.
+      let remaining =
+        target - oldCount;
+
+      for (
+        let index = 0;
+        index < nextStats.length &&
+        remaining > 0;
+        index += 1
+      ) {
+        if (!nextStats[index].enabled) {
+          nextStats[index] = {
+            ...nextStats[index],
+            enabled: true,
+          };
+
+          remaining -= 1;
         }
       }
     }
 
     onSave(nextStats);
-  }, [base, clamp, count, onSave]);
+  }, [
+    base,
+    clamp,
+    count,
+    onSave,
+  ]);
 
-  // ✅ Enter=저장, Esc=닫기
   useModalHotkeys({
     open,
     onEnter: handleSave,
     onEscape: onClose,
   });
+
+  if (!open) return null;
 
   return (
     <ModalPortal>
@@ -724,7 +940,9 @@ export const WeaponStatSelectModal: React.FC<WeaponStatSelectModalProps> = ({
         onMouseDown={onClose}
       >
         <div
-          onMouseDown={(e) => e.stopPropagation()}
+          onMouseDown={(event) => {
+            event.stopPropagation();
+          }}
           style={{
             width: 380,
             maxWidth: '90%',
@@ -735,7 +953,13 @@ export const WeaponStatSelectModal: React.FC<WeaponStatSelectModalProps> = ({
             color: '#e5e7eb',
           }}
         >
-          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>
+          <div
+            style={{
+              fontSize: 16,
+              fontWeight: 700,
+              marginBottom: 8,
+            }}
+          >
             정보 항목 개수 설정
           </div>
 
@@ -747,7 +971,9 @@ export const WeaponStatSelectModal: React.FC<WeaponStatSelectModalProps> = ({
               lineHeight: 1.5,
             }}
           >
-            무기 카드에 표시할 <b>정보 항목의 개수</b>를 설정합니다.
+            무기 카드에 표시할{' '}
+            <b>정보 항목의 개수</b>를
+            설정합니다.
           </div>
 
           <div
@@ -760,7 +986,9 @@ export const WeaponStatSelectModal: React.FC<WeaponStatSelectModalProps> = ({
           >
             <button
               type="button"
-              onClick={() => handleChange(count - 1)}
+              onClick={() => {
+                handleChange(count - 1);
+              }}
               style={{
                 borderRadius: 999,
                 border: '1px solid #4b5563',
@@ -779,7 +1007,11 @@ export const WeaponStatSelectModal: React.FC<WeaponStatSelectModalProps> = ({
               value={count}
               min={0}
               max={maxCount}
-              onChange={(e) => handleChange(Number(e.target.value))}
+              onChange={(event) => {
+                handleChange(
+                  Number(event.target.value),
+                );
+              }}
               style={{
                 width: 80,
                 textAlign: 'center',
@@ -795,7 +1027,9 @@ export const WeaponStatSelectModal: React.FC<WeaponStatSelectModalProps> = ({
 
             <button
               type="button"
-              onClick={() => handleChange(count + 1)}
+              onClick={() => {
+                handleChange(count + 1);
+              }}
               style={{
                 borderRadius: 999,
                 border: '1px solid #4b5563',
@@ -809,7 +1043,12 @@ export const WeaponStatSelectModal: React.FC<WeaponStatSelectModalProps> = ({
               +
             </button>
 
-            <span style={{ fontSize: 11, color: '#9ca3af' }}>
+            <span
+              style={{
+                fontSize: 11,
+                color: '#9ca3af',
+              }}
+            >
               최대 {maxCount}개
             </span>
           </div>
@@ -821,7 +1060,8 @@ export const WeaponStatSelectModal: React.FC<WeaponStatSelectModalProps> = ({
               marginBottom: 12,
             }}
           >
-            현재 설정된 개수: <b>{count}개</b>
+            현재 설정된 개수:{' '}
+            <b>{count}개</b>
           </div>
 
           <div
@@ -846,6 +1086,7 @@ export const WeaponStatSelectModal: React.FC<WeaponStatSelectModalProps> = ({
             >
               닫기
             </button>
+
             <button
               type="button"
               onClick={handleSave}
@@ -877,18 +1118,20 @@ export type WeaponVideoModalProps = {
   onClose: () => void;
 };
 
-export const WeaponVideoModal: React.FC<WeaponVideoModalProps> = ({
+export const WeaponVideoModal: React.FC<
+  WeaponVideoModalProps
+> = ({
   open,
   url,
   onClose,
 }) => {
-  if (!open) return null;
-
-  // 비디오는 Enter 동작이 의미 없어서 Esc로 닫기만 추가(기존 동작 유지)
+  // 영상 모달에는 Enter 동작이 없으므로 Esc 닫기만 사용한다.
   useModalHotkeys({
     open,
     onEscape: onClose,
   });
+
+  if (!open) return null;
 
   return (
     <ModalPortal>
@@ -906,7 +1149,9 @@ export const WeaponVideoModal: React.FC<WeaponVideoModalProps> = ({
         onMouseDown={onClose}
       >
         <div
-          onMouseDown={(e) => e.stopPropagation()}
+          onMouseDown={(event) => {
+            event.stopPropagation();
+          }}
           style={{
             width: 'min(960px, 90vw)',
             maxHeight: '80vh',
@@ -921,15 +1166,18 @@ export const WeaponVideoModal: React.FC<WeaponVideoModalProps> = ({
           <div
             style={{
               padding: '8px 12px',
-              borderBottom: '1px solid #111827',
+              borderBottom:
+                '1px solid #111827',
               display: 'flex',
-              justifyContent: 'space-between',
+              justifyContent:
+                'space-between',
               alignItems: 'center',
               color: '#e5e7eb',
               fontSize: 14,
             }}
           >
             <span>공격 영상</span>
+
             <button
               type="button"
               onClick={onClose}
