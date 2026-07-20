@@ -29,7 +29,7 @@ import {
   LeafRenderer,
 } from '@/components/wiki-render/inline';
 
-import WeaponCardRead from '@/components/wiki-render/weapon/WeaponCardRead';
+import WeaponCardReadAdapter from './read/weapon/WeaponCardReadAdapter';
 import PriceTableReadAdapter from './read/PriceTableReadAdapter';
 
 import {
@@ -360,11 +360,12 @@ function renderNode(
     // 무기 카드 블록 (문서 보기용)
     case "weapon-card": {
       return (
-        <WeaponCardRead
+        <WeaponCardReadAdapter
+          key={key}
+          keyProp={key}
           node={node}
-          keyProp={key ?? ""}
-          isDarkMode={!!env?.isDarkMode}
-          isMobile={!!env?.isMobile}
+          isDarkMode={env?.isDarkMode}
+          isMobile={env?.isMobile}
         />
       );
     }

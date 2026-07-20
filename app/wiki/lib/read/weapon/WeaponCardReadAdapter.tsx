@@ -6,18 +6,20 @@ import SmartImage from '@/components/common/SmartImage';
 import { cdn, withVersion } from '@lib/cdn';
 
 import WeaponBlock from '@/components/wiki-render/blocks/WeaponBlock';
-import WeaponCardRenderer from './WeaponCardRenderer';
+import WeaponCardRenderer from '@/components/wiki-render/weapon/WeaponCardRenderer';
 import WeaponVideoModal from './WeaponVideoModal';
 
 import {
   WEAPON_TYPES_META,
   normalizeWeaponType,
   supportsWeaponVideo,
-} from './weaponMeta';
+} from '@/components/wiki-render/weapon/weaponMeta';
 
-import type { WeaponImageRenderArgs } from './types';
+import type {
+  WeaponImageRenderArgs,
+} from '@/components/wiki-render/weapon/types';
 
-type WeaponCardReadProps = {
+type WeaponCardReadAdapterProps = {
   node: any;
   keyProp?: React.Key;
   isDarkMode?: boolean;
@@ -48,12 +50,12 @@ function getWeaponLevelLabelsFromStats(enabledStats: any[]) {
     .filter(Boolean);
 }
 
-export default function WeaponCardRead({
+export default function WeaponCardReadAdapter({
   node,
   keyProp,
   isDarkMode = false,
   isMobile = false,
-}: WeaponCardReadProps) {
+}: WeaponCardReadAdapterProps) {
   const stats: any[] = Array.isArray(node.stats) ? node.stats : [];
   const enabledStats = stats.filter((stat) => stat && stat.enabled);
 
