@@ -3,6 +3,8 @@
 import React from 'react';
 import type { RenderElementProps } from 'slate-react';
 
+import LinkBlockRow from '@/components/wiki-render/blocks/LinkBlockRow';
+
 type LinkBlockRowEditorAdapterProps = {
   attributes: RenderElementProps['attributes'];
   children: React.ReactNode;
@@ -13,18 +15,8 @@ export default function LinkBlockRowEditorAdapter({
   children,
 }: LinkBlockRowEditorAdapterProps) {
   return (
-    <div
-      {...attributes}
-      style={{
-        display: 'flex',
-        gap: 12,
-        margin: '8px 0',
-        width: '100%',
-        flexWrap: 'wrap',
-        alignItems: 'stretch',
-      }}
-    >
+    <LinkBlockRow attributes={attributes}>
       {children}
-    </div>
+    </LinkBlockRow>
   );
 }

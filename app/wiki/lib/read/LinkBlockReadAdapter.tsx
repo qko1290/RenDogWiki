@@ -2,9 +2,10 @@
 
 import React from 'react';
 
+import LinkBlockRow from '@/components/wiki-render/blocks/LinkBlockRow';
+
 import LinkCardReadAdapter from './link/LinkCardReadAdapter';
 import { nodeToPlainText } from '../readRendererUtils';
-
 import type {
   ReadRenderEnv,
   ReadRenderNode,
@@ -59,19 +60,12 @@ export function LinkBlockRowReadAdapter({
   env,
   renderNode,
 }: LinkBlockRowReadAdapterProps) {
-  const children = Array.isArray(node.children) ? node.children : [];
+  const children = Array.isArray(node.children)
+    ? node.children
+    : [];
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        gap: 12,
-        margin: '8px 0',
-        width: '100%',
-        flexWrap: 'wrap',
-        alignItems: 'stretch',
-      }}
-    >
+    <LinkBlockRow>
       {children.map((child: any, index: number) =>
         renderNode(
           child,
@@ -84,6 +78,6 @@ export function LinkBlockRowReadAdapter({
           },
         ),
       )}
-    </div>
+    </LinkBlockRow>
   );
 }
