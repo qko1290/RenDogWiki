@@ -11,7 +11,7 @@ import { toProxyUrl } from '@lib/cdn';
 import type { PriceTableCardElement } from '@/types/slate';
 import type { PriceTableEditState } from '../types';
 
-import PriceTableBlock from '@/components/wiki-render/blocks/PriceTableBlock';
+import WikiBlockFrame from '@/components/wiki-render/blocks/WikiBlockFrame';
 import PriceTableRenderer from '@/components/wiki-render/price-table/PriceTableRenderer';
 import { useLivePriceTableItems } from '@/components/wiki-render/price-table/useLivePriceTableItems';
 import { usePriceTableStageState } from '@/components/wiki-render/price-table/usePriceTableStageState';
@@ -150,13 +150,17 @@ export default function PriceTableEditorAdapter({
   );
 
   return (
-    <PriceTableBlock
+    <WikiBlockFrame
       mode="edit"
-      attributes={attributes as React.HTMLAttributes<HTMLDivElement>}
+      editClassName="wiki-price-table-edit"
+      readClassName="wiki-price-table-read"
+      attributes={
+        attributes as React.HTMLAttributes<HTMLDivElement>
+      }
       content={content}
       editControls={deleteButton}
     >
       {children}
-    </PriceTableBlock>
+    </WikiBlockFrame>
   );
 }

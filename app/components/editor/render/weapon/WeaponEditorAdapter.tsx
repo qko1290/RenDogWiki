@@ -30,7 +30,7 @@ import {
   WeaponVideoModal,
 } from './WeaponModals';
 
-import WeaponBlock from '@/components/wiki-render/blocks/WeaponBlock';
+import WikiBlockFrame from '@/components/wiki-render/blocks/WikiBlockFrame';
 import WeaponCardRenderer from '@/components/wiki-render/weapon/WeaponCardRenderer';
 import type { WeaponImageRenderArgs } from '@/components/wiki-render/weapon/types';
 
@@ -413,9 +413,13 @@ export default function WeaponEditorAdapter({
   );
 
   return (
-    <WeaponBlock
+    <WikiBlockFrame
       mode="edit"
-      attributes={attributes as React.HTMLAttributes<HTMLDivElement>}
+      editClassName="wiki-weapon-card-edit"
+      readClassName="wiki-weapon-card-read"
+      attributes={
+        attributes as React.HTMLAttributes<HTMLDivElement>
+      }
       content={content}
     />
   );

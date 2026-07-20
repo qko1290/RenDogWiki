@@ -5,7 +5,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import SmartImage from '@/components/common/SmartImage';
 import { cdn, withVersion } from '@lib/cdn';
 
-import WeaponBlock from '@/components/wiki-render/blocks/WeaponBlock';
+import WikiBlockFrame from '@/components/wiki-render/blocks/WikiBlockFrame';
 import WeaponCardRenderer from '@/components/wiki-render/weapon/WeaponCardRenderer';
 import WeaponVideoModal from './WeaponVideoModal';
 
@@ -150,11 +150,12 @@ export default function WeaponCardReadAdapter({
   );
 
   return (
-    <WeaponBlock
+    <WikiBlockFrame
       key={keyProp}
       mode="read"
+      editClassName="wiki-weapon-card-edit"
+      readClassName="wiki-weapon-card-read"
       content={content}
-      compact={isMobile}
     />
   );
 }
