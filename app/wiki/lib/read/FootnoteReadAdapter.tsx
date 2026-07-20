@@ -13,7 +13,9 @@ import {
   FootnoteInline as SharedFootnoteInline,
 } from '@/components/wiki-render/inline';
 
-const FOOTNOTE_HOVER_EVENT = 'rdwiki:footnote-hover';
+import {
+  FOOTNOTE_HOVER_EVENT,
+} from './readInteractionEvents';
 
 type FootnoteReadAdapterProps = {
   label?: string | null;

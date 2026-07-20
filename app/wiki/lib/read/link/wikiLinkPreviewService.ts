@@ -9,7 +9,7 @@ import {
 import type {
   WikiCategoryRow,
   WikiLinkPreviewData,
-} from '@/components/wiki-render/link/types';
+} from './types';
 
 const WIKI_LINK_PREVIEW_CACHE_KEY =
   '__rdwiki_doc_preview_cache__';

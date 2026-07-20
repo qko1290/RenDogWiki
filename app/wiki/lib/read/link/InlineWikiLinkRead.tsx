@@ -17,13 +17,13 @@ import { cdn, withVersion } from '@lib/cdn';
 import InlineLinkRenderer from '@/components/wiki-render/link/InlineLinkRenderer';
 
 import type {
-  InlineWikiLinkProps,
+  InlineWikiLinkReadProps,
   WikiLinkPreviewData,
-} from '@/components/wiki-render/link/types';
+} from './types';
 
 import {
   FOOTNOTE_HOVER_EVENT,
-} from '@/components/wiki-render/link/types';
+} from '../readInteractionEvents';
 
 import {
   getWikiLinkPreviewData,
@@ -38,7 +38,7 @@ export default function InlineWikiLinkRead({
   children,
   onWikiNavigate,
   onBeforeNavigate,
-}: InlineWikiLinkProps) {
+}: InlineWikiLinkReadProps) {
   const router = useRouter();
 
   const rootRef = useRef<HTMLAnchorElement | null>(null);
