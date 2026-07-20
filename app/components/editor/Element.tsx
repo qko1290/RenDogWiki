@@ -25,13 +25,14 @@ import type {
 import type { PriceTableEditState } from './render/types';
 import type { ElementRenderProps, WikiRefKind } from './render/types';
 
-import PriceTableCard from './render/PriceTableCard';
 import {
   TableElementRenderer,
   TableRowRenderer,
   TableCellRenderer,
 } from './render/Table';
-import WeaponCard from './render/WeaponCard';
+
+import PriceTableEditorAdapter from './render/price-table/PriceTableEditorAdapter';
+import WeaponEditorAdapter from './render/weapon/WeaponEditorAdapter';
 
 import InlineLinkRenderer from '@/components/wiki-render/link/InlineLinkRenderer';
 import LinkBlockEditorAdapter from './render/link/LinkBlockEditorAdapter';
@@ -69,7 +70,6 @@ const Element: React.FC<ElementRenderProps> = ({
   element,
   editor,
   onIconClick,
-  priceTableEdit,
   setPriceTableEdit,
   openFootnoteEditor,
   readOnly,
@@ -205,15 +205,13 @@ const Element: React.FC<ElementRenderProps> = ({
 
     case 'price-table-card': {
       return (
-        <PriceTableCard
+        <PriceTableEditorAdapter
           attributes={attributes}
           element={element as PriceTableCardElement}
-          editor={editor}
-          priceTableEdit={priceTableEdit}
           setPriceTableEdit={setPriceTableEdit}
         >
           {children}
-        </PriceTableCard>
+        </PriceTableEditorAdapter>
       );
     }
 
@@ -284,13 +282,13 @@ const Element: React.FC<ElementRenderProps> = ({
 
     case 'weapon-card': {
       return (
-        <WeaponCard
+        <WeaponEditorAdapter
           attributes={attributes}
           element={element as WeaponCardElement}
           editor={editor}
         >
           {children}
-        </WeaponCard>
+        </WeaponEditorAdapter>
       );
     }
 
