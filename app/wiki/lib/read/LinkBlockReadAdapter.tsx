@@ -2,7 +2,9 @@
 
 import React from 'react';
 
-import LinkBlockRow from '@/components/wiki-render/blocks/LinkBlockRow';
+import {
+  LinkBlockRow,
+} from '@/components/wiki-render';
 
 import LinkCardReadAdapter from './link/LinkCardReadAdapter';
 import { nodeToPlainText } from '../readRendererUtils';

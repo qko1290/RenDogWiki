@@ -7,7 +7,9 @@ import type { RenderElementProps } from 'slate-react';
 
 import type { LinkBlockElement } from '@/types/slate';
 
-import LinkCardRenderer from '@/components/wiki-render/link/LinkCardRenderer';
+import {
+  LinkCardRenderer,
+} from '@/components/wiki-render';
 import useLinkCardTarget from '@/components/wiki-render/link/useLinkCardTarget';
 import useResolvedWikiDocIcon from '@/components/wiki-render/link/useResolvedWikiDocIcon';
 

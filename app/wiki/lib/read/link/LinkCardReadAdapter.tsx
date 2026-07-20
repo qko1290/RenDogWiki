@@ -3,7 +3,9 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 
-import LinkCardRenderer from '@/components/wiki-render/link/LinkCardRenderer';
+import {
+  LinkCardRenderer,
+} from '@/components/wiki-render';
 import useLinkCardTarget from '@/components/wiki-render/link/useLinkCardTarget';
 import useResolvedWikiDocIcon from '@/components/wiki-render/link/useResolvedWikiDocIcon';
 import { markNextDocViewSource } from '@/wiki/lib/viewSource';

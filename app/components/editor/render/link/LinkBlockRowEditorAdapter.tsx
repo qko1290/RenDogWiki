@@ -3,7 +3,9 @@
 import React from 'react';
 import type { RenderElementProps } from 'slate-react';
 
-import LinkBlockRow from '@/components/wiki-render/blocks/LinkBlockRow';
+import {
+  LinkBlockRow,
+} from '@/components/wiki-render';
 
 type LinkBlockRowEditorAdapterProps = {
   attributes: RenderElementProps['attributes'];
