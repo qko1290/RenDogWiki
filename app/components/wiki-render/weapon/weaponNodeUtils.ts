@@ -1,9 +1,10 @@
+import type {
+  WeaponType as SlateWeaponType,
+} from '@/types/slate';
+
 import {
   normalizeWeaponType,
   supportsWeaponVideo,
-} from './weaponMeta';
-import type {
-  WeaponType,
 } from './weaponMeta';
 
 type WeaponNodeLike =
@@ -12,7 +13,7 @@ type WeaponNodeLike =
   | undefined;
 
 export type ResolvedWeaponNode = {
-  weaponType: WeaponType;
+  weaponType: SlateWeaponType;
   rawName: string;
   rawImage: string;
   rawVideo: string;
@@ -42,11 +43,31 @@ function resolveVersion(
   return undefined;
 }
 
+function resolveSlateWeaponType(
+  value: unknown,
+): SlateWeaponType {
+  const normalized =
+    normalizeWeaponType(value);
+
+  /**
+   * weaponMeta는 기존 데이터 호환을 위해
+   * miniBoss와 mini-boss를 모두 허용한다.
+   *
+   * Slate 문서 타입에서는 mini-boss만 사용하므로
+   * 공통 렌더링 경계에서 표기를 하나로 통일한다.
+   */
+  if (normalized === 'miniBoss') {
+    return 'mini-boss';
+  }
+
+  return normalized as SlateWeaponType;
+}
+
 export function resolveWeaponNode(
   node: WeaponNodeLike,
 ): ResolvedWeaponNode {
   const weaponType =
-    normalizeWeaponType(
+    resolveSlateWeaponType(
       node?.weaponType,
     );
 
