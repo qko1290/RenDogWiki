@@ -86,12 +86,21 @@ export default function WeaponEditorAdapter({
 
   const levelSignature = levelLabels.join('|');
 
+  const defaultLevelIndex =
+    getDefaultWeaponLevelIndex(levelLabels);
+
   const [selectedLevelIndex, setSelectedLevelIndex] =
-    React.useState<number | null>(() => getDefaultWeaponLevelIndex(levelLabels));
+    React.useState<number | null>(
+      () => defaultLevelIndex,
+    );
 
   React.useEffect(() => {
-    setSelectedLevelIndex(getDefaultWeaponLevelIndex(levelLabels));
-  }, [levelSignature, weaponType]);
+    setSelectedLevelIndex(defaultLevelIndex);
+  }, [
+    defaultLevelIndex,
+    levelSignature,
+    weaponType,
+  ]);
 
   const [typeModalOpen, setTypeModalOpen] = React.useState(false);
   const [nameModalOpen, setNameModalOpen] = React.useState(false);

@@ -66,13 +66,20 @@ export default function WeaponCardReadAdapter({
 
   const levelSignature = levelLabels.join('|');
 
-  const [selectedLevelIndex, setSelectedLevelIndex] = useState<number | null>(
-    () => getDefaultWeaponLevelIndex(levelLabels),
-  );
+  const defaultLevelIndex =
+    getDefaultWeaponLevelIndex(levelLabels);
+
+  const [selectedLevelIndex, setSelectedLevelIndex] =
+    useState<number | null>(
+      () => defaultLevelIndex,
+    );
 
   useEffect(() => {
-    setSelectedLevelIndex(getDefaultWeaponLevelIndex(levelLabels));
-  }, [levelSignature]);
+    setSelectedLevelIndex(defaultLevelIndex);
+  }, [
+    defaultLevelIndex,
+    levelSignature,
+  ]);
 
   const [showVideo, setShowVideo] = useState(false);
 
