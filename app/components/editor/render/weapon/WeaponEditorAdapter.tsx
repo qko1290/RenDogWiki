@@ -23,6 +23,9 @@ import {
 import {
   supportsWeaponVideo,
 } from '@/components/wiki-render/weapon/weaponMeta';
+import {
+  resolveWeaponNode,
+} from '@/components/wiki-render/weapon/weaponNodeUtils';
 import type {
   WeaponImageRenderArgs,
 } from '@/components/wiki-render/weapon/types';
@@ -77,13 +80,19 @@ export default function WeaponEditorAdapter({
   const isReadOnly =
     ReactEditor.isReadOnly(editor);
 
+  const resolvedWeapon =
+    resolveWeaponNode(
+      el as unknown as Record<
+        string,
+        unknown
+      >,
+    );
+
   const weaponType: WeaponType =
-    el.weaponType || 'epic';
+    resolvedWeapon.weaponType;
 
   const supportsVideo =
-    supportsWeaponVideo(
-      weaponType,
-    );
+    resolvedWeapon.supportsVideo;
 
   const meta =
     WEAPON_TYPES_META[weaponType] ??
@@ -311,14 +320,10 @@ export default function WeaponEditorAdapter({
     );
 
   const rawVideoUrl =
-    String(
-      el.videoUrl ?? '',
-    );
+    resolvedWeapon.rawVideo;
 
   const rawImageUrl =
-    String(
-      el.imageUrl ?? '',
-    );
+    resolvedWeapon.rawImage;
 
   const videoSrc =
     supportsVideo &&

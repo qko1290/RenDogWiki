@@ -11,10 +11,11 @@ import {
   WikiBlockFrame,
 } from '@/components/wiki-render';
 import {
-  normalizeWeaponType,
-  supportsWeaponVideo,
   WEAPON_TYPES_META,
 } from '@/components/wiki-render/weapon/weaponMeta';
+import {
+  resolveWeaponNode,
+} from '@/components/wiki-render/weapon/weaponNodeUtils';
 import {
   getWeaponLevelLabelsFromStats,
 } from '@/components/wiki-render/weapon/weaponLevelUtils';
@@ -80,10 +81,17 @@ export default function WeaponCardReadAdapter({
     setShowVideo,
   ] = useState(false);
 
-  const weaponType =
-    normalizeWeaponType(
-      node.weaponType,
-    );
+  const resolvedWeapon =
+    resolveWeaponNode(node);
+
+  const {
+    weaponType,
+    rawImage,
+    rawVideo,
+    imageVersion,
+    videoVersion,
+    supportsVideo,
+  } = resolvedWeapon;
 
   const meta =
     WEAPON_TYPES_META[
@@ -92,47 +100,22 @@ export default function WeaponCardReadAdapter({
     WEAPON_TYPES_META.epic;
 
   const name =
-    String(
-      node.name ?? '',
-    ).trim() ||
+    resolvedWeapon.rawName ||
     '무기 이름 없음';
-
-  const versionBase =
-    node.imageUpdatedAt ||
-    node.imageVersion ||
-    node.videoUpdatedAt ||
-    node.videoVersion ||
-    node.updatedAt ||
-    node.version;
-
-  const rawImage =
-    node.imageUrl ||
-    node.image ||
-    '';
 
   const imageSrc =
     rawImage
       ? withVersion(
           cdn(rawImage),
-          versionBase,
+          imageVersion,
         )
-      : '';
-
-  const supportsVideo =
-    supportsWeaponVideo(
-      weaponType,
-    );
-
-  const rawVideo =
-    supportsVideo
-      ? node.videoUrl || ''
       : '';
 
   const videoSrc =
     rawVideo
       ? withVersion(
           cdn(rawVideo),
-          versionBase,
+          videoVersion,
         )
       : '';
 
