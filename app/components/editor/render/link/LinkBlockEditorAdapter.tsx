@@ -1,14 +1,17 @@
 'use client';
 
 import React, { useMemo } from 'react';
+import { Node, Transforms, Element as SlateElement } from 'slate';
 import { ReactEditor } from 'slate-react';
 import type { RenderElementProps } from 'slate-react';
-import { Node, Transforms, Element as SlateElement } from 'slate';
 
 import type { LinkBlockElement } from '@/types/slate';
 
 import LinkCardRenderer from '@/components/wiki-render/link/LinkCardRenderer';
-import { isRdwikiWikiUrl } from '@/components/wiki-render/link/linkUtils';
+import {
+  isRdwikiWikiUrl,
+  parseLinkUrl,
+} from '@/components/wiki-render/link/linkUtils';
 import useResolvedWikiDocIcon from '@/components/wiki-render/link/useResolvedWikiDocIcon';
 
 type LinkBlockEditorAdapterProps = {
@@ -17,21 +20,6 @@ type LinkBlockEditorAdapterProps = {
   element: LinkBlockElement;
   editor: any;
 };
-
-function getParsedUrl(url?: string | null) {
-  if (!url) return null;
-
-  try {
-    const base =
-      typeof window !== 'undefined'
-        ? window.location.origin
-        : 'https://dummy.local';
-
-    return new URL(url, base);
-  } catch {
-    return null;
-  }
-}
 
 function isGarbageSiteName(value: string) {
   return (
@@ -57,23 +45,26 @@ function getCompactSubText({
   const parts: string[] = [];
 
   if (isWikiLink) {
-    const p =
+    const path =
       parsedUrl.searchParams.get('path') ??
       ((element as any).wikiPath != null
         ? String((element as any).wikiPath)
         : null);
 
-    const t =
+    const title =
       parsedUrl.searchParams.get('title') ??
       ((element as any).wikiTitle != null
         ? String((element as any).wikiTitle)
         : null);
 
-    if (p) parts.push(`path=${p}`);
-    if (t) parts.push(`title=${t}`);
+    if (path) parts.push(`path=${path}`);
+    if (title) parts.push(`title=${title}`);
 
-    const rawHash = parsedUrl.hash ? parsedUrl.hash.slice(1) : '';
-    const decoded = rawHash
+    const rawHash = parsedUrl.hash
+      ? parsedUrl.hash.slice(1)
+      : '';
+
+    const decodedHash = rawHash
       ? (() => {
           try {
             return decodeURIComponent(rawHash);
@@ -83,14 +74,17 @@ function getCompactSubText({
         })()
       : '';
 
-    if (decoded) {
-      const clean = decoded.startsWith('heading-')
-        ? decoded.slice(8)
-        : decoded;
+    if (decodedHash) {
+      const cleanHash = decodedHash.startsWith('heading-')
+        ? decodedHash.slice(8)
+        : decodedHash;
 
-      const short = clean.length > 26 ? `${clean.slice(0, 26)}…` : clean;
+      const shortHash =
+        cleanHash.length > 26
+          ? `${cleanHash.slice(0, 26)}…`
+          : cleanHash;
 
-      parts.push(`#${short}`);
+      parts.push(`#${shortHash}`);
     }
 
     return parts.join(dot) || 'wiki';
@@ -117,7 +111,10 @@ export default function LinkBlockEditorAdapter({
   const el = element;
   const isReadOnly = ReactEditor.isReadOnly(editor);
 
-  const parsedUrl = useMemo(() => getParsedUrl(el.url), [el.url]);
+  const parsedUrl = useMemo(
+    () => parseLinkUrl(el.url),
+    [el.url],
+  );
 
   const isWikiLink = useMemo(() => {
     if (el.isWiki) return true;
@@ -150,7 +147,8 @@ export default function LinkBlockEditorAdapter({
   } catch {}
 
   const siteLabel = useMemo(() => {
-    const clean = (value?: string | null) => (value ?? '').trim();
+    const clean = (value?: string | null) =>
+      (value ?? '').trim();
 
     if (isWikiLink) return 'RenDog Wiki';
 
@@ -180,7 +178,9 @@ export default function LinkBlockEditorAdapter({
   const title = isReadOnly
     ? Node.string(el) ||
       (isWikiLink
-        ? (el as any).wikiTitle || el.sitename || '문서'
+        ? (el as any).wikiTitle ||
+          el.sitename ||
+          '문서'
         : displaySitename || el.url)
     : children;
 
@@ -193,7 +193,6 @@ export default function LinkBlockEditorAdapter({
         event.stopPropagation();
 
         const path = ReactEditor.findPath(editor, element);
-
         Transforms.removeNodes(editor, { at: path });
       }}
       style={{
@@ -230,8 +229,12 @@ export default function LinkBlockEditorAdapter({
         isReadOnly
           ? Node.string(el) ||
             (isWikiLink
-              ? (el as any).wikiTitle || el.sitename || '문서'
-              : displaySitename || el.url || '링크')
+              ? (el as any).wikiTitle ||
+                el.sitename ||
+                '문서'
+              : displaySitename ||
+                el.url ||
+                '링크')
           : undefined
       }
       titleContent={title}

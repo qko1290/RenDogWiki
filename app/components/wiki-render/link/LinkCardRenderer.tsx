@@ -4,12 +4,14 @@ import React from 'react';
 
 import SmartImage from '@/components/common/SmartImage';
 import LinkCardBlock from '@/components/wiki-render/blocks/LinkCardBlock';
+
 import { cdn, withVersion } from '@lib/cdn';
 
 import {
   decodeTitleForDisplay,
   isRdwikiWikiUrl,
   normalizeToAppHref,
+  parseLinkUrl,
 } from './linkUtils';
 
 type LinkCardInputSize =
@@ -23,7 +25,6 @@ type LinkCardInputSize =
 
 type LinkCardRendererProps = {
   mode: 'read' | 'edit';
-
   url?: string;
   isWiki?: boolean;
   wikiPath?: string | number | null;
@@ -50,27 +51,11 @@ type LinkCardRendererProps = {
   editControls?: React.ReactNode;
   readControls?: React.ReactNode;
   clickableInReadMode?: boolean;
-
   compactMobile?: boolean;
   onWikiNavigate?: (href: string) => void;
   onClick?: (event: React.MouseEvent) => void;
   children?: React.ReactNode;
 };
-
-function getParsedUrl(url?: string | null) {
-  if (!url) return null;
-
-  try {
-    const base =
-      typeof window !== 'undefined'
-        ? window.location.origin
-        : 'https://dummy.local';
-
-    return new URL(url, base);
-  } catch {
-    return null;
-  }
-}
 
 function ExternalLinkIcon({ size = 18 }: { size?: number }) {
   return (
@@ -89,7 +74,9 @@ function ExternalLinkIcon({ size = 18 }: { size?: number }) {
   );
 }
 
-function looksLikeImageIcon(icon: string | null | undefined) {
+function looksLikeImageIcon(
+  icon: string | null | undefined,
+) {
   const value = String(icon ?? '').trim();
 
   if (!value) return false;
@@ -131,7 +118,10 @@ export default function LinkCardRenderer({
   onClick,
   children,
 }: LinkCardRendererProps) {
-  const parsedUrl = React.useMemo(() => getParsedUrl(url), [url]);
+  const parsedUrl = React.useMemo(
+    () => parseLinkUrl(url),
+    [url],
+  );
 
   const isWikiLink = React.useMemo(() => {
     if (isWiki) return true;
@@ -145,7 +135,8 @@ export default function LinkCardRenderer({
     [url],
   );
 
-  const [faviconFailed, setFaviconFailed] = React.useState(false);
+  const [faviconFailed, setFaviconFailed] =
+    React.useState(false);
 
   /**
    * 문서 아이콘 조회는 이 공통 렌더러에서 처리하지 않는다.
@@ -156,7 +147,8 @@ export default function LinkCardRenderer({
    * 각 adapter가 useResolvedWikiDocIcon을 통해 해석한 아이콘을
    * docIcon prop으로 전달한다.
    */
-  const resolvedDocIcon = String(docIcon ?? '').trim() || null;
+  const resolvedDocIcon =
+    String(docIcon ?? '').trim() || null;
 
   React.useEffect(() => {
     setFaviconFailed(false);
@@ -174,12 +166,15 @@ export default function LinkCardRenderer({
       : null;
 
   const isHalf = isHalfLinkCardSize(size);
-  const isCompactTwoColMobile = compactMobile && isHalf;
+  const isCompactTwoColMobile =
+    compactMobile && isHalf;
 
   const fallbackTitleText =
     labelText ||
     (isWikiLink
-      ? decodeTitleForDisplay(wikiTitle) || sitename || '문서'
+      ? decodeTitleForDisplay(wikiTitle) ||
+        sitename ||
+        '문서'
       : displaySitename || url || '링크');
 
   const fallbackSubtitle = isWikiLink
@@ -221,9 +216,7 @@ export default function LinkCardRenderer({
           lineHeight: 1,
         }}
         aria-hidden
-      >
-        📄
-      </span>
+      />
     )
   ) : externalFavicon && !faviconFailed ? (
     <img
@@ -314,26 +307,25 @@ export default function LinkCardRenderer({
 
     event.preventDefault();
     event.stopPropagation();
-
     onWikiNavigate(normalizedHref);
   };
 
   const card = (
-      <LinkCardBlock
-        mode={mode}
-        href={normalizedHref}
-        title={titleNode}
-        subtitle={renderedSubtitle}
-        metaText={metaText}
-        icon={iconNode}
-        size="normal"
-        inRow={inRow}
-        isWikiLink={isWikiLink}
-        editControls={editControls}
-        readControls={readControls}
-        clickableInReadMode={false}
-      />
-    );
+    <LinkCardBlock
+      mode={mode}
+      href={normalizedHref}
+      title={titleNode}
+      subtitle={renderedSubtitle}
+      metaText={metaText}
+      icon={iconNode}
+      size="normal"
+      inRow={inRow}
+      isWikiLink={isWikiLink}
+      editControls={editControls}
+      readControls={readControls}
+      clickableInReadMode={false}
+    />
+  );
 
   const outerStyle: React.CSSProperties = {
     position: 'relative',
@@ -350,7 +342,9 @@ export default function LinkCardRenderer({
     <div
       {...mergedAttributes}
       data-wiki-block="link-block"
-      data-wiki-link-kind={isWikiLink ? 'internal' : 'external'}
+      data-wiki-link-kind={
+        isWikiLink ? 'internal' : 'external'
+      }
       style={{
         ...outerStyle,
         ...(mergedAttributes.style ?? {}),

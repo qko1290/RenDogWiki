@@ -1,17 +1,14 @@
 'use client';
 
 import React from 'react';
-
 import { useRouter } from 'next/navigation';
 
 import LinkCardRenderer from '@/components/wiki-render/link/LinkCardRenderer';
-
 import {
   isRdwikiWikiUrl,
+  parseLinkUrl,
 } from '@/components/wiki-render/link/linkUtils';
-
 import useResolvedWikiDocIcon from '@/components/wiki-render/link/useResolvedWikiDocIcon';
-
 import { markNextDocViewSource } from '@/wiki/lib/viewSource';
 
 type LinkCardInputSize =
@@ -26,38 +23,17 @@ type LinkCardInputSize =
 type LinkCardReadAdapterProps = {
   url?: string;
   isWiki?: boolean;
-
   wikiPath?: string | number | null;
   wikiTitle?: string | null;
-
   sitename?: string | null;
   size?: LinkCardInputSize;
   docIcon?: string | null;
-
   labelText?: string;
-
   inRow?: boolean;
   compactMobile?: boolean;
-
   onWikiNavigate?: (href: string) => void;
-
   children?: React.ReactNode;
 };
-
-function getParsedUrl(url?: string | null) {
-  if (!url) return null;
-
-  try {
-    const base =
-      typeof window !== 'undefined'
-        ? window.location.origin
-        : 'https://dummy.local';
-
-    return new URL(url, base);
-  } catch {
-    return null;
-  }
-}
 
 export default function LinkCardReadAdapter({
   url,
@@ -76,7 +52,7 @@ export default function LinkCardReadAdapter({
   const router = useRouter();
 
   const parsedUrl = React.useMemo(
-    () => getParsedUrl(url),
+    () => parseLinkUrl(url),
     [url],
   );
 
