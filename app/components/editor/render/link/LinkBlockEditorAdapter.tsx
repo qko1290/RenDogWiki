@@ -9,6 +9,7 @@ import type { LinkBlockElement } from '@/types/slate';
 
 import LinkCardRenderer from '@/components/wiki-render/link/LinkCardRenderer';
 import { isRdwikiWikiUrl } from '@/components/wiki-render/link/linkUtils';
+import useResolvedWikiDocIcon from '@/components/wiki-render/link/useResolvedWikiDocIcon';
 
 type LinkBlockEditorAdapterProps = {
   attributes: RenderElementProps['attributes'];
@@ -125,6 +126,12 @@ export default function LinkBlockEditorAdapter({
     return isRdwikiWikiUrl(parsedUrl);
   }, [el.isWiki, parsedUrl]);
 
+  const resolvedDocIcon = useResolvedWikiDocIcon({
+    href: el.url,
+    isWikiLink,
+    fallbackIcon: (el as any).docIcon,
+  });
+
   let displaySitename = el.sitename;
 
   if (!isWikiLink && !displaySitename && parsedUrl) {
@@ -218,7 +225,7 @@ export default function LinkBlockEditorAdapter({
       wikiTitle={(el as any).wikiTitle}
       sitename={el.sitename}
       size={el.size}
-      docIcon={(el as any).docIcon}
+      docIcon={resolvedDocIcon}
       labelText={
         isReadOnly
           ? Node.string(el) ||

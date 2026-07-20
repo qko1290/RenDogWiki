@@ -1,20 +1,16 @@
-"use client";
+'use client';
 
 import React from 'react';
-import { useRouter } from 'next/navigation';
 
 import SmartImage from '@/components/common/SmartImage';
 import LinkCardBlock from '@/components/wiki-render/blocks/LinkCardBlock';
 import { cdn, withVersion } from '@lib/cdn';
-import { markNextDocViewSource } from '@/wiki/lib/viewSource';
 
 import {
   decodeTitleForDisplay,
   isRdwikiWikiUrl,
   normalizeToAppHref,
 } from './linkUtils';
-
-import { getWikiDocDetailByHref } from './linkPreviewService';
 
 type LinkCardInputSize =
   | 'small'
@@ -35,9 +31,8 @@ type LinkCardRendererProps = {
   sitename?: string | null;
 
   /**
-   * main 기존 Slate 데이터는 small | large 를 사용한다.
-   * refactor 공통 렌더러 내부에서는 small | half | full | normal 계열을 사용하므로
-   * 여기서 main 값을 그대로 받아서 렌더링 직전에만 해석한다.
+   * main 기존 Slate 데이터는 small | large를 사용한다.
+   * 저장된 데이터는 변경하지 않고 렌더링 경계에서만 해석한다.
    */
   size?: LinkCardInputSize;
 
@@ -45,7 +40,7 @@ type LinkCardRendererProps = {
   labelText?: string;
 
   /**
-   * Element.tsx 기존 호출부 호환 props
+   * 기존 Element/editor adapter 호출부 호환 props
    */
   titleContent?: React.ReactNode;
   subtitle?: React.ReactNode;
@@ -114,17 +109,6 @@ function isHalfLinkCardSize(size: LinkCardInputSize) {
   return size === 'small' || size === 'half';
 }
 
-function toLinkCardBlockSize(size: LinkCardInputSize): 'half' | 'normal' {
-  if (isHalfLinkCardSize(size)) return 'half';
-
-  /**
-   * main의 large는 기존 전체폭 카드 의미다.
-   * LinkCardBlock에서는 full/large를 새 저장 타입으로 쓰지 않고,
-   * 기존 전체폭 디자인을 유지하기 위해 normal로 넘긴다.
-   */
-  return 'normal';
-}
-
 export default function LinkCardRenderer({
   mode,
   url,
@@ -147,8 +131,6 @@ export default function LinkCardRenderer({
   onClick,
   children,
 }: LinkCardRendererProps) {
-  const router = useRouter();
-
   const parsedUrl = React.useMemo(() => getParsedUrl(url), [url]);
 
   const isWikiLink = React.useMemo(() => {
@@ -164,78 +146,21 @@ export default function LinkCardRenderer({
   );
 
   const [faviconFailed, setFaviconFailed] = React.useState(false);
-  const [resolvedDocIcon, setResolvedDocIcon] = React.useState<string | null>(
-    () => String(docIcon ?? '').trim() || null,
-  );
+
+  /**
+   * 문서 아이콘 조회는 이 공통 렌더러에서 처리하지 않는다.
+   *
+   * - 읽기 화면: LinkCardReadAdapter
+   * - 에디터: LinkBlockEditorAdapter
+   *
+   * 각 adapter가 useResolvedWikiDocIcon을 통해 해석한 아이콘을
+   * docIcon prop으로 전달한다.
+   */
+  const resolvedDocIcon = String(docIcon ?? '').trim() || null;
 
   React.useEffect(() => {
     setFaviconFailed(false);
   }, [url, isWikiLink]);
-
-  React.useEffect(() => {
-    let cancelled = false;
-
-    const fallbackIcon = String(docIcon ?? '').trim() || null;
-    setResolvedDocIcon(fallbackIcon);
-
-    if (!isWikiLink) return;
-    if (!normalizedHref || normalizedHref === '#') return;
-
-    (async () => {
-      try {
-        const loaded = await getWikiDocDetailByHref(normalizedHref);
-
-        if (!loaded || cancelled) return;
-
-        const { parsed, detail } = loaded;
-
-        let iconCandidate: string | null = null;
-
-        const hash = String(parsed.hash ?? '').trim();
-
-        if (hash && Array.isArray(detail.headings)) {
-          const target = hash;
-
-          const normalizedTarget = target.startsWith('heading-')
-            ? target
-            : `heading-${target}`;
-
-          const matched = detail.headings.find((heading) => {
-            const headingId = String(heading.id ?? '');
-
-            const normalizedHeadingId = headingId.startsWith('heading-')
-              ? headingId
-              : `heading-${headingId}`;
-
-            return (
-              headingId === target ||
-              headingId === normalizedTarget ||
-              normalizedHeadingId === target ||
-              normalizedHeadingId === normalizedTarget
-            );
-          });
-
-          if (matched?.icon) {
-            iconCandidate = String(matched.icon).trim() || null;
-          }
-        }
-
-        if (!iconCandidate && detail.icon) {
-          iconCandidate = String(detail.icon).trim() || null;
-        }
-
-        if (!cancelled && iconCandidate) {
-          setResolvedDocIcon(iconCandidate);
-        }
-      } catch {
-        // 문서 아이콘 로딩 실패 시 기존 fallback 유지
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [docIcon, isWikiLink, normalizedHref]);
 
   let displaySitename = sitename ?? '';
 
@@ -244,10 +169,11 @@ export default function LinkCardRenderer({
   }
 
   const externalFavicon: string | null =
-    !isWikiLink && parsedUrl ? `${parsedUrl.origin}/favicon.ico` : null;
+    !isWikiLink && parsedUrl
+      ? `${parsedUrl.origin}/favicon.ico`
+      : null;
 
   const isHalf = isHalfLinkCardSize(size);
-  const blockSize = toLinkCardBlockSize(size);
   const isCompactTwoColMobile = compactMobile && isHalf;
 
   const fallbackTitleText =
@@ -259,7 +185,9 @@ export default function LinkCardRenderer({
   const fallbackSubtitle = isWikiLink
     ? 'RenDog Wiki'
     : displaySitename ||
-      (parsedUrl ? parsedUrl.origin.replace(/^https?:\/\//, '') : '');
+      (parsedUrl
+        ? parsedUrl.origin.replace(/^https?:\/\//, '')
+        : '');
 
   const iconNode = isWikiLink ? (
     resolvedDocIcon ? (
@@ -277,12 +205,23 @@ export default function LinkCardRenderer({
           }}
         />
       ) : (
-        <span style={{ fontSize: 20, lineHeight: 1 }}>
+        <span
+          style={{
+            fontSize: 20,
+            lineHeight: 1,
+          }}
+        >
           {resolvedDocIcon}
         </span>
       )
     ) : (
-      <span style={{ fontSize: 18, lineHeight: 1 }} aria-hidden>
+      <span
+        style={{
+          fontSize: 18,
+          lineHeight: 1,
+        }}
+        aria-hidden
+      >
         📄
       </span>
     )
@@ -350,7 +289,9 @@ export default function LinkCardRenderer({
       return;
     }
 
-    if (!isWikiLink) return;
+    if (!isWikiLink) {
+      return;
+    }
 
     if (
       event.metaKey ||
@@ -363,35 +304,36 @@ export default function LinkCardRenderer({
 
     if (event.button !== 0) return;
 
-    event.preventDefault();
-    event.stopPropagation();
-
-    markNextDocViewSource('link');
-
-    if (onWikiNavigate) {
-      onWikiNavigate(normalizedHref);
+    /**
+     * 읽기 adapter가 전달되지 않은 경우에는
+     * 브라우저 기본 anchor 이동을 그대로 사용한다.
+     */
+    if (!onWikiNavigate) {
       return;
     }
 
-    router.push(normalizedHref);
+    event.preventDefault();
+    event.stopPropagation();
+
+    onWikiNavigate(normalizedHref);
   };
 
   const card = (
-    <LinkCardBlock
-      mode={mode}
-      href={normalizedHref}
-      title={titleNode}
-      subtitle={renderedSubtitle}
-      metaText={metaText}
-      icon={iconNode}
-      size="normal"
-      inRow={inRow}
-      isWikiLink={isWikiLink}
-      editControls={editControls}
-      readControls={readControls}
-      clickableInReadMode={false}
-    />
-  );
+      <LinkCardBlock
+        mode={mode}
+        href={normalizedHref}
+        title={titleNode}
+        subtitle={renderedSubtitle}
+        metaText={metaText}
+        icon={iconNode}
+        size="normal"
+        inRow={inRow}
+        isWikiLink={isWikiLink}
+        editControls={editControls}
+        readControls={readControls}
+        clickableInReadMode={false}
+      />
+    );
 
   const outerStyle: React.CSSProperties = {
     position: 'relative',
@@ -419,14 +361,20 @@ export default function LinkCardRenderer({
           href={normalizedHref}
           onClick={handleReadClick}
           target={isWikiLink ? undefined : '_blank'}
-          rel={isWikiLink ? undefined : 'noopener noreferrer nofollow'}
+          rel={
+            isWikiLink
+              ? undefined
+              : 'noopener noreferrer nofollow'
+          }
           style={{
             textDecoration: 'none',
             color: 'inherit',
             display: 'block',
           }}
           aria-label={
-            typeof fallbackTitleText === 'string' ? fallbackTitleText : '링크'
+            typeof fallbackTitleText === 'string'
+              ? fallbackTitleText
+              : '링크'
           }
         >
           {card}

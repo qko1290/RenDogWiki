@@ -2,7 +2,7 @@
 
 import React from 'react';
 
-import LinkCardRenderer from '@/components/wiki-render/link/LinkCardRenderer';
+import LinkCardReadAdapter from './link/LinkCardReadAdapter';
 import { nodeToPlainText } from '../readRendererUtils';
 
 import type {
@@ -24,8 +24,7 @@ export function LinkBlockReadAdapter({
   const labelText = nodeToPlainText(node.children);
 
   return (
-    <LinkCardRenderer
-      mode="read"
+    <LinkCardReadAdapter
       url={node.url}
       isWiki={node.isWiki}
       wikiPath={node.wikiPath}
@@ -37,10 +36,9 @@ export function LinkBlockReadAdapter({
       inRow={Boolean(env?.inLinkBlockRow)}
       compactMobile={Boolean(env?.isMobile)}
       onWikiNavigate={env?.onWikiNavigate}
-      clickableInReadMode
     >
       {children}
-    </LinkCardRenderer>
+    </LinkCardReadAdapter>
   );
 }
 
