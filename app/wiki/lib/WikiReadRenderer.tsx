@@ -3,14 +3,20 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import type { Descendant } from 'slate';
+import type {
+  Descendant,
+} from 'slate';
 
-import type { WikiRefKind } from '@/components/editor/render/types';
+import type {
+  WikiRefKind,
+} from '@/components/wiki-render/types';
 
 import {
   LinkBlockRowReadAdapter,
 } from './read/LinkBlockReadAdapter';
-import { renderReadNode } from './read/WikiReadNodeRenderer';
+import {
+  renderReadNode,
+} from './read/WikiReadNodeRenderer';
 import type {
   HeadingCopyCtx,
   WikiRefHandlers,
@@ -30,10 +36,15 @@ type WikiReadRendererProps = {
   onWikiNavigate?: (href: string) => void;
 };
 
-function isHalfLinkBlock(node: any) {
+function isHalfLinkBlock(
+  node: any,
+) {
   return (
     node?.type === 'link-block' &&
-    (node?.size === 'small' || node?.size === 'half')
+    (
+      node?.size === 'small' ||
+      node?.size === 'half'
+    )
   );
 }
 
@@ -43,35 +54,58 @@ export default function WikiReadRenderer({
   onWikiRefClick,
   onWikiNavigate,
 }: WikiReadRendererProps) {
-  const headingOccRef = useRef<Map<string, number>>(
+  const headingOccRef = useRef<
+    Map<string, number>
+  >(
     new Map(),
   );
 
   headingOccRef.current = new Map();
 
-  const [isMobile, setIsMobile] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [
+    isMobile,
+    setIsMobile,
+  ] = useState(false);
+
+  const [
+    isDarkMode,
+    setIsDarkMode,
+  ] = useState(false);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (
+      typeof window === 'undefined'
+    ) {
+      return;
+    }
 
-    const mediaQuery = window.matchMedia(
-      '(prefers-color-scheme: dark)',
-    );
+    const mediaQuery =
+      window.matchMedia(
+        '(prefers-color-scheme: dark)',
+      );
 
     const apply = () => {
-      setIsDarkMode(mediaQuery.matches);
+      setIsDarkMode(
+        mediaQuery.matches,
+      );
     };
 
     apply();
 
     if (
-      typeof mediaQuery.addEventListener === 'function'
+      typeof mediaQuery.addEventListener ===
+      'function'
     ) {
-      mediaQuery.addEventListener('change', apply);
+      mediaQuery.addEventListener(
+        'change',
+        apply,
+      );
 
       return () => {
-        mediaQuery.removeEventListener('change', apply);
+        mediaQuery.removeEventListener(
+          'change',
+          apply,
+        );
       };
     }
 
@@ -83,44 +117,78 @@ export default function WikiReadRenderer({
   }, []);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (
+      typeof window === 'undefined'
+    ) {
+      return;
+    }
 
     const apply = () => {
-      setIsMobile(window.innerWidth <= 768);
+      setIsMobile(
+        window.innerWidth <= 768,
+      );
     };
 
     apply();
-    window.addEventListener('resize', apply);
+
+    window.addEventListener(
+      'resize',
+      apply,
+    );
 
     return () => {
-      window.removeEventListener('resize', apply);
+      window.removeEventListener(
+        'resize',
+        apply,
+      );
     };
   }, []);
 
   useEffect(() => {
-    if (typeof document === 'undefined') return;
+    if (
+      typeof document === 'undefined'
+    ) {
+      return;
+    }
 
     const apply = () => {
-      setIsDarkMode(getCurrentThemeIsDark());
+      setIsDarkMode(
+        getCurrentThemeIsDark(),
+      );
     };
 
     apply();
 
-    const html = document.documentElement;
-    const body = document.body;
+    const html =
+      document.documentElement;
+    const body =
+      document.body;
 
-    const observer = new MutationObserver(apply);
+    const observer =
+      new MutationObserver(apply);
 
-    observer.observe(html, {
-      attributes: true,
-      attributeFilter: ['class', 'data-theme'],
-    });
+    observer.observe(
+      html,
+      {
+        attributes: true,
+        attributeFilter: [
+          'class',
+          'data-theme',
+        ],
+      },
+    );
 
     if (body) {
-      observer.observe(body, {
-        attributes: true,
-        attributeFilter: ['class', 'data-theme'],
-      });
+      observer.observe(
+        body,
+        {
+          attributes: true,
+          attributeFilter: [
+            'class',
+            'data-theme',
+          ],
+        },
+      );
     }
 
     return () => {
@@ -143,29 +211,39 @@ export default function WikiReadRenderer({
     onWikiNavigate,
   };
 
-  const normalized = compactReadContent(content);
-  const rendered: React.ReactNode[] = [];
+  const normalized =
+    compactReadContent(content);
+
+  const rendered:
+    React.ReactNode[] = [];
 
   for (
     let index = 0;
     index < normalized.length;
     index += 1
   ) {
-    const node: any = normalized[index];
-    const nextNode: any = normalized[index + 1];
+    const node: any =
+      normalized[index];
+
+    const nextNode: any =
+      normalized[index + 1];
 
     if (
       isHalfLinkBlock(node) &&
       isHalfLinkBlock(nextNode)
     ) {
-      const rowKey = `link-row-${index}`;
+      const rowKey =
+        `link-row-${index}`;
 
       rendered.push(
         <LinkBlockRowReadAdapter
           key={rowKey}
           node={{
             type: 'link-block-row',
-            children: [node, nextNode],
+            children: [
+              node,
+              nextNode,
+            ],
           }}
           keyProp={rowKey}
           ctx={ctx}

@@ -7,28 +7,43 @@ import {
   InlineMark,
   WikiRefInline,
 } from '@/components/wiki-render/inline';
+import {
+  resolveInlineImageNode,
+  resolveInlineMarkNode,
+  resolveWikiRefNode,
+} from '@/components/wiki-render/inline/inlineNodeUtils';
 
-import { cdn, withVersion } from '@lib/cdn';
-import type { WikiRefKind } from '@/components/editor/render/types';
-import type { WikiRefHandlers } from './types';
+import {
+  cdn,
+  withVersion,
+} from '@lib/cdn';
 
-export function InlineImageReadAdapter({ node }: { node: any }) {
-  const rawSrc = String(node.url ?? node.src ?? '').trim();
-  const version = (node.updatedAt || node.version) as string | number | undefined;
-  const src = rawSrc ? withVersion(cdn(rawSrc), version) : '';
+import type {
+  WikiRefHandlers,
+} from './types';
 
-  const hasExplicitWidth =
-    node.width != null && Number.isFinite(Number(node.width));
+export function InlineImageReadAdapter({
+  node,
+}: {
+  node: any;
+}) {
+  const {
+    rawSrc,
+    width,
+    height,
+    version,
+  } = resolveInlineImageNode(node);
 
-  const hasExplicitHeight =
-    node.height != null && Number.isFinite(Number(node.height));
+  const src = rawSrc
+    ? withVersion(cdn(rawSrc), version)
+    : '';
 
   return (
     <InlineImage
       mode="read"
       src={src}
-      width={hasExplicitWidth ? Number(node.width) : undefined}
-      height={hasExplicitHeight ? Number(node.height) : undefined}
+      width={width}
+      height={height}
     />
   );
 }
@@ -40,11 +55,16 @@ export function InlineMarkReadAdapter({
   node: any;
   children: React.ReactNode;
 }) {
+  const {
+    icon,
+    color,
+  } = resolveInlineMarkNode(node);
+
   return (
     <InlineMark
       mode="read"
-      icon={node.icon}
-      color={node.color}
+      icon={icon}
+      color={color}
     >
       {children}
     </InlineMark>
@@ -60,11 +80,13 @@ export function WikiRefReadAdapter({
   handlers?: WikiRefHandlers;
   children: React.ReactNode;
 }) {
-  const kind = (node.kind ?? node.refType) as WikiRefKind;
-  const id = Number(node.id ?? node.refId);
+  const {
+    kind,
+    id,
+  } = resolveWikiRefNode(node);
 
   const clickable =
-    !!handlers?.onWikiRefClick &&
+    Boolean(handlers?.onWikiRefClick) &&
     (handlers?.readOnly ?? true) &&
     Number.isFinite(id) &&
     id > 0;
@@ -76,7 +98,10 @@ export function WikiRefReadAdapter({
       onOpen={() => {
         if (!clickable) return;
 
-        handlers!.onWikiRefClick!(kind, id);
+        handlers!.onWikiRefClick!(
+          kind,
+          id,
+        );
       }}
     >
       {children}

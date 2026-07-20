@@ -4,7 +4,9 @@ import type {
   ReactNode,
 } from 'react';
 
-import type { WikiRefKind } from '@/components/editor/render/types';
+import type {
+  WikiRefKind,
+} from '@/components/wiki-render/types';
 
 export type ReadRenderEnv = {
   isMobile?: boolean;
@@ -16,7 +18,9 @@ export type ReadRenderEnv = {
 };
 
 export type HeadingCopyCtx = {
-  headingOccRef: MutableRefObject<Map<string, number>>;
+  headingOccRef: MutableRefObject<
+    Map<string, number>
+  >;
 };
 
 export type WikiRefHandlers = {
@@ -24,7 +28,7 @@ export type WikiRefHandlers = {
   onWikiRefClick?: (
     kind: WikiRefKind,
     id: number,
-  ) => void | Promise<unknown>;
+  ) => void | Promise<void>;
 };
 
 export type ReadRenderNode = (

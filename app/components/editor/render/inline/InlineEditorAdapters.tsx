@@ -1,7 +1,10 @@
 'use client';
 
 import React from 'react';
-import type { RenderElementProps } from 'slate-react';
+
+import type {
+  RenderElementProps,
+} from 'slate-react';
 
 import type {
   InlineImageElement,
@@ -13,9 +16,16 @@ import {
   InlineMark,
   WikiRefInline,
 } from '@/components/wiki-render/inline';
+import {
+  resolveInlineImageNode,
+  resolveInlineMarkNode,
+  resolveWikiRefNode,
+} from '@/components/wiki-render/inline/inlineNodeUtils';
+import type {
+  WikiRefKind,
+} from '@/components/wiki-render/types';
 
 import { toProxyUrl } from '@lib/cdn';
-import type { WikiRefKind } from '../types';
 
 type InlineAdapterProps<E> = {
   attributes: RenderElementProps['attributes'];
@@ -28,15 +38,25 @@ export function InlineImageEditorAdapter({
   children,
   element,
 }: InlineAdapterProps<InlineImageElement>) {
-  const src = element.url?.startsWith('http')
-    ? toProxyUrl(element.url)
-    : element.url;
+  const {
+    rawSrc,
+    width,
+    height,
+  } = resolveInlineImageNode(element as any);
+
+  const src = rawSrc.startsWith('http')
+    ? toProxyUrl(rawSrc)
+    : rawSrc;
 
   return (
     <InlineImage
       mode="edit"
       src={src}
-      attributes={attributes as React.HTMLAttributes<HTMLSpanElement>}
+      width={width}
+      height={height}
+      attributes={
+        attributes as React.HTMLAttributes<HTMLSpanElement>
+      }
     >
       {children}
     </InlineImage>
@@ -48,12 +68,19 @@ export function InlineMarkEditorAdapter({
   children,
   element,
 }: InlineAdapterProps<InlineMarkElement>) {
+  const {
+    icon,
+    color,
+  } = resolveInlineMarkNode(element as any);
+
   return (
     <InlineMark
       mode="edit"
-      icon={element.icon}
-      color={element.color}
-      attributes={attributes as React.HTMLAttributes<HTMLSpanElement>}
+      icon={icon}
+      color={color}
+      attributes={
+        attributes as React.HTMLAttributes<HTMLSpanElement>
+      }
     >
       {children}
     </InlineMark>
@@ -65,8 +92,14 @@ type WikiRefEditorAdapterProps = {
   children: React.ReactNode;
   element: any;
   readOnly?: boolean;
-  onWikiRefClick?: (kind: WikiRefKind, id: number) => void;
-  onOpenWikiRef?: (kind: WikiRefKind, id: number) => void;
+  onWikiRefClick?: (
+    kind: WikiRefKind,
+    id: number,
+  ) => void;
+  onOpenWikiRef?: (
+    kind: WikiRefKind,
+    id: number,
+  ) => void;
 };
 
 export function WikiRefEditorAdapter({
@@ -77,16 +110,26 @@ export function WikiRefEditorAdapter({
   onWikiRefClick,
   onOpenWikiRef,
 }: WikiRefEditorAdapterProps) {
-  const kind = element.kind as WikiRefKind;
-  const refId = Number(element.id);
-  const open = onWikiRefClick ?? onOpenWikiRef;
+  const {
+    kind,
+    id: refId,
+  } = resolveWikiRefNode(element);
+
+  const open =
+    onWikiRefClick ?? onOpenWikiRef;
 
   return (
     <WikiRefInline
       mode="edit"
-      attributes={attributes as React.HTMLAttributes<HTMLSpanElement>}
+      attributes={
+        attributes as React.HTMLAttributes<HTMLSpanElement>
+      }
       contentEditable={!readOnly}
-      clickable={Boolean(readOnly && open && Number.isFinite(refId))}
+      clickable={Boolean(
+        readOnly &&
+        open &&
+        Number.isFinite(refId),
+      )}
       onOpen={() => {
         if (!readOnly) return;
         if (!open) return;
