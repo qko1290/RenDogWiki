@@ -22,7 +22,9 @@ import type {
 import type { PriceTableEditState } from './render/types';
 import type { ElementRenderProps } from './render/types';
 
-import InlineLinkRenderer from '@/components/wiki-render/link/InlineLinkRenderer';
+import {
+  InlineLinkRenderer,
+} from '@/components/wiki-render';
 
 import ParagraphEditorAdapter from './render/blocks/ParagraphEditorAdapter';
 import HeadingEditorAdapter from './render/blocks/HeadingEditorAdapter';

@@ -3,7 +3,7 @@ import { Text } from 'slate';
 
 import {
   LeafRenderer,
-} from '@/components/wiki-render/inline';
+} from '@/components/wiki-render';
 
 import {
   DividerReadAdapter,

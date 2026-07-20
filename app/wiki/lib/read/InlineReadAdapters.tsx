@@ -6,7 +6,7 @@ import {
   InlineImage,
   InlineMark,
   WikiRefInline,
-} from '@/components/wiki-render/inline';
+} from '@/components/wiki-render';
 import {
   resolveInlineImageNode,
   resolveInlineMarkNode,

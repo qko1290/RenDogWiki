@@ -2,9 +2,11 @@
 
 import React from 'react';
 
-import DividerBlock from '@/components/wiki-render/blocks/DividerBlock';
-import ParagraphBlock from '@/components/wiki-render/blocks/ParagraphBlock';
-import InfoBoxBlock from '@/components/wiki-render/blocks/InfoBoxBlock';
+import {
+  DividerBlock,
+  InfoBoxBlock,
+  ParagraphBlock,
+} from '@/components/wiki-render';
 import {
   resolveDividerStyle,
   resolveInfoBoxNoIcon,

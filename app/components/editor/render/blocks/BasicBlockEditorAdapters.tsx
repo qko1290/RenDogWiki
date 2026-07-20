@@ -3,8 +3,10 @@
 import React from 'react';
 import type { RenderElementProps } from 'slate-react';
 
-import DividerBlock from '@/components/wiki-render/blocks/DividerBlock';
-import InfoBoxBlock from '@/components/wiki-render/blocks/InfoBoxBlock';
+import {
+  DividerBlock,
+  InfoBoxBlock,
+} from '@/components/wiki-render';
 import {
   resolveDividerStyle,
   resolveInfoBoxNoIcon,
