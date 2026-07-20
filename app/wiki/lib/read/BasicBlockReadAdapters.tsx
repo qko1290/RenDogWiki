@@ -2,15 +2,21 @@
 
 import React from 'react';
 
-import DividerBlock from '@/components/wiki-render/blocks/DividerBlock';
-import ParagraphBlock from '@/components/wiki-render/blocks/ParagraphBlock';
-import InfoBoxBlock from '@/components/wiki-render/blocks/InfoBoxBlock';
+import {
+  DividerBlock,
+  InfoBoxBlock,
+  ParagraphBlock,
+} from '@/components/wiki-render';
+import {
+  resolveDividerStyle,
+  resolveInfoBoxNoIcon,
+  resolveInfoBoxTone,
+} from '@/components/wiki-render/blocks/blockNodeUtils';
 
 import {
   normalizeInfoBoxNodeForMobile,
   stripReact,
 } from '../readRendererUtils';
-
 import type {
   ReadRenderEnv,
   ReadRenderNode,
@@ -27,8 +33,13 @@ export function ParagraphReadAdapter({
   children,
   env,
 }: ParagraphReadAdapterProps) {
-  const plainText = stripReact(children).replace(/\u200B/g, '').trim();
-  const isMobileTableText = Boolean(env?.isMobile && env?.inTableCell);
+  const plainText = stripReact(children)
+    .replace(/\u200B/g, '')
+    .trim();
+
+  const isMobileTableText = Boolean(
+    env?.isMobile && env?.inTableCell,
+  );
 
   return (
     <ParagraphBlock
@@ -48,11 +59,13 @@ type DividerReadAdapterProps = {
   node: any;
 };
 
-export function DividerReadAdapter({ node }: DividerReadAdapterProps) {
+export function DividerReadAdapter({
+  node,
+}: DividerReadAdapterProps) {
   return (
     <DividerBlock
       mode="read"
-      styleType={node.style || 'default'}
+      styleType={resolveDividerStyle(node)}
     />
   );
 }
@@ -74,32 +87,30 @@ export function InfoBoxReadAdapter({
   env,
   renderNode,
 }: InfoBoxReadAdapterProps) {
-  const tone =
-    node.boxType ??
-    node.variant ??
-    node.tone ??
-    node.infoType ??
-    'note';
-
   const sourceChildren = env?.isMobile
-    ? (node.children ?? []).map(normalizeInfoBoxNodeForMobile)
+    ? (node.children ?? []).map(
+        normalizeInfoBoxNodeForMobile,
+      )
     : node.children ?? [];
 
-  const infoChildren = sourceChildren.map((child: any, index: number) =>
-    renderNode(
-      child,
-      keyProp ? `${keyProp}-info-${index}` : index,
-      ctx,
-      handlers,
-      env,
-    ),
+  const infoChildren = sourceChildren.map(
+    (child: any, index: number) =>
+      renderNode(
+        child,
+        keyProp
+          ? `${keyProp}-info-${index}`
+          : index,
+        ctx,
+        handlers,
+        env,
+      ),
   );
 
   return (
     <InfoBoxBlock
       mode="read"
-      tone={tone}
-      noIcon={Boolean(node.noIcon)}
+      tone={resolveInfoBoxTone(node)}
+      noIcon={resolveInfoBoxNoIcon(node)}
     >
       {infoChildren}
     </InfoBoxBlock>

@@ -3,42 +3,52 @@
 import React from 'react';
 
 import SmartImage from '@/components/common/SmartImage';
-import MediaBlock from '@/components/wiki-render/blocks/MediaBlock';
-import { cdn, withVersion } from '@lib/cdn';
+import {
+  MediaBlock,
+} from '@/components/wiki-render';
+import {
+  resolveMediaNode,
+} from '@/components/wiki-render/blocks/mediaNodeUtils';
+
+import {
+  cdn,
+  withVersion,
+} from '@lib/cdn';
 
 type MediaReadAdapterProps = {
   node: any;
 };
 
-function getVersion(node: any): string | number | undefined {
-  return (node?.updatedAt || node?.version) as string | number | undefined;
-}
+export function ImageReadAdapter({
+  node,
+}: MediaReadAdapterProps) {
+  const media =
+    resolveMediaNode(node);
 
-function getSize(value: unknown): number | undefined {
-  if (value == null) return undefined;
-
-  const n = Number(value);
-
-  return Number.isFinite(n) && n > 0 ? n : undefined;
-}
-
-export function ImageReadAdapter({ node }: MediaReadAdapterProps) {
-  const src = withVersion(cdn(node.url), getVersion(node));
-  const width = getSize(node.width);
-  const height = getSize(node.height);
+  const src = withVersion(
+    cdn(media.rawSrc),
+    media.version,
+  );
 
   return (
     <MediaBlock
       mode="read"
       kind="image"
       src={src}
-      alt={node.alt || ''}
-      textAlign={node.textAlign}
-      width={width}
-      height={height}
-      renderImage={({ src, alt, width, height, style, className }) => (
+      alt={media.alt}
+      textAlign={media.textAlign}
+      width={media.width}
+      height={media.height}
+      renderImage={({
+        src: imageSrc,
+        alt,
+        width,
+        height,
+        style,
+        className,
+      }) => (
         <SmartImage
-          src={src}
+          src={imageSrc}
           alt={alt || ''}
           width={width ?? 960}
           height={height ?? 540}
@@ -52,19 +62,25 @@ export function ImageReadAdapter({ node }: MediaReadAdapterProps) {
   );
 }
 
-export function VideoReadAdapter({ node }: MediaReadAdapterProps) {
-  const src = withVersion(cdn(node.url), getVersion(node));
-  const width = getSize(node.width);
-  const height = getSize(node.height);
+export function VideoReadAdapter({
+  node,
+}: MediaReadAdapterProps) {
+  const media =
+    resolveMediaNode(node);
+
+  const src = withVersion(
+    cdn(media.rawSrc),
+    media.version,
+  );
 
   return (
     <MediaBlock
       mode="read"
       kind="video"
       src={src}
-      textAlign={node.textAlign}
-      width={width}
-      height={height}
+      textAlign={media.textAlign}
+      width={media.width}
+      height={media.height}
     />
   );
 }

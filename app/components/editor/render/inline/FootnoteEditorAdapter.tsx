@@ -1,19 +1,37 @@
 'use client';
 
 import React from 'react';
-import type { RenderElementProps } from 'slate-react';
-import { ReactEditor } from 'slate-react';
-import type { Path } from 'slate';
+import type {
+  RenderElementProps,
+} from 'slate-react';
+import {
+  ReactEditor,
+} from 'slate-react';
+import type {
+  Path,
+} from 'slate';
 
-import type { FootnoteElement } from '@/types/slate';
-import { FootnoteInline } from '@/components/wiki-render/inline';
+import type {
+  FootnoteElement,
+} from '@/types/slate';
+
+import {
+  FootnoteInline,
+} from '@/components/wiki-render';
+import {
+  resolveFootnoteNode,
+} from '@/components/wiki-render/inline/inlineNodeUtils';
 
 type FootnoteEditorAdapterProps = {
-  attributes: RenderElementProps['attributes'];
+  attributes:
+    RenderElementProps['attributes'];
   children: React.ReactNode;
   element: FootnoteElement;
   editor: any;
-  openFootnoteEditor?: (path: Path, element: FootnoteElement) => void;
+  openFootnoteEditor?: (
+    path: Path,
+    element: FootnoteElement,
+  ) => void;
 };
 
 export default function FootnoteEditorAdapter({
@@ -23,11 +41,24 @@ export default function FootnoteEditorAdapter({
   editor,
   openFootnoteEditor,
 }: FootnoteEditorAdapterProps) {
+  const {
+    label,
+  } = resolveFootnoteNode(
+    element as unknown as Record<
+      string,
+      unknown
+    >,
+  );
+
   return (
     <FootnoteInline
       mode="edit"
-      label={element.label}
-      attributes={attributes as React.HTMLAttributes<HTMLSpanElement>}
+      label={label}
+      attributes={
+        attributes as React.HTMLAttributes<
+          HTMLSpanElement
+        >
+      }
       title="우클릭하여 각주 수정"
       onContextMenu={(event) => {
         if (!openFootnoteEditor) return;
@@ -36,9 +67,16 @@ export default function FootnoteEditorAdapter({
         event.stopPropagation();
 
         try {
-          const path = ReactEditor.findPath(editor, element);
+          const path =
+            ReactEditor.findPath(
+              editor,
+              element,
+            );
 
-          openFootnoteEditor(path, element);
+          openFootnoteEditor(
+            path,
+            element,
+          );
         } catch {}
       }}
     >

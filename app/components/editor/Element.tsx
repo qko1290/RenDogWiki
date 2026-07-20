@@ -1,10 +1,7 @@
 'use client';
 
 import React from 'react';
-import {
-  RenderElementProps,
-  useSlate,
-} from 'slate-react';
+import { RenderElementProps, useSlate } from 'slate-react';
 
 import type {
   InlineMarkElement,
@@ -23,36 +20,38 @@ import type {
 } from '@/types/slate';
 
 import type { PriceTableEditState } from './render/types';
-import type { ElementRenderProps, WikiRefKind } from './render/types';
+import type { ElementRenderProps } from './render/types';
 
-import PriceTableCard from './render/PriceTableCard';
 import {
-  TableElementRenderer,
-  TableRowRenderer,
-  TableCellRenderer,
-} from './render/Table';
-import WeaponCard from './render/WeaponCard';
-
-import InlineLinkRenderer from '@/components/wiki-render/link/InlineLinkRenderer';
-import LinkBlockEditorAdapter from './render/link/LinkBlockEditorAdapter';
-import { ImageBlock, VideoBlock } from './render/media/MediaEditorBlocks';
+  InlineLinkRenderer,
+} from '@/components/wiki-render';
 
 import ParagraphEditorAdapter from './render/blocks/ParagraphEditorAdapter';
 import HeadingEditorAdapter from './render/blocks/HeadingEditorAdapter';
-import LinkBlockRowEditorAdapter from './render/link/LinkBlockRowEditorAdapter';
-
 import {
   DividerEditorAdapter,
   InfoBoxEditorAdapter,
 } from './render/blocks/BasicBlockEditorAdapters';
 
-import FootnoteEditorAdapter from './render/inline/FootnoteEditorAdapter';
+import LinkBlockEditorAdapter from './render/link/LinkBlockEditorAdapter';
+import LinkBlockRowEditorAdapter from './render/link/LinkBlockRowEditorAdapter';
 
+import { ImageBlock, VideoBlock } from './render/media/MediaEditorBlocks';
+
+import FootnoteEditorAdapter from './render/inline/FootnoteEditorAdapter';
 import {
   InlineImageEditorAdapter,
   InlineMarkEditorAdapter,
   WikiRefEditorAdapter,
 } from './render/inline/InlineEditorAdapters';
+
+import PriceTableEditorAdapter from './render/price-table/PriceTableEditorAdapter';
+import {
+  TableEditorAdapter,
+  TableRowEditorAdapter,
+  TableCellEditorAdapter,
+} from './render/table/TableEditorAdapter';
+import WeaponEditorAdapter from './render/weapon/WeaponEditorAdapter';
 
 import EmbedPlaceholderEditorAdapter from './render/embed/EmbedPlaceholderEditorAdapter';
 
@@ -69,7 +68,6 @@ const Element: React.FC<ElementRenderProps> = ({
   element,
   editor,
   onIconClick,
-  priceTableEdit,
   setPriceTableEdit,
   openFootnoteEditor,
   readOnly,
@@ -84,7 +82,9 @@ const Element: React.FC<ElementRenderProps> = ({
         <InlineLinkRenderer
           mode="edit"
           href={(element as any).url}
-          attributes={attributes as React.AnchorHTMLAttributes<HTMLAnchorElement>}
+          attributes={
+            attributes as React.AnchorHTMLAttributes<HTMLAnchorElement>
+          }
         >
           {children}
         </InlineLinkRenderer>
@@ -136,10 +136,7 @@ const Element: React.FC<ElementRenderProps> = ({
 
     case 'divider': {
       return (
-        <DividerEditorAdapter
-          attributes={attributes}
-          element={element}
-        >
+        <DividerEditorAdapter attributes={attributes} element={element}>
           {children}
         </DividerEditorAdapter>
       );
@@ -147,10 +144,7 @@ const Element: React.FC<ElementRenderProps> = ({
 
     case 'info-box': {
       return (
-        <InfoBoxEditorAdapter
-          attributes={attributes}
-          element={element}
-        >
+        <InfoBoxEditorAdapter attributes={attributes} element={element}>
           {children}
         </InfoBoxEditorAdapter>
       );
@@ -205,15 +199,13 @@ const Element: React.FC<ElementRenderProps> = ({
 
     case 'price-table-card': {
       return (
-        <PriceTableCard
+        <PriceTableEditorAdapter
           attributes={attributes}
           element={element as PriceTableCardElement}
-          editor={editor}
-          priceTableEdit={priceTableEdit}
           setPriceTableEdit={setPriceTableEdit}
         >
           {children}
-        </PriceTableCard>
+        </PriceTableEditorAdapter>
       );
     }
 
@@ -227,33 +219,36 @@ const Element: React.FC<ElementRenderProps> = ({
 
     case 'table': {
       return (
-        <TableElementRenderer
+        <TableEditorAdapter
           attributes={attributes}
           element={element as TableElement}
           editor={editor}
         >
           {children}
-        </TableElementRenderer>
+        </TableEditorAdapter>
       );
     }
 
     case 'table-row': {
       return (
-        <TableRowRenderer attributes={attributes} element={element as any}>
+        <TableRowEditorAdapter
+          attributes={attributes}
+          element={element as any}
+        >
           {children}
-        </TableRowRenderer>
+        </TableRowEditorAdapter>
       );
     }
 
     case 'table-cell': {
       return (
-        <TableCellRenderer
+        <TableCellEditorAdapter
           attributes={attributes}
           element={element as any}
           editor={editor}
         >
           {children}
-        </TableCellRenderer>
+        </TableCellEditorAdapter>
       );
     }
 
@@ -284,13 +279,13 @@ const Element: React.FC<ElementRenderProps> = ({
 
     case 'weapon-card': {
       return (
-        <WeaponCard
+        <WeaponEditorAdapter
           attributes={attributes}
           element={element as WeaponCardElement}
           editor={editor}
         >
           {children}
-        </WeaponCard>
+        </WeaponEditorAdapter>
       );
     }
 

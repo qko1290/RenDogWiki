@@ -2,15 +2,18 @@
 
 import React from 'react';
 
-import TableBlock from '@/components/wiki-render/blocks/TableBlock';
 import {
+  TableBlock,
   WikiTableCellRenderer,
   WikiTableRowRenderer,
-} from '@/components/wiki-render/table/TableRenderer';
-import { tableElementBaseStyle } from '@/components/wiki-render/table/tableLayout';
+} from '@/components/wiki-render';
+import {
+  tableElementBaseStyle,
+} from '@/components/wiki-render/table/tableLayout';
 
-import { flexJustifyFromAlign } from '../readRendererUtils';
-
+import {
+  flexJustifyFromAlign,
+} from '../readRendererUtils';
 import type {
   ReadRenderEnv,
   ReadRenderNode,
@@ -26,12 +29,16 @@ export function TableReadAdapter({
   children,
 }: TableReadAdapterProps) {
   const align = node.align || 'left';
-  const justify = flexJustifyFromAlign(align);
+  const justify =
+    flexJustifyFromAlign(align);
 
   const widthPx =
     typeof node.maxWidth === 'number'
       ? node.maxWidth
-      : typeof node.maxWidth === 'string' && Number.isFinite(Number(node.maxWidth))
+      : typeof node.maxWidth === 'string' &&
+          Number.isFinite(
+            Number(node.maxWidth),
+          )
         ? Number(node.maxWidth)
         : undefined;
 
@@ -100,33 +107,53 @@ export function TableCellReadAdapter({
   env,
   renderNode,
 }: TableCellReadAdapterProps) {
-  const colSpan = Math.max(1, Number(node.colspan) || 1);
-  const rowSpan = Math.max(1, Number(node.rowspan) || 1);
+  const colSpan = Math.max(
+    1,
+    Number(node.colspan) || 1,
+  );
+
+  const rowSpan = Math.max(
+    1,
+    Number(node.rowspan) || 1,
+  );
 
   const customCellBg =
-    typeof node.backgroundColor === 'string' && node.backgroundColor.trim()
+    typeof node.backgroundColor ===
+      'string' &&
+    node.backgroundColor.trim()
       ? node.backgroundColor
-      : typeof node.bgColor === 'string' && node.bgColor.trim()
+      : typeof node.bgColor === 'string' &&
+          node.bgColor.trim()
         ? node.bgColor
         : undefined;
 
-  const resolvedCellBg = env?.isDarkMode
-    ? 'var(--surface-elevated)'
-    : customCellBg || 'var(--surface-elevated)';
+  const resolvedCellBg =
+    env?.isDarkMode
+      ? 'var(--surface-elevated)'
+      : customCellBg ||
+        'var(--surface-elevated)';
 
-  const cellChildren = node.children?.map((child: any, index: number) =>
-    renderNode(
-      child,
-      keyProp ? `${keyProp}-${index}` : index,
-      ctx,
-      handlers,
-      {
-        ...env,
-        inDarkTableCell: !!env?.isDarkMode,
-        inTableCell: true,
-      },
-    ),
-  );
+  const cellChildren =
+    node.children?.map(
+      (
+        child: any,
+        index: number,
+      ) =>
+        renderNode(
+          child,
+          keyProp
+            ? `${keyProp}-${index}`
+            : index,
+          ctx,
+          handlers,
+          {
+            ...env,
+            inDarkTableCell:
+              !!env?.isDarkMode,
+            inTableCell: true,
+          },
+        ),
+    );
 
   return (
     <WikiTableCellRenderer
@@ -134,7 +161,8 @@ export function TableCellReadAdapter({
       colSpan={colSpan}
       rowSpan={rowSpan}
       style={{
-        border: '1px solid var(--border)',
+        border:
+          '1px solid var(--border)',
         padding: '6px 8px',
         verticalAlign: 'top',
         background: resolvedCellBg,

@@ -1,15 +1,37 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
-import type { RenderElementProps } from 'slate-react';
-import { ReactEditor, useFocused, useSelected } from 'slate-react';
-import { Transforms } from 'slate';
+import React, {
+  useRef,
+  useState,
+} from 'react';
+import type {
+  RenderElementProps,
+} from 'slate-react';
+import {
+  ReactEditor,
+  useFocused,
+  useSelected,
+} from 'slate-react';
+import {
+  Transforms,
+} from 'slate';
 
 import ImageSizeModal from '../../ImageSizeModal';
-import { toProxyUrl } from '@lib/cdn';
 
-import MediaBlock from '@/components/wiki-render/blocks/MediaBlock';
-import type { VideoElement } from '@/types/slate';
+import {
+  MediaBlock,
+} from '@/components/wiki-render';
+import {
+  resolveMediaNode,
+} from '@/components/wiki-render/blocks/mediaNodeUtils';
+
+import type {
+  VideoElement,
+} from '@/types/slate';
+
+import {
+  toProxyUrl,
+} from '@lib/cdn';
 
 type BlockComponentProps<E = any> = {
   attributes: RenderElementProps['attributes'];
@@ -18,7 +40,10 @@ type BlockComponentProps<E = any> = {
   editor: any;
 };
 
-function EditIcon({ size = 18, color = '#2a90ff' }) {
+function EditIcon({
+  size = 18,
+  color = '#2a90ff',
+}) {
   return (
     <svg
       width={size}
@@ -43,44 +68,124 @@ function EditIcon({ size = 18, color = '#2a90ff' }) {
   );
 }
 
+const editButtonStyle: React.CSSProperties = {
+  position: 'absolute',
+  top: 8,
+  right: 8,
+  background: '#fff',
+  border: '1.5px solid #2a90ff',
+  borderRadius: '50%',
+  boxShadow: '0 1px 5px #0001',
+  width: 32,
+  height: 32,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  cursor: 'pointer',
+  zIndex: 1,
+  padding: 0,
+};
+
 export function ImageBlock({
   attributes,
   children,
   element,
   editor,
 }: BlockComponentProps<any>) {
-  const el: any = element;
   const selected = useSelected();
   const focused = useFocused();
-  const [modalOpen, setModalOpen] = useState(false);
-  const imgRef = useRef<HTMLImageElement | null>(null);
-  const [initSize, setInitSize] = useState<{ w?: number; h?: number }>({});
 
-  const handleSaveSize = (width: number, height: number) => {
-    const path = ReactEditor.findPath(editor, element);
+  const [
+    modalOpen,
+    setModalOpen,
+  ] = useState(false);
 
-    Transforms.setNodes(editor, { width, height }, { at: path });
+  const imgRef =
+    useRef<HTMLImageElement | null>(null);
+
+  const [
+    initSize,
+    setInitSize,
+  ] = useState<{
+    w?: number;
+    h?: number;
+  }>({});
+
+  const media =
+    resolveMediaNode(element);
+
+  const imgSrc =
+    media.rawSrc.startsWith('http')
+      ? toProxyUrl(media.rawSrc)
+      : media.rawSrc;
+
+  const handleSaveSize = (
+    width: number,
+    height: number,
+  ) => {
+    const path =
+      ReactEditor.findPath(
+        editor,
+        element,
+      );
+
+    Transforms.setNodes(
+      editor,
+      {
+        width,
+        height,
+      },
+      {
+        at: path,
+      },
+    );
+
     setModalOpen(false);
   };
 
-  const imgSrc =
-    typeof el.url === 'string' && el.url.startsWith('http')
-      ? toProxyUrl(el.url)
-      : el.url;
+  const openSizeModal = (
+    event: React.MouseEvent<HTMLButtonElement>,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
 
-  const openSizeModal = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
+    const image = imgRef.current;
 
-    const img = imgRef.current;
-    const rectW = Math.round(img?.getBoundingClientRect().width || 0);
-    const rectH = Math.round(img?.getBoundingClientRect().height || 0);
-    const natW = img?.naturalWidth || 0;
-    const natH = img?.naturalHeight || 0;
-    const w = el.width || rectW || natW || 256;
-    const h = el.height || rectH || natH || 256;
+    const renderedWidth = Math.round(
+      image
+        ?.getBoundingClientRect()
+        .width ?? 0,
+    );
 
-    setInitSize({ w, h });
+    const renderedHeight = Math.round(
+      image
+        ?.getBoundingClientRect()
+        .height ?? 0,
+    );
+
+    const naturalWidth =
+      image?.naturalWidth ?? 0;
+
+    const naturalHeight =
+      image?.naturalHeight ?? 0;
+
+    setInitSize({
+      w:
+        media.width ??
+        (
+          renderedWidth ||
+          naturalWidth ||
+          256
+        ),
+      h:
+        media.height ??
+        (
+          renderedHeight ||
+          naturalHeight ||
+          256
+        ),
+    });
+
     setModalOpen(true);
   };
 
@@ -90,10 +195,10 @@ export function ImageBlock({
         mode="edit"
         kind="image"
         src={imgSrc}
-        alt={el.alt || ''}
-        textAlign={el.textAlign}
-        width={el.width}
-        height={el.height}
+        alt={media.alt}
+        textAlign={media.textAlign}
+        width={media.width}
+        height={media.height}
         selected={selected}
         focused={focused}
         attributes={attributes}
@@ -103,23 +208,7 @@ export function ImageBlock({
             <button
               type="button"
               onMouseDown={openSizeModal}
-              style={{
-                position: 'absolute',
-                top: 8,
-                right: 8,
-                background: '#fff',
-                border: '1.5px solid #2a90ff',
-                borderRadius: '50%',
-                boxShadow: '0 1px 5px #0001',
-                width: 32,
-                height: 32,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                zIndex: 1,
-                padding: 0,
-              }}
+              style={editButtonStyle}
               tabIndex={-1}
               title="이미지 크기 편집"
               contentEditable={false}
@@ -137,7 +226,9 @@ export function ImageBlock({
         width={initSize.w}
         height={initSize.h}
         onSave={handleSaveSize}
-        onClose={() => setModalOpen(false)}
+        onClose={() => {
+          setModalOpen(false);
+        }}
       />
     </>
   );
@@ -149,26 +240,56 @@ export function VideoBlock({
   element,
   editor,
 }: BlockComponentProps<VideoElement>) {
-  const el = element as VideoElement;
   const selected = useSelected();
   const focused = useFocused();
-  const [modalOpen, setModalOpen] = useState(false);
 
-  const handleSaveSize = (width: number, height: number) => {
-    const path = ReactEditor.findPath(editor, element);
+  const [
+    modalOpen,
+    setModalOpen,
+  ] = useState(false);
 
-    Transforms.setNodes(editor, { width, height }, { at: path });
+  const media =
+    resolveMediaNode(
+      element as unknown as Record<
+        string,
+        unknown
+      >,
+    );
+
+  const src =
+    media.rawSrc.startsWith('http')
+      ? toProxyUrl(media.rawSrc)
+      : media.rawSrc;
+
+  const handleSaveSize = (
+    width: number,
+    height: number,
+  ) => {
+    const path =
+      ReactEditor.findPath(
+        editor,
+        element,
+      );
+
+    Transforms.setNodes(
+      editor,
+      {
+        width,
+        height,
+      },
+      {
+        at: path,
+      },
+    );
+
     setModalOpen(false);
   };
 
-  const src =
-    typeof el.url === 'string' && el.url.startsWith('http')
-      ? toProxyUrl(el.url)
-      : el.url;
-
-  const openSizeModal = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const openSizeModal = (
+    event: React.MouseEvent<HTMLButtonElement>,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
     setModalOpen(true);
   };
 
@@ -178,9 +299,9 @@ export function VideoBlock({
         mode="edit"
         kind="video"
         src={src}
-        textAlign={el.textAlign}
-        width={el.width}
-        height={el.height}
+        textAlign={media.textAlign}
+        width={media.width}
+        height={media.height}
         selected={selected}
         focused={focused}
         attributes={attributes}
@@ -189,23 +310,7 @@ export function VideoBlock({
             <button
               type="button"
               onMouseDown={openSizeModal}
-              style={{
-                position: 'absolute',
-                top: 8,
-                right: 8,
-                background: '#fff',
-                border: '1.5px solid #2a90ff',
-                borderRadius: '50%',
-                boxShadow: '0 1px 5px #0001',
-                width: 32,
-                height: 32,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                zIndex: 1,
-                padding: 0,
-              }}
+              style={editButtonStyle}
               tabIndex={-1}
               title="영상 크기 편집"
               contentEditable={false}
@@ -220,10 +325,12 @@ export function VideoBlock({
 
       <ImageSizeModal
         open={modalOpen}
-        width={el.width}
-        height={el.height}
+        width={media.width}
+        height={media.height}
         onSave={handleSaveSize}
-        onClose={() => setModalOpen(false)}
+        onClose={() => {
+          setModalOpen(false);
+        }}
       />
     </>
   );

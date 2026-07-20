@@ -1,35 +1,36 @@
-// components/editor/render/Table.tsx
+'use client';
+
 import React from 'react';
+import { Transforms } from 'slate';
 import { ReactEditor } from 'slate-react';
 import type { RenderElementProps } from 'slate-react';
-import { Transforms } from 'slate';
 
 import type { TableElement } from '@/types/slate';
 
 import {
+  TableBlock,
   WikiTableCellRenderer,
-  WikiTableRenderer,
   WikiTableRowRenderer,
-} from '@/components/wiki-render/table/TableRenderer';
-
-import { getTableContainerStyle } from '@/components/wiki-render/table/tableLayout';
+} from '@/components/wiki-render';
+import {
+  getTableContainerStyle,
+  tableElementBaseStyle,
+} from '@/components/wiki-render/table/tableLayout';
 
 import {
   tablePathKey,
   useDragRect,
   beginDrag,
   hoverCell,
-} from '../helpers/tableDrag';
+} from '../../helpers/tableDrag';
 
-export function TableElementRenderer(
+export function TableEditorAdapter(
   props: RenderElementProps & { editor: any },
 ) {
   const { attributes, children, element, editor } = props;
   const table = element as TableElement;
-
   const tablePath = ReactEditor.findPath(editor, element);
   const tkey = tablePathKey(tablePath);
-
   const rect = useDragRect(tkey);
 
   const wrapRef = React.useRef<HTMLDivElement | null>(null);
@@ -55,27 +56,27 @@ export function TableElementRenderer(
       return;
     }
 
-    const q = (r: number, c: number) =>
+    const queryCell = (row: number, column: number) =>
       wrap.querySelector(
-        `td.slate-table__cell[data-tkey="${tkey}"][data-r="${r}"][data-c="${c}"]`,
+        `td.slate-table__cell[data-tkey="${tkey}"][data-r="${row}"][data-c="${column}"]`,
       ) as HTMLElement | null;
 
-    const a = q(rect.r0, rect.c0);
-    const b = q(rect.r1, rect.c1);
+    const firstCell = queryCell(rect.r0, rect.c0);
+    const lastCell = queryCell(rect.r1, rect.c1);
 
-    if (!a || !b) {
+    if (!firstCell || !lastCell) {
       ov.style.display = 'none';
       return;
     }
 
-    const ra = a.getBoundingClientRect();
-    const rb = b.getBoundingClientRect();
-    const base = wrap.getBoundingClientRect();
+    const firstRect = firstCell.getBoundingClientRect();
+    const lastRect = lastCell.getBoundingClientRect();
+    const baseRect = wrap.getBoundingClientRect();
 
-    const left = Math.round(ra.left - base.left);
-    const top = Math.round(ra.top - base.top);
-    const right = Math.round(rb.right - base.left);
-    const bottom = Math.round(rb.bottom - base.top);
+    const left = Math.round(firstRect.left - baseRect.left);
+    const top = Math.round(firstRect.top - baseRect.top);
+    const right = Math.round(lastRect.right - baseRect.left);
+    const bottom = Math.round(lastRect.bottom - baseRect.top);
 
     ov.style.display = 'block';
     ov.style.left = `${left}px`;
@@ -89,57 +90,59 @@ export function TableElementRenderer(
   }, [positionOverlay]);
 
   React.useEffect(() => {
-    if (!wrapRef.current) return;
+    const wrap = wrapRef.current;
+    if (!wrap) return;
 
-    const ro = new ResizeObserver(() => positionOverlay());
-    ro.observe(wrapRef.current);
+    const resizeObserver = new ResizeObserver(() => positionOverlay());
+    resizeObserver.observe(wrap);
 
-    return () => ro.disconnect();
+    return () => resizeObserver.disconnect();
   }, [positionOverlay]);
 
-  const onResizeMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const onResizeMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
 
     const wrap = wrapRef.current;
     if (!wrap) return;
 
-    const startX = e.clientX;
-    const rectDom = wrap.getBoundingClientRect();
-    const startWidth = liveWidth ?? rectDom.width;
+    const startX = event.clientX;
+    const wrapRect = wrap.getBoundingClientRect();
+    const startWidth = liveWidth ?? wrapRect.width;
     const parentRect = wrap.parentElement?.getBoundingClientRect();
     const containerWidth = parentRect?.width ?? window.innerWidth;
 
-    const MIN = 400;
-    const MAX = Math.max(MIN, containerWidth - 16);
+    const minWidth = 400;
+    const maxWidth = Math.max(minWidth, containerWidth - 16);
 
-    let latest = startWidth;
+    let latestWidth = startWidth;
 
-    const onMove = (ev: MouseEvent) => {
-      ev.preventDefault();
+    const onMove = (moveEvent: MouseEvent) => {
+      moveEvent.preventDefault();
 
-      const dx = ev.clientX - startX;
-      let next = startWidth + dx;
+      const deltaX = moveEvent.clientX - startX;
+      let nextWidth = startWidth + deltaX;
 
-      if (!Number.isFinite(next)) next = startWidth;
+      if (!Number.isFinite(nextWidth)) {
+        nextWidth = startWidth;
+      }
 
-      next = Math.max(MIN, Math.min(next, MAX));
-      latest = next;
-
-      setLiveWidth(next);
+      nextWidth = Math.max(minWidth, Math.min(nextWidth, maxWidth));
+      latestWidth = nextWidth;
+      setLiveWidth(nextWidth);
     };
 
-    const onUp = (ev: MouseEvent) => {
-      ev.preventDefault();
+    const onUp = (upEvent: MouseEvent) => {
+      upEvent.preventDefault();
 
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
 
-      if (!Number.isFinite(latest)) return;
+      if (!Number.isFinite(latestWidth)) return;
 
-      const fullThreshold = containerWidth - 12;
+      const fullWidthThreshold = containerWidth - 12;
 
-      if (latest >= fullThreshold) {
+      if (latestWidth >= fullWidthThreshold) {
         Transforms.setNodes<TableElement>(
           editor,
           {
@@ -148,16 +151,17 @@ export function TableElementRenderer(
           } as Partial<TableElement>,
           { at: tablePath },
         );
-      } else {
-        Transforms.setNodes<TableElement>(
-          editor,
-          {
-            maxWidth: Math.round(latest),
-            fullWidth: false,
-          } as Partial<TableElement>,
-          { at: tablePath },
-        );
+        return;
       }
+
+      Transforms.setNodes<TableElement>(
+        editor,
+        {
+          maxWidth: Math.round(latestWidth),
+          fullWidth: false,
+        } as Partial<TableElement>,
+        { at: tablePath },
+      );
     };
 
     document.addEventListener('mousemove', onMove);
@@ -165,15 +169,19 @@ export function TableElementRenderer(
   };
 
   const mergedRef = React.useCallback(
-    (el: HTMLDivElement | null) => {
-      wrapRef.current = el;
+    (elementNode: HTMLDivElement | null) => {
+      wrapRef.current = elementNode;
 
-      const attrRef = (attributes as any).ref;
+      const attributeRef = (attributes as any).ref;
 
-      if (typeof attrRef === 'function') {
-        attrRef(el);
-      } else if (attrRef && typeof attrRef === 'object') {
-        (attrRef as { current: HTMLDivElement | null }).current = el;
+      if (typeof attributeRef === 'function') {
+        attributeRef(elementNode);
+      } else if (attributeRef && typeof attributeRef === 'object') {
+        (
+          attributeRef as {
+            current: HTMLDivElement | null;
+          }
+        ).current = elementNode;
       }
     },
     [attributes],
@@ -230,8 +238,18 @@ export function TableElementRenderer(
     </div>
   );
 
+  const tableNode = (
+    <table
+      className="slate-table"
+      onDragStart={(event) => event.preventDefault()}
+      style={tableElementBaseStyle}
+    >
+      <tbody>{children}</tbody>
+    </table>
+  );
+
   return (
-    <WikiTableRenderer
+    <TableBlock
       mode="edit"
       attributes={
         {
@@ -240,22 +258,20 @@ export function TableElementRenderer(
         } as React.HTMLAttributes<HTMLDivElement>
       }
       containerRef={mergedRef}
-      style={getTableContainerStyle({
+      containerStyle={getTableContainerStyle({
         liveWidth: liveWidth ?? widthFromNode,
         maxWidth: widthFromNode,
         fullWidth: table.fullWidth,
         align: table.align,
       })}
-      tableClassName="slate-table"
+      table={tableNode}
       overlay={overlayNode}
       editControls={resizeHandle}
-    >
-      {children}
-    </WikiTableRenderer>
+    />
   );
 }
 
-export function TableRowRenderer(props: RenderElementProps) {
+export function TableRowEditorAdapter(props: RenderElementProps) {
   const { attributes, children } = props;
 
   return (
@@ -265,44 +281,55 @@ export function TableRowRenderer(props: RenderElementProps) {
   );
 }
 
-export function TableCellRenderer(
+export function TableCellEditorAdapter(
   props: RenderElementProps & { editor: any },
 ) {
   const { attributes, children, element, editor } = props;
+  const cell = element as any;
 
-  const el = element as any;
-
-  const colSpan = Math.max(1, Number(el.colspan) || 1);
-  const rowSpan = Math.max(1, Number(el.rowspan) || 1);
+  const colSpan = Math.max(1, Number(cell.colspan) || 1);
+  const rowSpan = Math.max(1, Number(cell.rowspan) || 1);
 
   const path = ReactEditor.findPath(editor, element);
   const tablePath = path.slice(0, -2);
   const tkey = tablePathKey(tablePath);
+  const row = path[path.length - 2] as number;
+  const column = path[path.length - 1] as number;
 
-  const r = path[path.length - 2] as number;
-  const c = path[path.length - 1] as number;
+  const onMouseDown: React.MouseEventHandler<HTMLTableCellElement> = (
+    event,
+  ) => {
+    if (event.button !== 0 || !event.shiftKey) return;
 
-  const onDown: React.MouseEventHandler<HTMLTableCellElement> = (e) => {
-    if (e.button !== 0) return;
-    if (!e.shiftKey) return;
+    event.preventDefault();
+    event.stopPropagation();
 
-    e.preventDefault();
-    e.stopPropagation();
-
-    beginDrag(editor, tablePath, tkey, r, c, e.clientX, e.clientY);
+    beginDrag(
+      editor,
+      tablePath,
+      tkey,
+      row,
+      column,
+      event.clientX,
+      event.clientY,
+    );
   };
 
-  const onEnter = () => hoverCell(tkey, r, c);
+  const onMouseEnter = () => {
+    hoverCell(tkey, row, column);
+  };
 
-  const onCtx: React.MouseEventHandler<HTMLTableCellElement> = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const onContextMenu: React.MouseEventHandler<HTMLTableCellElement> = (
+    event,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
 
     window.dispatchEvent(
       new CustomEvent('editor:table-menu', {
         detail: {
-          x: e.clientX,
-          y: e.clientY,
+          x: event.clientX,
+          y: event.clientY,
           cellPath: path,
         },
       }),
@@ -312,17 +339,19 @@ export function TableCellRenderer(
   return (
     <WikiTableCellRenderer
       mode="edit"
-      attributes={attributes as React.TdHTMLAttributes<HTMLTableCellElement>}
+      attributes={
+        attributes as React.TdHTMLAttributes<HTMLTableCellElement>
+      }
       dataAttributes={{
         'data-tkey': tkey,
-        'data-r': r,
-        'data-c': c,
+        'data-r': row,
+        'data-c': column,
       }}
       colSpan={colSpan}
       rowSpan={rowSpan}
-      onMouseDown={onDown}
-      onMouseEnter={onEnter}
-      onContextMenu={onCtx}
+      onMouseDown={onMouseDown}
+      onMouseEnter={onMouseEnter}
+      onContextMenu={onContextMenu}
       className="slate-table__cell"
     >
       {children}
@@ -330,4 +359,4 @@ export function TableCellRenderer(
   );
 }
 
-export default TableElementRenderer;
+export default TableEditorAdapter;

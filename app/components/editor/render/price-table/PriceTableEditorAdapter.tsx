@@ -1,31 +1,60 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ReactEditor, useSlateStatic } from 'slate-react';
-import type { RenderElementProps } from 'slate-react';
-import { Transforms } from 'slate';
+import {
+  ReactEditor,
+  useSlateStatic,
+} from 'slate-react';
+import type {
+  RenderElementProps,
+} from 'slate-react';
+import {
+  Transforms,
+} from 'slate';
 
 import ImageSelectModal from '@/components/image/ImageSelectModal';
-import { toProxyUrl } from '@lib/cdn';
+import {
+  PriceTableRenderer,
+  WikiBlockFrame,
+} from '@/components/wiki-render';
 
-import type { PriceTableCardElement } from '@/types/slate';
-import type { PriceTableEditState } from '../types';
+import {
+  toProxyUrl,
+} from '@lib/cdn';
 
-import WikiBlockFrame from '@/components/wiki-render/blocks/WikiBlockFrame';
-import PriceTableRenderer from '@/components/wiki-render/price-table/PriceTableRenderer';
-import { useLivePriceTableItems } from '@/components/wiki-render/price-table/useLivePriceTableItems';
-import { usePriceTableStageState } from '@/components/wiki-render/price-table/usePriceTableStageState';
+import type {
+  PriceTableCardElement,
+} from '@/types/slate';
+import type {
+  PriceTableEditState,
+} from '../types';
+
+import {
+  useLivePriceTableItems,
+} from '@/components/wiki-render/price-table/useLivePriceTableItems';
+import {
+  usePriceTableStageState,
+} from '@/components/wiki-render/price-table/usePriceTableStageState';
 
 import PriceItemSelectModal from '../../PriceItemSelectModal';
 
-import { usePriceTableBlockGuard } from './usePriceTableBlockGuard';
-import { usePriceTableEditorActions } from './usePriceTableEditorActions';
+import {
+  usePriceTableBlockGuard,
+} from './usePriceTableBlockGuard';
+import {
+  usePriceTableEditorActions,
+} from './usePriceTableEditorActions';
 
 export interface PriceTableEditorAdapterProps {
-  attributes: RenderElementProps['attributes'];
+  attributes:
+    RenderElementProps['attributes'];
   children: React.ReactNode;
   element: PriceTableCardElement;
-  setPriceTableEdit: React.Dispatch<React.SetStateAction<PriceTableEditState>>;
+  setPriceTableEdit: React.Dispatch<
+    React.SetStateAction<
+      PriceTableEditState
+    >
+  >;
 }
 
 export default function PriceTableEditorAdapter({
@@ -34,15 +63,28 @@ export default function PriceTableEditorAdapter({
   element,
   setPriceTableEdit,
 }: PriceTableEditorAdapterProps) {
-  const editor = useSlateStatic();
-  const el = element as PriceTableCardElement;
+  const editor =
+    useSlateStatic();
+
+  const el =
+    element as PriceTableCardElement;
 
   usePriceTableBlockGuard(editor);
 
-  const sourceItems = Array.isArray(el.items) ? el.items : [];
+  const sourceItems =
+    Array.isArray(el.items)
+      ? el.items
+      : [];
 
-  const [imageEditIndex, setImageEditIndex] = useState<number | null>(null);
-  const [selectEditIndex, setSelectEditIndex] = useState<number | null>(null);
+  const [
+    imageEditIndex,
+    setImageEditIndex,
+  ] = useState<number | null>(null);
+
+  const [
+    selectEditIndex,
+    setSelectEditIndex,
+  ] = useState<number | null>(null);
 
   const {
     handleImageSelected,
@@ -59,7 +101,10 @@ export default function PriceTableEditorAdapter({
     setSelectEditIndex,
   });
 
-  const viewItems = useLivePriceTableItems(sourceItems as any[]);
+  const viewItems =
+    useLivePriceTableItems(
+      sourceItems as any[],
+    );
 
   const {
     hoveredIndex: hovered,
@@ -67,7 +112,9 @@ export default function PriceTableEditorAdapter({
     stageIndexes: stageIdxArr,
     onPrevStage: handlePrev,
     onNextStage: handleNext,
-  } = usePriceTableStageState(sourceItems);
+  } = usePriceTableStageState(
+    sourceItems,
+  );
 
   const deleteButton = (
     <button
@@ -75,16 +122,17 @@ export default function PriceTableEditorAdapter({
       aria-label="시세표 블럭 삭제"
       title="시세표 블럭 삭제"
       tabIndex={-1}
-      onMouseDown={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-
+      onMouseDown={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
         removeBlock();
       }}
       style={{
-        background: 'var(--surface-elevated)',
+        background:
+          'var(--surface-elevated)',
         color: '#d34b4b',
-        border: '1.2px solid #e6b7b7',
+        border:
+          '1.2px solid #e6b7b7',
         borderRadius: '50%',
         width: 26,
         height: 26,
@@ -93,9 +141,11 @@ export default function PriceTableEditorAdapter({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        boxShadow: 'var(--shadow-sm)',
+        boxShadow:
+          'var(--shadow-sm)',
         cursor: 'pointer',
-        transition: 'background .13s',
+        transition:
+          'background .13s',
         padding: 0,
       }}
     >
@@ -110,40 +160,69 @@ export default function PriceTableEditorAdapter({
         items={viewItems}
         stageIndexes={stageIdxArr}
         hoveredIndex={hovered}
-        onHoverIndexChange={setHovered}
+        onHoverIndexChange={
+          setHovered
+        }
         onPrevStage={handlePrev}
         onNextStage={handleNext}
         resolveImageSrc={(src) =>
-          src.startsWith('http') ? toProxyUrl(src) : src
+          src.startsWith('http')
+            ? toProxyUrl(src)
+            : src
         }
-        onImageClick={(_, idx, event) => {
+        onImageClick={(
+          _,
+          index,
+          event,
+        ) => {
           event.stopPropagation();
-          setImageEditIndex(idx);
+          setImageEditIndex(index);
         }}
-        onNameClick={(_, idx, event) => {
+        onNameClick={(
+          _,
+          index,
+          event,
+        ) => {
           event.stopPropagation();
 
           try {
             Transforms.deselect(editor);
           } catch {}
 
-          setSelectEditIndex(idx);
+          setSelectEditIndex(index);
         }}
-        onPriceClick={(item, idx, event) => {
+        onPriceClick={(
+          item,
+          index,
+          event,
+        ) => {
           event.stopPropagation();
-          openPriceEdit(item, idx);
+          openPriceEdit(
+            item,
+            index,
+          );
         }}
       />
 
       <ImageSelectModal
-        open={imageEditIndex != null}
-        onClose={() => setImageEditIndex(null)}
-        onSelectImage={handleImageSelected}
+        open={
+          imageEditIndex != null
+        }
+        onClose={() =>
+          setImageEditIndex(null)
+        }
+        onSelectImage={
+          handleImageSelected
+        }
       />
 
       <PriceItemSelectModal
-        open={selectEditIndex != null}
-        onClose={() => setSelectEditIndex(null)}
+        open={
+          selectEditIndex != null
+        }
+        onClose={() =>
+          setSelectEditIndex(null)
+        }
         onSelect={handlePickItem}
       />
     </>
@@ -155,7 +234,9 @@ export default function PriceTableEditorAdapter({
       editClassName="wiki-price-table-edit"
       readClassName="wiki-price-table-read"
       attributes={
-        attributes as React.HTMLAttributes<HTMLDivElement>
+        attributes as React.HTMLAttributes<
+          HTMLDivElement
+        >
       }
       content={content}
       editControls={deleteButton}

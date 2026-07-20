@@ -3,8 +3,15 @@
 import React from 'react';
 import type { RenderElementProps } from 'slate-react';
 
-import DividerBlock from '@/components/wiki-render/blocks/DividerBlock';
-import InfoBoxBlock from '@/components/wiki-render/blocks/InfoBoxBlock';
+import {
+  DividerBlock,
+  InfoBoxBlock,
+} from '@/components/wiki-render';
+import {
+  resolveDividerStyle,
+  resolveInfoBoxNoIcon,
+  resolveInfoBoxTone,
+} from '@/components/wiki-render/blocks/blockNodeUtils';
 
 type EditorBlockAdapterProps = {
   attributes: RenderElementProps['attributes'];
@@ -20,7 +27,7 @@ export function DividerEditorAdapter({
   return (
     <DividerBlock
       mode="edit"
-      styleType={element.style || 'default'}
+      styleType={resolveDividerStyle(element)}
       attributes={attributes as any}
     >
       {children}
@@ -33,20 +40,11 @@ export function InfoBoxEditorAdapter({
   children,
   element,
 }: EditorBlockAdapterProps) {
-  const tone =
-    element.boxType ||
-    element.variant ||
-    element.tone ||
-    element.infoType ||
-    'note';
-
-  const noIcon = Boolean(element.noIcon);
-
   return (
     <InfoBoxBlock
       mode="edit"
-      tone={tone}
-      noIcon={noIcon}
+      tone={resolveInfoBoxTone(element)}
+      noIcon={resolveInfoBoxNoIcon(element)}
       attributes={attributes}
     >
       {children}
