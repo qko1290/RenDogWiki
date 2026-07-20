@@ -8,10 +8,7 @@ import type { RenderElementProps } from 'slate-react';
 import type { LinkBlockElement } from '@/types/slate';
 
 import LinkCardRenderer from '@/components/wiki-render/link/LinkCardRenderer';
-import {
-  isRdwikiWikiUrl,
-  parseLinkUrl,
-} from '@/components/wiki-render/link/linkUtils';
+import useLinkCardTarget from '@/components/wiki-render/link/useLinkCardTarget';
 import useResolvedWikiDocIcon from '@/components/wiki-render/link/useResolvedWikiDocIcon';
 
 type LinkBlockEditorAdapterProps = {
@@ -111,17 +108,13 @@ export default function LinkBlockEditorAdapter({
   const el = element;
   const isReadOnly = ReactEditor.isReadOnly(editor);
 
-  const parsedUrl = useMemo(
-    () => parseLinkUrl(el.url),
-    [el.url],
-  );
-
-  const isWikiLink = useMemo(() => {
-    if (el.isWiki) return true;
-    if (!parsedUrl) return false;
-
-    return isRdwikiWikiUrl(parsedUrl);
-  }, [el.isWiki, parsedUrl]);
+  const {
+    parsedUrl,
+    isWikiLink,
+  } = useLinkCardTarget({
+    url: el.url,
+    isWiki: el.isWiki,
+  });
 
   const resolvedDocIcon = useResolvedWikiDocIcon({
     href: el.url,

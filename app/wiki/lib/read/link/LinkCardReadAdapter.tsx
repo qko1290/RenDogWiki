@@ -4,10 +4,7 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 
 import LinkCardRenderer from '@/components/wiki-render/link/LinkCardRenderer';
-import {
-  isRdwikiWikiUrl,
-  parseLinkUrl,
-} from '@/components/wiki-render/link/linkUtils';
+import useLinkCardTarget from '@/components/wiki-render/link/useLinkCardTarget';
 import useResolvedWikiDocIcon from '@/components/wiki-render/link/useResolvedWikiDocIcon';
 import { markNextDocViewSource } from '@/wiki/lib/viewSource';
 
@@ -51,17 +48,12 @@ export default function LinkCardReadAdapter({
 }: LinkCardReadAdapterProps) {
   const router = useRouter();
 
-  const parsedUrl = React.useMemo(
-    () => parseLinkUrl(url),
-    [url],
-  );
-
-  const isWikiLink = React.useMemo(() => {
-    if (isWiki) return true;
-    if (!parsedUrl) return false;
-
-    return isRdwikiWikiUrl(parsedUrl);
-  }, [isWiki, parsedUrl]);
+  const {
+    isWikiLink,
+  } = useLinkCardTarget({
+    url,
+    isWiki,
+  });
 
   const resolvedDocIcon = useResolvedWikiDocIcon({
     href: url,
