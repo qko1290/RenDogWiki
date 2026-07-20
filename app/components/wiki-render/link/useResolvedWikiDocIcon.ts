@@ -2,7 +2,9 @@
 
 import React from 'react';
 
-import { getWikiDocDetailByHref } from './linkPreviewService';
+import {
+  getWikiDocDetailByHref,
+} from './wikiDocDetailService';
 import { normalizeToAppHref } from './linkUtils';
 
 type UseResolvedWikiDocIconOptions = {

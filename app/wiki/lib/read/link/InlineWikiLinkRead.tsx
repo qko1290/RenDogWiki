@@ -27,7 +27,7 @@ import {
 
 import {
   getWikiLinkPreviewData,
-} from '@/components/wiki-render/link/linkPreviewService';
+} from './wikiLinkPreviewService';
 
 import {
   normalizeToAppHref,
