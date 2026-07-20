@@ -2,12 +2,13 @@
 
 import React from 'react';
 
-import InlineWikiLink from '@/components/wiki-render/link/InlineWikiLink';
 import InlineLinkRenderer from '@/components/wiki-render/link/InlineLinkRenderer';
 
 import {
   isInternalWikiHref as sharedIsInternalWikiHref,
 } from '@/components/wiki-render/link/linkUtils';
+
+import InlineWikiLinkRead from './link/InlineWikiLinkRead';
 
 type InlineLinkReadAdapterProps = {
   node: any;
@@ -20,17 +21,20 @@ export default function InlineLinkReadAdapter({
   children,
   onWikiNavigate,
 }: InlineLinkReadAdapterProps) {
-  const href = String(node.url ?? node.href ?? '').trim();
-  const isInternalWikiLink = href ? sharedIsInternalWikiHref(href) : false;
+  const href = String(node?.url ?? node?.href ?? '').trim();
+
+  const isInternalWikiLink = href
+    ? sharedIsInternalWikiHref(href)
+    : false;
 
   if (isInternalWikiLink) {
     return (
-      <InlineWikiLink
+      <InlineWikiLinkRead
         href={href}
         onWikiNavigate={onWikiNavigate}
       >
         {children}
-      </InlineWikiLink>
+      </InlineWikiLinkRead>
     );
   }
 

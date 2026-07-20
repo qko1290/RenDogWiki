@@ -14,12 +14,26 @@ import { useRouter } from 'next/navigation';
 import SmartImage from '@/components/common/SmartImage';
 import { cdn, withVersion } from '@lib/cdn';
 
-import type { InlineWikiLinkProps, WikiLinkPreviewData } from './types';
-import { FOOTNOTE_HOVER_EVENT } from './types';
-import { getWikiLinkPreviewData } from './linkPreviewService';
-import { normalizeToAppHref } from './linkUtils';
+import InlineLinkRenderer from '@/components/wiki-render/link/InlineLinkRenderer';
 
-export default function InlineWikiLink({
+import type {
+  InlineWikiLinkProps,
+  WikiLinkPreviewData,
+} from '@/components/wiki-render/link/types';
+
+import {
+  FOOTNOTE_HOVER_EVENT,
+} from '@/components/wiki-render/link/types';
+
+import {
+  getWikiLinkPreviewData,
+} from '@/components/wiki-render/link/linkPreviewService';
+
+import {
+  normalizeToAppHref,
+} from '@/components/wiki-render/link/linkUtils';
+
+export default function InlineWikiLinkRead({
   href,
   children,
   onWikiNavigate,
@@ -479,22 +493,25 @@ export default function InlineWikiLink({
 
   return (
     <>
-      <a
-        ref={rootRef}
+      <InlineLinkRenderer
+        anchorRef={rootRef}
+        mode="read"
         href={normalizedHref}
         onClick={handleClick}
         onMouseEnter={handlePreviewOpen}
         onMouseLeave={() => setOpen(false)}
         onFocus={handlePreviewOpen}
         onBlur={() => setOpen(false)}
-        aria-describedby={showTooltip ? tooltipIdRef.current : undefined}
+        ariaDescribedBy={
+          showTooltip ? tooltipIdRef.current : undefined
+        }
         style={{
           color: 'var(--accent)',
           textDecoration: 'none',
         }}
       >
         {children}
-      </a>
+      </InlineLinkRenderer>
 
       {desktopTooltip}
     </>
