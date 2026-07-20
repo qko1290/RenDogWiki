@@ -1,6 +1,7 @@
 export { default as DividerBlock } from './blocks/DividerBlock';
 export { default as HeadingBlock } from './blocks/HeadingBlock';
 export { default as InfoBoxBlock } from './blocks/InfoBoxBlock';
+export { default as LinkBlockRow } from './blocks/LinkBlockRow';
 export { default as LinkCardBlock } from './blocks/LinkCardBlock';
 export { default as MediaBlock } from './blocks/MediaBlock';
 export { default as ParagraphBlock } from './blocks/ParagraphBlock';

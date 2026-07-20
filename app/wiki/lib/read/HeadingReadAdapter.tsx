@@ -2,16 +2,16 @@
 
 import React from 'react';
 
-import HeadingBlock from '@/components/wiki-render/blocks/HeadingBlock';
+import {
+  HeadingBlock,
+} from '@/components/wiki-render';
 
 import HeadingAnchorButton from './HeadingAnchorButton';
-
 import {
   stripFontSizeFromDescendants,
   stripReact,
   toHeadingIdFromText,
 } from '../readRendererUtils';
-
 import type {
   HeadingCopyCtx,
   ReadRenderEnv,
@@ -27,9 +27,21 @@ type HeadingReadAdapterProps = {
   renderNode: ReadRenderNode;
 };
 
-function getHeadingLevel(type: string): 1 | 2 | 3 {
-  if (type === 'heading-one') return 1;
-  if (type === 'heading-two') return 2;
+function getHeadingLevel(
+  type: string,
+): 1 | 2 | 3 {
+  if (
+    type === 'heading-one'
+  ) {
+    return 1;
+  }
+
+  if (
+    type === 'heading-two'
+  ) {
+    return 2;
+  }
+
   return 3;
 }
 
@@ -46,36 +58,68 @@ export default function HeadingReadAdapter({
    * heading 안의 fontSize mark는 제거하고,
    * HeadingBlock의 h1/h2/h3 크기를 우선 적용한다.
    */
-  const safeChildren = (node.children ?? []).map((child: any, index: number) =>
-    renderNode(
-      stripFontSizeFromDescendants(child),
-      keyProp ? `${keyProp}-${index}` : index,
-      ctx,
-      handlers,
-      env,
-    ),
+  const safeChildren =
+    (node.children ?? []).map(
+      (
+        child: any,
+        index: number,
+      ) =>
+        renderNode(
+          stripFontSizeFromDescendants(
+            child,
+          ),
+          keyProp
+            ? `${keyProp}-${index}`
+            : index,
+          ctx,
+          handlers,
+          env,
+        ),
+    );
+
+  const textContent =
+    stripReact(
+      safeChildren,
+    ).trim();
+
+  const baseId =
+    toHeadingIdFromText(
+      textContent,
+    );
+
+  const occurrence =
+    ctx?.headingOccRef.current.get(
+      baseId,
+    ) ?? 0;
+
+  ctx?.headingOccRef.current.set(
+    baseId,
+    occurrence + 1,
   );
 
-  const textContent = stripReact(safeChildren).trim();
-  const baseId = toHeadingIdFromText(textContent);
-
-  const occurrence = ctx?.headingOccRef.current.get(baseId) ?? 0;
-  ctx?.headingOccRef.current.set(baseId, occurrence + 1);
-
-  const domId = `${baseId}--${occurrence}`;
+  const domId =
+    `${baseId}--${occurrence}`;
 
   return (
     <HeadingBlock
       mode="read"
-      level={getHeadingLevel(node.type)}
-      textAlign={node.textAlign}
+      level={
+        getHeadingLevel(
+          node.type,
+        )
+      }
+      textAlign={
+        node.textAlign
+      }
       icon={node.icon}
       domId={domId}
       dataHeadingId={baseId}
     >
       {safeChildren}
 
-      <HeadingAnchorButton anchorId={baseId} />
+      <HeadingAnchorButton
+        anchorId={baseId}
+      />
     </HeadingBlock>
   );
 }
