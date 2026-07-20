@@ -18,7 +18,9 @@ import {
 
 import ImageSizeModal from '../../ImageSizeModal';
 
-import MediaBlock from '@/components/wiki-render/blocks/MediaBlock';
+import {
+  MediaBlock,
+} from '@/components/wiki-render';
 import {
   resolveMediaNode,
 } from '@/components/wiki-render/blocks/mediaNodeUtils';

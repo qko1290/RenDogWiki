@@ -3,7 +3,9 @@
 import React from 'react';
 
 import SmartImage from '@/components/common/SmartImage';
-import MediaBlock from '@/components/wiki-render/blocks/MediaBlock';
+import {
+  MediaBlock,
+} from '@/components/wiki-render';
 import {
   resolveMediaNode,
 } from '@/components/wiki-render/blocks/mediaNodeUtils';
