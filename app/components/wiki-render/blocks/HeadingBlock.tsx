@@ -24,12 +24,6 @@ function getHeadingTag(level: HeadingLevel): 'h1' | 'h2' | 'h3' {
   return 'h3';
 }
 
-function getHeadingIconSize(level: HeadingLevel) {
-  if (level === 1) return 28;
-  if (level === 2) return 26;
-  return 22;
-}
-
 /**
  * main 원본 WikiReadRenderer 기준 heading 크기.
  */
@@ -92,14 +86,25 @@ function HeadingIcon({
   level: HeadingLevel;
   onIconClick?: () => void;
 }) {
-  const [imageFailed, setImageFailed] = React.useState(false);
+  const [imageFailed, setImageFailed] =
+    React.useState(false);
 
   const safeIcon = String(icon ?? '').trim();
 
   if (!safeIcon) return null;
 
-  const shouldRenderAsImage = looksLikeImageIcon(safeIcon) && !imageFailed;
-  const iconSize = getHeadingIconSize(level);
+  const shouldRenderAsImage =
+    looksLikeImageIcon(safeIcon) &&
+    !imageFailed;
+
+  // main 원본 Element.tsx와 동일한 상대 크기.
+  // H1: 28px × 1.7 ≈ 48px
+  // H2: 22px × 1.7 ≈ 37px
+  // H3: 18px × 1.7 ≈ 31px
+  const imageIconSize = '1.7em';
+
+  // 원본의 이모지·텍스트 아이콘 크기.
+  const textIconSize = '1.5em';
 
   return (
     <span
@@ -115,14 +120,21 @@ function HeadingIcon({
       contentEditable={false}
       suppressContentEditableWarning
       style={{
-        cursor: mode === 'edit' && onIconClick ? 'pointer' : 'default',
+        cursor:
+          mode === 'edit' && onIconClick
+            ? 'pointer'
+            : 'default',
         marginRight: 8,
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
         flex: '0 0 auto',
-        width: iconSize,
-        height: iconSize,
+        width: shouldRenderAsImage
+          ? imageIconSize
+          : 'auto',
+        height: shouldRenderAsImage
+          ? imageIconSize
+          : 'auto',
         lineHeight: 1,
       }}
     >
@@ -130,12 +142,12 @@ function HeadingIcon({
         <SmartImage
           src={withVersion(cdn(safeIcon))}
           alt=""
-          width={iconSize}
-          height={iconSize}
+          width={28}
+          height={28}
           onError={() => setImageFailed(true)}
           style={{
-            width: iconSize,
-            height: iconSize,
+            width: imageIconSize,
+            height: imageIconSize,
             objectFit: 'contain',
             display: 'block',
           }}
@@ -143,7 +155,7 @@ function HeadingIcon({
       ) : (
         <span
           style={{
-            fontSize: iconSize,
+            fontSize: textIconSize,
             lineHeight: 1,
             display: 'inline-flex',
             alignItems: 'center',
