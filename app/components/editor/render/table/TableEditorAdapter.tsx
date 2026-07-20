@@ -7,12 +7,15 @@ import type { RenderElementProps } from 'slate-react';
 
 import type { TableElement } from '@/types/slate';
 
+import TableBlock from '@/components/wiki-render/blocks/TableBlock';
 import {
   WikiTableCellRenderer,
-  WikiTableRenderer,
   WikiTableRowRenderer,
 } from '@/components/wiki-render/table/TableRenderer';
-import { getTableContainerStyle } from '@/components/wiki-render/table/tableLayout';
+import {
+  getTableContainerStyle,
+  tableElementBaseStyle,
+} from '@/components/wiki-render/table/tableLayout';
 
 import {
   tablePathKey,
@@ -235,8 +238,18 @@ export function TableEditorAdapter(
     </div>
   );
 
+  const tableNode = (
+    <table
+      className="slate-table"
+      onDragStart={(event) => event.preventDefault()}
+      style={tableElementBaseStyle}
+    >
+      <tbody>{children}</tbody>
+    </table>
+  );
+
   return (
-    <WikiTableRenderer
+    <TableBlock
       mode="edit"
       attributes={
         {
@@ -245,18 +258,16 @@ export function TableEditorAdapter(
         } as React.HTMLAttributes<HTMLDivElement>
       }
       containerRef={mergedRef}
-      style={getTableContainerStyle({
+      containerStyle={getTableContainerStyle({
         liveWidth: liveWidth ?? widthFromNode,
         maxWidth: widthFromNode,
         fullWidth: table.fullWidth,
         align: table.align,
       })}
-      tableClassName="slate-table"
+      table={tableNode}
       overlay={overlayNode}
       editControls={resizeHandle}
-    >
-      {children}
-    </WikiTableRenderer>
+    />
   );
 }
 
