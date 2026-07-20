@@ -1,23 +1,36 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, {
+  useMemo,
+  useState,
+} from 'react';
 
 import SmartImage from '@/components/common/SmartImage';
-import { cdn, withVersion } from '@lib/cdn';
-
-import WikiBlockFrame from '@/components/wiki-render/blocks/WikiBlockFrame';
-import WeaponCardRenderer from '@/components/wiki-render/weapon/WeaponCardRenderer';
-import WeaponVideoModal from './WeaponVideoModal';
-
 import {
-  WEAPON_TYPES_META,
+  WeaponCardRenderer,
+  WikiBlockFrame,
+} from '@/components/wiki-render';
+import {
   normalizeWeaponType,
   supportsWeaponVideo,
+  WEAPON_TYPES_META,
 } from '@/components/wiki-render/weapon/weaponMeta';
-
+import {
+  getWeaponLevelLabelsFromStats,
+} from '@/components/wiki-render/weapon/weaponLevelUtils';
 import type {
   WeaponImageRenderArgs,
 } from '@/components/wiki-render/weapon/types';
+import {
+  useWeaponLevelSelection,
+} from '@/components/wiki-render/weapon/useWeaponLevelSelection';
+
+import {
+  cdn,
+  withVersion,
+} from '@lib/cdn';
+
+import WeaponVideoModal from './WeaponVideoModal';
 
 type WeaponCardReadAdapterProps = {
   node: any;
@@ -26,67 +39,63 @@ type WeaponCardReadAdapterProps = {
   isMobile?: boolean;
 };
 
-function getDefaultWeaponLevelIndex(levelLabels: string[]) {
-  if (!levelLabels.length) return null;
-
-  const idxMax = levelLabels.findIndex((label) => {
-    const upper = String(label ?? '').trim().toUpperCase();
-
-    return upper === 'MAX' || upper === 'M';
-  });
-
-  return idxMax >= 0 ? idxMax : levelLabels.length - 1;
-}
-
-function getWeaponLevelLabelsFromStats(enabledStats: any[]) {
-  const baseStatWithLevels = enabledStats.find(
-    (stat) => Array.isArray(stat?.levels) && stat.levels.length > 0,
-  );
-
-  if (!baseStatWithLevels) return [];
-
-  return baseStatWithLevels.levels
-    .map((level: any) => String(level?.levelLabel ?? level?.label ?? '').trim())
-    .filter(Boolean);
-}
-
 export default function WeaponCardReadAdapter({
   node,
   keyProp,
   isDarkMode = false,
   isMobile = false,
 }: WeaponCardReadAdapterProps) {
-  const stats: any[] = Array.isArray(node.stats) ? node.stats : [];
-  const enabledStats = stats.filter((stat) => stat && stat.enabled);
+  const stats: any[] =
+    Array.isArray(
+      node.stats,
+    )
+      ? node.stats
+      : [];
 
-  const levelLabels = useMemo(
-    () => getWeaponLevelLabelsFromStats(enabledStats),
-    [enabledStats],
-  );
-
-  const levelSignature = levelLabels.join('|');
-
-  const defaultLevelIndex =
-    getDefaultWeaponLevelIndex(levelLabels);
-
-  const [selectedLevelIndex, setSelectedLevelIndex] =
-    useState<number | null>(
-      () => defaultLevelIndex,
+  const enabledStats =
+    stats.filter(
+      (stat) =>
+        stat &&
+        stat.enabled,
     );
 
-  useEffect(() => {
-    setSelectedLevelIndex(defaultLevelIndex);
-  }, [
-    defaultLevelIndex,
-    levelSignature,
-  ]);
+  const levelLabels =
+    useMemo(
+      () =>
+        getWeaponLevelLabelsFromStats(
+          enabledStats,
+        ),
+      [enabledStats],
+    );
 
-  const [showVideo, setShowVideo] = useState(false);
+  const {
+    selectedLevelIndex,
+    setSelectedLevelIndex,
+  } = useWeaponLevelSelection(
+    levelLabels,
+  );
 
-  const weaponType = normalizeWeaponType(node.weaponType);
-  const meta = WEAPON_TYPES_META[weaponType] ?? WEAPON_TYPES_META.epic;
+  const [
+    showVideo,
+    setShowVideo,
+  ] = useState(false);
 
-  const name = String(node.name ?? '').trim() || '무기 이름 없음';
+  const weaponType =
+    normalizeWeaponType(
+      node.weaponType,
+    );
+
+  const meta =
+    WEAPON_TYPES_META[
+      weaponType
+    ] ??
+    WEAPON_TYPES_META.epic;
+
+  const name =
+    String(
+      node.name ?? '',
+    ).trim() ||
+    '무기 이름 없음';
 
   const versionBase =
     node.imageUpdatedAt ||
@@ -96,12 +105,36 @@ export default function WeaponCardReadAdapter({
     node.updatedAt ||
     node.version;
 
-  const rawImage = node.imageUrl || node.image || '';
-  const imageSrc = rawImage ? withVersion(cdn(rawImage), versionBase) : '';
+  const rawImage =
+    node.imageUrl ||
+    node.image ||
+    '';
 
-  const supportsVideo = supportsWeaponVideo(weaponType);
-  const rawVideo = supportsVideo ? node.videoUrl || '' : '';
-  const videoSrc = rawVideo ? withVersion(cdn(rawVideo), versionBase) : '';
+  const imageSrc =
+    rawImage
+      ? withVersion(
+          cdn(rawImage),
+          versionBase,
+        )
+      : '';
+
+  const supportsVideo =
+    supportsWeaponVideo(
+      weaponType,
+    );
+
+  const rawVideo =
+    supportsVideo
+      ? node.videoUrl || ''
+      : '';
+
+  const videoSrc =
+    rawVideo
+      ? withVersion(
+          cdn(rawVideo),
+          versionBase,
+        )
+      : '';
 
   const content = (
     <>
@@ -111,46 +144,76 @@ export default function WeaponCardReadAdapter({
           ...node,
           weaponType,
           name,
-          imageUrl: rawImage,
-          videoUrl: rawVideo,
+          imageUrl:
+            rawImage,
+          videoUrl:
+            rawVideo,
         }}
         meta={meta}
         stats={enabledStats}
         imageSrc={imageSrc}
         videoSrc={videoSrc}
-        supportsVideo={supportsVideo}
-        isDarkMode={isDarkMode}
+        supportsVideo={
+          supportsVideo
+        }
+        isDarkMode={
+          isDarkMode
+        }
         isMobile={isMobile}
-        selectedLevelIndex={selectedLevelIndex}
-        levelLabels={levelLabels}
-        onLevelChange={(idx) => setSelectedLevelIndex(idx)}
+        selectedLevelIndex={
+          selectedLevelIndex
+        }
+        levelLabels={
+          levelLabels
+        }
+        onLevelChange={
+          setSelectedLevelIndex
+        }
         onVideoClick={() => {
-          if (videoSrc) setShowVideo(true);
+          if (videoSrc) {
+            setShowVideo(
+              true,
+            );
+          }
         }}
-        renderImage={({ src, alt, width, height, style }: WeaponImageRenderArgs) => (
+        renderImage={({
+          src,
+          alt,
+          width,
+          height,
+          style,
+        }: WeaponImageRenderArgs) => (
           <SmartImage
             src={src}
             alt={alt}
             width={width}
             height={height}
-            sizes="(max-width: 768px) 220px, 260px"
+            sizes=
+              "(max-width: 768px) 220px, 260px"
             loading="lazy"
             decoding="async"
             rounded={10}
             style={{
               ...style,
-              background: 'transparent',
-              imageRendering: 'pixelated',
+              background:
+                'transparent',
+              imageRendering:
+                'pixelated',
             }}
           />
         )}
       />
 
-      {supportsVideo && videoSrc ? (
+      {supportsVideo &&
+      videoSrc ? (
         <WeaponVideoModal
           open={showVideo}
           url={videoSrc}
-          onClose={() => setShowVideo(false)}
+          onClose={() =>
+            setShowVideo(
+              false,
+            )
+          }
         />
       ) : null}
     </>
@@ -160,8 +223,10 @@ export default function WeaponCardReadAdapter({
     <WikiBlockFrame
       key={keyProp}
       mode="read"
-      editClassName="wiki-weapon-card-edit"
-      readClassName="wiki-weapon-card-read"
+      editClassName=
+        "wiki-weapon-card-edit"
+      readClassName=
+        "wiki-weapon-card-read"
       content={content}
     />
   );
