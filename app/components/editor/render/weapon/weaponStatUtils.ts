@@ -155,17 +155,63 @@ export function getWeaponLevelLabels(type: WeaponType): string[] {
   }
 }
 
-// levels 배열을 weaponType에 맞는 길이로 맞춤
+function hasWeaponStatValue(value: unknown) {
+  const text = String(value ?? '').trim();
+  return text !== '' && text !== '-';
+}
+
+function pickSingleLevelValue(levels: WeaponStatConfig['levels'] | undefined) {
+  const list = Array.isArray(levels) ? levels : [];
+
+  const basic = list.find((lv) => {
+    const label = String(lv?.levelLabel ?? '').trim();
+    return label === '기본' && hasWeaponStatValue(lv?.value);
+  });
+
+  if (basic) return basic.value ?? '';
+
+  const max = [...list].reverse().find((lv) => {
+    const label = String(lv?.levelLabel ?? '').trim().toUpperCase();
+    return (label === 'MAX' || label === 'M') && hasWeaponStatValue(lv?.value);
+  });
+
+  if (max) return max.value ?? '';
+
+  const lastFilled = [...list]
+    .reverse()
+    .find((lv) => hasWeaponStatValue(lv?.value));
+
+  if (lastFilled) return lastFilled.value ?? '';
+
+  return list[0]?.value ?? '';
+}
+
 export function normalizeStatLevels(
   levels: WeaponStatConfig['levels'] | undefined,
   type: WeaponType,
 ): WeaponStatConfig['levels'] {
   const labels = getWeaponLevelLabels(type);
   const list = levels ?? [];
-  return labels.map((label, idx) => ({
-    levelLabel: label,
-    value: list[idx]?.value ?? '',
-  }));
+
+  if (labels.length === 1) {
+    return [
+      {
+        levelLabel: labels[0],
+        value: pickSingleLevelValue(list),
+      },
+    ];
+  }
+
+  return labels.map((label, idx) => {
+    const exact = list.find(
+      (lv) => String(lv?.levelLabel ?? '').trim() === label,
+    );
+
+    return {
+      levelLabel: label,
+      value: exact?.value ?? list[idx]?.value ?? '',
+    };
+  });
 }
 
 // 빈 스탯 하나 생성 (enabled 여부 포함)
