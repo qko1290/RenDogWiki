@@ -8,6 +8,8 @@
 // - 실제 선택으로 집계된 최근 7일 인기 검색어 표시
 // - Wiki Header와 동일한 SearchBox 사용
 // - 퀘스트 NPC 상세 모달과 FAQ 상세 동작 지원
+// - 생성 이미지 기반 Hero와 좌우 배경 적용
+// - 퀘스트 대표 버튼과 커뮤니티 바로가기 적용
 // =============================================
 
 'use client';
@@ -689,37 +691,15 @@ export default function HomePage({
           <aside
             className={styles.leftRail}
             aria-hidden="true"
-          >
-            <div className={styles.leftTree} />
-            <div className={styles.leftGrass} />
-          </aside>
+          />
 
           <main className={styles.main}>
             <section
               className={styles.hero}
               style={{
-                overflow: 'visible',
                 zIndex: 20,
               }}
             >
-              <div
-                className={styles.heroLandscape}
-                aria-hidden="true"
-              >
-                <span
-                  className={styles.heroTreeLeft}
-                />
-                <span
-                  className={styles.heroTreeRight}
-                />
-                <span
-                  className={styles.heroHillLeft}
-                />
-                <span
-                  className={styles.heroHillRight}
-                />
-              </div>
-
               <div className={styles.heroContent}>
                 <p className={styles.heroEyebrow}>
                   마인크래프트 렌독 서버 비공식 위키
@@ -824,14 +804,6 @@ export default function HomePage({
                 </div>
               </div>
 
-              <Image
-                src={logo}
-                alt=""
-                width={164}
-                height={164}
-                className={styles.heroMascot}
-                aria-hidden="true"
-              />
             </section>
 
             <section className={styles.newcomer}>
@@ -1147,7 +1119,7 @@ export default function HomePage({
                   (recommendation) => (
                     <Link
                       key={recommendation.title}
-                      href="/wiki"
+                      href={recommendation.href}
                       className={
                         styles.recommendCard
                       }
@@ -1220,7 +1192,7 @@ export default function HomePage({
                   target="_blank"
                   rel="noreferrer"
                   className={`${styles.communityLink} ${styles.communityLinkDiscord}`}
-                  aria-label="렌독 디스코드 열기"
+                  aria-label="렌독서버 디스코드 열기"
                   data-tooltip="렌독서버 디스코드"
                 >
                   <svg
@@ -1238,7 +1210,7 @@ export default function HomePage({
                   target="_blank"
                   rel="noreferrer"
                   className={`${styles.communityLink} ${styles.communityLinkNaver}`}
-                  aria-label="렌독 네이버 카페 열기"
+                  aria-label="렌독서버 공식카페 열기"
                   data-tooltip="렌독서버 공식카페"
                 >
                   <span aria-hidden="true">N</span>
@@ -1249,7 +1221,7 @@ export default function HomePage({
                   target="_blank"
                   rel="noreferrer"
                   className={`${styles.communityLink} ${styles.communityLinkMinelist}`}
-                  aria-label="렌독 마인리스트 열기"
+                  aria-label="마인리스트 열기"
                   data-tooltip="마인리스트"
                 >
                   <svg
@@ -1268,10 +1240,7 @@ export default function HomePage({
           <aside
             className={styles.rightRail}
             aria-hidden="true"
-          >
-            <div className={styles.rightTower} />
-            <div className={styles.rightGrass} />
-          </aside>
+          />
         </div>
       </div>
 
