@@ -663,13 +663,31 @@
   gap: 5px;
 }
 
-.newcomerTags span {
+.newcomerTags a {
   padding: 4px 8px;
   border: 1px solid rgba(105, 160, 111, 0.19);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.68);
   color: #56715b;
   font-size: 10px;
+  text-decoration: none;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    color 140ms ease,
+    transform 140ms ease;
+}
+
+.newcomerTags a:hover {
+  border-color: rgba(76, 144, 83, 0.42);
+  background: rgba(255, 255, 255, 0.94);
+  color: #347642;
+  transform: translateY(-1px);
+}
+
+.newcomerTags a:focus-visible {
+  outline: 2px solid rgba(76, 144, 83, 0.45);
+  outline-offset: 2px;
 }
 
 .outlineButton {
@@ -991,7 +1009,7 @@
 }
 
 :global(:root[data-theme='dark']) .keywordRow a,
-:global(:root[data-theme='dark']) .newcomerTags span {
+:global(:root[data-theme='dark']) .newcomerTags a {
   background: rgba(15, 23, 42, 0.52);
   color: #c8d8cb;
 }

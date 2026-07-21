@@ -830,7 +830,7 @@ export default function HomePage({
                 className={styles.newcomerCharacter}
                 aria-hidden="true"
               >
-                🌿
+
               </div>
 
               <div className={styles.newcomerContent}>
@@ -847,15 +847,34 @@ export default function HomePage({
                 </p>
 
                 <div className={styles.newcomerTags}>
-                  <span>시작 가이드</span>
-                  <span>추천 직업</span>
-                  <span>초반 성장</span>
-                  <span>필수 팁</span>
+                  <Link
+                    href="/wiki?mode=RPG&path=32&title=%EC%84%9C%EB%B2%84%EC%97%90_%EC%B2%98%EC%9D%8C_%EB%93%A4%EC%96%B4%EC%99%94%EC%96%B4%EC%9A%94&id=323"
+                  >
+                    위키 사용법
+                  </Link>
+
+                  <Link
+                    href="/wiki?mode=RPG&path=32&title=1%EC%B0%A8_%EC%A0%84%EC%A7%81_%EC%A4%91_%ED%95%84%EC%9A%94%ED%95%9C_%ED%8C%81&id=334"
+                  >
+                    1차 전직 가이드
+                  </Link>
+
+                  <Link
+                    href="/wiki?mode=RPG&path=32&title=2%EC%B0%A8_%EC%A0%84%EC%A7%81_%EA%B0%80%EC%9D%B4%EB%93%9C&id=325"
+                  >
+                    2차 전직 가이드
+                  </Link>
+
+                  <Link
+                    href="/wiki?mode=RPG&path=32&title=%EC%84%9C%EB%B2%84%EC%9D%98_%EC%9A%A9%EC%96%B4%EB%A5%BC_%EC%95%8C%EA%B3%A0%EC%8B%B6%EC%96%B4%EC%9A%94&id=324"
+                  >
+                    서버 용어
+                  </Link>
                 </div>
               </div>
 
               <Link
-                href="/wiki"
+                href="/wiki?mode=RPG&path=32&title=%EC%84%9C%EB%B2%84%EC%97%90_%EC%B2%98%EC%9D%8C_%EB%93%A4%EC%96%B4%EC%99%94%EC%96%B4%EC%9A%94&id=323"
                 className={styles.outlineButton}
               >
                 뉴비 가이드 보기
