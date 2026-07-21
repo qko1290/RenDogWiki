@@ -1,10 +1,13 @@
 // =============================================
 // File: app/components/home/homeData.ts
 // 전체 교체용 코드
-// - Home 최근 업데이트 문서 조회
-// - Home 대표 카테고리 4개의 실제 대표 문서 연결
-// - 대표 문서가 없으면 해당 카테고리 하위의 최근 문서를 사용
-// - DB 오류 시 Home 전체가 실패하지 않도록 fallback 반환
+//
+// 수정 핵심:
+// 1. 대표 카테고리는 최상위 카테고리에서만 찾음
+// 2. categories.document_id에 지정된 대표 문서만 사용
+// 3. URL의 path에는 문서의 path가 아니라 클릭한 카테고리 id를 사용
+// 4. 임의의 최근 하위 문서 fallback 제거
+// 5. 기존 오답 캐시와 분리하기 위해 캐시 키 v2 사용
 // =============================================
 
 import 'server-only';
@@ -43,12 +46,11 @@ type RecentDocumentRow = {
   category_name: string | null;
 };
 
-type CategoryTargetRow = {
+type RootCategoryRow = {
   category_id: number | string;
   category_name: string;
-  target_document_id: number | string | null;
-  target_document_title: string | null;
-  target_document_path: string | number | null;
+  document_id: number | string | null;
+  document_title: string | null;
 };
 
 const CATEGORY_DEFINITIONS: ReadonlyArray<{
@@ -78,14 +80,12 @@ const CATEGORY_DEFINITIONS: ReadonlyArray<{
   },
 ];
 
-const homeDateFormatter = new Intl.DateTimeFormat(
-  'ko-KR',
-  {
+const homeDateFormatter =
+  new Intl.DateTimeFormat('ko-KR', {
     timeZone: 'Asia/Seoul',
     month: '2-digit',
     day: '2-digit',
-  }
-);
+  });
 
 function normalizeDate(
   value: string | Date | null
@@ -125,19 +125,22 @@ function formatDateLabel(date: Date) {
 
 function createWikiDocumentHref(
   id: number,
-  path: string | number | null,
+  categoryId: number,
   title: string
 ) {
-  const searchParams = new URLSearchParams({
-    id: String(id),
-    path: String(path ?? 0),
-    title,
-  });
+  const searchParams =
+    new URLSearchParams({
+      id: String(id),
+      path: String(categoryId),
+      title,
+    });
 
   return `/wiki?${searchParams.toString()}`;
 }
 
-function normalizeCategoryName(value: string) {
+function normalizeCategoryName(
+  value: string
+) {
   return value
     .trim()
     .toLowerCase()
@@ -190,8 +193,10 @@ export async function getRecentHomeDocuments(
                 ) AS category_name
               FROM documents d
               LEFT JOIN categories c
-                ON c.id::text = d.path::text
-              WHERE d.updated_at IS NOT NULL
+                ON c.id::text =
+                  d.path::text
+              WHERE
+                d.updated_at IS NOT NULL
               ORDER BY
                 d.updated_at DESC,
                 d.id DESC
@@ -220,6 +225,8 @@ export async function getRecentHomeDocuments(
                 return null;
               }
 
+              const path = Number(row.path);
+
               return {
                 id,
                 title: row.title,
@@ -229,7 +236,9 @@ export async function getRecentHomeDocuments(
                 href:
                   createWikiDocumentHref(
                     id,
-                    row.path,
+                    Number.isFinite(path)
+                      ? path
+                      : 0,
                     row.title
                   ),
                 updatedAt:
@@ -264,9 +273,9 @@ export async function getHomeCategoryLinks(): Promise<
 > {
   try {
     return await cached(
-      'home:category-links',
+      'home:category-links:v2',
       {
-        ttlSec: 300,
+        ttlSec: 60,
         tags: [
           'category:list',
           'category:tree',
@@ -274,80 +283,57 @@ export async function getHomeCategoryLinks(): Promise<
         ],
       },
       async () => {
+        /*
+         * CategoryTree와 동일한 의미를 사용한다.
+         *
+         * - 대표 카테고리 버튼은 최상위 카테고리를 대상으로 함
+         * - 이동 대상은 categories.document_id
+         * - path는 대표 문서 자체의 path가 아니라
+         *   사용자가 클릭한 category.id
+         */
         const rows = (await runDbRead(
-          'home:category-links',
+          'home:category-links:v2',
           async () => {
             return await sql`
-              WITH RECURSIVE category_tree AS (
-                SELECT
-                  c.id AS root_id,
-                  c.id AS category_id
-                FROM categories c
-
-                UNION ALL
-
-                SELECT
-                  tree.root_id,
-                  child.id AS category_id
-                FROM category_tree tree
-                JOIN categories child
-                  ON child.parent_id =
-                    tree.category_id
-              )
               SELECT
-                category.id AS category_id,
-                category.name AS category_name,
-                COALESCE(
-                  representative.id,
-                  fallback_document.id
-                ) AS target_document_id,
-                COALESCE(
-                  representative.title,
-                  fallback_document.title
-                ) AS target_document_title,
-                COALESCE(
-                  representative.path,
-                  fallback_document.path
-                ) AS target_document_path
+                category.id
+                  AS category_id,
+                category.name
+                  AS category_name,
+                category.document_id
+                  AS document_id,
+                document.title
+                  AS document_title
               FROM categories category
-              LEFT JOIN documents representative
-                ON representative.id =
+              LEFT JOIN documents document
+                ON document.id =
                   category.document_id
-              LEFT JOIN LATERAL (
-                SELECT
-                  document.id,
-                  document.title,
-                  document.path
-                FROM category_tree tree
-                JOIN documents document
-                  ON document.path::text =
-                    tree.category_id::text
-                WHERE tree.root_id =
-                  category.id
-                ORDER BY
-                  CASE
-                    WHEN document.path::text =
-                      category.id::text
-                    THEN 0
-                    ELSE 1
-                  END,
-                  document.updated_at
-                    DESC NULLS LAST,
-                  document.id DESC
-                LIMIT 1
-              ) fallback_document
-                ON TRUE
+              WHERE
+                category.parent_id IS NULL
               ORDER BY
-                category.parent_id
-                  NULLS FIRST,
+                CASE
+                  WHEN EXISTS (
+                    SELECT 1
+                    FROM unnest(
+                      COALESCE(
+                        category.mode_tags,
+                        '{}'::text[]
+                      )
+                    ) AS mode_tag
+                    WHERE
+                      LOWER(mode_tag) = 'rpg'
+                  )
+                  THEN 0
+                  ELSE 1
+                END,
                 category."order",
                 category.id
             `;
           }
-        )) as unknown as CategoryTargetRow[];
+        )) as unknown as RootCategoryRow[];
 
-        const rowByNormalizedName =
-          new Map<string, CategoryTargetRow>();
+        const rowByName =
+          new Map<string, RootCategoryRow>();
 
         for (const row of rows) {
           const normalizedName =
@@ -357,11 +343,11 @@ export async function getHomeCategoryLinks(): Promise<
 
           if (
             normalizedName &&
-            !rowByNormalizedName.has(
+            !rowByName.has(
               normalizedName
             )
           ) {
-            rowByNormalizedName.set(
+            rowByName.set(
               normalizedName,
               row
             );
@@ -373,15 +359,24 @@ export async function getHomeCategoryLinks(): Promise<
             const row =
               definition.aliases
                 .map((alias) =>
-                  rowByNormalizedName.get(
+                  rowByName.get(
                     normalizeCategoryName(
                       alias
                     )
                   )
                 )
-                .find(Boolean) ?? null;
+                .find(
+                  (
+                    candidate
+                  ): candidate is RootCategoryRow =>
+                    candidate !== undefined
+                ) ?? null;
 
             if (!row) {
+              console.warn(
+                `[home] 최상위 카테고리를 찾지 못했습니다: ${definition.title}`
+              );
+
               return {
                 key: definition.key,
                 title: definition.title,
@@ -395,38 +390,56 @@ export async function getHomeCategoryLinks(): Promise<
               row.category_id
             );
             const documentId = Number(
-              row.target_document_id
+              row.document_id
             );
             const documentTitle =
               String(
-                row.target_document_title ??
-                  ''
+                row.document_title ?? ''
               ).trim();
 
-            const hasDocument =
-              Number.isFinite(documentId) &&
+            const hasCategory =
+              Number.isFinite(
+                categoryId
+              ) && categoryId > 0;
+
+            const hasRepresentative =
+              Number.isFinite(
+                documentId
+              ) &&
               documentId > 0 &&
               documentTitle.length > 0;
+
+            if (
+              !hasCategory ||
+              !hasRepresentative
+            ) {
+              console.warn(
+                `[home] 대표 문서가 지정되지 않은 카테고리입니다: ${row.category_name}`
+              );
+
+              return {
+                key: definition.key,
+                title: definition.title,
+                href: '/wiki',
+                categoryId:
+                  hasCategory
+                    ? categoryId
+                    : null,
+                documentId: null,
+              };
+            }
 
             return {
               key: definition.key,
               title: definition.title,
-              href: hasDocument
-                ? createWikiDocumentHref(
-                    documentId,
-                    row.target_document_path,
-                    documentTitle
-                  )
-                : '/wiki',
-              categoryId:
-                Number.isFinite(
-                  categoryId
-                ) && categoryId > 0
-                  ? categoryId
-                  : null,
-              documentId: hasDocument
-                ? documentId
-                : null,
+              href:
+                createWikiDocumentHref(
+                  documentId,
+                  categoryId,
+                  documentTitle
+                ),
+              categoryId,
+              documentId,
             };
           }
         );
