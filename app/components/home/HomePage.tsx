@@ -14,6 +14,8 @@ import logo from '@/image/logo.png';
 
 import styles from './home.module.css';
 
+import type { HomeRecentDocument } from './homeData';
+
 const categoryCards = [
   {
     title: '콘텐츠',
@@ -48,13 +50,6 @@ const notices = [
   '신규 콘텐츠 문서 작성 안내',
 ] as const;
 
-const recentDocuments = [
-  { type: '가이드', title: '초보자 장비 강화 가이드' },
-  { type: '아이템', title: '신규 아이템 정보' },
-  { type: '던전', title: '던전 공략 및 보상 정보' },
-  { type: '시스템', title: '거래소 이용 방법' },
-] as const;
-
 const popularDocuments = [
   '돈 버는 방법 총정리',
   '경험치 효율 사냥터',
@@ -84,7 +79,13 @@ const recommendations = [
   },
 ] as const;
 
-export default function HomePage() {
+type HomePageProps = {
+  recentDocuments: HomeRecentDocument[];
+};
+
+export default function HomePage({
+  recentDocuments,
+}: HomePageProps) {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
@@ -302,21 +303,29 @@ export default function HomePage() {
                 </div>
 
                 <ul className={styles.documentList}>
-                  {recentDocuments.map((document, index) => (
-                    <li key={document.title}>
-                      <Link href="/wiki">
-                        <span className={styles.documentType}>
-                          {document.type}
-                        </span>
+                  {recentDocuments.length > 0 ? (
+                    recentDocuments.map((document) => (
+                      <li key={document.id}>
+                        <Link href={document.href}>
+                          <span className={styles.documentType}>
+                            {document.category}
+                          </span>
 
-                        <span className={styles.documentTitle}>
-                          {document.title}
-                        </span>
+                          <span className={styles.documentTitle}>
+                            {document.title}
+                          </span>
 
-                        <time>{`0${index + 1}.15`}</time>
-                      </Link>
+                          <time dateTime={document.updatedAt}>
+                            {document.updatedLabel}
+                          </time>
+                        </Link>
+                      </li>
+                    ))
+                  ) : (
+                    <li className={styles.emptyDocument}>
+                      최근 업데이트된 문서를 불러오지 못했습니다.
                     </li>
-                  ))}
+                  )}
                 </ul>
               </article>
 

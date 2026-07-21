@@ -745,6 +745,14 @@
   list-style: none;
 }
 
+.emptyDocument {
+  padding: 18px 4px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+  text-align: center;
+}
+
 .noticeList li + li,
 .documentList li + li,
 .popularList li + li {
