@@ -1,10 +1,12 @@
 // =============================================
 // File: app/components/home/homeData.ts
 // 전체 교체용 코드
-// - 최근 업데이트 문서 조회
-// - 정식 최상위 카테고리명으로 대표 문서 연결
-//   컨텐츠 / 시스템 / 시세표 / 법전
-// - 기존 CategoryTree와 동일하게 categories.document_id 사용
+//
+// 핵심 수정:
+// - 렌독위키의 루트 카테고리는 parent_id가 NULL 또는 0일 수 있음
+// - 정식 카테고리명: 컨텐츠 / 시스템 / 시세표 / 법전
+// - categories.document_id에 지정된 대표 문서를 연다
+// - 잘못된 이전 결과 캐시를 피하기 위해 캐시 키 v4 사용
 // =============================================
 
 import 'server-only';
@@ -255,7 +257,7 @@ export async function getHomeCategoryLinks(): Promise<
 > {
   try {
     return await cached(
-      'home:category-links:v3',
+      'home:category-links:v4',
       {
         ttlSec: 60,
         tags: [
@@ -266,14 +268,11 @@ export async function getHomeCategoryLinks(): Promise<
       },
       async () => {
         /*
-         * CategoryTree의 카테고리 클릭과 같은 원리:
-         * categories.document_id에 지정된 대표 문서를 연다.
-         *
-         * 같은 이름이 중복될 가능성에 대비해
-         * RPG mode_tags를 가진 최상위 카테고리를 우선한다.
+         * buildCategoryTree.ts와 동일한 루트 판정:
+         * parent_id IS NULL 또는 parent_id = 0
          */
         const rows = (await runDbRead(
-          'home:category-links:v3',
+          'home:category-links:v4',
           async () => {
             return await sql`
               SELECT
@@ -290,7 +289,10 @@ export async function getHomeCategoryLinks(): Promise<
                 ON document.id =
                   category.document_id
               WHERE
-                category.parent_id IS NULL
+                (
+                  category.parent_id IS NULL
+                  OR category.parent_id = 0
+                )
                 AND category.name IN (
                   '컨텐츠',
                   '시스템',
@@ -343,8 +345,8 @@ export async function getHomeCategoryLinks(): Promise<
               ) ?? null;
 
             if (!row) {
-              console.warn(
-                `[home] 카테고리를 찾지 못했습니다: ${definition.title}`
+              console.error(
+                `[home] 루트 카테고리를 찾지 못했습니다: ${definition.title}`
               );
 
               return {
@@ -383,8 +385,20 @@ export async function getHomeCategoryLinks(): Promise<
               !validCategory ||
               !validRepresentativeDocument
             ) {
-              console.warn(
-                `[home] 대표 문서가 지정되지 않았습니다: ${definition.title}`
+              console.error(
+                `[home] 대표 문서가 지정되지 않았습니다: ${definition.title}`,
+                {
+                  categoryId:
+                    validCategory
+                      ? categoryId
+                      : null,
+                  documentId:
+                    Number.isFinite(
+                      documentId
+                    )
+                      ? documentId
+                      : null,
+                }
               );
 
               return {
