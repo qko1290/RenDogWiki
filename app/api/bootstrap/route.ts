@@ -81,7 +81,7 @@ export async function GET() {
     const data = await cached<BootstrapPayload>(
       'bootstrap:v5',
       {
-        ttlSec: 60,
+        ttlSec: 600,
         tags: ['category:list', 'category:tree', 'doc:list', `doc:${FEATURED_ID}`],
       },
       async () => {
@@ -194,7 +194,9 @@ export async function GET() {
 
     return NextResponse.json(data, {
       status: 200,
-      headers: noStoreHeaders(),
+      headers: {
+        'Cache-Control': 'public, max-age=0, s-maxage=300, stale-while-revalidate=600',
+      },
     });
   } catch (e) {
     console.error('[bootstrap] error', e);
