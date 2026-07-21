@@ -22,11 +22,22 @@ import NpcDetailModal, {
 } from '@/components/wiki/NpcDetailModal';
 import logo from '@/image/logo.png';
 
-import type { HomeRecentDocument } from './homeData';
+import type {
+  HomeCategoryKey,
+  HomeCategoryLink,
+  HomeRecentDocument,
+} from './homeData';
 import styles from './home.module.css';
 
-const categoryCards = [
+const categoryCards: ReadonlyArray<{
+  key: HomeCategoryKey;
+  title: string;
+  description: string;
+  icon: string;
+  tone: 'green' | 'mint' | 'blue' | 'orange';
+}> = [
   {
+    key: 'content',
     title: '콘텐츠',
     description:
       '던전, 퀘스트, 이벤트와 생활 콘텐츠 정보를 확인하세요.',
@@ -34,6 +45,7 @@ const categoryCards = [
     tone: 'green',
   },
   {
+    key: 'system',
     title: '시스템',
     description:
       '성장, 강화, 거래 등 서버의 주요 시스템을 알아보세요.',
@@ -41,6 +53,7 @@ const categoryCards = [
     tone: 'mint',
   },
   {
+    key: 'price',
     title: '시세표',
     description:
       '아이템 시세와 거래에 필요한 정보를 빠르게 확인하세요.',
@@ -48,13 +61,14 @@ const categoryCards = [
     tone: 'blue',
   },
   {
+    key: 'policy',
     title: '운영 원칙',
     description:
       '서버 운영 규칙과 이용 정책을 확인할 수 있습니다.',
     icon: '⚖️',
     tone: 'orange',
   },
-] as const;
+];
 
 const notices = [
   '서버 이용 전 운영 원칙을 확인해 주세요.',
@@ -97,6 +111,7 @@ const recommendations = [
 
 type HomePageProps = {
   recentDocuments: HomeRecentDocument[];
+  categoryLinks: HomeCategoryLink[];
 };
 
 function normalizeNpcPayload(payload: unknown): Npc {
@@ -179,7 +194,23 @@ function normalizeNpcPayload(payload: unknown): Npc {
 
 export default function HomePage({
   recentDocuments,
+  categoryLinks,
 }: HomePageProps) {
+  const categoryHrefByKey =
+    new Map<HomeCategoryKey, string>(
+      categoryLinks.map(
+        (category) => [
+          category.key,
+          category.href,
+        ]
+      )
+    );
+
+  const getCategoryHref = (
+    key: HomeCategoryKey
+  ) =>
+    categoryHrefByKey.get(key) ??
+    '/wiki';
   const [selectedQuestNpc, setSelectedQuestNpc] =
     useState<Npc | null>(null);
   const [loadingQuestNpc, setLoadingQuestNpc] =
@@ -266,21 +297,21 @@ export default function HomePage({
             aria-label="주요 메뉴"
           >
             <Link
-              href="/wiki"
+              href={getCategoryHref('content')}
               className={styles.headerNavLink}
             >
               콘텐츠
             </Link>
 
             <Link
-              href="/wiki"
+              href={getCategoryHref('system')}
               className={styles.headerNavLink}
             >
               시스템
             </Link>
 
             <Link
-              href="/wiki"
+              href={getCategoryHref('price')}
               className={styles.headerNavLink}
             >
               시세표
@@ -294,7 +325,7 @@ export default function HomePage({
             </Link>
 
             <Link
-              href="/wiki"
+              href={getCategoryHref('policy')}
               className={`${styles.headerNavLink} ${styles.headerNavPrimary}`}
             >
               운영 원칙
@@ -471,7 +502,7 @@ export default function HomePage({
               {categoryCards.map((category) => (
                 <Link
                   key={category.title}
-                  href="/wiki"
+                  href={getCategoryHref(category.key)}
                   className={`${styles.categoryCard} ${
                     styles[
                       `categoryCard_${category.tone}`
