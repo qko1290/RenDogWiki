@@ -159,7 +159,21 @@
 
 .leftRail,
 .rightRail {
-  position: relative;
+  position: fixed;
+  top: var(--home-header-height);
+  bottom: 0;
+  z-index: 0;
+  width:
+    max(
+      0px,
+      calc(
+        (
+          100vw -
+          var(--home-center-width)
+        ) /
+        2
+      )
+    );
   min-width: 0;
   overflow: hidden;
   background: var(--background);
@@ -167,32 +181,48 @@
 }
 
 .leftRail {
+  left: 0;
   grid-column: 1;
 }
 
 .rightRail {
+  right: 0;
   grid-column: 3;
 }
 
 .leftRail::before,
 .rightRail::before {
   content: '';
-  position: sticky;
-  top: var(--home-header-height);
+  position: absolute;
+  inset: 0;
   display: block;
-  width: 100%;
-  height:
-    calc(
-      100vh -
-      var(--home-header-height)
-    );
-  min-height: 560px;
   background-repeat: no-repeat;
   background-size: cover;
   opacity: 0.98;
   filter:
     saturate(0.96)
     brightness(1.025);
+
+  /*
+   * 헤더 아래에서 이미지가 갑자기 잘려 보이지 않도록
+   * 위쪽 약 90px 구간을 부드럽게 페이드한다.
+   */
+  -webkit-mask-image:
+    linear-gradient(
+      to bottom,
+      transparent 0,
+      rgba(0, 0, 0, 0.16) 24px,
+      rgba(0, 0, 0, 0.62) 58px,
+      #000 96px
+    );
+  mask-image:
+    linear-gradient(
+      to bottom,
+      transparent 0,
+      rgba(0, 0, 0, 0.16) 24px,
+      rgba(0, 0, 0, 0.62) 58px,
+      #000 96px
+    );
 }
 
 .leftRail::before {
@@ -231,6 +261,7 @@
 
 .main {
   position: relative;
+  z-index: 1;
   grid-column: 2;
   min-width: 0;
   padding: 24px 3rem 48px;
