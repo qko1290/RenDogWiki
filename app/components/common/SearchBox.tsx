@@ -4,6 +4,7 @@
 // - main 브랜치 SearchBox의 디자인/크기/2열 구성 그대로 사용
 // - main 브랜치와 동일한 문서·퀘스트 NPC·FAQ 검색 방식 유지
 // - 결과 상세 모달을 닫아도 검색어와 결과창 유지
+// - FAQ 클릭 시 최신 상세 조회와 열람수 기록
 // - 모달이 없을 때만 바깥 클릭으로 결과창 닫기
 // =============================================
 
@@ -850,6 +851,54 @@ export default function SearchBox({
     onQuestNpcClick?.(npc.id);
   };
 
+  const openFaq = async (
+    faq: FaqItem
+  ) => {
+    /*
+     * 검색 결과 상태를 유지하면서 최신 FAQ 상세를 가져온다.
+     * 단건 GET은 FAQ 열람수도 함께 1회 증가시킨다.
+     */
+    setOpen(true);
+
+    try {
+      const response = await fetch(
+        `/api/faq/${encodeURIComponent(
+          faq.id
+        )}`,
+        {
+          cache: 'no-store',
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          `faq-detail-failed:${response.status}`
+        );
+      }
+
+      const fresh =
+        (await response.json()) as FaqItem;
+
+      setFaqView(
+        fresh &&
+          Number(fresh.id) > 0
+          ? fresh
+          : faq
+      );
+    } catch (error) {
+      console.error(
+        '[SearchBox] FAQ 상세 조회 실패:',
+        error
+      );
+
+      /*
+       * 상세 조회 실패 시에도 검색 결과에 포함된 내용으로
+       * 모달은 열어 사용성을 유지한다.
+       */
+      setFaqView(faq);
+    }
+  };
+
   const onKeyDown: KeyboardEventHandler<HTMLInputElement> = (
     event
   ) => {
@@ -1502,8 +1551,7 @@ export default function SearchBox({
                         borderRadius: 8,
                       }}
                       onClick={() => {
-                        setOpen(true);
-                        setFaqView(faq);
+                        void openFaq(faq);
                       }}
                     >
                       <div

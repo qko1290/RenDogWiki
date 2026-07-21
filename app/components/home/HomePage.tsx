@@ -4,6 +4,7 @@
 // - 문서 화면과 동일한 3열 폭 유지
 // - 실제 최근 업데이트 문서 표시
 // - 최근 7일 조회수 기준 인기 문서 비동기 표시
+// - 누적 열람수 기준 자주 묻는 질문 순위 비동기 표시
 // - Wiki Header와 동일한 SearchBox 사용
 // - 퀘스트 NPC 상세 모달과 FAQ 상세 동작 지원
 // =============================================
@@ -22,6 +23,10 @@ import SearchBox from '@/components/common/SearchBox';
 import NpcDetailModal, {
   type Npc,
 } from '@/components/wiki/NpcDetailModal';
+import {
+  FaqDetailModal,
+  type FaqItem,
+} from '@/components/wiki/FaqList';
 import logo from '@/image/logo.png';
 
 import type {
@@ -73,12 +78,23 @@ const categoryCards: ReadonlyArray<{
   },
 ];
 
-const notices = [
-  '서버 이용 전 운영 원칙을 확인해 주세요.',
-  '문서 정보 오류 제보 안내',
-  '위키 개선 작업 진행 안내',
-  '신규 콘텐츠 문서 작성 안내',
-] as const;
+const FAQ_DOCUMENT = {
+  id: 71,
+  title: '자주 물으시는 질문',
+  path: '0',
+  special: 'faq',
+} as const;
+
+const faqDocumentSearchParams =
+  new URLSearchParams({
+    id: String(FAQ_DOCUMENT.id),
+    path: FAQ_DOCUMENT.path,
+    title: FAQ_DOCUMENT.title,
+    mode: 'RPG',
+  });
+
+const FAQ_DOCUMENT_HREF =
+  `/wiki?${faqDocumentSearchParams.toString()}`;
 
 const recommendations = [
   {
@@ -111,6 +127,16 @@ type HomePageProps = {
 
 type PopularDocumentsResponse = {
   items?: HomePopularDocument[];
+};
+
+type HomeFaqRankItem = {
+  id: number;
+  title: string;
+  views: number;
+};
+
+type HomeFaqRankingResponse = {
+  items?: HomeFaqRankItem[];
 };
 
 function normalizeNpcPayload(payload: unknown): Npc {
@@ -224,6 +250,26 @@ export default function HomePage({
     popularDocumentsLoading,
     setPopularDocumentsLoading,
   ] = useState(true);
+  const [
+    faqRanking,
+    setFaqRanking,
+  ] = useState<HomeFaqRankItem[]>([]);
+  const [
+    faqRankingLoading,
+    setFaqRankingLoading,
+  ] = useState(true);
+  const [
+    selectedFaq,
+    setSelectedFaq,
+  ] = useState<FaqItem | null>(null);
+  const [
+    loadingFaq,
+    setLoadingFaq,
+  ] = useState(false);
+  const [
+    faqError,
+    setFaqError,
+  ] = useState<string | null>(null);
 
   /*
    * 인기 문서는 Home 서버 렌더링과 분리한다.
@@ -282,6 +328,124 @@ export default function HomePage({
       controller.abort();
     };
   }, []);
+
+  /*
+   * FAQ 순위도 Home 서버 렌더링과 분리한다.
+   * FAQ 조회가 실패해도 Home 전체 화면은 정상 표시된다.
+   */
+  useEffect(() => {
+    const controller =
+      new AbortController();
+    let active = true;
+
+    const timeoutId =
+      window.setTimeout(() => {
+        controller.abort();
+      }, 8000);
+
+    void fetch('/api/home/faqs', {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(
+            `faq-ranking-fetch-failed:${response.status}`
+          );
+        }
+
+        return (await response.json()) as
+          HomeFaqRankingResponse;
+      })
+      .then((payload) => {
+        if (!active) {
+          return;
+        }
+
+        setFaqRanking(
+          Array.isArray(payload.items)
+            ? payload.items
+            : []
+        );
+      })
+      .catch((error) => {
+        if (
+          error instanceof DOMException &&
+          error.name === 'AbortError'
+        ) {
+          return;
+        }
+
+        console.error(
+          '[HomePage] FAQ 순위 조회 실패:',
+          error
+        );
+      })
+      .finally(() => {
+        window.clearTimeout(timeoutId);
+
+        if (active) {
+          setFaqRankingLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, []);
+
+  const openFaq = useCallback(
+    async (faqId: number) => {
+      setLoadingFaq(true);
+      setFaqError(null);
+
+      try {
+        /*
+         * FAQ 단건 GET이 최신 내용 반환과 열람수 증가를
+         * 한 번의 UPDATE ... RETURNING으로 함께 처리한다.
+         */
+        const response = await fetch(
+          `/api/faq/${encodeURIComponent(faqId)}`,
+          {
+            cache: 'no-store',
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `faq-fetch-failed:${response.status}`
+          );
+        }
+
+        const payload =
+          (await response.json()) as FaqItem;
+
+        if (
+          !Number.isInteger(Number(payload?.id)) ||
+          Number(payload.id) <= 0
+        ) {
+          throw new Error(
+            'invalid-faq-payload'
+          );
+        }
+
+        setSelectedFaq(payload);
+      } catch (error) {
+        console.error(
+          '[HomePage] FAQ 상세 조회 실패:',
+          error
+        );
+        setFaqError(
+          '질문 내용을 불러오지 못했습니다.'
+        );
+      } finally {
+        setLoadingFaq(false);
+      }
+    },
+    []
+  );
 
   const openQuestNpc = useCallback(
     async (npcId: number) => {
@@ -463,7 +627,9 @@ export default function HomePage({
                     paddingLeft={0}
                     resultModalOpen={
                       loadingQuestNpc ||
-                      selectedQuestNpc !== null
+                      selectedQuestNpc !== null ||
+                      loadingFaq ||
+                      selectedFaq !== null
                     }
                     onQuestNpcClick={(npcId) => {
                       void openQuestNpc(npcId);
@@ -606,27 +772,63 @@ export default function HomePage({
               >
                 <div className={styles.cardHeading}>
                   <h2>
-                    <span aria-hidden="true">📢</span>
-                    공지사항
+                    <span aria-hidden="true">❓</span>
+                    자주 묻는 질문
                   </h2>
 
-                  <Link href="/wiki">
+                  <Link href={FAQ_DOCUMENT_HREF}>
                     더보기 ›
                   </Link>
                 </div>
 
-                <ul className={styles.noticeList}>
-                  {notices.map((notice, index) => (
-                    <li key={notice}>
-                      <Link href="/wiki">
-                        <span>{notice}</span>
-                        <time>
-                          {`0${index + 1}.15`}
-                        </time>
-                      </Link>
+                <ol className={styles.popularList}>
+                  {faqRankingLoading ? (
+                    <li
+                      className={
+                        styles.emptyDocument
+                      }
+                    >
+                      질문 순위를 불러오는 중입니다.
                     </li>
-                  ))}
-                </ul>
+                  ) : faqRanking.length > 0 ? (
+                    faqRanking.map(
+                      (faq, index) => (
+                        <li key={faq.id}>
+                          <Link
+                            href={FAQ_DOCUMENT_HREF}
+                            aria-label={`${index + 1}위 ${
+                              faq.title
+                            }, 누적 열람 ${
+                              faq.views
+                            }회`}
+                            onClick={(event) => {
+                              event.preventDefault();
+                              void openFaq(faq.id);
+                            }}
+                          >
+                            <span
+                              className={
+                                styles.popularRank
+                              }
+                            >
+                              {index + 1}
+                            </span>
+
+                            <span>{faq.title}</span>
+                          </Link>
+                        </li>
+                      )
+                    )
+                  ) : (
+                    <li
+                      className={
+                        styles.emptyDocument
+                      }
+                    >
+                      등록된 질문이 없습니다.
+                    </li>
+                  )}
+                </ol>
               </article>
 
               <article
@@ -865,6 +1067,39 @@ export default function HomePage({
         </div>
       </div>
 
+      {selectedFaq && (
+        <FaqDetailModal
+          sel={selectedFaq}
+          onClose={() => {
+            setSelectedFaq(null);
+          }}
+        />
+      )}
+
+      {loadingFaq && (
+        <span
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'fixed',
+            right: 18,
+            bottom: 18,
+            zIndex: 12000,
+            padding: '10px 12px',
+            border: '1px solid var(--border)',
+            borderRadius: 10,
+            background:
+              'var(--surface-elevated)',
+            boxShadow: 'var(--shadow-xl)',
+            color: 'var(--foreground)',
+            fontSize: 12,
+            fontWeight: 700,
+          }}
+        >
+          질문 내용을 불러오는 중입니다.
+        </span>
+      )}
+
       {selectedQuestNpc && (
         <NpcDetailModal
           npc={selectedQuestNpc}
@@ -873,6 +1108,54 @@ export default function HomePage({
             setSelectedQuestNpc(null);
           }}
         />
+      )}
+
+      {faqError && (
+        <div
+          role="alert"
+          style={{
+            position: 'fixed',
+            right: 18,
+            bottom: 18,
+            zIndex: 12000,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            maxWidth: 360,
+            padding: '12px 14px',
+            border: '1px solid var(--border)',
+            borderRadius: 12,
+            background:
+              'var(--surface-elevated)',
+            boxShadow: 'var(--shadow-xl)',
+            color: 'var(--foreground)',
+            fontSize: 13,
+          }}
+        >
+          <span>{faqError}</span>
+
+          <button
+            type="button"
+            aria-label="FAQ 오류 알림 닫기"
+            onClick={() => {
+              setFaqError(null);
+            }}
+            style={{
+              display: 'grid',
+              placeItems: 'center',
+              width: 26,
+              height: 26,
+              border: 0,
+              borderRadius: 8,
+              background: 'transparent',
+              color: 'var(--danger-fg)',
+              fontSize: 18,
+              cursor: 'pointer',
+            }}
+          >
+            ×
+          </button>
+        </div>
       )}
 
       {questNpcError && (
