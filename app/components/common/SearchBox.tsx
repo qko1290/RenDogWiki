@@ -5,7 +5,7 @@
 // - main 브랜치와 동일한 문서·퀘스트 NPC·FAQ 검색 방식 유지
 // - 결과 상세 모달을 닫아도 검색어와 결과창 유지
 // - FAQ 클릭 시 최신 상세 조회와 열람수 기록
-// - 문서/FAQ 선택 시 검색어를 검색 세션당 1회 집계
+// - 문서/FAQ/퀘스트 NPC 선택 시 검색어를 검색 세션당 1회 집계
 // - 모달이 없을 때만 바깥 클릭으로 결과창 닫기
 // =============================================
 
@@ -429,8 +429,8 @@ export default function SearchBox({
           );
 
         /*
-         * 같은 입력 검색 세션에서 FAQ를 여러 번 열거나,
-         * FAQ를 연 뒤 문서까지 선택해도 한 번만 집계한다.
+         * 같은 입력 검색 세션에서 문서, FAQ, 퀘스트 NPC를
+         * 여러 번 선택해도 최초 한 번만 집계한다.
          */
         if (session.committed) {
           return;
@@ -1020,9 +1020,16 @@ export default function SearchBox({
     }
 
     /*
+     * 퀘스트 또는 NPC 검색 결과를 실제로 선택한 시점에
+     * 검색어를 집계한다. 같은 검색 세션에서는 최초 1회만 반영된다.
+     *
      * 상세 모달을 닫았을 때 같은 결과를 다시 볼 수 있도록
      * query/open/results를 초기화하지 않는다.
      */
+    commitCurrentSearch(
+      'quest'
+    );
+
     setOpen(true);
     onQuestNpcClick?.(npc.id);
   };

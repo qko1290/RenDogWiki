@@ -4,13 +4,14 @@
 //
 // 전체 신규 파일
 //
-// 검색 결과에서 문서 또는 FAQ를 실제로 선택했을 때만
+// 검색 결과에서 문서, FAQ 또는 퀘스트 NPC를 실제로 선택했을 때만
 // 인기 검색어 집계 API를 호출한다.
 // =============================================
 
 export type SearchCommitResultType =
   | 'document'
-  | 'faq';
+  | 'faq'
+  | 'quest';
 
 export const SEARCH_QUERY_REQUEST_EVENT =
   'rdwiki:request-search-query';

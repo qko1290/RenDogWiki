@@ -4,7 +4,7 @@
 //
 // 전체 신규 파일
 //
-// 검색어를 입력한 뒤 문서 또는 FAQ를 실제로 선택했을 때만 집계.
+// 검색어를 입력한 뒤 문서, FAQ 또는 퀘스트 NPC를 실제로 선택했을 때만 집계.
 // 같은 검색 세션 ID는 DB에서도 한 번만 반영된다.
 // =============================================
 
@@ -21,7 +21,8 @@ export const revalidate = 0;
 
 type SearchResultType =
   | 'document'
-  | 'faq';
+  | 'faq'
+  | 'quest';
 
 type CommitResultRow = {
   counted: boolean;
@@ -57,7 +58,8 @@ function normalizeResultType(
 ): SearchResultType | null {
   if (
     value === 'document' ||
-    value === 'faq'
+    value === 'faq' ||
+    value === 'quest'
   ) {
     return value;
   }
@@ -150,6 +152,10 @@ export async function POST(
     resultType === 'faq'
       ? 1
       : 0;
+  const questIncrement =
+    resultType === 'quest'
+      ? 1
+      : 0;
 
   try {
     /*
@@ -198,6 +204,7 @@ export async function POST(
               searches,
               document_searches,
               faq_searches,
+              quest_searches,
               updated_at
             )
           SELECT
@@ -206,6 +213,7 @@ export async function POST(
             1,
             ${documentIncrement},
             ${faqIncrement},
+            ${questIncrement},
             NOW()
           FROM accepted
           ON CONFLICT (
@@ -223,6 +231,9 @@ export async function POST(
             faq_searches =
               search_keyword_stats_total.faq_searches +
               EXCLUDED.faq_searches,
+            quest_searches =
+              search_keyword_stats_total.quest_searches +
+              EXCLUDED.quest_searches,
             updated_at = NOW()
           RETURNING keyword_key
         ),
@@ -235,6 +246,7 @@ export async function POST(
               searches,
               document_searches,
               faq_searches,
+              quest_searches,
               updated_at
             )
           SELECT
@@ -244,6 +256,7 @@ export async function POST(
             1,
             ${documentIncrement},
             ${faqIncrement},
+            ${questIncrement},
             NOW()
           FROM accepted
           ON CONFLICT (
@@ -262,6 +275,9 @@ export async function POST(
             faq_searches =
               search_keyword_stats_daily.faq_searches +
               EXCLUDED.faq_searches,
+            quest_searches =
+              search_keyword_stats_daily.quest_searches +
+              EXCLUDED.quest_searches,
             updated_at = NOW()
           RETURNING keyword_key
         )
