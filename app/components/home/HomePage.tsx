@@ -365,6 +365,10 @@ export default function HomePage({
                     align="left"
                     width="100%"
                     paddingLeft={0}
+                    resultModalOpen={
+                      loadingQuestNpc ||
+                      selectedQuestNpc !== null
+                    }
                     onQuestNpcClick={(npcId) => {
                       void openQuestNpc(npcId);
                     }}

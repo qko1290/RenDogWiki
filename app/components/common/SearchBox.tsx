@@ -78,6 +78,12 @@ type Props = {
 
   /** 퀘스트 NPC 결과 클릭 시 상세 모달을 열기 위한 콜백 */
   onQuestNpcClick?: (id: number) => void;
+
+  /**
+   * SearchBox 바깥에서 열린 결과 상세 모달 상태.
+   * true인 동안 모달 배경 클릭을 외부 클릭으로 처리하지 않는다.
+   */
+  resultModalOpen?: boolean;
 };
 
 function normalizeSearchText(value: string) {
@@ -266,6 +272,7 @@ export default function SearchBox({
   width = 'min(720px, 56vw)',
   paddingLeft = 100,
   onQuestNpcClick,
+  resultModalOpen = false,
 }: Props) {
   const router = useRouter();
   const generatedListId = useId();
@@ -529,6 +536,15 @@ export default function SearchBox({
         return;
       }
 
+      /*
+       * FAQ 모달 또는 부모가 연 NPC 모달이 열린 동안에는
+       * 모달 배경·닫기 버튼 클릭을 검색창 외부 클릭으로 취급하지 않는다.
+       * 모달이 없는 일반 상태에서만 바깥 클릭으로 결과창을 닫는다.
+       */
+      if (faqView || resultModalOpen) {
+        return;
+      }
+
       if (!root.contains(event.target as Node)) {
         setOpen(false);
         setActiveDocIndex(-1);
@@ -540,7 +556,7 @@ export default function SearchBox({
     return () => {
       document.removeEventListener('mousedown', handleOutsideMouseDown);
     };
-  }, []);
+  }, [faqView, resultModalOpen]);
 
   const resetSearchState = () => {
     setOpen(false);
@@ -586,7 +602,11 @@ export default function SearchBox({
       return;
     }
 
-    resetSearchState();
+    /*
+     * 상세 모달을 닫았을 때 같은 검색 결과로 돌아올 수 있도록
+     * query/results/open 상태를 그대로 유지한다.
+     */
+    setOpen(true);
     onQuestNpcClick?.(npc.id);
   };
 
@@ -748,7 +768,7 @@ export default function SearchBox({
           >
             <section className="rd-search-column rd-search-document-column">
               <div className="rd-search-column-heading">
-                <strong>문서 · 퀘스트 NPC</strong>
+                <strong>문서</strong>
 
                 {(loadingDocs || loadingQuestNpcs) && (
                   <span>검색 중...</span>
@@ -803,20 +823,13 @@ export default function SearchBox({
                         </span>
 
                         <span className="rd-search-result-body">
-                          <span className="rd-search-result-title">
-                            {renderDocumentTitle(document)}
-                          </span>
-
-                          {renderDocumentMeta(document)}
-
-                          {document.section_snippet?.trim() && (
-                            <span className="rd-search-item-snippet">
-                              {highlight(
-                                document.section_snippet.trim(),
-                                query
-                              )}
+                          <span className="rd-search-result-text">
+                            <span className="rd-search-result-title">
+                              {renderDocumentTitle(document)}
                             </span>
-                          )}
+
+                            {renderDocumentMeta(document)}
+                          </span>
 
                           {matchedTags.length > 0 && (
                             <span className="rd-search-tag-row">
@@ -871,16 +884,23 @@ export default function SearchBox({
                       </span>
 
                       <span className="rd-search-result-body">
-                        <span className="rd-search-result-title">
-                          {highlight(npc.name, query)}
+                        <span className="rd-search-result-text">
+                          <span className="rd-search-result-title">
+                            {highlight(npc.name, query)}
+                          </span>
+
+                          <span className="rd-search-item-meta">
+                            퀘스트
+                          </span>
                         </span>
 
-                        <span className="rd-search-item-meta">
-                          퀘스트 NPC
-                          {villageName
-                            ? ` · ${villageName}`
-                            : ''}
-                        </span>
+                        {villageName && (
+                          <span className="rd-search-tag-row">
+                            <span className="rd-search-tag">
+                              {highlight(villageName, query)}
+                            </span>
+                          </span>
+                        )}
                       </span>
                     </button>
                   );
@@ -905,13 +925,18 @@ export default function SearchBox({
                     key={`faq-${faq.id}`}
                     type="button"
                     className="rd-search-result rd-search-faq-result"
-                    onClick={() => setFaqView(faq)}
+                    onClick={() => {
+                      setOpen(true);
+                      setFaqView(faq);
+                    }}
                   >
                     <span className="rd-search-faq-badge">Q</span>
 
                     <span className="rd-search-result-body">
-                      <span className="rd-search-result-title">
-                        {highlight(faq.title, query)}
+                      <span className="rd-search-result-text">
+                        <span className="rd-search-result-title">
+                          {highlight(faq.title, query)}
+                        </span>
                       </span>
 
                       {faq.tags?.length > 0 && (
@@ -1051,26 +1076,57 @@ export default function SearchBox({
           display: grid;
           grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
           width: calc(100% - ${paddingLeft}px);
-          max-height: min(72vh, 560px);
+          max-height: min(56vh, 460px);
+          padding: 10px 12px;
+          gap: 12px;
           overflow: hidden;
           border: 1px solid var(--border, #d8e1da);
-          border-radius: 16px;
+          border-radius: 10px;
           background: var(--surface-elevated, #ffffff);
           box-shadow: var(
-            --shadow-xl,
-            0 24px 60px rgba(15, 23, 42, 0.2)
+            --shadow-lg,
+            0 18px 42px rgba(15, 23, 42, 0.18)
           );
           color: var(--foreground, #1f2937);
         }
 
         .rd-search-column {
           min-width: 0;
+          min-height: 0;
+          max-height: calc(min(56vh, 460px) - 20px);
+          overflow-x: hidden;
           overflow-y: auto;
           overscroll-behavior: contain;
+          scrollbar-gutter: stable;
+          touch-action: pan-y;
         }
 
-        .rd-search-column + .rd-search-column {
-          border-left: 1px solid var(--border-soft, #edf1ee);
+        .rd-search-document-column {
+          padding-right: 8px;
+          border-right: 1px solid var(--border-soft, #edf1ee);
+        }
+
+        .rd-search-faq-column {
+          padding-left: 8px;
+        }
+
+        .rd-search-column::-webkit-scrollbar {
+          width: 8px;
+        }
+
+        .rd-search-column::-webkit-scrollbar-thumb {
+          border: 2px solid transparent;
+          border-radius: 999px;
+          background: color-mix(
+            in srgb,
+            var(--muted-2, #8b9890) 48%,
+            transparent
+          );
+          background-clip: padding-box;
+        }
+
+        .rd-search-column::-webkit-scrollbar-track {
+          background: transparent;
         }
 
         .rd-search-column-heading {
@@ -1080,86 +1136,100 @@ export default function SearchBox({
           display: flex;
           align-items: center;
           justify-content: space-between;
-          min-height: 44px;
-          padding: 0 14px;
-          border-bottom: 1px solid var(--border-soft, #edf1ee);
-          background: color-mix(
-            in srgb,
-            var(--surface-elevated, #ffffff) 94%,
-            transparent
-          );
-          backdrop-filter: blur(10px);
+          min-height: 28px;
+          margin-bottom: 6px;
+          padding: 0 4px;
+          background: var(--surface-elevated, #ffffff);
         }
 
         .rd-search-column-heading strong {
+          color: var(--muted, #6b7280);
           font-size: 13px;
-          font-weight: 900;
+          font-weight: 800;
         }
 
         .rd-search-column-heading span {
-          color: var(--muted, #6b7280);
+          color: var(--muted-2, #8b9890);
           font-size: 10px;
         }
 
         .rd-search-list {
           display: flex;
           flex-direction: column;
-          padding: 7px;
-          gap: 3px;
+          margin: 0;
+          padding: 0;
+          gap: 0;
         }
 
         .rd-search-result {
           display: flex;
+          align-items: flex-start;
           width: 100%;
           min-width: 0;
-          padding: 9px 10px;
-          gap: 10px;
+          padding: 8px 6px;
+          gap: 8px;
           border: 0;
-          border-radius: 11px;
+          border-bottom: 1px solid var(--border-soft, #edf1ee);
+          border-radius: 8px;
           background: transparent;
           color: inherit;
           font: inherit;
+          line-height: 1.3;
           text-align: left;
           cursor: pointer;
         }
 
+        .rd-search-result:last-child {
+          border-bottom-color: transparent;
+        }
+
         .rd-search-result:hover,
         .rd-search-result.is-selected {
-          background: var(--surface-hover, #eef8ef);
+          background: var(--accent-soft, #eef8ef);
         }
 
         .rd-search-result-icon {
           display: grid;
           place-items: center;
-          flex: 0 0 36px;
-          width: 36px;
-          height: 36px;
+          flex: 0 0 22px;
+          width: 22px;
+          height: 22px;
           overflow: hidden;
-          border-radius: 10px;
-          background: var(--surface-soft, #f3f6f4);
-          font-size: 20px;
+          margin-top: 1px;
+          border-radius: 3px;
+          background: transparent;
+          font-size: 19px;
+          line-height: 1;
         }
 
         .rd-search-result-icon img {
-          width: 100%;
-          height: 100%;
-          object-fit: contain;
+          width: 22px;
+          height: 22px;
+          object-fit: cover;
         }
 
         .rd-search-result-body {
           display: flex;
           flex: 1;
           min-width: 0;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 8px;
+        }
+
+        .rd-search-result-text {
+          display: flex;
+          flex: 1;
+          min-width: 0;
           flex-direction: column;
-          justify-content: center;
           gap: 3px;
         }
 
         .rd-search-result-title {
           overflow: hidden;
           color: var(--foreground, #1f2937);
-          font-size: 13px;
-          font-weight: 800;
+          font-size: 15px;
+          font-weight: 700;
           white-space: nowrap;
           text-overflow: ellipsis;
         }
@@ -1167,29 +1237,34 @@ export default function SearchBox({
         .rd-search-item-meta,
         .rd-search-item-snippet {
           overflow: hidden;
-          color: var(--muted, #6b7280);
-          font-size: 10px;
-          line-height: 1.4;
+          color: var(--muted-2, #8b9890);
+          font-size: 11px;
+          line-height: 1.35;
           white-space: nowrap;
           text-overflow: ellipsis;
         }
 
         .rd-search-tag-row {
           display: flex;
+          flex: 0 1 170px;
           min-width: 0;
+          max-width: 170px;
           flex-wrap: wrap;
-          gap: 4px;
-          margin-top: 2px;
+          justify-content: flex-end;
+          gap: 5px;
+          margin: 1px 0 0;
         }
 
         .rd-search-tag {
-          max-width: 100%;
+          max-width: 170px;
           overflow: hidden;
-          padding: 2px 6px;
+          padding: 2px 7px;
+          border: 1px solid var(--tag-border, transparent);
           border-radius: 999px;
-          background: var(--surface-soft, #eef6ef);
-          color: #43804d;
-          font-size: 9px;
+          background: var(--tag-bg, #eef6ef);
+          color: var(--tag-fg, #43804d);
+          font-size: 11px;
+          line-height: 1.35;
           white-space: nowrap;
           text-overflow: ellipsis;
         }
@@ -1202,13 +1277,14 @@ export default function SearchBox({
         .rd-search-faq-modal-label {
           display: grid;
           place-items: center;
-          flex: 0 0 30px;
-          width: 30px;
-          height: 30px;
-          border-radius: 10px;
-          background: #e7f5e8;
-          color: #377745;
-          font-size: 13px;
+          flex: 0 0 20px;
+          width: 20px;
+          height: 20px;
+          margin-top: 1px;
+          border-radius: 999px;
+          background: var(--faq-q-bg, #e7f5e8);
+          color: var(--faq-q-fg, #377745);
+          font-size: 12px;
           font-weight: 900;
         }
 
@@ -1334,16 +1410,25 @@ export default function SearchBox({
             left: 0;
             grid-template-columns: 1fr;
             width: 100%;
-            max-height: min(70vh, 520px);
+            max-height: min(68vh, 500px);
+            padding: 8px;
+            gap: 8px;
           }
 
           .rd-search-column {
-            max-height: 34vh;
+            max-height: 31vh;
           }
 
-          .rd-search-column + .rd-search-column {
-            border-top: 1px solid var(--border-soft, #edf1ee);
-            border-left: 0;
+          .rd-search-document-column {
+            padding-right: 0;
+            padding-bottom: 8px;
+            border-right: 0;
+            border-bottom: 1px solid var(--border-soft, #edf1ee);
+          }
+
+          .rd-search-faq-column {
+            padding-top: 0;
+            padding-left: 0;
           }
         }
       `}</style>
