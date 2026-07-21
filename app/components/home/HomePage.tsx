@@ -105,25 +105,31 @@ const FAQ_DOCUMENT_HREF =
 
 const recommendations = [
   {
-    label: '처음 시작한다면',
-    title: '뉴비 스타트 가이드',
+    label: '장비 정보를 찾고 있다면',
+    title: '무기',
     description:
-      '첫 접속부터 기본 장비 준비까지 순서대로 살펴보세요.',
-    icon: '🌱',
+      '렌독 서버의 무기 종류와 관련 정보를 확인해 보세요.',
+    icon: '⚔️',
+    href:
+      '/wiki?mode=RPG&path=48&title=%EB%AC%B4%EA%B8%B0&id=289',
   },
   {
-    label: '오늘 무엇을 할지 고민된다면',
-    title: '추천 콘텐츠 둘러보기',
+    label: '함께 도전할 콘텐츠를 찾는다면',
+    title: '레이드',
     description:
-      '현재 성장 단계에 맞는 콘텐츠를 확인해 보세요.',
-    icon: '🧭',
+      '레이드 종류와 공략에 필요한 정보를 확인해 보세요.',
+    icon: '🐉',
+    href:
+      '/wiki?mode=RPG&path=82&title=%EB%A0%88%EC%9D%B4%EB%93%9C&id=248',
   },
   {
-    label: '성장이 막혔다면',
-    title: '장비와 재화 가이드',
+    label: '수집 정보를 확인하고 싶다면',
+    title: '도감',
     description:
-      '강화, 거래, 재화 수급 관련 문서를 모아봤습니다.',
-    icon: '🛠️',
+      '서버의 다양한 수집 요소와 도감 정보를 살펴보세요.',
+    icon: '📖',
+    href:
+      '/wiki?mode=RPG&path=34&title=%EB%8F%84%EA%B0%90&id=207',
   },
 ] as const;
 
@@ -1135,7 +1141,7 @@ export default function HomePage({
                   (recommendation) => (
                     <Link
                       key={recommendation.title}
-                      href="/wiki"
+                      href={recommendation.href}
                       className={
                         styles.recommendCard
                       }
