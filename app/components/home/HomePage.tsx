@@ -3,6 +3,7 @@
 // 전체 교체용 코드
 // - 문서 화면과 동일한 3열 폭 유지
 // - 실제 최근 업데이트 문서 표시
+// - 최근 7일 조회수 기준 인기 문서 표시
 // - Wiki Header와 동일한 SearchBox 사용
 // - 퀘스트 NPC 상세 모달과 FAQ 상세 동작 지원
 // =============================================
@@ -25,6 +26,7 @@ import logo from '@/image/logo.png';
 import type {
   HomeCategoryKey,
   HomeCategoryLink,
+  HomePopularDocument,
   HomeRecentDocument,
 } from './homeData';
 import styles from './home.module.css';
@@ -77,14 +79,6 @@ const notices = [
   '신규 콘텐츠 문서 작성 안내',
 ] as const;
 
-const popularDocuments = [
-  '돈 버는 방법 총정리',
-  '경험치 효율 사냥터',
-  '보스 공략 모음',
-  '초보자 추천 장비',
-  '생활 콘텐츠 가이드',
-] as const;
-
 const recommendations = [
   {
     label: '처음 시작한다면',
@@ -111,6 +105,7 @@ const recommendations = [
 
 type HomePageProps = {
   recentDocuments: HomeRecentDocument[];
+  popularDocuments: HomePopularDocument[];
   categoryLinks: HomeCategoryLink[];
 };
 
@@ -194,6 +189,7 @@ function normalizeNpcPayload(payload: unknown): Npc {
 
 export default function HomePage({
   recentDocuments,
+  popularDocuments,
   categoryLinks,
 }: HomePageProps) {
   const categoryHrefByKey =
@@ -637,22 +633,42 @@ export default function HomePage({
                 </div>
 
                 <ol className={styles.popularList}>
-                  {popularDocuments.map(
-                    (document, index) => (
-                      <li key={document}>
-                        <Link href="/wiki">
-                          <span
-                            className={
-                              styles.popularRank
-                            }
+                  {popularDocuments.length > 0 ? (
+                    popularDocuments.map(
+                      (document, index) => (
+                        <li key={document.id}>
+                          <Link
+                            href={document.href}
+                            aria-label={`${index + 1}위 ${
+                              document.title
+                            }, 최근 7일 조회수 ${
+                              document.views
+                            }회`}
                           >
-                            {index + 1}
-                          </span>
+                            <span
+                              className={
+                                styles.popularRank
+                              }
+                            >
+                              {index + 1}
+                            </span>
 
-                          <span>{document}</span>
-                        </Link>
-                      </li>
+                            <span>
+                              {document.title}
+                            </span>
+                          </Link>
+                        </li>
+                      )
                     )
+                  ) : (
+                    <li
+                      className={
+                        styles.emptyDocument
+                      }
+                    >
+                      최근 7일간 집계된 인기 문서가
+                      없습니다.
+                    </li>
                   )}
                 </ol>
               </article>

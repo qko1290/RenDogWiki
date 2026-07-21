@@ -10,6 +10,7 @@
 // 5. allDocuments 전체에서 대표 문서 메타를 찾음
 //    (is_featured 문서도 제외하지 않음)
 // 6. 대표 문서가 없을 때 임의의 첫 문서로 대체하지 않음
+// 7. 최근 7일 조회수 기준 인기 문서 제공
 // =============================================
 
 import 'server-only';
@@ -25,6 +26,14 @@ export type HomeRecentDocument = {
   href: string;
   updatedAt: string;
   updatedLabel: string;
+};
+
+export type HomePopularDocument = {
+  id: number;
+  title: string;
+  category: string;
+  href: string;
+  views: number;
 };
 
 export type HomeCategoryKey =
@@ -47,6 +56,14 @@ type RecentDocumentRow = {
   path: string | number | null;
   updated_at: string | Date | null;
   category_name: string | null;
+};
+
+type PopularDocumentRow = {
+  id: number | string;
+  title: string;
+  path: string | number | null;
+  category_name: string | null;
+  views: number | string | bigint;
 };
 
 type BootstrapCategoryRow = {
@@ -93,6 +110,7 @@ type BootstrapDocument = {
 };
 
 const HOME_MODE = 'RPG';
+const LEGACY_HOME_DOCUMENT_ID = 73;
 
 const HOME_CATEGORY_DEFINITIONS: ReadonlyArray<{
   key: HomeCategoryKey;
@@ -459,6 +477,143 @@ export async function getRecentHomeDocuments(
   } catch (error) {
     console.error(
       '[home] 최근 업데이트 문서 조회 실패:',
+      error
+    );
+
+    return [];
+  }
+}
+
+
+/**
+ * 최근 7일간 실제 문서 조회수 합계를 기준으로 인기 문서를 가져온다.
+ *
+ * 기존 /api/view/popular?range=week 로직과 같은 기간을 사용하되,
+ * Home은 서버 컴포넌트이므로 내부 API를 다시 호출하지 않고
+ * 문서/카테고리 메타까지 한 번의 DB 조회로 결합한다.
+ */
+export async function getPopularHomeDocuments(
+  requestedLimit = 5
+): Promise<HomePopularDocument[]> {
+  const limit = Math.min(
+    Math.max(
+      Math.trunc(requestedLimit),
+      1
+    ),
+    10
+  );
+
+  try {
+    return await cached(
+      `home:popular-documents:week:${limit}:v1`,
+      {
+        /*
+         * 조회수는 계속 변하지만 Home 요청마다 DB를 조회할 필요는 없다.
+         * 5분 단위로 갱신해 Supabase/DB 전송량을 줄인다.
+         */
+        ttlSec: 300,
+        tags: ['doc:list'],
+      },
+      async () => {
+        const rows = (await runDbRead(
+          'home:popular-documents:week',
+          async () => {
+            return await sql`
+              WITH weekly_views AS (
+                SELECT
+                  document_id,
+                  SUM(views)::bigint AS views
+                FROM document_stats_daily
+                WHERE
+                  day >= (
+                    CURRENT_DATE -
+                    INTERVAL '6 days'
+                  )
+                GROUP BY document_id
+              )
+              SELECT
+                d.id,
+                d.title,
+                d.path,
+                COALESCE(
+                  c.name,
+                  '문서'
+                ) AS category_name,
+                weekly_views.views
+              FROM weekly_views
+              JOIN documents d
+                ON d.id =
+                  weekly_views.document_id
+              LEFT JOIN categories c
+                ON c.id::text =
+                  d.path::text
+              WHERE
+                weekly_views.views > 0
+                AND d.id <>
+                  ${LEGACY_HOME_DOCUMENT_ID}
+              ORDER BY
+                weekly_views.views DESC,
+                d.updated_at DESC
+                  NULLS LAST,
+                d.id DESC
+              LIMIT ${limit}
+            `;
+          }
+        )) as unknown as PopularDocumentRow[];
+
+        return rows
+          .map(
+            (
+              row
+            ): HomePopularDocument | null => {
+              const id =
+                toPositiveInteger(row.id);
+
+              const title = String(
+                row.title ?? ''
+              ).trim();
+
+              const views =
+                toFiniteNumber(
+                  row.views,
+                  0
+                );
+
+              if (
+                !id ||
+                !title ||
+                views <= 0
+              ) {
+                return null;
+              }
+
+              return {
+                id,
+                title,
+                category:
+                  row.category_name ||
+                  '문서',
+                href:
+                  createRecentDocumentHref(
+                    id,
+                    row.path,
+                    title
+                  ),
+                views,
+              };
+            }
+          )
+          .filter(
+            (
+              document
+            ): document is HomePopularDocument =>
+              document !== null
+          );
+      }
+    );
+  } catch (error) {
+    console.error(
+      '[home] 인기 문서 조회 실패:',
       error
     );
 
