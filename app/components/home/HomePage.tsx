@@ -10,6 +10,7 @@
 // - 퀘스트 NPC 상세 모달과 FAQ 상세 동작 지원
 // - 생성 이미지 기반 Hero와 좌우 배경 적용
 // - 퀘스트 대표 버튼과 커뮤니티 바로가기 적용
+// - 봄날 분위기의 나뭇잎과 반딧불이 효과 적용
 // =============================================
 
 'use client';
@@ -137,6 +138,8 @@ const recommendations = [
       '/wiki?mode=RPG&path=34&title=%EB%8F%84%EA%B0%90&id=207',
   },
 ] as const;
+
+const SPRING_LEAF_COUNT = 14;
 
 type HomePageProps = {
   recentDocuments: HomeRecentDocument[];
@@ -617,6 +620,26 @@ export default function HomePage({
 
   return (
     <div className={styles.page}>
+      <div
+        className={styles.springAtmosphere}
+        aria-hidden="true"
+      >
+        {Array.from(
+          {
+            length:
+              SPRING_LEAF_COUNT,
+          },
+          (_, index) => (
+            <span
+              key={index}
+              className={
+                styles.springLeaf
+              }
+            />
+          )
+        )}
+      </div>
+
       <header className={styles.header}>
         <div className={styles.headerInner}>
           <Link
