@@ -954,7 +954,6 @@
   color: var(--muted);
   font-size: 9px;
 }
-
 .communityLinks {
   display: flex;
   align-items: center;
@@ -963,6 +962,8 @@
 }
 
 .communityLink {
+  position: relative;
+  isolation: isolate;
   display: grid;
   place-items: center;
   flex: 0 0 36px;
@@ -983,9 +984,14 @@
 }
 
 .communityLink svg {
-  width: 20px;
-  height: 20px;
+  width: 21px;
+  height: 21px;
   fill: currentColor;
+}
+
+.communityLinkDiscord svg {
+  width: 22px;
+  height: 22px;
 }
 
 .communityLink > span {
@@ -995,9 +1001,108 @@
   letter-spacing: -1px;
 }
 
-.communityLink:hover {
+.communityLink::before,
+.communityLink::after {
+  position: absolute;
+  left: 50%;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 20;
+  transition:
+    opacity 170ms ease,
+    transform 190ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.communityLink::before {
+  content: '';
+  bottom: calc(100% + 6px);
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: rgba(18, 27, 22, 0.96);
+  transform:
+    translate(-50%, 5px)
+    rotate(45deg)
+    scale(0.75);
+}
+
+.communityLink::after {
+  content: attr(data-tooltip);
+  bottom: calc(100% + 10px);
+  min-width: max-content;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 9px;
+  background: rgba(18, 27, 22, 0.96);
+  color: #f8fafc;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.2);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: nowrap;
+  transform:
+    translate(-50%, 7px)
+    scale(0.94);
+}
+
+.communityLink:last-child::after {
+  right: 0;
+  left: auto;
+  transform:
+    translate(0, 7px)
+    scale(0.94);
+}
+
+.communityLink:last-child::before {
+  right: 14px;
+  left: auto;
+  transform:
+    translate(0, 5px)
+    rotate(45deg)
+    scale(0.75);
+}
+
+.communityLink:hover,
+.communityLink:focus-visible {
   transform: translateY(-2px);
   box-shadow: 0 9px 20px rgba(15, 23, 42, 0.1);
+}
+
+.communityLink:hover::before,
+.communityLink:hover::after,
+.communityLink:focus-visible::before,
+.communityLink:focus-visible::after {
+  opacity: 1;
+}
+
+.communityLink:hover::before,
+.communityLink:focus-visible::before {
+  transform:
+    translate(-50%, 0)
+    rotate(45deg)
+    scale(1);
+}
+
+.communityLink:hover::after,
+.communityLink:focus-visible::after {
+  transform:
+    translate(-50%, 0)
+    scale(1);
+}
+
+.communityLink:last-child:hover::before,
+.communityLink:last-child:focus-visible::before {
+  transform:
+    translate(0, 0)
+    rotate(45deg)
+    scale(1);
+}
+
+.communityLink:last-child:hover::after,
+.communityLink:last-child:focus-visible::after {
+  transform:
+    translate(0, 0)
+    scale(1);
 }
 
 .communityLink:focus-visible {
@@ -1005,22 +1110,45 @@
   outline-offset: 2px;
 }
 
-.communityLinkDiscord:hover {
+.communityLinkDiscord {
+  color: #5865f2;
+}
+
+.communityLinkNaver {
+  color: #03a94f;
+}
+
+.communityLinkMinelist {
+  color: #337ce8;
+}
+
+.communityLinkDiscord:hover,
+.communityLinkDiscord:focus-visible {
   border-color: rgba(88, 101, 242, 0.4);
   background: #5865f2;
   color: #fff;
 }
 
-.communityLinkNaver:hover {
+.communityLinkNaver:hover,
+.communityLinkNaver:focus-visible {
   border-color: rgba(3, 199, 90, 0.42);
   background: #03c75a;
   color: #fff;
 }
 
-.communityLinkMinelist:hover {
+.communityLinkMinelist:hover,
+.communityLinkMinelist:focus-visible {
   border-color: rgba(51, 124, 232, 0.4);
   background: #337ce8;
   color: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .communityLink,
+  .communityLink::before,
+  .communityLink::after {
+    transition: none;
+  }
 }
 
 :global(:root[data-theme='dark']) .page {

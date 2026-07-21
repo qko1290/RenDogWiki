@@ -1215,14 +1215,14 @@ export default function HomePage({
                   rel="noreferrer"
                   className={`${styles.communityLink} ${styles.communityLinkDiscord}`}
                   aria-label="렌독 디스코드 열기"
-                  title="디스코드"
+                  data-tooltip="실시간 채팅과 서버 소식"
                 >
                   <svg
                     viewBox="0 0 24 24"
                     aria-hidden="true"
                   >
                     <path
-                      d="M7.2 7.1c3.2-2.2 6.4-2.2 9.6 0 1.4 2 2.2 4.3 2.4 6.8-1.3 1.7-2.8 2.9-4.6 3.5l-1.1-1.5c.7-.3 1.4-.7 2-1.2-3.8 1.7-7.6 1.7-11.4 0 .6.5 1.3.9 2 1.2l-1.1 1.5c-1.8-.6-3.3-1.8-4.6-3.5.2-2.5 1-4.8 2.4-6.8Zm2.5 6.7c.8 0 1.4-.7 1.4-1.6 0-.9-.6-1.6-1.4-1.6s-1.4.7-1.4 1.6c0 .9.6 1.6 1.4 1.6Zm4.6 0c.8 0 1.4-.7 1.4-1.6 0-.9-.6-1.6-1.4-1.6s-1.4.7-1.4 1.6c0 .9.6 1.6 1.4 1.6Z"
+                      d="M19.54 5.34A16.8 16.8 0 0 0 15.44 4c-.18.34-.39.79-.53 1.14a15.6 15.6 0 0 0-4.55 0A12 12 0 0 0 9.82 4a16.8 16.8 0 0 0-4.1 1.34C3.13 9.2 2.43 12.93 2.78 16.6a16.9 16.9 0 0 0 5.03 2.55c.4-.56.77-1.14 1.09-1.75a10.9 10.9 0 0 1-1.72-.82l.42-.33c3.32 1.55 6.93 1.55 10.21 0l.43.33c-.55.33-1.12.61-1.72.82.32.61.68 1.19 1.09 1.75a16.9 16.9 0 0 0 5.03-2.55c.42-4.28-.72-7.98-3.1-11.26ZM8.67 14.38c-1 0-1.82-.92-1.82-2.05s.8-2.05 1.82-2.05 1.84.93 1.82 2.05c0 1.13-.8 2.05-1.82 2.05Zm6.34 0c-1 0-1.82-.92-1.82-2.05s.8-2.05 1.82-2.05 1.84.93 1.82 2.05c0 1.13-.8 2.05-1.82 2.05Z"
                     />
                   </svg>
                 </a>
@@ -1233,7 +1233,7 @@ export default function HomePage({
                   rel="noreferrer"
                   className={`${styles.communityLink} ${styles.communityLinkNaver}`}
                   aria-label="렌독 네이버 카페 열기"
-                  title="네이버 카페"
+                  data-tooltip="공지와 커뮤니티 게시글"
                 >
                   <span aria-hidden="true">N</span>
                 </a>
@@ -1244,7 +1244,7 @@ export default function HomePage({
                   rel="noreferrer"
                   className={`${styles.communityLink} ${styles.communityLinkMinelist}`}
                   aria-label="렌독 마인리스트 열기"
-                  title="마인리스트"
+                  data-tooltip="서버 정보와 추천 페이지"
                 >
                   <svg
                     viewBox="0 0 24 24"
