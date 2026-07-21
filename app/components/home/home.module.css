@@ -10,6 +10,12 @@
   --home-gutter: 24px;
   --home-left-width: 320px;
   --home-right-width: 260px;
+  --home-center-width:
+    calc(
+      var(--home-max-width) -
+      var(--home-left-width) -
+      var(--home-right-width)
+    );
   --home-header-height: 64px;
 
   width: 100%;
@@ -131,18 +137,22 @@
 
 .shell {
   width: 100%;
-  max-width: var(--home-max-width);
+  max-width: none;
   min-height: 100vh;
-  margin: 0 auto;
-  padding: 0 var(--home-gutter);
+  margin: 0;
+  padding: 0;
 }
 
 .layout {
   display: grid;
   grid-template-columns:
-    var(--home-left-width)
     minmax(0, 1fr)
-    var(--home-right-width);
+    minmax(
+      0,
+      var(--home-center-width)
+    )
+    minmax(0, 1fr);
+  width: 100%;
   min-height: 100vh;
   padding-top: var(--home-header-height);
 }
@@ -151,6 +161,8 @@
 .rightRail {
   position: relative;
   min-width: 0;
+  overflow: hidden;
+  background: var(--background);
   pointer-events: none;
 }
 
@@ -177,44 +189,52 @@
   min-height: 560px;
   background-repeat: no-repeat;
   background-size: cover;
-  opacity: 0.96;
+  opacity: 0.98;
   filter:
-    saturate(0.94)
-    brightness(1.03);
+    saturate(0.96)
+    brightness(1.025);
 }
 
 .leftRail::before {
   background-image:
+    linear-gradient(
+      to right,
+      transparent 62%,
+      color-mix(
+        in srgb,
+        var(--background) 96%,
+        transparent
+      ) 100%
+    ),
     url('/images/home/home-side-background-left.png');
-  background-position: center top;
+  background-position:
+    center,
+    left top;
 }
 
 .rightRail::before {
   background-image:
+    linear-gradient(
+      to left,
+      transparent 62%,
+      color-mix(
+        in srgb,
+        var(--background) 96%,
+        transparent
+      ) 100%
+    ),
     url('/images/home/home-side-background-right.png');
-  background-position: center top;
+  background-position:
+    center,
+    right top;
 }
 
 .main {
+  position: relative;
   grid-column: 2;
   min-width: 0;
   padding: 24px 3rem 48px;
-  background:
-    color-mix(
-      in srgb,
-      var(--background) 97%,
-      #ffffff 3%
-    );
-  border-inline:
-    1px solid
-    color-mix(
-      in srgb,
-      var(--border) 74%,
-      transparent
-    );
-  box-shadow:
-    0 0 34px
-    rgba(35, 73, 45, 0.08);
+  background: var(--background);
 }
 
 .hero {
@@ -1038,15 +1058,7 @@
 }
 
 :global(:root[data-theme='dark']) .main {
-  background:
-    color-mix(
-      in srgb,
-      var(--background) 96%,
-      #101b13 4%
-    );
-  box-shadow:
-    0 0 34px
-    rgba(0, 0, 0, 0.28);
+  background: var(--background);
 }
 
 :global(:root[data-theme='dark']) .hero {
@@ -1126,12 +1138,17 @@
 @media (max-width: 1024px) {
   .layout {
     grid-template-columns:
-      var(--home-left-width)
       minmax(0, 1fr);
   }
 
+  .leftRail,
   .rightRail {
     display: none;
+  }
+
+  .main {
+    grid-column: 1;
+    width: 100%;
   }
 
   .headerNavLink {
@@ -1185,8 +1202,6 @@
   .main {
     width: 100%;
     padding: 14px 12px 40px;
-    border-inline: 0;
-    box-shadow: none;
   }
 
   .hero {
