@@ -2,20 +2,21 @@
 // File: app/components/home/homeData.ts
 // 전체 교체용 코드
 //
-// 대표 카테고리 연결 방식:
-// 1. 모든 카테고리를 조회한다.
-// 2. 실제 카테고리 트리와 동일하게 부모를 따라가며 RPG 영역인지 판별한다.
-// 3. 정식 이름(컨텐츠 / 시스템 / 시세표 / 법전)의 카테고리를 찾는다.
-// 4. categories.document_id가 있으면 대표 문서를 사용한다.
-// 5. 대표 문서가 없으면 해당 카테고리 하위에서 정렬상 첫 문서를 사용한다.
-// 6. /wiki?id=문서ID&mode=RPG 로 이동한다.
-//    WikiPageInner는 id가 있으면 id를 최우선으로 직접 로드한다.
+// 카테고리 대표 문서 연결은 기존 CategoryTree와 동일한 방식:
+// 1. /api/bootstrap과 동일한 categories/documents 데이터를 조회
+// 2. buildCategoryTree로 동일한 카테고리 트리를 구성
+// 3. CategoryTree와 동일한 mode_tags 상속 필터 적용
+// 4. 카테고리의 document_id를 그대로 대표 문서 ID로 사용
+// 5. allDocuments 전체에서 대표 문서 메타를 찾음
+//    (is_featured 문서도 제외하지 않음)
+// 6. 대표 문서가 없을 때 임의의 첫 문서로 대체하지 않음
 // =============================================
 
 import 'server-only';
 
 import { cached } from '@/wiki/lib/cache';
 import { runDbRead, sql } from '@/wiki/lib/db';
+import { buildCategoryTree } from '@/wiki/lib/buildCategoryTree';
 
 export type HomeRecentDocument = {
   id: number;
@@ -48,41 +49,49 @@ type RecentDocumentRow = {
   category_name: string | null;
 };
 
-type CategoryRow = {
+type BootstrapCategoryRow = {
   id: number | string;
   name: string;
   parent_id: number | string | null;
-  document_id: number | string | null;
-  mode_tags: string[] | null;
   order: number | string | null;
+  document_id: number | string | null;
+  icon?: string | null;
+  mode_tags?: string[] | null;
 };
 
-type DocumentRow = {
+type BootstrapDocumentRow = {
   id: number | string;
   title: string;
   path: string | number | null;
-  order: number | string | null;
-  is_featured: boolean | null;
+  icon?: string | null;
+  is_featured?: boolean | null;
+  special?: string | null;
+  order?: number | string | null;
+  updated_at?: string | Date | null;
 };
 
-type NormalizedCategory = {
+type CategoryNode = {
   id: number;
   name: string;
-  parentId: number | null;
-  documentId: number | null;
-  modeTags: string[];
+  parent_id: number | null;
   order: number;
+  document_id?: number | null;
+  icon?: string | null;
+  mode_tags?: string[] | null;
+  children?: CategoryNode[];
 };
 
-type NormalizedDocument = {
+type BootstrapDocument = {
   id: number;
   title: string;
-  categoryId: number | null;
+  path: string | number | null;
+  icon?: string | null;
+  is_featured: boolean;
+  special?: string | null;
   order: number;
-  isFeatured: boolean;
+  updated_at?: string | Date | null;
 };
 
-const ROOT_FEATURED_DOCUMENT_ID = 73;
 const HOME_MODE = 'RPG';
 
 const HOME_CATEGORY_DEFINITIONS: ReadonlyArray<{
@@ -150,43 +159,42 @@ function formatDateLabel(date: Date) {
   return `${month}.${day}`;
 }
 
-function normalizeName(value: string) {
-  return String(value ?? '')
-    .trim()
-    .replace(/\s+/g, '');
-}
-
-function normalizeModeTag(value: string) {
-  return String(value ?? '')
-    .trim()
-    .toLowerCase();
-}
-
 function toPositiveInteger(
   value: unknown
 ): number | null {
   const parsed = Number(value);
 
-  return Number.isInteger(parsed) &&
-    parsed > 0
-    ? parsed
-    : null;
+  if (
+    !Number.isInteger(parsed) ||
+    parsed <= 0
+  ) {
+    return null;
+  }
+
+  return parsed;
 }
 
-function toFiniteOrder(value: unknown) {
+function toFiniteNumber(
+  value: unknown,
+  fallback = 0
+) {
   const parsed = Number(value);
 
   return Number.isFinite(parsed)
     ? parsed
-    : Number.MAX_SAFE_INTEGER;
+    : fallback;
 }
 
 function createWikiDocumentHref(
-  documentId: number
+  documentId: number,
+  categoryId: number,
+  documentTitle: string
 ) {
   const searchParams =
     new URLSearchParams({
       id: String(documentId),
+      path: String(categoryId),
+      title: documentTitle,
       mode: HOME_MODE,
     });
 
@@ -194,15 +202,15 @@ function createWikiDocumentHref(
 }
 
 function createRecentDocumentHref(
-  id: number,
+  documentId: number,
   path: string | number | null,
-  title: string
+  documentTitle: string
 ) {
   const searchParams =
     new URLSearchParams({
-      id: String(id),
+      id: String(documentId),
       path: String(path ?? 0),
-      title,
+      title: documentTitle,
       mode: HOME_MODE,
     });
 
@@ -221,422 +229,135 @@ function createEmptyCategoryLinks(): HomeCategoryLink[] {
   );
 }
 
-function normalizeCategories(
-  rows: CategoryRow[]
-): NormalizedCategory[] {
-  return rows
-    .map(
-      (
-        row
-      ): NormalizedCategory | null => {
-        const id =
-          toPositiveInteger(row.id);
+/**
+ * CategoryTree.tsx의 filterTreeByMode와 같은 규칙.
+ *
+ * - 부모가 현재 모드에 포함되면 하위 카테고리도 포함
+ * - 본인이 현재 모드 태그를 가지면 포함
+ * - 포함되는 자식이 있으면 부모도 경로 유지를 위해 포함
+ */
+function filterTreeByMode(
+  nodes: CategoryNode[],
+  mode: string,
+  parentIncluded = false
+): CategoryNode[] {
+  const modeLower = String(mode)
+    .trim()
+    .toLowerCase();
 
-        if (!id) {
-          return null;
-        }
+  const output: CategoryNode[] = [];
 
-        return {
-          id,
-          name: String(
-            row.name ?? ''
-          ).trim(),
-          parentId:
-            toPositiveInteger(
-              row.parent_id
-            ),
-          documentId:
-            toPositiveInteger(
-              row.document_id
-            ),
-          modeTags:
-            Array.isArray(
-              row.mode_tags
-            )
-              ? row.mode_tags.map(
-                  normalizeModeTag
-                )
-              : [],
-          order:
-            toFiniteOrder(
-              row.order
-            ),
-        };
-      }
-    )
-    .filter(
-      (
-        category
-      ): category is NormalizedCategory =>
-        category !== null
-    );
+  for (const node of nodes) {
+    const ownTags =
+      Array.isArray(node.mode_tags)
+        ? node.mode_tags
+        : [];
+
+    const ownIncluded =
+      parentIncluded ||
+      ownTags.some(
+        (tag) =>
+          String(tag)
+            .trim()
+            .toLowerCase() ===
+          modeLower
+      );
+
+    const nextChildren =
+      node.children?.length
+        ? filterTreeByMode(
+            node.children,
+            mode,
+            ownIncluded
+          )
+        : [];
+
+    if (
+      ownIncluded ||
+      nextChildren.length > 0
+    ) {
+      output.push({
+        ...node,
+        children: nextChildren,
+      });
+    }
+  }
+
+  return output;
 }
 
-function normalizeDocuments(
-  rows: DocumentRow[]
-): NormalizedDocument[] {
+function findCategoryByName(
+  nodes: CategoryNode[],
+  exactName: string
+): CategoryNode | null {
+  for (const node of nodes) {
+    if (
+      String(node.name).trim() ===
+      exactName
+    ) {
+      return node;
+    }
+
+    if (node.children?.length) {
+      const childMatch =
+        findCategoryByName(
+          node.children,
+          exactName
+        );
+
+      if (childMatch) {
+        return childMatch;
+      }
+    }
+  }
+
+  return null;
+}
+
+function normalizeBootstrapDocuments(
+  rows: BootstrapDocumentRow[]
+): BootstrapDocument[] {
   return rows
     .map(
       (
         row
-      ): NormalizedDocument | null => {
+      ): BootstrapDocument | null => {
         const id =
           toPositiveInteger(row.id);
+
         const title = String(
           row.title ?? ''
         ).trim();
 
-        if (
-          !id ||
-          !title ||
-          id ===
-            ROOT_FEATURED_DOCUMENT_ID
-        ) {
+        if (!id || !title) {
           return null;
         }
 
         return {
           id,
           title,
-          categoryId:
-            toPositiveInteger(
-              row.path
-            ),
+          path: row.path,
+          icon: row.icon ?? null,
+          is_featured:
+            Boolean(row.is_featured),
+          special:
+            row.special ?? null,
           order:
-            toFiniteOrder(
-              row.order
+            toFiniteNumber(
+              row.order,
+              0
             ),
-          isFeatured:
-            Boolean(
-              row.is_featured
-            ),
+          updated_at:
+            row.updated_at ?? null,
         };
       }
     )
     .filter(
       (
         document
-      ): document is NormalizedDocument =>
-        document !== null &&
-        !document.isFeatured
+      ): document is BootstrapDocument =>
+        document !== null
     );
-}
-
-function getCategoryDepth(
-  category: NormalizedCategory,
-  categoryById: Map<
-    number,
-    NormalizedCategory
-  >
-) {
-  let depth = 0;
-  let cursor:
-    | NormalizedCategory
-    | undefined = category;
-  const visited = new Set<number>();
-
-  while (
-    cursor?.parentId &&
-    !visited.has(cursor.id)
-  ) {
-    visited.add(cursor.id);
-    depth += 1;
-    cursor = categoryById.get(
-      cursor.parentId
-    );
-  }
-
-  return depth;
-}
-
-function isCategoryInMode(
-  category: NormalizedCategory,
-  categoryById: Map<
-    number,
-    NormalizedCategory
-  >,
-  mode: string
-) {
-  const normalizedMode =
-    normalizeModeTag(mode);
-  let cursor:
-    | NormalizedCategory
-    | undefined = category;
-  const visited = new Set<number>();
-
-  while (
-    cursor &&
-    !visited.has(cursor.id)
-  ) {
-    visited.add(cursor.id);
-
-    if (
-      cursor.modeTags.includes(
-        normalizedMode
-      )
-    ) {
-      return true;
-    }
-
-    cursor = cursor.parentId
-      ? categoryById.get(
-          cursor.parentId
-        )
-      : undefined;
-  }
-
-  return false;
-}
-
-function isCategoryInsideTarget(
-  categoryId: number | null,
-  targetCategoryId: number,
-  categoryById: Map<
-    number,
-    NormalizedCategory
-  >
-) {
-  if (!categoryId) {
-    return false;
-  }
-
-  let cursor =
-    categoryById.get(categoryId);
-  const visited = new Set<number>();
-
-  while (
-    cursor &&
-    !visited.has(cursor.id)
-  ) {
-    if (
-      cursor.id ===
-      targetCategoryId
-    ) {
-      return true;
-    }
-
-    visited.add(cursor.id);
-    cursor = cursor.parentId
-      ? categoryById.get(
-          cursor.parentId
-        )
-      : undefined;
-  }
-
-  return false;
-}
-
-function getDistanceFromTarget(
-  categoryId: number | null,
-  targetCategoryId: number,
-  categoryById: Map<
-    number,
-    NormalizedCategory
-  >
-) {
-  if (!categoryId) {
-    return Number.MAX_SAFE_INTEGER;
-  }
-
-  let distance = 0;
-  let cursor =
-    categoryById.get(categoryId);
-  const visited = new Set<number>();
-
-  while (
-    cursor &&
-    !visited.has(cursor.id)
-  ) {
-    if (
-      cursor.id ===
-      targetCategoryId
-    ) {
-      return distance;
-    }
-
-    visited.add(cursor.id);
-    distance += 1;
-    cursor = cursor.parentId
-      ? categoryById.get(
-          cursor.parentId
-        )
-      : undefined;
-  }
-
-  return Number.MAX_SAFE_INTEGER;
-}
-
-function selectTargetCategory(
-  title: string,
-  categories: NormalizedCategory[],
-  categoryById: Map<
-    number,
-    NormalizedCategory
-  >
-) {
-  const normalizedTitle =
-    normalizeName(title);
-
-  const candidates =
-    categories.filter(
-      (category) =>
-        normalizeName(
-          category.name
-        ) === normalizedTitle
-    );
-
-  candidates.sort(
-    (first, second) => {
-      const firstInRpg =
-        isCategoryInMode(
-          first,
-          categoryById,
-          HOME_MODE
-        );
-      const secondInRpg =
-        isCategoryInMode(
-          second,
-          categoryById,
-          HOME_MODE
-        );
-
-      if (
-        firstInRpg !==
-        secondInRpg
-      ) {
-        return firstInRpg
-          ? -1
-          : 1;
-      }
-
-      const firstHasRepresentative =
-        first.documentId !== null;
-      const secondHasRepresentative =
-        second.documentId !== null;
-
-      if (
-        firstHasRepresentative !==
-        secondHasRepresentative
-      ) {
-        return firstHasRepresentative
-          ? -1
-          : 1;
-      }
-
-      const depthDifference =
-        getCategoryDepth(
-          first,
-          categoryById
-        ) -
-        getCategoryDepth(
-          second,
-          categoryById
-        );
-
-      if (depthDifference !== 0) {
-        return depthDifference;
-      }
-
-      if (
-        first.order !==
-        second.order
-      ) {
-        return (
-          first.order -
-          second.order
-        );
-      }
-
-      return first.id - second.id;
-    }
-  );
-
-  return candidates[0] ?? null;
-}
-
-function selectTargetDocument(
-  category: NormalizedCategory,
-  documents: NormalizedDocument[],
-  documentById: Map<
-    number,
-    NormalizedDocument
-  >,
-  categoryById: Map<
-    number,
-    NormalizedCategory
-  >
-) {
-  if (category.documentId) {
-    const representative =
-      documentById.get(
-        category.documentId
-      );
-
-    if (representative) {
-      return representative;
-    }
-  }
-
-  const subtreeDocuments =
-    documents.filter(
-      (document) =>
-        isCategoryInsideTarget(
-          document.categoryId,
-          category.id,
-          categoryById
-        )
-    );
-
-  subtreeDocuments.sort(
-    (first, second) => {
-      const firstDistance =
-        getDistanceFromTarget(
-          first.categoryId,
-          category.id,
-          categoryById
-        );
-      const secondDistance =
-        getDistanceFromTarget(
-          second.categoryId,
-          category.id,
-          categoryById
-        );
-
-      if (
-        firstDistance !==
-        secondDistance
-      ) {
-        return (
-          firstDistance -
-          secondDistance
-        );
-      }
-
-      if (
-        first.order !==
-        second.order
-      ) {
-        return (
-          first.order -
-          second.order
-        );
-      }
-
-      const titleDifference =
-        first.title.localeCompare(
-          second.title,
-          'ko'
-        );
-
-      if (titleDifference !== 0) {
-        return titleDifference;
-      }
-
-      return first.id - second.id;
-    }
-  );
-
-  return subtreeDocuments[0] ?? null;
 }
 
 export async function getRecentHomeDocuments(
@@ -676,8 +397,7 @@ export async function getRecentHomeDocuments(
                 ON c.id::text =
                   d.path::text
               WHERE
-                d.updated_at
-                  IS NOT NULL
+                d.updated_at IS NOT NULL
               ORDER BY
                 d.updated_at DESC,
                 d.id DESC
@@ -692,9 +412,8 @@ export async function getRecentHomeDocuments(
               row
             ): HomeRecentDocument | null => {
               const id =
-                toPositiveInteger(
-                  row.id
-                );
+                toPositiveInteger(row.id);
+
               const updatedDate =
                 normalizeDate(
                   row.updated_at
@@ -752,7 +471,7 @@ export async function getHomeCategoryLinks(): Promise<
 > {
   try {
     return await cached(
-      'home:category-links:v5',
+      'home:category-links:v6',
       {
         ttlSec: 60,
         tags: [
@@ -762,85 +481,136 @@ export async function getHomeCategoryLinks(): Promise<
         ],
       },
       async () => {
+        /*
+         * /api/bootstrap과 동일한 두 목록을 사용한다.
+         * CategoryTree도 이 데이터로 대표 문서를 연다.
+         */
         const [
-          rawCategories,
-          rawDocuments,
+          rawCategoryRows,
+          rawDocumentRows,
         ] = await Promise.all([
           runDbRead(
-            'home:category-links:categories',
+            'home:category-links:categories:v6',
             async () => {
               return await sql`
                 SELECT
                   id,
                   name,
                   parent_id,
+                  "order",
                   document_id,
-                  mode_tags,
-                  "order"
+                  icon,
+                  mode_tags
                 FROM categories
                 ORDER BY
                   parent_id,
-                  "order",
-                  id
+                  "order"
               `;
             }
           ),
           runDbRead(
-            'home:category-links:documents',
+            'home:category-links:documents:v6',
             async () => {
               return await sql`
                 SELECT
                   id,
                   title,
                   path,
+                  icon,
+                  is_featured,
+                  special,
                   "order",
-                  is_featured
+                  updated_at
                 FROM documents
               `;
             }
           ),
         ]);
 
-        const categories =
-          normalizeCategories(
-            rawCategories as unknown as CategoryRow[]
-          );
-        const documents =
-          normalizeDocuments(
-            rawDocuments as unknown as DocumentRow[]
+        const categoryRows =
+          rawCategoryRows as unknown as BootstrapCategoryRow[];
+
+        const documentRows =
+          rawDocumentRows as unknown as BootstrapDocumentRow[];
+
+        /*
+         * buildCategoryTree는 각 원본 row를 spread하기 때문에
+         * document_id와 mode_tags도 그대로 유지된다.
+         */
+        const completeTree =
+          buildCategoryTree(
+            categoryRows.map(
+              (row) => ({
+                ...row,
+                id:
+                  toFiniteNumber(
+                    row.id
+                  ),
+                parent_id:
+                  row.parent_id == null
+                    ? null
+                    : toFiniteNumber(
+                        row.parent_id
+                      ),
+                order:
+                  toFiniteNumber(
+                    row.order,
+                    0
+                  ),
+                document_id:
+                  row.document_id == null
+                    ? null
+                    : toFiniteNumber(
+                        row.document_id
+                      ),
+
+                /*
+                 * buildCategoryTree의 Category 타입은
+                 * icon?: string 이므로 DB의 null을 undefined로 정규화한다.
+                 */
+                icon:
+                  row.icon ?? undefined,
+
+                /*
+                 * mode_tags 역시 null 대신 빈 배열로 정규화한다.
+                 */
+                mode_tags:
+                  Array.isArray(
+                    row.mode_tags
+                  )
+                    ? row.mode_tags
+                    : [],
+              })
+            )
+          ) as unknown as CategoryNode[];
+
+        const visibleRpgTree =
+          filterTreeByMode(
+            completeTree,
+            HOME_MODE
           );
 
-        const categoryById =
-          new Map(
-            categories.map(
-              (category) => [
-                category.id,
-                category,
-              ]
-            )
-          );
-        const documentById =
-          new Map(
-            documents.map(
-              (document) => [
-                document.id,
-                document,
-              ]
-            )
+        /*
+         * 중요:
+         * CategoryTree의 repFromList는 allDocuments 전체에서 찾는다.
+         * 따라서 여기서도 is_featured 문서를 제외하면 안 된다.
+         */
+        const allDocuments =
+          normalizeBootstrapDocuments(
+            documentRows
           );
 
         return HOME_CATEGORY_DEFINITIONS.map(
           (definition) => {
             const category =
-              selectTargetCategory(
-                definition.title,
-                categories,
-                categoryById
+              findCategoryByName(
+                visibleRpgTree,
+                definition.title
               );
 
             if (!category) {
               console.error(
-                `[home] 카테고리를 찾지 못했습니다: ${definition.title}`
+                `[home] RPG 카테고리를 찾지 못했습니다: ${definition.title}`
               );
 
               return {
@@ -852,22 +622,22 @@ export async function getHomeCategoryLinks(): Promise<
               };
             }
 
-            const document =
-              selectTargetDocument(
-                category,
-                documents,
-                documentById,
-                categoryById
+            const representativeId =
+              toPositiveInteger(
+                category.document_id
               );
 
-            if (!document) {
+            /*
+             * 기존 CategoryTree는 document_id가 없으면
+             * 첫 문서를 대신 열지 않고 트리만 펼친다.
+             * Home에서도 임의 fallback을 만들지 않는다.
+             */
+            if (!representativeId) {
               console.error(
-                `[home] 카테고리 하위에서 열 문서를 찾지 못했습니다: ${definition.title}`,
+                `[home] 카테고리에 대표 문서가 없습니다: ${definition.title}`,
                 {
                   categoryId:
                     category.id,
-                  representativeDocumentId:
-                    category.documentId,
                 }
               );
 
@@ -881,17 +651,52 @@ export async function getHomeCategoryLinks(): Promise<
               };
             }
 
+            /*
+             * CategoryTree의
+             * allDocuments.find(d => d.id === repId)
+             * 와 동일한 조회.
+             */
+            const representative =
+              allDocuments.find(
+                (document) =>
+                  document.id ===
+                  representativeId
+              ) ?? null;
+
+            if (!representative) {
+              console.error(
+                `[home] 대표 문서 메타를 찾지 못했습니다: ${definition.title}`,
+                {
+                  categoryId:
+                    category.id,
+                  representativeId,
+                }
+              );
+
+              return {
+                key: definition.key,
+                title: definition.title,
+                href: '/wiki',
+                categoryId:
+                  category.id,
+                documentId:
+                  representativeId,
+              };
+            }
+
             return {
               key: definition.key,
               title: definition.title,
               href:
                 createWikiDocumentHref(
-                  document.id
+                  representative.id,
+                  category.id,
+                  representative.title
                 ),
               categoryId:
                 category.id,
               documentId:
-                document.id,
+                representative.id,
             };
           }
         );
