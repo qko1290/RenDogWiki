@@ -171,7 +171,7 @@ export async function GET(req: NextRequest) {
 
       return NextResponse.json(data, {
         headers: {
-          'Cache-Control': 'public, max-age=0, s-maxage=300, stale-while-revalidate=600',
+          'Cache-Control': 'no-store',
         },
       });
     } catch (e) {
@@ -216,7 +216,7 @@ export async function GET(req: NextRequest) {
 
       return NextResponse.json(data, {
         headers: {
-          'Cache-Control': 'public, max-age=0, s-maxage=300, stale-while-revalidate=600',
+          'Cache-Control': 'no-store',
         },
       });
     } catch (e) {
@@ -260,7 +260,7 @@ export async function GET(req: NextRequest) {
 
       return NextResponse.json(result, {
         headers: {
-          'Cache-Control': 'public, max-age=0, s-maxage=300, stale-while-revalidate=600',
+          'Cache-Control': 'no-store',
         },
       });
     } catch (e) {
@@ -338,7 +338,7 @@ export async function GET(req: NextRequest) {
         },
         {
           headers: {
-          'Cache-Control': 'public, max-age=0, s-maxage=300, stale-while-revalidate=600',
+          'Cache-Control': 'no-store',
         },
         }
       );
@@ -376,7 +376,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(data, {
       headers: {
-          'Cache-Control': 'public, max-age=0, s-maxage=300, stale-while-revalidate=600',
+          'Cache-Control': 'no-store',
         },
     });
   } catch (e) {
