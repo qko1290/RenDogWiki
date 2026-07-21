@@ -16,6 +16,11 @@
       var(--home-left-width) -
       var(--home-right-width)
     );
+  --home-header-content-width:
+    calc(
+      var(--home-center-width) +
+      320px
+    );
   --home-header-height: 64px;
 
   width: 100%;
@@ -54,11 +59,18 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
-  max-width: var(--home-max-width);
+  width:
+    min(
+      calc(
+        100% -
+        (var(--home-gutter) * 2)
+      ),
+      var(--home-header-content-width)
+    );
+  max-width: none;
   height: 100%;
   margin: 0 auto;
-  padding: 0 var(--home-gutter);
+  padding: 0;
   gap: 24px;
 }
 
@@ -1204,6 +1216,7 @@
   }
 
   .headerInner {
+    width: 100%;
     padding: 0 14px;
   }
 

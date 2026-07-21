@@ -706,7 +706,7 @@ export default function HomePage({
                 </p>
 
                 <h1 className={styles.heroTitle}>
-                  렌독위키
+                  RDWIKI
                 </h1>
 
                 <p className={styles.heroDescription}>
