@@ -1141,7 +1141,7 @@ export default function HomePage({
                   (recommendation) => (
                     <Link
                       key={recommendation.title}
-                      href={recommendation.href}
+                      href="/wiki"
                       className={
                         styles.recommendCard
                       }
@@ -1205,16 +1205,56 @@ export default function HomePage({
                 </div>
               </div>
 
-              <div className={styles.footerLinks}>
-                <Link href="/wiki">
-                  운영 원칙
-                </Link>
-                <Link href="/wiki">
-                  문의하기
-                </Link>
-                <Link href="/wiki">
-                  후원하기
-                </Link>
+              <div
+                className={styles.communityLinks}
+                aria-label="렌독 커뮤니티"
+              >
+                <a
+                  href="https://discord.gg/rendogkr"
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`${styles.communityLink} ${styles.communityLinkDiscord}`}
+                  aria-label="렌독 디스코드 열기"
+                  title="디스코드"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M7.2 7.1c3.2-2.2 6.4-2.2 9.6 0 1.4 2 2.2 4.3 2.4 6.8-1.3 1.7-2.8 2.9-4.6 3.5l-1.1-1.5c.7-.3 1.4-.7 2-1.2-3.8 1.7-7.6 1.7-11.4 0 .6.5 1.3.9 2 1.2l-1.1 1.5c-1.8-.6-3.3-1.8-4.6-3.5.2-2.5 1-4.8 2.4-6.8Zm2.5 6.7c.8 0 1.4-.7 1.4-1.6 0-.9-.6-1.6-1.4-1.6s-1.4.7-1.4 1.6c0 .9.6 1.6 1.4 1.6Zm4.6 0c.8 0 1.4-.7 1.4-1.6 0-.9-.6-1.6-1.4-1.6s-1.4.7-1.4 1.6c0 .9.6 1.6 1.4 1.6Z"
+                    />
+                  </svg>
+                </a>
+
+                <a
+                  href="https://cafe.naver.com/rendogserver"
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`${styles.communityLink} ${styles.communityLinkNaver}`}
+                  aria-label="렌독 네이버 카페 열기"
+                  title="네이버 카페"
+                >
+                  <span aria-hidden="true">N</span>
+                </a>
+
+                <a
+                  href="https://minelist.kr/servers/2113-rendog.kr"
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`${styles.communityLink} ${styles.communityLinkMinelist}`}
+                  aria-label="렌독 마인리스트 열기"
+                  title="마인리스트"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M6 5.5h12v3H6v-3Zm0 5h12v3H6v-3Zm0 5h8v3H6v-3Zm10 0h2v3h-2v-3Z"
+                    />
+                  </svg>
+                </a>
               </div>
             </footer>
           </main>

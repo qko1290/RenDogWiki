@@ -955,18 +955,72 @@
   font-size: 9px;
 }
 
-.footerLinks {
+.communityLinks {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 14px;
+  gap: 9px;
 }
 
-.footerLinks a {
+.communityLink {
+  display: grid;
+  place-items: center;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  background: var(--surface-elevated);
   color: var(--muted);
-  font-size: 9px;
   text-decoration: none;
+  box-shadow: 0 5px 14px rgba(15, 23, 42, 0.055);
+  transition:
+    transform 150ms ease,
+    border-color 150ms ease,
+    background 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.communityLink svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.communityLink > span {
+  font-size: 17px;
+  line-height: 1;
+  font-weight: 1000;
+  letter-spacing: -1px;
+}
+
+.communityLink:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 9px 20px rgba(15, 23, 42, 0.1);
+}
+
+.communityLink:focus-visible {
+  outline: 2px solid rgba(76, 144, 83, 0.45);
+  outline-offset: 2px;
+}
+
+.communityLinkDiscord:hover {
+  border-color: rgba(88, 101, 242, 0.4);
+  background: #5865f2;
+  color: #fff;
+}
+
+.communityLinkNaver:hover {
+  border-color: rgba(3, 199, 90, 0.42);
+  background: #03c75a;
+  color: #fff;
+}
+
+.communityLinkMinelist:hover {
+  border-color: rgba(51, 124, 232, 0.4);
+  background: #337ce8;
+  color: #fff;
 }
 
 :global(:root[data-theme='dark']) .page {
@@ -1022,6 +1076,12 @@
       rgba(25, 54, 35, 0.76),
       rgba(17, 24, 39, 0.91)
     );
+}
+
+:global(:root[data-theme='dark']) .communityLink {
+  border-color: rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.68);
+  color: #cbd5e1;
 }
 
 @media (max-width: 1280px) {
@@ -1164,7 +1224,7 @@
     flex-direction: column;
   }
 
-  .footerLinks {
+  .communityLinks {
     justify-content: flex-start;
   }
 }
