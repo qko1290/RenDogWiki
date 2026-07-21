@@ -20,7 +20,7 @@ export default async function Home() {
     recentDocuments,
     categoryLinks,
   ] = await Promise.all([
-    getRecentHomeDocuments(4),
+    getRecentHomeDocuments(5),
     getHomeCategoryLinks(),
   ]);
 

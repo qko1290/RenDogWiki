@@ -346,7 +346,7 @@ export default function HomePage({
         controller.abort();
       }, 8000);
 
-    void fetch('/api/home/faqs?range=week', {
+    void fetch('/api/home/faqs?range=week&limit=5', {
       cache: 'no-store',
       signal: controller.signal,
     })
