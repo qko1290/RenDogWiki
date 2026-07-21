@@ -503,19 +503,28 @@ export async function getPopularHomeDocuments(
     10
   );
 
+  /*
+   * 대표 문서와 73번을 제외한 뒤에도 limit만큼 남도록
+   * 먼저 조회수 상위 후보를 넉넉하게 제한한다.
+   */
+  const candidateLimit = Math.min(
+    Math.max(limit * 10, 30),
+    100
+  );
+
   try {
     return await cached(
-      `home:popular-documents:week:${limit}:v3`,
+      `home:popular-documents:week:${limit}:v4`,
       {
         ttlSec: 300,
         tags: ['doc:list'],
       },
       async () => {
         const rows = (await runDbRead(
-          'home:popular-documents:week:v3',
+          'home:popular-documents:week:v4',
           async () => {
             return await sql`
-              WITH weekly_views AS (
+              WITH ranked_views AS (
                 SELECT
                   document_id,
                   SUM(views)::bigint AS views
@@ -526,37 +535,40 @@ export async function getPopularHomeDocuments(
                     INTERVAL '6 days'
                   )
                 GROUP BY document_id
+                ORDER BY
+                  views DESC
+                LIMIT ${candidateLimit}
               )
               SELECT
                 d.id,
                 d.title,
                 d.path,
-                COALESCE(
-                  c.name,
-                  '문서'
-                ) AS category_name,
-                weekly_views.views
-              FROM weekly_views
+                '문서'::text
+                  AS category_name,
+                ranked_views.views
+              FROM ranked_views
               JOIN documents d
                 ON d.id =
-                  weekly_views.document_id
-              LEFT JOIN categories c
-                ON c.id::text =
-                  d.path::text
+                  ranked_views.document_id
               WHERE
-                weekly_views.views > 0
-                AND d.id <>
+                d.id <>
                   ${LEGACY_HOME_DOCUMENT_ID}
                 AND d.is_featured
                   IS NOT TRUE
               ORDER BY
-                weekly_views.views DESC,
+                ranked_views.views DESC,
                 d.updated_at DESC
                   NULLS LAST,
                 d.id DESC
               LIMIT ${limit}
             `;
-          }
+          },
+
+          /*
+           * 인기 문서는 부가 정보이므로 연결 실패 시 재시도 때문에
+           * Home 전체 응답이 지연되지 않게 재시도를 하지 않는다.
+           */
+          0
         )) as unknown as PopularDocumentRow[];
 
         return rows
