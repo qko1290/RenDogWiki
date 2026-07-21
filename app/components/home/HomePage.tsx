@@ -50,6 +50,7 @@ const categoryCards: ReadonlyArray<{
   description: string;
   icon: string;
   tone: 'green' | 'mint' | 'blue' | 'orange';
+  href?: string;
 }> = [
   {
     key: 'content',
@@ -69,11 +70,13 @@ const categoryCards: ReadonlyArray<{
   },
   {
     key: 'price',
-    title: '시세표',
+    title: '퀘스트',
     description:
-      '아이템 시세와 거래에 필요한 정보를 빠르게 확인하세요.',
-    icon: '💎',
+      '서버의 주요 퀘스트와 진행에 필요한 정보를 확인하세요.',
+    icon: '📜',
     tone: 'blue',
+    href:
+      '/wiki?mode=RPG&path=27&title=%ED%80%98%EC%8A%A4%ED%8A%B8&id=271',
   },
   {
     key: 'policy',
@@ -658,10 +661,10 @@ export default function HomePage({
             </Link>
 
             <Link
-              href={getCategoryHref('price')}
+              href="/wiki?mode=RPG&path=27&title=%ED%80%98%EC%8A%A4%ED%8A%B8&id=271"
               className={styles.headerNavLink}
             >
-              시세표
+              퀘스트
             </Link>
 
             <Link
@@ -895,7 +898,10 @@ export default function HomePage({
               {categoryCards.map((category) => (
                 <Link
                   key={category.title}
-                  href={getCategoryHref(category.key)}
+                  href={
+                    category.href ??
+                    getCategoryHref(category.key)
+                  }
                   className={`${styles.categoryCard} ${
                     styles[
                       `categoryCard_${category.tone}`
