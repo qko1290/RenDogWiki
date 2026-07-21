@@ -11,6 +11,7 @@
 // - 생성 이미지 기반 Hero와 좌우 배경 적용
 // - 퀘스트 대표 버튼과 커뮤니티 바로가기 적용
 // - 봄날 분위기의 나뭇잎과 반딧불이 효과 적용
+// - 홈 전용 일러스트 아이콘 적용
 // =============================================
 
 'use client';
@@ -51,7 +52,7 @@ const categoryCards: ReadonlyArray<{
   key: HomeCategoryKey;
   title: string;
   description: string;
-  icon: string;
+  iconSrc: string;
   tone: 'green' | 'mint' | 'blue' | 'orange';
   href?: string;
 }> = [
@@ -60,7 +61,7 @@ const categoryCards: ReadonlyArray<{
     title: '컨텐츠',
     description:
       '던전, 퀘스트, 이벤트와 생활 컨텐츠 정보를 확인하세요.',
-    icon: '🎮',
+    iconSrc: '/images/home/icons/content.png',
     tone: 'green',
   },
   {
@@ -68,7 +69,7 @@ const categoryCards: ReadonlyArray<{
     title: '시스템',
     description:
       '성장, 강화, 거래 등 서버의 주요 시스템을 알아보세요.',
-    icon: '⚙️',
+    iconSrc: '/images/home/icons/system.png',
     tone: 'mint',
   },
   {
@@ -76,7 +77,7 @@ const categoryCards: ReadonlyArray<{
     title: '퀘스트',
     description:
       '서버의 주요 퀘스트와 진행에 필요한 정보를 확인하세요.',
-    icon: '📜',
+    iconSrc: '/images/home/icons/quest.png',
     tone: 'blue',
     href:
       '/wiki?mode=RPG&path=27&title=%ED%80%98%EC%8A%A4%ED%8A%B8&id=271',
@@ -86,7 +87,7 @@ const categoryCards: ReadonlyArray<{
     title: '법전',
     description:
       '서버의 규칙과 운영 기준을 확인할 수 있습니다.',
-    icon: '⚖️',
+    iconSrc: '/images/home/icons/rules.png',
     tone: 'orange',
   },
 ];
@@ -115,7 +116,7 @@ const recommendations = [
     title: '무기',
     description:
       '렌독 서버의 무기 종류와 관련 정보를 확인해 보세요.',
-    icon: '⚔️',
+    iconSrc: '/images/home/icons/weapon.png',
     href:
       '/wiki?mode=RPG&path=48&title=%EB%AC%B4%EA%B8%B0&id=289',
   },
@@ -124,7 +125,7 @@ const recommendations = [
     title: '레이드',
     description:
       '레이드 종류와 공략에 필요한 정보를 확인해 보세요.',
-    icon: '🐉',
+    iconSrc: '/images/home/icons/raid.png',
     href:
       '/wiki?mode=RPG&path=82&title=%EB%A0%88%EC%9D%B4%EB%93%9C&id=248',
   },
@@ -133,7 +134,7 @@ const recommendations = [
     title: '도감',
     description:
       '서버의 다양한 수집 요소와 도감 정보를 살펴보세요.',
-    icon: '📖',
+    iconSrc: '/images/home/icons/collection-book.png',
     href:
       '/wiki?mode=RPG&path=34&title=%EB%8F%84%EA%B0%90&id=207',
   },
@@ -834,7 +835,15 @@ export default function HomePage({
                 className={styles.newcomerCharacter}
                 aria-hidden="true"
               >
-
+                <Image
+                  src="/images/home/icons/newcomer-guide.png"
+                  alt=""
+                  width={64}
+                  height={64}
+                  className={
+                    styles.newcomerIconImage
+                  }
+                />
               </div>
 
               <div className={styles.newcomerContent}>
@@ -907,7 +916,15 @@ export default function HomePage({
                     className={styles.categoryIcon}
                     aria-hidden="true"
                   >
-                    {category.icon}
+                    <Image
+                      src={category.iconSrc}
+                      alt=""
+                      width={56}
+                      height={56}
+                      className={
+                        styles.categoryIconImage
+                      }
+                    />
                   </span>
 
                   <span className={styles.categoryBody}>
@@ -935,7 +952,15 @@ export default function HomePage({
               >
                 <div className={styles.cardHeading}>
                   <h2>
-                    <span aria-hidden="true">❓</span>
+                    <Image
+                      src="/images/home/icons/faq.png"
+                      alt=""
+                      width={22}
+                      height={22}
+                      className={
+                        styles.informationHeadingIcon
+                      }
+                    />
                     자주 묻는 질문
                   </h2>
 
@@ -999,7 +1024,15 @@ export default function HomePage({
               >
                 <div className={styles.cardHeading}>
                   <h2>
-                    <span aria-hidden="true">📚</span>
+                    <Image
+                      src="/images/home/icons/recent-updates.png"
+                      alt=""
+                      width={22}
+                      height={22}
+                      className={
+                        styles.informationHeadingIcon
+                      }
+                    />
                     최근 업데이트된 문서
                   </h2>
 
@@ -1057,7 +1090,15 @@ export default function HomePage({
               >
                 <div className={styles.cardHeading}>
                   <h2>
-                    <span aria-hidden="true">⭐</span>
+                    <Image
+                      src="/images/home/icons/popular-documents.png"
+                      alt=""
+                      width={22}
+                      height={22}
+                      className={
+                        styles.informationHeadingIcon
+                      }
+                    />
                     인기 문서
                   </h2>
 
@@ -1153,7 +1194,17 @@ export default function HomePage({
                         }
                         aria-hidden="true"
                       >
-                        {recommendation.icon}
+                        <Image
+                          src={
+                            recommendation.iconSrc
+                          }
+                          alt=""
+                          width={38}
+                          height={38}
+                          className={
+                            styles.recommendIconImage
+                          }
+                        />
                       </span>
 
                       <span

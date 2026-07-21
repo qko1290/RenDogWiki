@@ -846,8 +846,16 @@
   flex: 0 0 66px;
   width: 66px;
   height: 66px;
+  padding: 7px;
+  overflow: hidden;
   border-radius: 20px;
-  font-size: 35px;
+}
+
+.categoryIconImage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .categoryCard_green .categoryIcon {
@@ -922,9 +930,17 @@
   flex: 0 0 72px;
   width: 72px;
   height: 72px;
+  padding: 6px;
+  overflow: hidden;
   border-radius: 20px;
   background: rgba(202, 233, 192, 0.5);
-  font-size: 38px;
+}
+
+.newcomerIconImage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .newcomerContent {
@@ -1043,6 +1059,14 @@
   align-items: center;
   gap: 8px;
   font-size: 16px;
+}
+
+.informationHeadingIcon {
+  display: block;
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
 }
 
 .cardHeading a,
@@ -1182,12 +1206,20 @@
 .recommendIcon {
   display: grid;
   place-items: center;
-  flex: 0 0 44px;
-  width: 44px;
-  height: 44px;
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  padding: 5px;
+  overflow: hidden;
   border-radius: 14px;
   background: #e7f4e4;
-  font-size: 23px;
+}
+
+.recommendIconImage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .recommendBody {
@@ -1664,7 +1696,7 @@
     flex-basis: 57px;
     width: 57px;
     height: 57px;
-    font-size: 30px;
+    padding: 6px;
   }
 
   .newcomer {
@@ -1676,6 +1708,7 @@
     flex-basis: 58px;
     width: 58px;
     height: 58px;
+    padding: 5px;
   }
 
   .newcomerContent {
