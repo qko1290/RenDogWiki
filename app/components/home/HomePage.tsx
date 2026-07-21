@@ -5,6 +5,7 @@
 // - 실제 최근 업데이트 문서 표시
 // - 최근 7일 조회수 기준 인기 문서 비동기 표시
 // - 최근 7일 열람수 기준 자주 묻는 질문 순위 비동기 표시
+// - 실제 선택으로 집계된 최근 7일 인기 검색어 표시
 // - Wiki Header와 동일한 SearchBox 사용
 // - 퀘스트 NPC 상세 모달과 FAQ 상세 동작 지원
 // =============================================
@@ -31,6 +32,9 @@ import logo from '@/image/logo.png';
 import {
   recordFaqView,
 } from '@/wiki/lib/faqView';
+import {
+  requestSearchQuery,
+} from '@/wiki/lib/searchPopularity';
 
 import type {
   HomeCategoryKey,
@@ -140,6 +144,15 @@ type HomeFaqRankItem = {
 
 type HomeFaqRankingResponse = {
   items?: HomeFaqRankItem[];
+};
+
+type HomePopularSearchItem = {
+  keyword: string;
+  searches: number;
+};
+
+type HomePopularSearchResponse = {
+  items?: HomePopularSearchItem[];
 };
 
 function normalizeNpcPayload(payload: unknown): Npc {
@@ -273,6 +286,16 @@ export default function HomePage({
     faqError,
     setFaqError,
   ] = useState<string | null>(null);
+  const [
+    popularSearches,
+    setPopularSearches,
+  ] = useState<
+    HomePopularSearchItem[]
+  >([]);
+  const [
+    popularSearchesLoading,
+    setPopularSearchesLoading,
+  ] = useState(true);
 
   /*
    * 인기 문서는 Home 서버 렌더링과 분리한다.
@@ -395,6 +418,88 @@ export default function HomePage({
     return () => {
       active = false;
       window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, []);
+
+  /*
+   * 인기 검색어는 검색 결과가 실제로 선택된 횟수를 기준으로 한다.
+   * 단순 입력이나 실시간 검색 API 호출만으로는 증가하지 않는다.
+   */
+  useEffect(() => {
+    const controller =
+      new AbortController();
+    let active = true;
+
+    const timeoutId =
+      window.setTimeout(() => {
+        controller.abort();
+      }, 8000);
+
+    void fetch(
+      '/api/home/search-keywords?range=week&limit=6',
+      {
+        cache: 'no-store',
+        signal:
+          controller.signal,
+      }
+    )
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(
+            `popular-search-fetch-failed:${response.status}`
+          );
+        }
+
+        return (
+          await response.json()
+        ) as HomePopularSearchResponse;
+      })
+      .then((payload) => {
+        if (!active) {
+          return;
+        }
+
+        setPopularSearches(
+          Array.isArray(
+            payload.items
+          )
+            ? payload.items
+            : []
+        );
+      })
+      .catch((error) => {
+        if (
+          error instanceof
+            DOMException &&
+          error.name ===
+            'AbortError'
+        ) {
+          return;
+        }
+
+        console.error(
+          '[HomePage] 인기 검색어 조회 실패:',
+          error
+        );
+      })
+      .finally(() => {
+        window.clearTimeout(
+          timeoutId
+        );
+
+        if (active) {
+          setPopularSearchesLoading(
+            false
+          );
+        }
+      });
+
+    return () => {
+      active = false;
+      window.clearTimeout(
+        timeoutId
+      );
       controller.abort();
     };
   }, []);
@@ -664,24 +769,49 @@ export default function HomePage({
                 <div className={styles.keywordRow}>
                   <strong>인기 검색어</strong>
 
-                  <Link href="/wiki">
-                    초보자 가이드
-                  </Link>
-                  <Link href="/wiki">
-                    돈 버는 방법
-                  </Link>
-                  <Link href="/wiki">
-                    강화
-                  </Link>
-                  <Link href="/wiki">
-                    던전
-                  </Link>
-                  <Link href="/wiki">
-                    무기
-                  </Link>
-                  <Link href="/wiki">
-                    보스
-                  </Link>
+                  {popularSearchesLoading ? (
+                    <span
+                      style={{
+                        color:
+                          '#56715b',
+                      }}
+                    >
+                      집계 중
+                    </span>
+                  ) : popularSearches.length >
+                    0 ? (
+                    popularSearches.map(
+                      (item) => (
+                        <a
+                          key={
+                            item.keyword
+                          }
+                          href="#home-search"
+                          title={`최근 7일 검색 ${item.searches}회`}
+                          onClick={(
+                            event
+                          ) => {
+                            event.preventDefault();
+
+                            requestSearchQuery(
+                              item.keyword
+                            );
+                          }}
+                        >
+                          {item.keyword}
+                        </a>
+                      )
+                    )
+                  ) : (
+                    <span
+                      style={{
+                        color:
+                          '#56715b',
+                      }}
+                    >
+                      집계된 검색어가 없습니다.
+                    </span>
+                  )}
                 </div>
               </div>
 

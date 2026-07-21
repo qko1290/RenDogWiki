@@ -5,12 +5,14 @@
 // - main 브랜치와 동일한 문서·퀘스트 NPC·FAQ 검색 방식 유지
 // - 결과 상세 모달을 닫아도 검색어와 결과창 유지
 // - FAQ 클릭 시 최신 상세 조회와 열람수 기록
+// - 문서/FAQ 선택 시 검색어를 검색 세션당 1회 집계
 // - 모달이 없을 때만 바깥 클릭으로 결과창 닫기
 // =============================================
 
 'use client';
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -24,6 +26,12 @@ import { markNextDocViewSource } from '@/wiki/lib/viewSource';
 import {
   recordFaqView,
 } from '@/wiki/lib/faqView';
+import {
+  createSearchSessionId,
+  recordCommittedSearch,
+  SEARCH_QUERY_REQUEST_EVENT,
+  type SearchCommitResultType,
+} from '@/wiki/lib/searchPopularity';
 
 type DocResult = {
   id: number;
@@ -68,6 +76,16 @@ type SearchResultItem =
       id: number;
       data: QuestNpcResult;
     };
+
+type SearchCommitState = {
+  queryKey: string;
+  sessionId: string;
+  committed: boolean;
+};
+
+type SearchQueryRequestDetail = {
+  keyword?: unknown;
+};
 
 type Props = {
   /** 헤더 안 정렬: center | left */
@@ -338,7 +356,100 @@ export default function SearchBox({
   const faqTimerRef =
     useRef<number | null>(null);
 
+  const searchCommitRef =
+    useRef<SearchCommitState>({
+      queryKey: '',
+      sessionId:
+        createSearchSessionId(),
+      committed: false,
+    });
+
   const router = useRouter();
+
+  const syncSearchCommitSession =
+    useCallback(
+      (value: string) => {
+        const queryKey =
+          normalizeSearchText(value);
+
+        if (
+          queryKey !==
+          searchCommitRef.current
+            .queryKey
+        ) {
+          searchCommitRef.current = {
+            queryKey,
+            sessionId:
+              createSearchSessionId(),
+            committed: false,
+          };
+        }
+
+        return searchCommitRef.current;
+      },
+      []
+    );
+
+  const updateQuery =
+    useCallback(
+      (value: string) => {
+        syncSearchCommitSession(
+          value
+        );
+        setQuery(value);
+      },
+      [syncSearchCommitSession]
+    );
+
+  const commitCurrentSearch =
+    useCallback(
+      (
+        resultType:
+          SearchCommitResultType
+      ) => {
+        const keyword =
+          String(query ?? '')
+            .replace(
+              /\s+/g,
+              ' '
+            )
+            .trim();
+
+        if (
+          normalizeSearchText(
+            keyword
+          ).length < 2
+        ) {
+          return;
+        }
+
+        const session =
+          syncSearchCommitSession(
+            keyword
+          );
+
+        /*
+         * 같은 입력 검색 세션에서 FAQ를 여러 번 열거나,
+         * FAQ를 연 뒤 문서까지 선택해도 한 번만 집계한다.
+         */
+        if (session.committed) {
+          return;
+        }
+
+        session.committed = true;
+
+        void recordCommittedSearch({
+          keyword,
+          sessionId:
+            session.sessionId,
+          resultType,
+        });
+      },
+      [
+        query,
+        syncSearchCommitSession,
+      ]
+    );
 
   const listId = useMemo(
     () =>
@@ -347,6 +458,61 @@ export default function SearchBox({
         .slice(2)}`,
     []
   );
+
+  /*
+   * Home의 인기 검색어 칩을 누르면
+   * 같은 SearchBox에 검색어를 넣고 실시간 검색을 시작한다.
+   */
+  useEffect(() => {
+    const onSearchQueryRequest = (
+      event: Event
+    ) => {
+      const customEvent =
+        event as CustomEvent<
+          SearchQueryRequestDetail
+        >;
+
+      const requestedKeyword =
+        String(
+          customEvent.detail
+            ?.keyword ?? ''
+        )
+          .replace(/\s+/g, ' ')
+          .trim();
+
+      if (
+        normalizeSearchText(
+          requestedKeyword
+        ).length < 2
+      ) {
+        return;
+      }
+
+      updateQuery(
+        requestedKeyword
+      );
+      setOpen(true);
+
+      window.requestAnimationFrame(
+        () => {
+          inputRef.current
+            ?.focus();
+        }
+      );
+    };
+
+    window.addEventListener(
+      SEARCH_QUERY_REQUEST_EVENT,
+      onSearchQueryRequest
+    );
+
+    return () => {
+      window.removeEventListener(
+        SEARCH_QUERY_REQUEST_EVENT,
+        onSearchQueryRequest
+      );
+    };
+  }, [updateQuery]);
 
   const sortedDocs = useMemo(() => {
     return docs
@@ -794,6 +960,13 @@ export default function SearchBox({
       result.section_dom_id ?? ''
     ).trim();
 
+    /*
+     * 문서 결과를 실제로 선택한 시점에만 검색어 집계.
+     */
+    commitCurrentSearch(
+      'document'
+    );
+
     resetSearchState();
 
     const href =
@@ -862,6 +1035,15 @@ export default function SearchBox({
      * 실제 질문을 연 경우 source=search로 조회수를 별도 기록한다.
      */
     setOpen(true);
+
+    /*
+     * FAQ 결과를 실제로 선택한 시점에만 검색어 집계.
+     * 같은 검색 세션의 두 번째 결과 선택부터는 집계하지 않는다.
+     */
+    commitCurrentSearch(
+      'faq'
+    );
+
     void recordFaqView(
       faq.id,
       'search'
@@ -1004,14 +1186,16 @@ export default function SearchBox({
           placeholder="Search"
           value={query}
           onInput={(event) =>
-            setQuery(
+            updateQuery(
               (
                 event.target as HTMLInputElement
               ).value
             )
           }
           onChange={(event) =>
-            setQuery(event.target.value)
+            updateQuery(
+              event.target.value
+            )
           }
           onFocus={() => {
             if (
