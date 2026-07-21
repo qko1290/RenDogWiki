@@ -3,7 +3,7 @@
 // 전체 교체용 코드
 // - 문서 화면과 동일한 3열 폭 유지
 // - 실제 최근 업데이트 문서 표시
-// - 최근 7일 조회수 기준 인기 문서 표시
+// - 최근 7일 조회수 기준 인기 문서 비동기 표시
 // - Wiki Header와 동일한 SearchBox 사용
 // - 퀘스트 NPC 상세 모달과 FAQ 상세 동작 지원
 // =============================================
@@ -12,6 +12,7 @@
 
 import {
   useCallback,
+  useEffect,
   useState,
 } from 'react';
 import Image from 'next/image';
@@ -105,8 +106,11 @@ const recommendations = [
 
 type HomePageProps = {
   recentDocuments: HomeRecentDocument[];
-  popularDocuments: HomePopularDocument[];
   categoryLinks: HomeCategoryLink[];
+};
+
+type PopularDocumentsResponse = {
+  items?: HomePopularDocument[];
 };
 
 function normalizeNpcPayload(payload: unknown): Npc {
@@ -189,7 +193,6 @@ function normalizeNpcPayload(payload: unknown): Npc {
 
 export default function HomePage({
   recentDocuments,
-  popularDocuments,
   categoryLinks,
 }: HomePageProps) {
   const categoryHrefByKey =
@@ -213,6 +216,72 @@ export default function HomePage({
     useState(false);
   const [questNpcError, setQuestNpcError] =
     useState<string | null>(null);
+  const [
+    popularDocuments,
+    setPopularDocuments,
+  ] = useState<HomePopularDocument[]>([]);
+  const [
+    popularDocumentsLoading,
+    setPopularDocumentsLoading,
+  ] = useState(true);
+
+  /*
+   * 인기 문서는 Home 서버 렌더링과 분리한다.
+   * 조회가 느리거나 실패해도 / 페이지 자체는 정상 표시된다.
+   */
+  useEffect(() => {
+    const controller =
+      new AbortController();
+
+    const timeoutId =
+      window.setTimeout(() => {
+        controller.abort();
+      }, 8000);
+
+    void fetch('/api/home/popular', {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(
+            `popular-fetch-failed:${response.status}`
+          );
+        }
+
+        return (await response.json()) as
+          PopularDocumentsResponse;
+      })
+      .then((payload) => {
+        setPopularDocuments(
+          Array.isArray(payload.items)
+            ? payload.items
+            : []
+        );
+      })
+      .catch((error) => {
+        if (
+          error instanceof DOMException &&
+          error.name === 'AbortError'
+        ) {
+          return;
+        }
+
+        console.error(
+          '[HomePage] 인기 문서 조회 실패:',
+          error
+        );
+      })
+      .finally(() => {
+        window.clearTimeout(timeoutId);
+        setPopularDocumentsLoading(false);
+      });
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, []);
 
   const openQuestNpc = useCallback(
     async (npcId: number) => {
@@ -633,7 +702,15 @@ export default function HomePage({
                 </div>
 
                 <ol className={styles.popularList}>
-                  {popularDocuments.length > 0 ? (
+                  {popularDocumentsLoading ? (
+                    <li
+                      className={
+                        styles.emptyDocument
+                      }
+                    >
+                      인기 문서를 불러오는 중입니다.
+                    </li>
+                  ) : popularDocuments.length > 0 ? (
                     popularDocuments.map(
                       (document, index) => (
                         <li key={document.id}>
