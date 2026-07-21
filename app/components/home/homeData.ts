@@ -2,16 +2,21 @@
 // File: app/components/home/homeData.ts
 // 전체 교체용 코드
 //
-// Home 카테고리 버튼은 대표 문서를 직접 추측하지 않는다.
-// 실제 카테고리 ID만 /wiki에 전달하고,
-// WikiPageInner가 CategoryTree 클릭과 같은 방식으로
-// category.document_id를 읽어 대표 문서를 연다.
+// 카테고리 대표 문서 연결은 기존 CategoryTree와 동일한 방식:
+// 1. /api/bootstrap과 동일한 categories/documents 데이터를 조회
+// 2. buildCategoryTree로 동일한 카테고리 트리를 구성
+// 3. CategoryTree와 동일한 mode_tags 상속 필터 적용
+// 4. 카테고리의 document_id를 그대로 대표 문서 ID로 사용
+// 5. allDocuments 전체에서 대표 문서 메타를 찾음
+//    (is_featured 문서도 제외하지 않음)
+// 6. 대표 문서가 없을 때 임의의 첫 문서로 대체하지 않음
 // =============================================
 
 import 'server-only';
 
 import { cached } from '@/wiki/lib/cache';
 import { runDbRead, sql } from '@/wiki/lib/db';
+import { buildCategoryTree } from '@/wiki/lib/buildCategoryTree';
 
 export type HomeRecentDocument = {
   id: number;
@@ -44,20 +49,47 @@ type RecentDocumentRow = {
   category_name: string | null;
 };
 
-type CategoryRow = {
+type BootstrapCategoryRow = {
   id: number | string;
   name: string;
   parent_id: number | string | null;
-  mode_tags: string[] | null;
   order: number | string | null;
+  document_id: number | string | null;
+  icon?: string | null;
+  mode_tags?: string[] | null;
 };
 
-type NormalizedCategory = {
+type BootstrapDocumentRow = {
+  id: number | string;
+  title: string;
+  path: string | number | null;
+  icon?: string | null;
+  is_featured?: boolean | null;
+  special?: string | null;
+  order?: number | string | null;
+  updated_at?: string | Date | null;
+};
+
+type CategoryNode = {
   id: number;
   name: string;
-  parentId: number | null;
-  modeTags: string[];
+  parent_id: number | null;
   order: number;
+  document_id?: number | null;
+  icon?: string | null;
+  mode_tags?: string[] | null;
+  children?: CategoryNode[];
+};
+
+type BootstrapDocument = {
+  id: number;
+  title: string;
+  path: string | number | null;
+  icon?: string | null;
+  is_featured: boolean;
+  special?: string | null;
+  order: number;
+  updated_at?: string | Date | null;
 };
 
 const HOME_MODE = 'RPG';
@@ -91,31 +123,6 @@ const homeDateFormatter =
     day: '2-digit',
   });
 
-function toPositiveInteger(
-  value: unknown
-): number | null {
-  const parsed = Number(value);
-
-  return Number.isInteger(parsed) &&
-    parsed > 0
-    ? parsed
-    : null;
-}
-
-function toFiniteOrder(value: unknown) {
-  const parsed = Number(value);
-
-  return Number.isFinite(parsed)
-    ? parsed
-    : Number.MAX_SAFE_INTEGER;
-}
-
-function normalizeModeTag(value: unknown) {
-  return String(value ?? '')
-    .trim()
-    .toLowerCase();
-}
-
 function normalizeDate(
   value: string | Date | null
 ) {
@@ -128,9 +135,11 @@ function normalizeDate(
       ? value
       : new Date(value);
 
-  return Number.isNaN(date.getTime())
-    ? null
-    : date;
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date;
 }
 
 function formatDateLabel(date: Date) {
@@ -150,28 +159,58 @@ function formatDateLabel(date: Date) {
   return `${month}.${day}`;
 }
 
-function createRecentDocumentHref(
+function toPositiveInteger(
+  value: unknown
+): number | null {
+  const parsed = Number(value);
+
+  if (
+    !Number.isInteger(parsed) ||
+    parsed <= 0
+  ) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function toFiniteNumber(
+  value: unknown,
+  fallback = 0
+) {
+  const parsed = Number(value);
+
+  return Number.isFinite(parsed)
+    ? parsed
+    : fallback;
+}
+
+function createWikiDocumentHref(
   documentId: number,
-  path: string | number | null,
-  title: string
+  categoryId: number,
+  documentTitle: string
 ) {
   const searchParams =
     new URLSearchParams({
       id: String(documentId),
-      path: String(path ?? 0),
-      title,
+      path: String(categoryId),
+      title: documentTitle,
       mode: HOME_MODE,
     });
 
   return `/wiki?${searchParams.toString()}`;
 }
 
-function createCategoryClickHref(
-  categoryId: number
+function createRecentDocumentHref(
+  documentId: number,
+  path: string | number | null,
+  documentTitle: string
 ) {
   const searchParams =
     new URLSearchParams({
-      category: String(categoryId),
+      id: String(documentId),
+      path: String(path ?? 0),
+      title: documentTitle,
       mode: HOME_MODE,
     });
 
@@ -183,136 +222,142 @@ function createEmptyCategoryLinks(): HomeCategoryLink[] {
     (definition) => ({
       key: definition.key,
       title: definition.title,
-      href: `/wiki?mode=${encodeURIComponent(
-        HOME_MODE
-      )}`,
+      href: '/wiki',
       categoryId: null,
       documentId: null,
     })
   );
 }
 
-function normalizeCategories(
-  rows: CategoryRow[]
-): NormalizedCategory[] {
+/**
+ * CategoryTree.tsx의 filterTreeByMode와 같은 규칙.
+ *
+ * - 부모가 현재 모드에 포함되면 하위 카테고리도 포함
+ * - 본인이 현재 모드 태그를 가지면 포함
+ * - 포함되는 자식이 있으면 부모도 경로 유지를 위해 포함
+ */
+function filterTreeByMode(
+  nodes: CategoryNode[],
+  mode: string,
+  parentIncluded = false
+): CategoryNode[] {
+  const modeLower = String(mode)
+    .trim()
+    .toLowerCase();
+
+  const output: CategoryNode[] = [];
+
+  for (const node of nodes) {
+    const ownTags =
+      Array.isArray(node.mode_tags)
+        ? node.mode_tags
+        : [];
+
+    const ownIncluded =
+      parentIncluded ||
+      ownTags.some(
+        (tag) =>
+          String(tag)
+            .trim()
+            .toLowerCase() ===
+          modeLower
+      );
+
+    const nextChildren =
+      node.children?.length
+        ? filterTreeByMode(
+            node.children,
+            mode,
+            ownIncluded
+          )
+        : [];
+
+    if (
+      ownIncluded ||
+      nextChildren.length > 0
+    ) {
+      output.push({
+        ...node,
+        children: nextChildren,
+      });
+    }
+  }
+
+  return output;
+}
+
+function findCategoryByName(
+  nodes: CategoryNode[],
+  exactName: string
+): CategoryNode | null {
+  for (const node of nodes) {
+    if (
+      String(node.name).trim() ===
+      exactName
+    ) {
+      return node;
+    }
+
+    if (node.children?.length) {
+      const childMatch =
+        findCategoryByName(
+          node.children,
+          exactName
+        );
+
+      if (childMatch) {
+        return childMatch;
+      }
+    }
+  }
+
+  return null;
+}
+
+function normalizeBootstrapDocuments(
+  rows: BootstrapDocumentRow[]
+): BootstrapDocument[] {
   return rows
     .map(
       (
         row
-      ): NormalizedCategory | null => {
+      ): BootstrapDocument | null => {
         const id =
           toPositiveInteger(row.id);
 
-        if (!id) {
+        const title = String(
+          row.title ?? ''
+        ).trim();
+
+        if (!id || !title) {
           return null;
         }
 
         return {
           id,
-          name: String(
-            row.name ?? ''
-          ).trim(),
-          parentId:
-            toPositiveInteger(
-              row.parent_id
-            ),
-          modeTags:
-            Array.isArray(
-              row.mode_tags
-            )
-              ? row.mode_tags.map(
-                  normalizeModeTag
-                )
-              : [],
+          title,
+          path: row.path,
+          icon: row.icon ?? null,
+          is_featured:
+            Boolean(row.is_featured),
+          special:
+            row.special ?? null,
           order:
-            toFiniteOrder(
-              row.order
+            toFiniteNumber(
+              row.order,
+              0
             ),
+          updated_at:
+            row.updated_at ?? null,
         };
       }
     )
     .filter(
       (
-        category
-      ): category is NormalizedCategory =>
-        category !== null
+        document
+      ): document is BootstrapDocument =>
+        document !== null
     );
-}
-
-/**
- * CategoryTree의 mode_tags 상속 규칙과 동일하게
- * 현재 카테고리 또는 조상 중 하나가 RPG 태그를 가지면
- * RPG 카테고리로 본다.
- */
-function isCategoryInMode(
-  category: NormalizedCategory,
-  categoryById: Map<
-    number,
-    NormalizedCategory
-  >,
-  mode: string
-) {
-  const normalizedMode =
-    normalizeModeTag(mode);
-
-  let current:
-    | NormalizedCategory
-    | undefined = category;
-
-  const visited = new Set<number>();
-
-  while (
-    current &&
-    !visited.has(current.id)
-  ) {
-    visited.add(current.id);
-
-    if (
-      current.modeTags.includes(
-        normalizedMode
-      )
-    ) {
-      return true;
-    }
-
-    current = current.parentId
-      ? categoryById.get(
-          current.parentId
-        )
-      : undefined;
-  }
-
-  return false;
-}
-
-function getCategoryDepth(
-  category: NormalizedCategory,
-  categoryById: Map<
-    number,
-    NormalizedCategory
-  >
-) {
-  let depth = 0;
-
-  let current:
-    | NormalizedCategory
-    | undefined = category;
-
-  const visited = new Set<number>();
-
-  while (
-    current?.parentId &&
-    !visited.has(current.id)
-  ) {
-    visited.add(current.id);
-    depth += 1;
-
-    current = categoryById.get(
-      current.parentId
-    );
-  }
-
-  return depth;
 }
 
 export async function getRecentHomeDocuments(
@@ -367,9 +412,7 @@ export async function getRecentHomeDocuments(
               row
             ): HomeRecentDocument | null => {
               const id =
-                toPositiveInteger(
-                  row.id
-                );
+                toPositiveInteger(row.id);
 
               const updatedDate =
                 normalizeDate(
@@ -428,136 +471,216 @@ export async function getHomeCategoryLinks(): Promise<
 > {
   try {
     return await cached(
-      'home:category-links:v7',
+      'home:category-links:v6',
       {
         ttlSec: 60,
         tags: [
           'category:list',
           'category:tree',
+          'doc:list',
         ],
       },
       async () => {
         /*
-         * 대표 문서는 여기서 조회하지 않는다.
-         * CategoryTree와 WikiPageInner가 실제로 사용하는
-         * 동일한 카테고리 ID만 Home에 전달한다.
+         * /api/bootstrap과 동일한 두 목록을 사용한다.
+         * CategoryTree도 이 데이터로 대표 문서를 연다.
          */
-        const rows = (await runDbRead(
-          'home:category-links:v7',
-          async () => {
-            return await sql`
-              SELECT
-                id,
-                name,
-                parent_id,
-                mode_tags,
-                "order"
-              FROM categories
-              ORDER BY
-                parent_id,
-                "order",
-                id
-            `;
-          }
-        )) as unknown as CategoryRow[];
+        const [
+          rawCategoryRows,
+          rawDocumentRows,
+        ] = await Promise.all([
+          runDbRead(
+            'home:category-links:categories:v6',
+            async () => {
+              return await sql`
+                SELECT
+                  id,
+                  name,
+                  parent_id,
+                  "order",
+                  document_id,
+                  icon,
+                  mode_tags
+                FROM categories
+                ORDER BY
+                  parent_id,
+                  "order"
+              `;
+            }
+          ),
+          runDbRead(
+            'home:category-links:documents:v6',
+            async () => {
+              return await sql`
+                SELECT
+                  id,
+                  title,
+                  path,
+                  icon,
+                  is_featured,
+                  special,
+                  "order",
+                  updated_at
+                FROM documents
+              `;
+            }
+          ),
+        ]);
 
-        const categories =
-          normalizeCategories(rows);
+        const categoryRows =
+          rawCategoryRows as unknown as BootstrapCategoryRow[];
 
-        const categoryById =
-          new Map(
-            categories.map(
-              (category) => [
-                category.id,
-                category,
-              ]
+        const documentRows =
+          rawDocumentRows as unknown as BootstrapDocumentRow[];
+
+        /*
+         * buildCategoryTree는 각 원본 row를 spread하기 때문에
+         * document_id와 mode_tags도 그대로 유지된다.
+         */
+        const completeTree =
+          buildCategoryTree(
+            categoryRows.map(
+              (row) => ({
+                ...row,
+                id:
+                  toFiniteNumber(
+                    row.id
+                  ),
+                parent_id:
+                  row.parent_id == null
+                    ? null
+                    : toFiniteNumber(
+                        row.parent_id
+                      ),
+                order:
+                  toFiniteNumber(
+                    row.order,
+                    0
+                  ),
+                document_id:
+                  row.document_id == null
+                    ? null
+                    : toFiniteNumber(
+                        row.document_id
+                      ),
+
+                /*
+                 * buildCategoryTree의 Category 타입은
+                 * icon?: string 이므로 DB의 null을 undefined로 정규화한다.
+                 */
+                icon:
+                  row.icon ?? undefined,
+
+                /*
+                 * mode_tags 역시 null 대신 빈 배열로 정규화한다.
+                 */
+                mode_tags:
+                  Array.isArray(
+                    row.mode_tags
+                  )
+                    ? row.mode_tags
+                    : [],
+              })
             )
+          ) as unknown as CategoryNode[];
+
+        const visibleRpgTree =
+          filterTreeByMode(
+            completeTree,
+            HOME_MODE
+          );
+
+        /*
+         * 중요:
+         * CategoryTree의 repFromList는 allDocuments 전체에서 찾는다.
+         * 따라서 여기서도 is_featured 문서를 제외하면 안 된다.
+         */
+        const allDocuments =
+          normalizeBootstrapDocuments(
+            documentRows
           );
 
         return HOME_CATEGORY_DEFINITIONS.map(
           (definition) => {
-            const candidates =
-              categories.filter(
-                (category) =>
-                  category.name ===
-                  definition.title
-              );
-
-            candidates.sort(
-              (first, second) => {
-                const firstInMode =
-                  isCategoryInMode(
-                    first,
-                    categoryById,
-                    HOME_MODE
-                  );
-
-                const secondInMode =
-                  isCategoryInMode(
-                    second,
-                    categoryById,
-                    HOME_MODE
-                  );
-
-                if (
-                  firstInMode !==
-                  secondInMode
-                ) {
-                  return firstInMode
-                    ? -1
-                    : 1;
-                }
-
-                const depthDifference =
-                  getCategoryDepth(
-                    first,
-                    categoryById
-                  ) -
-                  getCategoryDepth(
-                    second,
-                    categoryById
-                  );
-
-                if (
-                  depthDifference !== 0
-                ) {
-                  return depthDifference;
-                }
-
-                if (
-                  first.order !==
-                  second.order
-                ) {
-                  return (
-                    first.order -
-                    second.order
-                  );
-                }
-
-                return (
-                  first.id -
-                  second.id
-                );
-              }
-            );
-
             const category =
-              candidates[0] ?? null;
+              findCategoryByName(
+                visibleRpgTree,
+                definition.title
+              );
 
             if (!category) {
               console.error(
-                `[home] 카테고리를 찾지 못했습니다: ${definition.title}`
+                `[home] RPG 카테고리를 찾지 못했습니다: ${definition.title}`
               );
 
               return {
                 key: definition.key,
                 title: definition.title,
-                href:
-                  `/wiki?mode=${encodeURIComponent(
-                    HOME_MODE
-                  )}`,
+                href: '/wiki',
                 categoryId: null,
                 documentId: null,
+              };
+            }
+
+            const representativeId =
+              toPositiveInteger(
+                category.document_id
+              );
+
+            /*
+             * 기존 CategoryTree는 document_id가 없으면
+             * 첫 문서를 대신 열지 않고 트리만 펼친다.
+             * Home에서도 임의 fallback을 만들지 않는다.
+             */
+            if (!representativeId) {
+              console.error(
+                `[home] 카테고리에 대표 문서가 없습니다: ${definition.title}`,
+                {
+                  categoryId:
+                    category.id,
+                }
+              );
+
+              return {
+                key: definition.key,
+                title: definition.title,
+                href: '/wiki',
+                categoryId:
+                  category.id,
+                documentId: null,
+              };
+            }
+
+            /*
+             * CategoryTree의
+             * allDocuments.find(d => d.id === repId)
+             * 와 동일한 조회.
+             */
+            const representative =
+              allDocuments.find(
+                (document) =>
+                  document.id ===
+                  representativeId
+              ) ?? null;
+
+            if (!representative) {
+              console.error(
+                `[home] 대표 문서 메타를 찾지 못했습니다: ${definition.title}`,
+                {
+                  categoryId:
+                    category.id,
+                  representativeId,
+                }
+              );
+
+              return {
+                key: definition.key,
+                title: definition.title,
+                href: '/wiki',
+                categoryId:
+                  category.id,
+                documentId:
+                  representativeId,
               };
             }
 
@@ -565,17 +688,15 @@ export async function getHomeCategoryLinks(): Promise<
               key: definition.key,
               title: definition.title,
               href:
-                createCategoryClickHref(
-                  category.id
+                createWikiDocumentHref(
+                  representative.id,
+                  category.id,
+                  representative.title
                 ),
               categoryId:
                 category.id,
-
-              /*
-               * 대표 문서 ID는 WikiPageInner에서
-               * 실제 category.document_id로 확정한다.
-               */
-              documentId: null,
+              documentId:
+                representative.id,
             };
           }
         );
@@ -583,7 +704,7 @@ export async function getHomeCategoryLinks(): Promise<
     );
   } catch (error) {
     console.error(
-      '[home] 카테고리 링크 조회 실패:',
+      '[home] 대표 카테고리 연결 조회 실패:',
       error
     );
 
