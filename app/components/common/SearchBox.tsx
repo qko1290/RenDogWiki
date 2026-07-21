@@ -1,27 +1,35 @@
 // =============================================
 // File: app/components/common/SearchBox.tsx
-// (문서/FAQ 동시 검색, 2열 반반 표시, IME 즉시 반응)
-// + 헤더 내 중앙/왼쪽 정렬 지원 (align prop)
-// + ✅ 문서 태그: 오른쪽에 표시, # 제거
-// + 다크모드 대응
+// 전체 교체용 코드
+// - 문서 / 문서 본문·목차 / 태그 검색
+// - 퀘스트 NPC 검색 및 상위 모달 연결
+// - FAQ(Q&A) 검색 및 내부 상세 모달
+// - Home과 Wiki Header에서 같은 컴포넌트 재사용
 // =============================================
+
 'use client';
 
-import { useState, useRef, useEffect, useMemo } from 'react';
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEventHandler,
+} from 'react';
 import { useRouter } from 'next/navigation';
+
 import { toProxyUrl } from '@lib/cdn';
 import { markNextDocViewSource } from '@/wiki/lib/viewSource';
 
-// -------------------- types --------------------
 type DocResult = {
   id: number;
   title: string;
   path: string | number;
   icon?: string;
   tags: string[];
-  match_type: "title" | "tags" | "content";
+  match_type: 'title' | 'tags' | 'content';
   category_breadcrumb?: string;
-
   section_heading?: string | null;
   section_dom_id?: string | null;
   section_level?: 1 | 2 | 3 | null;
@@ -46,31 +54,51 @@ type QuestNpcResult = {
   village_name?: string | null;
 };
 
-// -------------------- utils --------------------
-function normalizeSearchText(v: string) {
-  return String(v ?? '')
+type SearchResultItem =
+  | {
+      kind: 'doc';
+      id: number;
+      data: DocResult;
+    }
+  | {
+      kind: 'quest';
+      id: number;
+      data: QuestNpcResult;
+    };
+
+type Props = {
+  /** 검색창 정렬 */
+  align?: 'center' | 'left';
+
+  /** 검색창 전체 너비 */
+  width?: string;
+
+  /** 기존 헤더 배치 호환용 왼쪽 패딩 */
+  paddingLeft?: number;
+
+  /** 퀘스트 NPC 결과 클릭 시 상세 모달을 열기 위한 콜백 */
+  onQuestNpcClick?: (id: number) => void;
+};
+
+function normalizeSearchText(value: string) {
+  return String(value ?? '')
     .toLowerCase()
     .replace(/\s+/g, '');
 }
-
-function isSectionHeadingHighlighted(heading: string, keyword: string) {
-  const normalizedHeading = normalizeSearchText(heading);
-  const normalizedKeyword = normalizeSearchText(keyword);
-
-  if (!normalizedHeading || !normalizedKeyword) return false;
-  return normalizedHeading.includes(normalizedKeyword);
-}
-
 
 function buildCompactIndexMap(text: string) {
   const compactChars: string[] = [];
   const indexMap: number[] = [];
 
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (/\s/.test(ch)) continue;
-    compactChars.push(ch.toLowerCase());
-    indexMap.push(i);
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+
+    if (/\s/.test(character)) {
+      continue;
+    }
+
+    compactChars.push(character.toLowerCase());
+    indexMap.push(index);
   }
 
   return {
@@ -79,60 +107,81 @@ function buildCompactIndexMap(text: string) {
   };
 }
 
-function findLooseMatchRange(text: string, keyword: string): { start: number; end: number } | null {
-  if (!text || !keyword) return null;
+function findLooseMatchRange(
+  text: string,
+  keyword: string
+): { start: number; end: number } | null {
+  if (!text || !keyword) {
+    return null;
+  }
 
   const normalizedKeyword = normalizeSearchText(keyword);
-  if (!normalizedKeyword) return null;
+
+  if (!normalizedKeyword) {
+    return null;
+  }
 
   const { compact, indexMap } = buildCompactIndexMap(text);
-  const idx = compact.indexOf(normalizedKeyword);
-  if (idx < 0) return null;
+  const compactStart = compact.indexOf(normalizedKeyword);
 
-  const start = indexMap[idx];
-  const endCompactIdx = idx + normalizedKeyword.length - 1;
-  const end = (indexMap[endCompactIdx] ?? start) + 1;
+  if (compactStart < 0) {
+    return null;
+  }
+
+  const start = indexMap[compactStart];
+  const compactEnd = compactStart + normalizedKeyword.length - 1;
+  const end = (indexMap[compactEnd] ?? start) + 1;
 
   return { start, end };
 }
 
 function highlight(text: string, keyword: string) {
-  if (!keyword) return text;
+  if (!keyword) {
+    return text;
+  }
 
   const range = findLooseMatchRange(text, keyword);
-  if (!range) return text;
 
-  const { start, end } = range;
+  if (!range) {
+    return text;
+  }
 
   return (
     <>
-      {start > 0 && <span>{text.slice(0, start)}</span>}
-      <mark style={{ background: 'none', color: 'var(--accent)', fontWeight: 700 }}>
-        {text.slice(start, end)}
+      {range.start > 0 && text.slice(0, range.start)}
+      <mark className="rd-search-highlight">
+        {text.slice(range.start, range.end)}
       </mark>
-      {end < text.length && <span>{text.slice(end)}</span>}
+      {range.end < text.length && text.slice(range.end)}
     </>
   );
 }
 
-const isImageLike = (v?: string) => !!v && (/^https?:\/\//i.test(v) || v.startsWith('data:image'));
-const isRemoteHttp = (v?: string) => !!v && /^https?:\/\//i.test(v);
-
-// ✅ 태그 정규화: # 제거 + trim + 빈 값 제거
 function normalizeTag(raw: string) {
-  return String(raw ?? '').replace(/^#+\s*/, '').trim();
+  return String(raw ?? '')
+    .replace(/^#+\s*/, '')
+    .trim();
 }
 
-function escapeRegexChar(ch: string) {
-  return ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function escapeRegexCharacter(character: string) {
+  return character.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function makeLooseRegex(keyword: string) {
   const compact = normalizeSearchText(keyword);
-  if (!compact) return null;
+
+  if (!compact) {
+    return null;
+  }
 
   try {
-    return new RegExp(compact.split('').map(escapeRegexChar).join('.*'), 'i');
+    return new RegExp(
+      compact
+        .split('')
+        .map(escapeRegexCharacter)
+        .join('.*'),
+      'i'
+    );
   } catch {
     return null;
   }
@@ -140,40 +189,77 @@ function makeLooseRegex(keyword: string) {
 
 function isTagMatched(tag: string, keyword: string) {
   const cleanTag = normalizeTag(tag);
-  const q = String(keyword ?? '').trim();
+  const query = String(keyword ?? '').trim();
 
-  if (!cleanTag || !q) return false;
+  if (!cleanTag || !query) {
+    return false;
+  }
 
   const lowerTag = cleanTag.toLowerCase();
-  const lowerQ = q.toLowerCase();
+  const lowerQuery = query.toLowerCase();
 
-  // 1) 일반 포함
-  if (lowerTag.includes(lowerQ)) return true;
+  if (lowerTag.includes(lowerQuery)) {
+    return true;
+  }
 
-  // 2) 공백 제거 포함
   const compactTag = normalizeSearchText(cleanTag);
-  const compactQ = normalizeSearchText(q);
-  if (compactQ && compactTag.includes(compactQ)) return true;
+  const compactQuery = normalizeSearchText(query);
 
-  // 3) 비연속 글자 매칭
-  if (compactQ.length >= 2) {
-    const loose = makeLooseRegex(q);
-    if (loose && loose.test(compactTag)) return true;
+  if (compactQuery && compactTag.includes(compactQuery)) {
+    return true;
+  }
+
+  if (compactQuery.length >= 2) {
+    const looseRegex = makeLooseRegex(query);
+
+    if (looseRegex?.test(compactTag)) {
+      return true;
+    }
   }
 
   return false;
 }
 
-// -------------------- component --------------------
-type Props = {
-  /** 헤더 안 정렬: center | left */
-  align?: 'center' | 'left';
-  /** 박스 너비 (CSS 값). 기본: min(720px, 56vw) */
-  width?: string;
-  /** 퀘스트 NPC 클릭 시 상위에서 모달 열기 */
-  paddingLeft?: number;
-  onQuestNpcClick?: (id: number) => void;
-};
+function isImageLike(value?: string | null) {
+  return Boolean(
+    value &&
+      (/^https?:\/\//i.test(value) || value.startsWith('data:image'))
+  );
+}
+
+function getImageSource(value: string) {
+  return /^https?:\/\//i.test(value) ? toProxyUrl(value) : value;
+}
+
+function getDocumentPriority(document: DocResult) {
+  if (document.match_type === 'title') {
+    return 0;
+  }
+
+  if (
+    document.match_type === 'content' &&
+    document.section_match_source === 'heading'
+  ) {
+    return 1;
+  }
+
+  if (document.match_type === 'tags') {
+    return 2;
+  }
+
+  if (
+    document.match_type === 'content' &&
+    document.section_match_source === 'body'
+  ) {
+    return 3;
+  }
+
+  if (document.match_type === 'content') {
+    return 4;
+  }
+
+  return 99;
+}
 
 export default function SearchBox({
   align = 'center',
@@ -181,566 +267,600 @@ export default function SearchBox({
   paddingLeft = 100,
   onQuestNpcClick,
 }: Props) {
+  const router = useRouter();
+  const generatedListId = useId();
+  const listId = `rd-search-${generatedListId.replace(/:/g, '')}`;
+
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
 
-  // 문서
   const [docs, setDocs] = useState<DocResult[]>([]);
-  const [loadingDocs, setLoadingDocs] = useState(false);
-
   const [questNpcs, setQuestNpcs] = useState<QuestNpcResult[]>([]);
-  const [loadingQuestNpcs, setLoadingQuestNpcs] = useState(false);
-
-  // FAQ
   const [faqs, setFaqs] = useState<FaqItem[]>([]);
+
+  const [loadingDocs, setLoadingDocs] = useState(false);
+  const [loadingQuestNpcs, setLoadingQuestNpcs] = useState(false);
   const [loadingFaqs, setLoadingFaqs] = useState(false);
 
-  const [activeDocIndex, setActiveDocIndex] = useState<number>(-1);
+  const [activeDocIndex, setActiveDocIndex] = useState(-1);
   const [faqView, setFaqView] = useState<FaqItem | null>(null);
 
-  const inputRef = useRef<HTMLInputElement>(null);
-  const wrapRef = useRef<HTMLDivElement>(null);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   const abortDocsRef = useRef<AbortController | null>(null);
   const abortQuestNpcRef = useRef<AbortController | null>(null);
   const abortFaqRef = useRef<AbortController | null>(null);
-  const timerRef = useRef<number | null>(null);
 
-  const router = useRouter();
-  const listId = useMemo(() => `search-list-${Math.random().toString(36).slice(2)}`, []);
+  const debounceTimerRef = useRef<number | null>(null);
+  const faqDelayTimerRef = useRef<number | null>(null);
 
-  // ===== 우선순위 정렬(제목 > 목차명 매치 > 태그 > 목차 내용 매치 > 기타 내용) =====
   const sortedDocs = useMemo(() => {
-    const getPriority = (doc: DocResult) => {
-      if (doc.match_type === 'title') return 0;
-      if (doc.match_type === 'content' && doc.section_match_source === 'heading') return 1;
-      if (doc.match_type === 'tags') return 2;
-      if (doc.match_type === 'content' && doc.section_match_source === 'body') return 3;
-      if (doc.match_type === 'content') return 4;
-      return 99;
-    };
-
     return docs
-      .map((doc, index) => ({ doc, index }))
-      .sort((a, b) => {
-        const pa = getPriority(a.doc);
-        const pb = getPriority(b.doc);
-        if (pa !== pb) return pa - pb;
-        return a.index - b.index;
+      .map((document, originalIndex) => ({
+        document,
+        originalIndex,
+      }))
+      .sort((first, second) => {
+        const priorityDifference =
+          getDocumentPriority(first.document) -
+          getDocumentPriority(second.document);
+
+        if (priorityDifference !== 0) {
+          return priorityDifference;
+        }
+
+        return first.originalIndex - second.originalIndex;
       })
-      .map(({ doc }) => doc);
+      .map(({ document }) => document);
   }, [docs]);
 
-  const renderDocTitle = (res: DocResult) => {
-    if (res.match_type === 'title') {
-      return (
-        <span style={{ color: 'var(--accent)', fontWeight: 800 }}>
-          {res.title}
-        </span>
-      );
-    }
-
-    return highlight(res.title, query);
-  };
-
-  const renderSectionMeta = (res: DocResult) => {
-    const sectionHeading = String(res.section_heading ?? '').trim();
-    const breadcrumb = String(res.category_breadcrumb ?? '').trim();
-
-    if (res.match_type === 'content' && sectionHeading) {
-      const isHighlighted = isSectionHeadingHighlighted(sectionHeading, query);
-
-      return (
-        <div
-          style={{
-            marginTop: 4,
-            fontSize: 12,
-            color: isHighlighted ? 'var(--accent)' : 'var(--muted-2)',
-            fontWeight: isHighlighted ? 700 : 500,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-          title={sectionHeading}
-        >
-          {sectionHeading}
-        </div>
-      );
-    }
-
-    if (!breadcrumb) return null;
-
-    return (
-      <div
-        style={{
-          marginTop: 4,
-          fontSize: 12,
-          color: 'var(--muted-2)',
-          fontWeight: 500,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}
-        title={breadcrumb}
-      >
-        {breadcrumb}
-      </div>
-    );
-  };
-
-  const combinedDocItems = useMemo(() => {
-    const docItems = sortedDocs.map((doc) => ({
-      kind: 'doc' as const,
-      id: doc.id,
-      data: doc,
+  const combinedDocItems = useMemo<SearchResultItem[]>(() => {
+    const documentItems: SearchResultItem[] = sortedDocs.map((document) => ({
+      kind: 'doc',
+      id: document.id,
+      data: document,
     }));
 
-    const questItems = questNpcs.map((npc) => ({
-      kind: 'quest' as const,
+    const questItems: SearchResultItem[] = questNpcs.map((npc) => ({
+      kind: 'quest',
       id: npc.id,
       data: npc,
     }));
 
-    return [...docItems, ...questItems];
-  }, [sortedDocs, questNpcs]);
+    return [...documentItems, ...questItems];
+  }, [questNpcs, sortedDocs]);
 
   const combinedCount = combinedDocItems.length;
 
-  // ===== 디바운스 & 동시 fetch(문서 + FAQ) =====
   useEffect(() => {
-    const q = query.trim();
-    const compactQuery = normalizeSearchText(q);
+    if (combinedCount === 0) {
+      setActiveDocIndex(-1);
+      return;
+    }
+
+    setActiveDocIndex((currentIndex) => {
+      if (currentIndex < 0) {
+        return 0;
+      }
+
+      return Math.min(currentIndex, combinedCount - 1);
+    });
+  }, [combinedCount]);
+
+  useEffect(() => {
+    const trimmedQuery = query.trim();
+    const compactQuery = normalizeSearchText(trimmedQuery);
+
+    if (debounceTimerRef.current !== null) {
+      window.clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+
+    if (faqDelayTimerRef.current !== null) {
+      window.clearTimeout(faqDelayTimerRef.current);
+      faqDelayTimerRef.current = null;
+    }
+
+    abortDocsRef.current?.abort();
+    abortQuestNpcRef.current?.abort();
+    abortFaqRef.current?.abort();
 
     if (compactQuery.length < 2) {
       setOpen(false);
       setDocs([]);
       setQuestNpcs([]);
       setFaqs([]);
+      setLoadingDocs(false);
+      setLoadingQuestNpcs(false);
+      setLoadingFaqs(false);
       setActiveDocIndex(-1);
-      if (abortDocsRef.current) abortDocsRef.current.abort();
-      if (abortQuestNpcRef.current) abortQuestNpcRef.current.abort();
-      if (abortFaqRef.current) abortFaqRef.current.abort();
       return;
     }
 
-    if (timerRef.current) window.clearTimeout(timerRef.current);
-    timerRef.current = window.setTimeout(async () => {
-      // --- 문서 요청 ---
-      if (abortDocsRef.current) abortDocsRef.current.abort();
-      const acDocs = new AbortController();
-      abortDocsRef.current = acDocs;
+    debounceTimerRef.current = window.setTimeout(() => {
+      const docsController = new AbortController();
+      const questController = new AbortController();
+      const faqController = new AbortController();
+
+      abortDocsRef.current = docsController;
+      abortQuestNpcRef.current = questController;
+      abortFaqRef.current = faqController;
+
       setLoadingDocs(true);
-
-      // --- 퀘스트 NPC 요청 ---
-      if (abortQuestNpcRef.current) abortQuestNpcRef.current.abort();
-      const acQuestNpc = new AbortController();
-      abortQuestNpcRef.current = acQuestNpc;
       setLoadingQuestNpcs(true);
+      setLoadingFaqs(true);
+      setOpen(true);
 
-      if (compactQuery.length >= 2) {
-        (async () => {
-          try {
-            const res = await fetch(
-              `/api/search/quest?query=${encodeURIComponent(q)}&limit=20`,
-              { signal: acQuestNpc.signal, cache: 'no-store' }
-            );
-            if (!res.ok) throw new Error('quest-search-failed');
-            const data = (await res.json()) as QuestNpcResult[];
-            setQuestNpcs(Array.isArray(data) ? data : []);
-          } catch (e: any) {
-            if (e?.name !== 'AbortError') setQuestNpcs([]);
-          } finally {
-            setLoadingQuestNpcs(false);
-          }
-        })();
-      } else {
-        setQuestNpcs([]);
-        setLoadingQuestNpcs(false);
-      }
-
-      (async () => {
+      void (async () => {
         try {
-          const res = await fetch(
-            `/api/search?query=${encodeURIComponent(q)}&compact=${encodeURIComponent(compactQuery)}&limit=50`,
+          const response = await fetch(
+            `/api/search?query=${encodeURIComponent(
+              trimmedQuery
+            )}&compact=${encodeURIComponent(compactQuery)}&limit=50`,
             {
-              signal: acDocs.signal,
+              signal: docsController.signal,
               cache: 'no-store',
             }
           );
-          if (!res.ok) throw new Error('search-failed');
-          const data = (await res.json()) as DocResult[];
+
+          if (!response.ok) {
+            throw new Error(`document-search-failed:${response.status}`);
+          }
+
+          const data = (await response.json()) as DocResult[];
+
           setDocs(Array.isArray(data) ? data : []);
-          setActiveDocIndex(data?.length ? 0 : -1);
-        } catch (e: any) {
-          if (e?.name !== 'AbortError') {
+        } catch (error) {
+          if (
+            !(error instanceof DOMException && error.name === 'AbortError')
+          ) {
+            console.error('[SearchBox] 문서 검색 실패:', error);
             setDocs([]);
-            setActiveDocIndex(-1);
           }
         } finally {
-          setLoadingDocs(false);
+          if (!docsController.signal.aborted) {
+            setLoadingDocs(false);
+          }
         }
       })();
 
-      // --- FAQ 요청 ---
-      if (abortFaqRef.current) abortFaqRef.current.abort();
-      const acFaq = new AbortController();
-      abortFaqRef.current = acFaq;
-      setLoadingFaqs(true);
-
-      (async () => {
-        window.setTimeout(async () => {
-          try {
-            const url =
-              `/api/faq?q=${encodeURIComponent(q)}` +
-              `&compact=${encodeURIComponent(compactQuery)}` +
-              `&limit=10&offset=0`;
-
-            const res = await fetch(url, {
-              signal: acFaq.signal,
+      void (async () => {
+        try {
+          const response = await fetch(
+            `/api/search/quest?query=${encodeURIComponent(
+              trimmedQuery
+            )}&limit=20`,
+            {
+              signal: questController.signal,
               cache: 'no-store',
-            });
+            }
+          );
 
-            const data = res.ok ? await res.json() : { items: [] };
-            setFaqs(Array.isArray(data.items) ? data.items : []);
-          } catch (e: any) {
-            if (e?.name !== 'AbortError') setFaqs([]);
-          } finally {
-            setLoadingFaqs(false);
+          if (!response.ok) {
+            throw new Error(`quest-search-failed:${response.status}`);
           }
-        }, 180);
+
+          const data = (await response.json()) as QuestNpcResult[];
+
+          setQuestNpcs(Array.isArray(data) ? data : []);
+        } catch (error) {
+          if (
+            !(error instanceof DOMException && error.name === 'AbortError')
+          ) {
+            console.error('[SearchBox] 퀘스트 NPC 검색 실패:', error);
+            setQuestNpcs([]);
+          }
+        } finally {
+          if (!questController.signal.aborted) {
+            setLoadingQuestNpcs(false);
+          }
+        }
       })();
 
-      setOpen(true);
-    }, 200) as unknown as number;
+      faqDelayTimerRef.current = window.setTimeout(() => {
+        void (async () => {
+          try {
+            const response = await fetch(
+              `/api/faq?q=${encodeURIComponent(
+                trimmedQuery
+              )}&compact=${encodeURIComponent(
+                compactQuery
+              )}&limit=10&offset=0`,
+              {
+                signal: faqController.signal,
+                cache: 'no-store',
+              }
+            );
+
+            const data = response.ok
+              ? ((await response.json()) as { items?: FaqItem[] })
+              : { items: [] };
+
+            setFaqs(Array.isArray(data.items) ? data.items : []);
+          } catch (error) {
+            if (
+              !(error instanceof DOMException && error.name === 'AbortError')
+            ) {
+              console.error('[SearchBox] FAQ 검색 실패:', error);
+              setFaqs([]);
+            }
+          } finally {
+            if (!faqController.signal.aborted) {
+              setLoadingFaqs(false);
+            }
+          }
+        })();
+      }, 180);
+    }, 200);
 
     return () => {
-      if (timerRef.current) window.clearTimeout(timerRef.current);
+      if (debounceTimerRef.current !== null) {
+        window.clearTimeout(debounceTimerRef.current);
+      }
+
+      if (faqDelayTimerRef.current !== null) {
+        window.clearTimeout(faqDelayTimerRef.current);
+      }
     };
   }, [query]);
 
-  // 외부 클릭으로 닫기
   useEffect(() => {
-    const onDocDown = (e: MouseEvent) => {
+    return () => {
+      abortDocsRef.current?.abort();
+      abortQuestNpcRef.current?.abort();
+      abortFaqRef.current?.abort();
+
+      if (debounceTimerRef.current !== null) {
+        window.clearTimeout(debounceTimerRef.current);
+      }
+
+      if (faqDelayTimerRef.current !== null) {
+        window.clearTimeout(faqDelayTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleOutsideMouseDown = (event: MouseEvent) => {
       const root = wrapRef.current;
-      if (!root) return;
-      if (!root.contains(e.target as Node)) {
+
+      if (!root) {
+        return;
+      }
+
+      if (!root.contains(event.target as Node)) {
         setOpen(false);
         setActiveDocIndex(-1);
       }
     };
-    document.addEventListener('mousedown', onDocDown);
-    return () => document.removeEventListener('mousedown', onDocDown);
+
+    document.addEventListener('mousedown', handleOutsideMouseDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideMouseDown);
+    };
   }, []);
 
-  // 이동
-  const goDoc = (res: DocResult | null) => {
-    if (!res) return;
-
-    const nextHashDomId = String(res.section_dom_id ?? "").trim();
-
-    setOpen(false);
-    setQuery("");
-    setDocs([]);
-    setQuestNpcs?.([]);
-    setFaqs([]);
-    setActiveDocIndex(-1);
-
-    const href =
-      `/wiki?id=${encodeURIComponent(res.id)}` +
-      `&path=${encodeURIComponent(res.path)}` +
-      `&title=${encodeURIComponent(res.title)}` +
-      (nextHashDomId ? `#${encodeURIComponent(nextHashDomId)}` : "");
-
-    markNextDocViewSource('search');
-    router.push(href, { scroll: false });
-
-    if (nextHashDomId && typeof window !== "undefined") {
-      window.requestAnimationFrame(() => {
-        window.dispatchEvent(
-          new CustomEvent("rdwiki:search-hash-nav", {
-            detail: { domId: nextHashDomId },
-          }),
-        );
-      });
-    }
-  };
-
-  const openQuestNpc = (npc: QuestNpcResult | null) => {
-    if (!npc) return;
-
+  const resetSearchState = () => {
     setOpen(false);
     setQuery('');
     setDocs([]);
     setQuestNpcs([]);
     setFaqs([]);
     setActiveDocIndex(-1);
-
-    onQuestNpcClick?.(npc.id);
   };
 
-  // 키보드(문서 리스트 포커스)
-  const onKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
-    if (!open || (!combinedCount && e.key !== 'Escape')) {
-      if (e.key === 'Escape') {
-        setOpen(false);
-        setActiveDocIndex(-1);
-      }
+  const goDocument = (document: DocResult | null) => {
+    if (!document) {
       return;
     }
 
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setActiveDocIndex((i) => (combinedCount ? (i + 1) % combinedCount : -1));
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setActiveDocIndex((i) => (combinedCount ? (i - 1 + combinedCount) % combinedCount : -1));
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
+    const sectionDomId = String(document.section_dom_id ?? '').trim();
 
-      const picked = combinedDocItems[activeDocIndex] ?? combinedDocItems[0] ?? null;
-      if (!picked) return;
+    const href =
+      `/wiki?id=${encodeURIComponent(document.id)}` +
+      `&path=${encodeURIComponent(document.path)}` +
+      `&title=${encodeURIComponent(document.title)}` +
+      (sectionDomId ? `#${encodeURIComponent(sectionDomId)}` : '');
 
-      if (picked.kind === 'doc') {
-        goDoc(picked.data);
-      } else {
-        openQuestNpc(picked.data);
-      }
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      setOpen(false);
-      setActiveDocIndex(-1);
+    resetSearchState();
+    markNextDocViewSource('search');
+    router.push(href, { scroll: false });
+
+    if (sectionDomId && typeof window !== 'undefined') {
+      window.requestAnimationFrame(() => {
+        window.dispatchEvent(
+          new CustomEvent('rdwiki:search-hash-nav', {
+            detail: {
+              domId: sectionDomId,
+            },
+          })
+        );
+      });
     }
   };
 
-  // ✅ 드롭다운 내부 스크롤을 위한 높이 기준값
-  const dropdownMaxH = 'min(72vh, 560px)';
+  const openQuestNpc = (npc: QuestNpcResult | null) => {
+    if (!npc) {
+      return;
+    }
+
+    resetSearchState();
+    onQuestNpcClick?.(npc.id);
+  };
+
+  const handleKeyDown: KeyboardEventHandler<HTMLInputElement> = (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      setOpen(false);
+      setActiveDocIndex(-1);
+      return;
+    }
+
+    if (!open || combinedCount === 0) {
+      return;
+    }
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setActiveDocIndex((currentIndex) =>
+        (currentIndex + 1 + combinedCount) % combinedCount
+      );
+      return;
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setActiveDocIndex((currentIndex) =>
+        (currentIndex - 1 + combinedCount) % combinedCount
+      );
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      event.preventDefault();
+
+      const selectedItem =
+        combinedDocItems[activeDocIndex] ?? combinedDocItems[0] ?? null;
+
+      if (!selectedItem) {
+        return;
+      }
+
+      if (selectedItem.kind === 'doc') {
+        goDocument(selectedItem.data);
+      } else {
+        openQuestNpc(selectedItem.data);
+      }
+    }
+  };
+
+  const renderDocumentTitle = (document: DocResult) => {
+    if (document.match_type === 'title') {
+      return (
+        <mark className="rd-search-highlight">{document.title}</mark>
+      );
+    }
+
+    return highlight(document.title, query);
+  };
+
+  const renderDocumentMeta = (document: DocResult) => {
+    const sectionHeading = String(document.section_heading ?? '').trim();
+    const breadcrumb = String(document.category_breadcrumb ?? '').trim();
+
+    if (document.match_type === 'content' && sectionHeading) {
+      return (
+        <span className="rd-search-item-meta">
+          {highlight(sectionHeading, query)}
+        </span>
+      );
+    }
+
+    if (!breadcrumb) {
+      return null;
+    }
+
+    return (
+      <span className="rd-search-item-meta">
+        {highlight(breadcrumb, query)}
+      </span>
+    );
+  };
+
+  const wrapperMargin =
+    align === 'center'
+      ? {
+          marginLeft: 'auto',
+          marginRight: 'auto',
+        }
+      : {
+          marginLeft: 0,
+          marginRight: 0,
+        };
 
   return (
-    <div
-      ref={wrapRef}
-      className="search-wrapper"
-      role="combobox"
-      aria-expanded={open}
-      aria-owns={listId}
-      aria-haspopup="listbox"
-      data-align={align}
-      style={{ width }}
-    >
-      <svg className="search-icon" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M21.53 20.47l-3.66-3.66C19.195 15.24 20 13.214 20 11c0-4.97-4.03-9-9-9s-9 4.03-9 9 4.03 9 9 9c2.215 0 4.24-.804 5.808-2.13l3.66 3.66c.147.146.34.22.53.22s.385-.073.53-.22c.295-.293.295-.767.002-1.06zM3.5 11c0-4.135 3.365-7.5 7.5-7.5s7.5 3.365 7.5 7.5-3.365 7.5-7.5 7.5-7.5-3.365-7.5-7.5z" />
-      </svg>
+    <>
+      <div
+        ref={wrapRef}
+        className="rd-search-root"
+        style={{
+          width,
+          paddingLeft,
+          ...wrapperMargin,
+        }}
+      >
+        <div className="rd-search-input-shell">
+          <span className="rd-search-input-icon" aria-hidden="true">
+            ⌕
+          </span>
 
-      <input
-        type="search"
-        ref={inputRef}
-        className="search-input"
-        placeholder="Search"
-        value={query}
-        onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
-        onChange={(e) => setQuery(e.target.value)}
-        onFocus={() => (docs.length || questNpcs.length || faqs.length) && setOpen(true)}
-        onKeyDown={onKeyDown}
-        autoComplete="off"
-        autoCorrect="off"
-        autoCapitalize="off"
-        spellCheck={false}
-        aria-autocomplete="list"
-        aria-controls={listId}
-        aria-activedescendant={
-          activeDocIndex >= 0 && combinedDocItems[activeDocIndex]
-            ? `${listId}-opt-${combinedDocItems[activeDocIndex].kind}-${combinedDocItems[activeDocIndex].id}`
-            : undefined
-        }
-      />
-
-      {open && (
-        <div
-          className="wiki-search-dropdown"
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            top: 58,
-            zIndex: 9999,
-            background: 'var(--surface-elevated)',
-            border: '1px solid var(--border)',
-            borderRadius: 10,
-            boxShadow: 'var(--shadow-lg)',
-            padding: '10px 12px',
-            maxHeight: dropdownMaxH,
-            overflow: 'auto',
-          }}
-        >
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: 12,
-              alignItems: 'start',
-              minHeight: 120,
+          <input
+            ref={inputRef}
+            value={query}
+            className="rd-search-input"
+            type="search"
+            role="combobox"
+            placeholder="검색어를 입력하세요."
+            aria-label="렌독위키 통합 검색"
+            aria-expanded={open}
+            aria-autocomplete="list"
+            aria-controls={listId}
+            aria-activedescendant={
+              activeDocIndex >= 0 && combinedDocItems[activeDocIndex]
+                ? `${listId}-option-${combinedDocItems[activeDocIndex].kind}-${combinedDocItems[activeDocIndex].id}`
+                : undefined
+            }
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            onInput={(event) => {
+              setQuery((event.target as HTMLInputElement).value);
             }}
+            onChange={(event) => {
+              setQuery(event.target.value);
+            }}
+            onFocus={() => {
+              if (
+                query.trim().length >= 2 &&
+                (docs.length > 0 ||
+                  questNpcs.length > 0 ||
+                  faqs.length > 0 ||
+                  loadingDocs ||
+                  loadingQuestNpcs ||
+                  loadingFaqs)
+              ) {
+                setOpen(true);
+              }
+            }}
+            onKeyDown={handleKeyDown}
+          />
+        </div>
+
+        {open && (
+          <div
+            id={listId}
+            className="rd-search-dropdown"
+            role="listbox"
+            aria-label="통합 검색 결과"
           >
-            {/* 문서 컬럼 */}
-            <div style={{ borderRight: '1px solid var(--border-soft)', paddingRight: 8 }}>
-              <div style={{ fontWeight: 800, fontSize: 13, color: 'var(--muted)', marginBottom: 6 }}>
-                문서
+            <section className="rd-search-column rd-search-document-column">
+              <div className="rd-search-column-heading">
+                <strong>문서 · 퀘스트 NPC</strong>
+
+                {(loadingDocs || loadingQuestNpcs) && (
+                  <span>검색 중...</span>
+                )}
               </div>
 
-              {!loadingDocs && !loadingQuestNpcs && combinedDocItems.length === 0 && (
-                <div style={{ color: 'var(--muted-2)', fontSize: 14, padding: '6px 4px' }}>
-                  결과가 없습니다.
-                </div>
-              )}
+              {!loadingDocs &&
+                !loadingQuestNpcs &&
+                combinedDocItems.length === 0 && (
+                  <p className="rd-search-empty">결과가 없습니다.</p>
+                )}
 
-              <ul
-                id={listId}
-                role="listbox"
-                style={{
-                  listStyle: 'none',
-                  margin: 0,
-                  padding: 0,
-                  maxHeight: 420,
-                  overflowY: 'auto',
-                }}
-              >
-                {combinedDocItems.map((item, idx) => {
-                  const selected = idx === activeDocIndex;
+              <div className="rd-search-list">
+                {combinedDocItems.map((item, index) => {
+                  const selected = index === activeDocIndex;
 
                   if (item.kind === 'doc') {
-                    const res = item.data;
-
-                    const cleanTags = (res.tags ?? [])
+                    const document = item.data;
+                    const matchedTags = (document.tags ?? [])
                       .map(normalizeTag)
                       .filter(Boolean)
                       .filter((tag) => isTagMatched(tag, query));
 
                     return (
-                      <li
-                        id={`${listId}-opt-doc-${res.id}`}
+                      <button
+                        key={`document-${document.id}-${index}`}
+                        id={`${listId}-option-doc-${document.id}`}
+                        type="button"
                         role="option"
                         aria-selected={selected}
-                        key={`doc-${res.id}`}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          padding: '11px 12px',
-                          cursor: 'pointer',
-                          borderBottom: idx !== combinedDocItems.length - 1 ? '1px solid var(--border-soft)' : undefined,
-                          background: selected ? 'var(--accent-soft)' : 'transparent',
-                          color: 'var(--foreground)',
-                          fontSize: 15,
-                          lineHeight: 1.3,
-                          gap: 10,
-                          borderRadius: 8,
-                        }}
-                        onMouseEnter={() => setActiveDocIndex(idx)}
-                        onClick={() => goDoc(res)}
+                        className={`rd-search-result ${
+                          selected ? 'is-selected' : ''
+                        }`}
+                        onMouseEnter={() => setActiveDocIndex(index)}
+                        onClick={() => goDocument(document)}
                       >
-                        <span style={{ marginRight: 8, fontSize: 20 }}>
-                          {res.icon ? (
-                            isImageLike(res.icon) ? (
+                        <span className="rd-search-result-icon">
+                          {document.icon ? (
+                            isImageLike(document.icon) ? (
                               <img
-                                src={isRemoteHttp(res.icon) ? toProxyUrl(res.icon) : res.icon}
+                                src={getImageSource(document.icon)}
                                 alt=""
-                                width={22}
-                                height={22}
-                                style={{ width: 22, height: 22, objectFit: 'cover' }}
                                 loading="lazy"
                                 decoding="async"
-                                draggable={false}
                               />
                             ) : (
-                              res.icon
+                              document.icon
                             )
                           ) : (
                             '📄'
                           )}
                         </span>
 
-                        <div style={{ minWidth: 0, flex: 1, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                          <div style={{ minWidth: 0, flex: 1 }}>
-                            <div style={{ fontWeight: 700, fontSize: 16 }}>{renderDocTitle(res)}</div>
+                        <span className="rd-search-result-body">
+                          <span className="rd-search-result-title">
+                            {renderDocumentTitle(document)}
+                          </span>
 
-                            {renderSectionMeta(res)}
-                          </div>
+                          {renderDocumentMeta(document)}
 
-                          {cleanTags.length > 0 && (
-                            <div
-                              style={{
-                                flex: '0 0 auto',
-                                display: 'flex',
-                                flexWrap: 'wrap',
-                                justifyContent: 'flex-end',
-                                gap: 6,
-                                maxWidth: 180,
-                                marginTop: 2,
-                              }}
-                            >
-                              {cleanTags.map((t, i) => (
+                          {document.section_snippet?.trim() && (
+                            <span className="rd-search-item-snippet">
+                              {highlight(
+                                document.section_snippet.trim(),
+                                query
+                              )}
+                            </span>
+                          )}
+
+                          {matchedTags.length > 0 && (
+                            <span className="rd-search-tag-row">
+                              {matchedTags.map((tag) => (
                                 <span
-                                  key={`${t}-${i}`}
-                                  style={{
-                                    fontSize: 12,
-                                    color: 'var(--tag-fg)',
-                                    background: 'var(--tag-bg)',
-                                    border: '1px solid var(--tag-border)',
-                                    borderRadius: 999,
-                                    padding: '2px 8px',
-                                    lineHeight: 1.4,
-                                    maxWidth: 180,
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                  }}
-                                  title={t}
+                                  key={`${document.id}-${tag}`}
+                                  className="rd-search-tag"
                                 >
-                                  {highlight(t, query)}
+                                  {highlight(tag, query)}
                                 </span>
                               ))}
-                            </div>
+                            </span>
                           )}
-                        </div>
-                      </li>
+                        </span>
+                      </button>
                     );
                   }
 
                   const npc = item.data;
-                  const villageName = String(npc.village_name ?? '').trim();
+                  const villageName = String(
+                    npc.village_name ?? ''
+                  ).trim();
 
                   return (
-                    <li
-                      id={`${listId}-opt-quest-${npc.id}`}
+                    <button
+                      key={`quest-${npc.id}-${index}`}
+                      id={`${listId}-option-quest-${npc.id}`}
+                      type="button"
                       role="option"
                       aria-selected={selected}
-                      key={`quest-${npc.id}`}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        padding: '11px 12px',
-                        cursor: 'pointer',
-                        borderBottom: idx !== combinedDocItems.length - 1 ? '1px solid var(--border-soft)' : undefined,
-                        background: selected ? 'var(--accent-soft)' : 'transparent',
-                        color: 'var(--foreground)',
-                        fontSize: 15,
-                        lineHeight: 1.3,
-                        gap: 10,
-                        borderRadius: 8,
-                      }}
-                      onMouseEnter={() => setActiveDocIndex(idx)}
+                      className={`rd-search-result ${
+                        selected ? 'is-selected' : ''
+                      }`}
+                      onMouseEnter={() => setActiveDocIndex(index)}
                       onClick={() => openQuestNpc(npc)}
                     >
-                      <span style={{ marginRight: 8, fontSize: 20 }}>
+                      <span className="rd-search-result-icon">
                         {npc.icon ? (
-                          isImageLike(npc.icon ?? undefined) ? (
+                          isImageLike(npc.icon) ? (
                             <img
-                              src={isRemoteHttp(npc.icon ?? undefined) ? toProxyUrl(npc.icon as string) : (npc.icon as string)}
+                              src={getImageSource(npc.icon)}
                               alt=""
-                              width={22}
-                              height={22}
-                              style={{ width: 22, height: 22, objectFit: 'cover' }}
                               loading="lazy"
                               decoding="async"
-                              draggable={false}
                             />
                           ) : (
                             npc.icon
@@ -750,265 +870,483 @@ export default function SearchBox({
                         )}
                       </span>
 
-                      <div style={{ minWidth: 0, flex: 1, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ fontWeight: 700, fontSize: 16 }}>{highlight(npc.name, query)}</div>
+                      <span className="rd-search-result-body">
+                        <span className="rd-search-result-title">
+                          {highlight(npc.name, query)}
+                        </span>
 
-                          <div
-                            style={{
-                              marginTop: 4,
-                              fontSize: 12,
-                              color: 'var(--muted-2)',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                            title="퀘스트"
-                          >
-                            퀘스트
-                          </div>
-                        </div>
-
-                        {villageName && (
-                          <div
-                            style={{
-                              flex: '0 0 auto',
-                              display: 'flex',
-                              flexWrap: 'wrap',
-                              justifyContent: 'flex-end',
-                              gap: 6,
-                              maxWidth: 180,
-                              marginTop: 2,
-                            }}
-                          >
-                            <span
-                              style={{
-                                fontSize: 12,
-                                color: 'var(--tag-fg)',
-                                background: 'var(--tag-bg)',
-                                border: '1px solid var(--tag-border)',
-                                borderRadius: 999,
-                                padding: '2px 8px',
-                                lineHeight: 1.4,
-                                maxWidth: 180,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                              }}
-                              title={villageName}
-                            >
-                              {highlight(villageName, query)}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </li>
+                        <span className="rd-search-item-meta">
+                          퀘스트 NPC
+                          {villageName
+                            ? ` · ${villageName}`
+                            : ''}
+                        </span>
+                      </span>
+                    </button>
                   );
                 })}
-              </ul>
-            </div>
+              </div>
+            </section>
 
-            {/* FAQ 컬럼 */}
-            <div style={{ paddingLeft: 8 }}>
-              <div style={{ fontWeight: 800, fontSize: 13, color: 'var(--muted)', marginBottom: 6 }}>
-                자주 묻는 질문
+            <section className="rd-search-column rd-search-faq-column">
+              <div className="rd-search-column-heading">
+                <strong>자주 묻는 질문</strong>
+
+                {loadingFaqs && <span>검색 중...</span>}
               </div>
 
               {!loadingFaqs && faqs.length === 0 && (
-                <div style={{ color: 'var(--muted-2)', fontSize: 14, padding: '6px 4px' }}>
-                  결과가 없습니다.
-                </div>
+                <p className="rd-search-empty">결과가 없습니다.</p>
               )}
 
-              <ul style={{ listStyle: 'none', margin: 0, padding: 0, maxHeight: 420, overflowY: 'auto' }}>
-                {faqs.map((f) => (
-                  <li
-                    key={`faq-${f.id}`}
-                    style={{
-                      padding: '11px 12px',
-                      borderBottom: '1px solid var(--border-soft)',
-                      cursor: 'pointer',
-                      borderRadius: 8,
-                    }}
-                    onClick={() => setFaqView(f)}
+              <div className="rd-search-list">
+                {faqs.map((faq) => (
+                  <button
+                    key={`faq-${faq.id}`}
+                    type="button"
+                    className="rd-search-result rd-search-faq-result"
+                    onClick={() => setFaqView(faq)}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          width: 20,
-                          height: 20,
-                          borderRadius: 999,
-                          background: 'var(--faq-q-bg)',
-                          color: 'var(--faq-q-fg)',
-                          fontWeight: 900,
-                          fontSize: 12.5,
-                          flex: '0 0 20px',
-                        }}
-                        aria-hidden
-                      >
-                        Q
-                      </span>
-                      <div style={{ fontWeight: 700, fontSize: 15, minWidth: 0, color: 'var(--foreground)' }}>
-                        {highlight(f.title, query)}
-                      </div>
-                    </div>
-                    {f.tags?.length > 0 && (
-                      <div
-                        style={{
-                          color: 'var(--tag-fg)',
-                          fontSize: 12,
-                          marginTop: 6,
-                          display: 'flex',
-                          flexWrap: 'wrap',
-                          gap: 6,
-                        }}
-                      >
-                        {f.tags.map((t, i) => (
-                          <span key={t + i}>{highlight(t, query)}</span>
-                        ))}
-                      </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      )}
+                    <span className="rd-search-faq-badge">Q</span>
 
-      {/* FAQ 뷰 간단 모달 */}
+                    <span className="rd-search-result-body">
+                      <span className="rd-search-result-title">
+                        {highlight(faq.title, query)}
+                      </span>
+
+                      {faq.tags?.length > 0 && (
+                        <span className="rd-search-tag-row">
+                          {faq.tags.map((tag) => (
+                            <span
+                              key={`${faq.id}-${tag}`}
+                              className="rd-search-tag"
+                            >
+                              {highlight(normalizeTag(tag), query)}
+                            </span>
+                          ))}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
+      </div>
+
       {faqView && (
         <div
+          className="rd-search-faq-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${faqView.title} 답변`}
           onClick={() => setFaqView(null)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'var(--overlay)',
-            display: 'grid',
-            placeItems: 'center',
-            padding: 16,
-            zIndex: 10000,
-          }}
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: 'min(760px, 100%)',
-              background: 'var(--surface-elevated)',
-              border: '1px solid var(--border)',
-              borderRadius: 16,
-              padding: 16,
-              boxShadow: 'var(--shadow-xl)',
-              color: 'var(--foreground)',
-            }}
+          <article
+            className="rd-search-faq-modal"
+            onClick={(event) => event.stopPropagation()}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 22,
-                    height: 22,
-                    borderRadius: 999,
-                    background: 'var(--faq-q-bg)',
-                    color: 'var(--faq-q-fg)',
-                    fontWeight: 900,
-                    fontSize: 13.5,
-                    flex: '0 0 22px',
-                  }}
-                >
-                  Q
-                </span>
-                <h3 style={{ margin: 0, fontSize: 18 }}>{faqView.title}</h3>
+            <header className="rd-search-faq-modal-header">
+              <div>
+                <span className="rd-search-faq-modal-label">Q</span>
+                <h2>{faqView.title}</h2>
               </div>
+
               <button
+                type="button"
+                aria-label="FAQ 닫기"
                 onClick={() => setFaqView(null)}
-                aria-label="close"
-                style={{
-                  width: 34,
-                  height: 34,
-                  display: 'grid',
-                  placeItems: 'center',
-                  background: 'transparent',
-                  border: 0,
-                  cursor: 'pointer',
-                  color: 'var(--danger-fg)',
-                }}
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8">
-                  <path d="M6 6L18 18M18 6L6 18" strokeLinecap="round" />
-                </svg>
+                ×
               </button>
+            </header>
+
+            <div className="rd-search-faq-answer">
+              <span className="rd-search-faq-modal-label answer">A</span>
+              <p>{faqView.content}</p>
             </div>
-            <div style={{ marginTop: 10 }}>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 12,
-                  background: 'var(--faq-a-bg)',
-                  border: '1px solid var(--faq-a-border)',
-                  borderRadius: 12,
-                  padding: '12px 14px',
-                }}
-              >
-                <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 22,
-                    height: 22,
-                    borderRadius: 999,
-                    background: 'var(--faq-a-badge-bg)',
-                    color: 'var(--faq-a-badge-fg)',
-                    fontWeight: 900,
-                    fontSize: 13.5,
-                    flex: '0 0 22px',
-                  }}
-                >
-                  A
-                </span>
-                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', font: 'inherit', color: 'var(--foreground)' }}>
-                  {faqView.content}
-                </pre>
+
+            {faqView.tags?.length > 0 && (
+              <div className="rd-search-faq-modal-tags">
+                {faqView.tags.map((tag) => (
+                  <span key={`${faqView.id}-${tag}`}>
+                    #{normalizeTag(tag)}
+                  </span>
+                ))}
               </div>
-              {faqView.tags?.length > 0 && (
-                <div
-                  style={{
-                    marginTop: 10,
-                    color: 'var(--tag-fg)',
-                    fontSize: 12,
-                    display: 'flex',
-                    gap: 8,
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  {faqView.tags.map((t, i) => (
-                    <span key={t + i}>#{t}</span>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+            )}
+          </article>
         </div>
       )}
 
       <style jsx>{`
-        .search-wrapper {
-          max-width: 100%;
+        .rd-search-root {
+          position: relative;
+          z-index: 1200;
+          box-sizing: border-box;
+          min-width: 0;
         }
+
+        .rd-search-input-shell {
+          display: flex;
+          align-items: center;
+          width: 100%;
+          height: 46px;
+          overflow: hidden;
+          border: 1px solid var(--border, #d8e1da);
+          border-radius: 999px;
+          background: var(--surface-elevated, #ffffff);
+          box-shadow:
+            0 8px 22px rgba(15, 23, 42, 0.07),
+            inset 0 1px 0 rgba(255, 255, 255, 0.7);
+          transition:
+            border-color 0.15s ease,
+            box-shadow 0.15s ease;
+        }
+
+        .rd-search-input-shell:focus-within {
+          border-color: #69ad72;
+          box-shadow:
+            0 0 0 3px rgba(105, 173, 114, 0.16),
+            0 10px 28px rgba(15, 23, 42, 0.08);
+        }
+
+        .rd-search-input-icon {
+          display: grid;
+          place-items: center;
+          flex: 0 0 43px;
+          width: 43px;
+          color: #4b9257;
+          font-size: 27px;
+          line-height: 1;
+          user-select: none;
+        }
+
+        .rd-search-input {
+          width: 100%;
+          min-width: 0;
+          height: 100%;
+          padding: 0 18px 0 0;
+          border: 0;
+          outline: 0;
+          background: transparent;
+          color: var(--foreground, #1f2937);
+          font: inherit;
+          font-size: 14px;
+        }
+
+        .rd-search-input::-webkit-search-cancel-button {
+          cursor: pointer;
+        }
+
+        .rd-search-input::placeholder {
+          color: var(--muted-2, #8b9890);
+        }
+
+        .rd-search-dropdown {
+          position: absolute;
+          top: calc(100% + 8px);
+          left: ${paddingLeft}px;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+          width: calc(100% - ${paddingLeft}px);
+          max-height: min(72vh, 560px);
+          overflow: hidden;
+          border: 1px solid var(--border, #d8e1da);
+          border-radius: 16px;
+          background: var(--surface-elevated, #ffffff);
+          box-shadow: var(
+            --shadow-xl,
+            0 24px 60px rgba(15, 23, 42, 0.2)
+          );
+          color: var(--foreground, #1f2937);
+        }
+
+        .rd-search-column {
+          min-width: 0;
+          overflow-y: auto;
+          overscroll-behavior: contain;
+        }
+
+        .rd-search-column + .rd-search-column {
+          border-left: 1px solid var(--border-soft, #edf1ee);
+        }
+
+        .rd-search-column-heading {
+          position: sticky;
+          top: 0;
+          z-index: 2;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          min-height: 44px;
+          padding: 0 14px;
+          border-bottom: 1px solid var(--border-soft, #edf1ee);
+          background: color-mix(
+            in srgb,
+            var(--surface-elevated, #ffffff) 94%,
+            transparent
+          );
+          backdrop-filter: blur(10px);
+        }
+
+        .rd-search-column-heading strong {
+          font-size: 13px;
+          font-weight: 900;
+        }
+
+        .rd-search-column-heading span {
+          color: var(--muted, #6b7280);
+          font-size: 10px;
+        }
+
+        .rd-search-list {
+          display: flex;
+          flex-direction: column;
+          padding: 7px;
+          gap: 3px;
+        }
+
+        .rd-search-result {
+          display: flex;
+          width: 100%;
+          min-width: 0;
+          padding: 9px 10px;
+          gap: 10px;
+          border: 0;
+          border-radius: 11px;
+          background: transparent;
+          color: inherit;
+          font: inherit;
+          text-align: left;
+          cursor: pointer;
+        }
+
+        .rd-search-result:hover,
+        .rd-search-result.is-selected {
+          background: var(--surface-hover, #eef8ef);
+        }
+
+        .rd-search-result-icon {
+          display: grid;
+          place-items: center;
+          flex: 0 0 36px;
+          width: 36px;
+          height: 36px;
+          overflow: hidden;
+          border-radius: 10px;
+          background: var(--surface-soft, #f3f6f4);
+          font-size: 20px;
+        }
+
+        .rd-search-result-icon img {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+        }
+
+        .rd-search-result-body {
+          display: flex;
+          flex: 1;
+          min-width: 0;
+          flex-direction: column;
+          justify-content: center;
+          gap: 3px;
+        }
+
+        .rd-search-result-title {
+          overflow: hidden;
+          color: var(--foreground, #1f2937);
+          font-size: 13px;
+          font-weight: 800;
+          white-space: nowrap;
+          text-overflow: ellipsis;
+        }
+
+        .rd-search-item-meta,
+        .rd-search-item-snippet {
+          overflow: hidden;
+          color: var(--muted, #6b7280);
+          font-size: 10px;
+          line-height: 1.4;
+          white-space: nowrap;
+          text-overflow: ellipsis;
+        }
+
+        .rd-search-tag-row {
+          display: flex;
+          min-width: 0;
+          flex-wrap: wrap;
+          gap: 4px;
+          margin-top: 2px;
+        }
+
+        .rd-search-tag {
+          max-width: 100%;
+          overflow: hidden;
+          padding: 2px 6px;
+          border-radius: 999px;
+          background: var(--surface-soft, #eef6ef);
+          color: #43804d;
+          font-size: 9px;
+          white-space: nowrap;
+          text-overflow: ellipsis;
+        }
+
+        .rd-search-faq-result {
+          align-items: flex-start;
+        }
+
+        .rd-search-faq-badge,
+        .rd-search-faq-modal-label {
+          display: grid;
+          place-items: center;
+          flex: 0 0 30px;
+          width: 30px;
+          height: 30px;
+          border-radius: 10px;
+          background: #e7f5e8;
+          color: #377745;
+          font-size: 13px;
+          font-weight: 900;
+        }
+
+        .rd-search-faq-modal-label.answer {
+          background: #e7f0fb;
+          color: #33689b;
+        }
+
+        .rd-search-empty {
+          margin: 0;
+          padding: 28px 12px;
+          color: var(--muted, #6b7280);
+          font-size: 12px;
+          text-align: center;
+        }
+
+        :global(.rd-search-highlight) {
+          padding: 0;
+          border-radius: 2px;
+          background: #fff0a8;
+          color: inherit;
+          font-weight: 900;
+        }
+
+        .rd-search-faq-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 10000;
+          display: grid;
+          place-items: center;
+          padding: 16px;
+          background: var(--overlay, rgba(15, 23, 42, 0.55));
+        }
+
+        .rd-search-faq-modal {
+          width: min(760px, 100%);
+          max-height: min(82vh, 720px);
+          overflow-y: auto;
+          padding: 18px;
+          border: 1px solid var(--border, #d8e1da);
+          border-radius: 16px;
+          background: var(--surface-elevated, #ffffff);
+          box-shadow: var(
+            --shadow-xl,
+            0 24px 60px rgba(15, 23, 42, 0.25)
+          );
+          color: var(--foreground, #1f2937);
+        }
+
+        .rd-search-faq-modal-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 16px;
+        }
+
+        .rd-search-faq-modal-header > div {
+          display: flex;
+          min-width: 0;
+          align-items: flex-start;
+          gap: 10px;
+        }
+
+        .rd-search-faq-modal-header h2 {
+          margin: 3px 0 0;
+          font-size: 20px;
+          line-height: 1.4;
+        }
+
+        .rd-search-faq-modal-header button {
+          display: grid;
+          place-items: center;
+          flex: 0 0 36px;
+          width: 36px;
+          height: 36px;
+          border: 0;
+          border-radius: 10px;
+          background: transparent;
+          color: var(--danger-fg, #c24141);
+          font-size: 25px;
+          cursor: pointer;
+        }
+
+        .rd-search-faq-answer {
+          display: flex;
+          align-items: flex-start;
+          margin-top: 20px;
+          gap: 10px;
+        }
+
+        .rd-search-faq-answer p {
+          flex: 1;
+          margin: 4px 0 0;
+          color: var(--foreground, #1f2937);
+          font-size: 14px;
+          line-height: 1.75;
+          white-space: pre-wrap;
+          word-break: break-word;
+        }
+
+        .rd-search-faq-modal-tags {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-top: 18px;
+          padding-left: 40px;
+        }
+
+        .rd-search-faq-modal-tags span {
+          padding: 4px 8px;
+          border-radius: 999px;
+          background: var(--surface-soft, #eef6ef);
+          color: var(--muted, #5f6f63);
+          font-size: 11px;
+        }
+
         @media (max-width: 768px) {
-          .search-wrapper {
-            width: min(92vw, 640px) !important;
+          .rd-search-root {
+            padding-left: 0 !important;
+          }
+
+          .rd-search-dropdown {
+            left: 0;
+            grid-template-columns: 1fr;
+            width: 100%;
+            max-height: min(70vh, 520px);
+          }
+
+          .rd-search-column {
+            max-height: 34vh;
+          }
+
+          .rd-search-column + .rd-search-column {
+            border-top: 1px solid var(--border-soft, #edf1ee);
+            border-left: 0;
           }
         }
       `}</style>
-    </div>
+    </>
   );
 }
