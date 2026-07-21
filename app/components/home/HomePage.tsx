@@ -22,9 +22,9 @@ const categoryCards = [
     tone: 'green',
   },
   {
-    title: '기초 설명',
-    description: '처음 시작할 때 필요한 핵심 가이드와 정보를 모았습니다.',
-    icon: '📖',
+    title: '시스템',
+    description: '성장, 강화, 거래 등 서버의 주요 시스템을 알아보세요.',
+    icon: '⚙️',
     tone: 'mint',
   },
   {
@@ -113,7 +113,7 @@ export default function HomePage() {
             </Link>
 
             <Link href="/wiki" className={styles.headerNavLink}>
-              기초 설명
+              시스템
             </Link>
 
             <Link href="/wiki" className={styles.headerNavLink}>
@@ -209,34 +209,6 @@ export default function HomePage() {
               />
             </section>
 
-            <section
-              className={styles.categoryGrid}
-              aria-label="대표 카테고리"
-            >
-              {categoryCards.map((category) => (
-                <Link
-                  key={category.title}
-                  href="/wiki"
-                  className={`${styles.categoryCard} ${
-                    styles[`categoryCard_${category.tone}`]
-                  }`}
-                >
-                  <span className={styles.categoryIcon} aria-hidden="true">
-                    {category.icon}
-                  </span>
-
-                  <span className={styles.categoryBody}>
-                    <strong>{category.title}</strong>
-                    <span>{category.description}</span>
-                  </span>
-
-                  <span className={styles.categoryArrow} aria-hidden="true">
-                    ›
-                  </span>
-                </Link>
-              ))}
-            </section>
-
             <section className={styles.newcomer}>
               <div className={styles.newcomerCharacter} aria-hidden="true">
                 🌿
@@ -266,6 +238,34 @@ export default function HomePage() {
                 뉴비 가이드 보기
                 <span aria-hidden="true">›</span>
               </Link>
+            </section>
+
+            <section
+              className={styles.categoryGrid}
+              aria-label="대표 카테고리"
+            >
+              {categoryCards.map((category) => (
+                <Link
+                  key={category.title}
+                  href="/wiki"
+                  className={`${styles.categoryCard} ${
+                    styles[`categoryCard_${category.tone}`]
+                  }`}
+                >
+                  <span className={styles.categoryIcon} aria-hidden="true">
+                    {category.icon}
+                  </span>
+
+                  <span className={styles.categoryBody}>
+                    <strong>{category.title}</strong>
+                    <span>{category.description}</span>
+                  </span>
+
+                  <span className={styles.categoryArrow} aria-hidden="true">
+                    ›
+                  </span>
+                </Link>
+              ))}
             </section>
 
             <section className={styles.informationGrid}>
