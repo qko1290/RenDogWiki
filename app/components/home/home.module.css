@@ -42,6 +42,19 @@
     'Inter',
     system-ui,
     sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  font-synthesis: weight;
+}
+
+.page :where(
+  a,
+  button,
+  input,
+  textarea,
+  select
+) {
+  font-family: inherit;
 }
 
 .header {
@@ -105,9 +118,9 @@
 
 .brandSubtitle {
   color: #6e8b73;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 1.3px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 1.2px;
 }
 
 .headerNav {
@@ -120,8 +133,8 @@
   padding: 9px 13px;
   border-radius: 999px;
   color: var(--foreground);
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 800;
   text-decoration: none;
   transition:
     color 0.15s ease,
@@ -341,8 +354,8 @@
 .heroEyebrow {
   margin: 0 0 4px;
   color: #285d39;
-  font-size: 13px;
-  font-weight: 800;
+  font-size: 14px;
+  font-weight: 900;
   text-shadow:
     0 1px 7px
     rgba(255, 255, 255, 0.78);
@@ -365,8 +378,8 @@
 .heroDescription {
   margin: 7px 0 19px;
   color: #294d34;
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 800;
   text-shadow:
     0 1px 8px
     rgba(255, 255, 255, 0.82);
@@ -430,13 +443,15 @@
   justify-content: center;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 11px;
-  font-size: 11px;
+  margin-top: 12px;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .keywordRow strong {
   margin-right: 2px;
   color: #315e3e;
+  font-weight: 900;
 }
 
 .keywordRow a {
@@ -445,6 +460,7 @@
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.73);
   color: #496550;
+  font-weight: 700;
   text-decoration: none;
 }
 
@@ -522,7 +538,8 @@
 
 .categoryBody > span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 600;
   line-height: 1.55;
 }
 
@@ -574,7 +591,7 @@
 .sectionEyebrow {
   margin: 0 0 2px;
   color: #65a36c;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 900;
   letter-spacing: 1.1px;
 }
@@ -589,8 +606,9 @@
 .newcomerContent > p:not(.sectionEyebrow) {
   margin: 5px 0 9px;
   color: var(--muted);
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.55;
 }
 
 .newcomerTags {
@@ -605,7 +623,8 @@
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.68);
   color: #56715b;
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 700;
   text-decoration: none;
   transition:
     border-color 140ms ease,
@@ -635,8 +654,8 @@
   border: 1px solid rgba(76, 144, 83, 0.38);
   border-radius: 11px;
   color: #347642;
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 900;
   text-decoration: none;
 }
 
@@ -649,7 +668,7 @@
 
 .informationCard {
   min-width: 0;
-  padding: 15px;
+  padding: 17px;
   border: 1px solid var(--border-soft);
   border-radius: 17px;
   background: var(--surface-elevated);
@@ -665,7 +684,7 @@
 }
 
 .cardHeading {
-  margin-bottom: 11px;
+  margin-bottom: 14px;
 }
 
 .cardHeading h2,
@@ -678,15 +697,15 @@
 .cardHeading h2 {
   display: flex;
   align-items: center;
-  gap: 7px;
-  font-size: 14px;
+  gap: 8px;
+  font-size: 16px;
 }
 
 .cardHeading a,
 .sectionHeading > a {
-  color: #5b9a63;
-  font-size: 10px;
-  font-weight: 800;
+  color: #4b9157;
+  font-size: 12px;
+  font-weight: 900;
   text-decoration: none;
   white-space: nowrap;
 }
@@ -700,17 +719,18 @@
 }
 
 .emptyDocument {
-  padding: 18px 4px;
+  padding: 20px 4px;
   color: var(--muted);
-  font-size: 10px;
-  line-height: 1.5;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.55;
   text-align: center;
 }
 
 .noticeList li + li,
 .documentList li + li,
 .popularList li + li {
-  margin-top: 5px;
+  margin-top: 7px;
 }
 
 .noticeList a,
@@ -719,10 +739,12 @@
   display: flex;
   align-items: center;
   min-width: 0;
-  gap: 7px;
-  padding: 4px 0;
+  gap: 9px;
+  padding: 5px 0;
   color: var(--foreground);
-  font-size: 10px;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.4;
   text-decoration: none;
 }
 
@@ -740,46 +762,47 @@
 .documentList time {
   flex: 0 0 auto;
   color: var(--muted-2);
-  font-size: 9px;
+  font-size: 10px;
+  font-weight: 600;
 }
 
 .documentType {
   flex: 0 0 auto;
-  padding: 3px 5px;
-  border-radius: 5px;
+  padding: 4px 7px;
+  border-radius: 6px;
   background: #eaf6ec;
   color: #3c8a4c;
-  font-size: 8px;
-  font-weight: 800;
+  font-size: 9px;
+  font-weight: 900;
 }
 
 .popularRank {
   display: grid;
   place-items: center;
-  flex: 0 0 20px;
-  width: 20px;
-  height: 20px;
-  border-radius: 7px;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
   background: #edf6ea;
   color: #4a8a55;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 900;
 }
 
 .recommendSection {
-  margin-top: 14px;
-  padding: 17px;
+  margin-top: 16px;
+  padding: 20px;
   border: 1px solid var(--border-soft);
   border-radius: 18px;
   background: var(--surface-elevated);
 }
 
 .sectionHeading {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .sectionHeading h2 {
-  font-size: 18px;
+  font-size: 22px;
 }
 
 .recommendGrid {
@@ -792,9 +815,9 @@
   display: flex;
   align-items: center;
   min-width: 0;
-  min-height: 91px;
-  padding: 12px;
-  gap: 11px;
+  min-height: 104px;
+  padding: 15px;
+  gap: 13px;
   border: 1px solid rgba(115, 164, 120, 0.2);
   border-radius: 14px;
   background:
@@ -832,13 +855,13 @@
 }
 
 .recommendBody small {
-  color: #73a178;
-  font-size: 8px;
-  font-weight: 800;
+  color: #65966b;
+  font-size: 10px;
+  font-weight: 900;
 }
 
 .recommendBody strong {
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 900;
 }
 
@@ -846,8 +869,9 @@
   display: -webkit-box;
   overflow: hidden;
   color: var(--muted);
-  font-size: 9px;
-  line-height: 1.4;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
@@ -882,13 +906,14 @@
 
 .footerBrand strong {
   color: #26723b;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 900;
 }
 
 .footerBrand span {
   color: var(--muted);
-  font-size: 9px;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .communityLinks {
@@ -973,8 +998,8 @@
   background: rgba(18, 27, 22, 0.96);
   color: #f8fafc;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.2);
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 800;
   line-height: 1.35;
   white-space: nowrap;
   transform:
@@ -1196,7 +1221,7 @@
 
   .headerNavLink {
     padding-inline: 9px;
-    font-size: 12px;
+    font-size: 13px;
   }
 
   .heroContent {
