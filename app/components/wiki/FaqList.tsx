@@ -9,6 +9,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import FaqUpsertModal from '@/components/wiki/FaqUpsertModal';
 
+import {
+  recordFaqView,
+} from '@/wiki/lib/faqView';
+
 type User = {
   id: number;
   username: string;
@@ -540,8 +544,15 @@ export default function FaqList({
               <button
                 className="faq-title"
                 onClick={async () => {
-                  const fresh = await fetchFaqDetail(it.id);
+                  const fresh =
+                    await fetchFaqDetail(it.id);
+
                   setSel(fresh ?? it);
+
+                  void recordFaqView(
+                    it.id,
+                    'list'
+                  );
                 }}
                 title={it.title}
               >

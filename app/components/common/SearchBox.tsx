@@ -21,6 +21,9 @@ import { useRouter } from 'next/navigation';
 
 import { toProxyUrl } from '@lib/cdn';
 import { markNextDocViewSource } from '@/wiki/lib/viewSource';
+import {
+  recordFaqView,
+} from '@/wiki/lib/faqView';
 
 type DocResult = {
   id: number;
@@ -856,9 +859,13 @@ export default function SearchBox({
   ) => {
     /*
      * 검색 결과 상태를 유지하면서 최신 FAQ 상세를 가져온다.
-     * 단건 GET은 FAQ 열람수도 함께 1회 증가시킨다.
+     * 실제 질문을 연 경우 source=search로 조회수를 별도 기록한다.
      */
     setOpen(true);
+    void recordFaqView(
+      faq.id,
+      'search'
+    );
 
     try {
       const response = await fetch(

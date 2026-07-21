@@ -3,7 +3,8 @@
 // 전체 교체용 코드
 //
 // - FAQ 단건 조회/수정/삭제
-// - 단건 GET 시 views를 1 증가시키고 최신 내용을 반환
+// - 단건 GET은 최신 내용만 반환
+// - 실제 조회수는 POST /api/faq/view에서 별도 기록
 // - no-store / dynamic 유지
 // =============================================
 
@@ -134,7 +135,6 @@ function normalizeFaqRow(row: any) {
     uploader: row.uploader,
     created_at: row.created_at,
     updated_at: row.updated_at,
-    views: Number(row.views ?? 0),
   };
 }
 
@@ -165,27 +165,22 @@ export async function GET(
         }
       );
     }
-
     /*
-     * 별도 SELECT + UPDATE를 하지 않고
-     * 한 번의 UPDATE ... RETURNING으로
-     * 열람수 증가와 상세 조회를 함께 처리한다.
+     * 상세 조회와 조회수 기록을 분리한다.
+     * 관리자 수정용 조회는 통계에 포함되지 않는다.
      */
     const rows = await sql`
-      UPDATE faq_questions
-      SET
-        views =
-          COALESCE(views, 0) + 1
-      WHERE id = ${id}
-      RETURNING
+      SELECT
         id,
         title,
         content,
         tags,
         uploader,
         created_at,
-        updated_at,
-        views
+        updated_at
+      FROM faq_questions
+      WHERE id = ${id}
+      LIMIT 1
     `;
 
     const row = rows[0];
@@ -303,8 +298,7 @@ export async function PUT(
         tags,
         uploader,
         created_at,
-        updated_at,
-        views
+        updated_at
     `;
 
     const row = rows[0];

@@ -4,7 +4,7 @@
 // - 문서 화면과 동일한 3열 폭 유지
 // - 실제 최근 업데이트 문서 표시
 // - 최근 7일 조회수 기준 인기 문서 비동기 표시
-// - 누적 열람수 기준 자주 묻는 질문 순위 비동기 표시
+// - 최근 7일 열람수 기준 자주 묻는 질문 순위 비동기 표시
 // - Wiki Header와 동일한 SearchBox 사용
 // - 퀘스트 NPC 상세 모달과 FAQ 상세 동작 지원
 // =============================================
@@ -28,6 +28,9 @@ import {
   type FaqItem,
 } from '@/components/wiki/FaqList';
 import logo from '@/image/logo.png';
+import {
+  recordFaqView,
+} from '@/wiki/lib/faqView';
 
 import type {
   HomeCategoryKey,
@@ -343,7 +346,7 @@ export default function HomePage({
         controller.abort();
       }, 8000);
 
-    void fetch('/api/home/faqs', {
+    void fetch('/api/home/faqs?range=week', {
       cache: 'no-store',
       signal: controller.signal,
     })
@@ -403,8 +406,8 @@ export default function HomePage({
 
       try {
         /*
-         * FAQ 단건 GET이 최신 내용 반환과 열람수 증가를
-         * 한 번의 UPDATE ... RETURNING으로 함께 처리한다.
+         * 상세 내용 조회와 조회수 기록을 분리한다.
+         * Home 순위에서 실제 질문을 연 경우 source=home으로 기록한다.
          */
         const response = await fetch(
           `/api/faq/${encodeURIComponent(faqId)}`,
@@ -432,6 +435,10 @@ export default function HomePage({
         }
 
         setSelectedFaq(payload);
+        void recordFaqView(
+          faqId,
+          'home'
+        );
       } catch (error) {
         console.error(
           '[HomePage] FAQ 상세 조회 실패:',
