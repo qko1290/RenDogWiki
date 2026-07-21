@@ -505,18 +505,14 @@ export async function getPopularHomeDocuments(
 
   try {
     return await cached(
-      `home:popular-documents:week:${limit}:v1`,
+      `home:popular-documents:week:${limit}:v3`,
       {
-        /*
-         * 조회수는 계속 변하지만 Home 요청마다 DB를 조회할 필요는 없다.
-         * 5분 단위로 갱신해 Supabase/DB 전송량을 줄인다.
-         */
         ttlSec: 300,
         tags: ['doc:list'],
       },
       async () => {
         const rows = (await runDbRead(
-          'home:popular-documents:week',
+          'home:popular-documents:week:v3',
           async () => {
             return await sql`
               WITH weekly_views AS (
@@ -551,6 +547,8 @@ export async function getPopularHomeDocuments(
                 weekly_views.views > 0
                 AND d.id <>
                   ${LEGACY_HOME_DOCUMENT_ID}
+                AND d.is_featured
+                  IS NOT TRUE
               ORDER BY
                 weekly_views.views DESC,
                 d.updated_at DESC
