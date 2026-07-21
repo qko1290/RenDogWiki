@@ -2,11 +2,14 @@
 // File: app/components/home/homeData.ts
 // 전체 교체용 코드
 //
-// 핵심 수정:
-// - 렌독위키의 루트 카테고리는 parent_id가 NULL 또는 0일 수 있음
-// - 정식 카테고리명: 컨텐츠 / 시스템 / 시세표 / 법전
-// - categories.document_id에 지정된 대표 문서를 연다
-// - 잘못된 이전 결과 캐시를 피하기 위해 캐시 키 v4 사용
+// 대표 카테고리 연결 방식:
+// 1. 모든 카테고리를 조회한다.
+// 2. 실제 카테고리 트리와 동일하게 부모를 따라가며 RPG 영역인지 판별한다.
+// 3. 정식 이름(컨텐츠 / 시스템 / 시세표 / 법전)의 카테고리를 찾는다.
+// 4. categories.document_id가 있으면 대표 문서를 사용한다.
+// 5. 대표 문서가 없으면 해당 카테고리 하위에서 정렬상 첫 문서를 사용한다.
+// 6. /wiki?id=문서ID&mode=RPG 로 이동한다.
+//    WikiPageInner는 id가 있으면 id를 최우선으로 직접 로드한다.
 // =============================================
 
 import 'server-only';
@@ -45,12 +48,42 @@ type RecentDocumentRow = {
   category_name: string | null;
 };
 
-type HomeCategoryRow = {
-  category_id: number | string;
-  category_name: string;
+type CategoryRow = {
+  id: number | string;
+  name: string;
+  parent_id: number | string | null;
   document_id: number | string | null;
-  document_title: string | null;
+  mode_tags: string[] | null;
+  order: number | string | null;
 };
+
+type DocumentRow = {
+  id: number | string;
+  title: string;
+  path: string | number | null;
+  order: number | string | null;
+  is_featured: boolean | null;
+};
+
+type NormalizedCategory = {
+  id: number;
+  name: string;
+  parentId: number | null;
+  documentId: number | null;
+  modeTags: string[];
+  order: number;
+};
+
+type NormalizedDocument = {
+  id: number;
+  title: string;
+  categoryId: number | null;
+  order: number;
+  isFeatured: boolean;
+};
+
+const ROOT_FEATURED_DOCUMENT_ID = 73;
+const HOME_MODE = 'RPG';
 
 const HOME_CATEGORY_DEFINITIONS: ReadonlyArray<{
   key: HomeCategoryKey;
@@ -117,16 +150,60 @@ function formatDateLabel(date: Date) {
   return `${month}.${day}`;
 }
 
+function normalizeName(value: string) {
+  return String(value ?? '')
+    .trim()
+    .replace(/\s+/g, '');
+}
+
+function normalizeModeTag(value: string) {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase();
+}
+
+function toPositiveInteger(
+  value: unknown
+): number | null {
+  const parsed = Number(value);
+
+  return Number.isInteger(parsed) &&
+    parsed > 0
+    ? parsed
+    : null;
+}
+
+function toFiniteOrder(value: unknown) {
+  const parsed = Number(value);
+
+  return Number.isFinite(parsed)
+    ? parsed
+    : Number.MAX_SAFE_INTEGER;
+}
+
 function createWikiDocumentHref(
-  documentId: number,
-  categoryId: number,
-  title: string
+  documentId: number
 ) {
   const searchParams =
     new URLSearchParams({
       id: String(documentId),
-      path: String(categoryId),
+      mode: HOME_MODE,
+    });
+
+  return `/wiki?${searchParams.toString()}`;
+}
+
+function createRecentDocumentHref(
+  id: number,
+  path: string | number | null,
+  title: string
+) {
+  const searchParams =
+    new URLSearchParams({
+      id: String(id),
+      path: String(path ?? 0),
       title,
+      mode: HOME_MODE,
     });
 
   return `/wiki?${searchParams.toString()}`;
@@ -142,6 +219,424 @@ function createEmptyCategoryLinks(): HomeCategoryLink[] {
       documentId: null,
     })
   );
+}
+
+function normalizeCategories(
+  rows: CategoryRow[]
+): NormalizedCategory[] {
+  return rows
+    .map(
+      (
+        row
+      ): NormalizedCategory | null => {
+        const id =
+          toPositiveInteger(row.id);
+
+        if (!id) {
+          return null;
+        }
+
+        return {
+          id,
+          name: String(
+            row.name ?? ''
+          ).trim(),
+          parentId:
+            toPositiveInteger(
+              row.parent_id
+            ),
+          documentId:
+            toPositiveInteger(
+              row.document_id
+            ),
+          modeTags:
+            Array.isArray(
+              row.mode_tags
+            )
+              ? row.mode_tags.map(
+                  normalizeModeTag
+                )
+              : [],
+          order:
+            toFiniteOrder(
+              row.order
+            ),
+        };
+      }
+    )
+    .filter(
+      (
+        category
+      ): category is NormalizedCategory =>
+        category !== null
+    );
+}
+
+function normalizeDocuments(
+  rows: DocumentRow[]
+): NormalizedDocument[] {
+  return rows
+    .map(
+      (
+        row
+      ): NormalizedDocument | null => {
+        const id =
+          toPositiveInteger(row.id);
+        const title = String(
+          row.title ?? ''
+        ).trim();
+
+        if (
+          !id ||
+          !title ||
+          id ===
+            ROOT_FEATURED_DOCUMENT_ID
+        ) {
+          return null;
+        }
+
+        return {
+          id,
+          title,
+          categoryId:
+            toPositiveInteger(
+              row.path
+            ),
+          order:
+            toFiniteOrder(
+              row.order
+            ),
+          isFeatured:
+            Boolean(
+              row.is_featured
+            ),
+        };
+      }
+    )
+    .filter(
+      (
+        document
+      ): document is NormalizedDocument =>
+        document !== null &&
+        !document.isFeatured
+    );
+}
+
+function getCategoryDepth(
+  category: NormalizedCategory,
+  categoryById: Map<
+    number,
+    NormalizedCategory
+  >
+) {
+  let depth = 0;
+  let cursor:
+    | NormalizedCategory
+    | undefined = category;
+  const visited = new Set<number>();
+
+  while (
+    cursor?.parentId &&
+    !visited.has(cursor.id)
+  ) {
+    visited.add(cursor.id);
+    depth += 1;
+    cursor = categoryById.get(
+      cursor.parentId
+    );
+  }
+
+  return depth;
+}
+
+function isCategoryInMode(
+  category: NormalizedCategory,
+  categoryById: Map<
+    number,
+    NormalizedCategory
+  >,
+  mode: string
+) {
+  const normalizedMode =
+    normalizeModeTag(mode);
+  let cursor:
+    | NormalizedCategory
+    | undefined = category;
+  const visited = new Set<number>();
+
+  while (
+    cursor &&
+    !visited.has(cursor.id)
+  ) {
+    visited.add(cursor.id);
+
+    if (
+      cursor.modeTags.includes(
+        normalizedMode
+      )
+    ) {
+      return true;
+    }
+
+    cursor = cursor.parentId
+      ? categoryById.get(
+          cursor.parentId
+        )
+      : undefined;
+  }
+
+  return false;
+}
+
+function isCategoryInsideTarget(
+  categoryId: number | null,
+  targetCategoryId: number,
+  categoryById: Map<
+    number,
+    NormalizedCategory
+  >
+) {
+  if (!categoryId) {
+    return false;
+  }
+
+  let cursor =
+    categoryById.get(categoryId);
+  const visited = new Set<number>();
+
+  while (
+    cursor &&
+    !visited.has(cursor.id)
+  ) {
+    if (
+      cursor.id ===
+      targetCategoryId
+    ) {
+      return true;
+    }
+
+    visited.add(cursor.id);
+    cursor = cursor.parentId
+      ? categoryById.get(
+          cursor.parentId
+        )
+      : undefined;
+  }
+
+  return false;
+}
+
+function getDistanceFromTarget(
+  categoryId: number | null,
+  targetCategoryId: number,
+  categoryById: Map<
+    number,
+    NormalizedCategory
+  >
+) {
+  if (!categoryId) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  let distance = 0;
+  let cursor =
+    categoryById.get(categoryId);
+  const visited = new Set<number>();
+
+  while (
+    cursor &&
+    !visited.has(cursor.id)
+  ) {
+    if (
+      cursor.id ===
+      targetCategoryId
+    ) {
+      return distance;
+    }
+
+    visited.add(cursor.id);
+    distance += 1;
+    cursor = cursor.parentId
+      ? categoryById.get(
+          cursor.parentId
+        )
+      : undefined;
+  }
+
+  return Number.MAX_SAFE_INTEGER;
+}
+
+function selectTargetCategory(
+  title: string,
+  categories: NormalizedCategory[],
+  categoryById: Map<
+    number,
+    NormalizedCategory
+  >
+) {
+  const normalizedTitle =
+    normalizeName(title);
+
+  const candidates =
+    categories.filter(
+      (category) =>
+        normalizeName(
+          category.name
+        ) === normalizedTitle
+    );
+
+  candidates.sort(
+    (first, second) => {
+      const firstInRpg =
+        isCategoryInMode(
+          first,
+          categoryById,
+          HOME_MODE
+        );
+      const secondInRpg =
+        isCategoryInMode(
+          second,
+          categoryById,
+          HOME_MODE
+        );
+
+      if (
+        firstInRpg !==
+        secondInRpg
+      ) {
+        return firstInRpg
+          ? -1
+          : 1;
+      }
+
+      const firstHasRepresentative =
+        first.documentId !== null;
+      const secondHasRepresentative =
+        second.documentId !== null;
+
+      if (
+        firstHasRepresentative !==
+        secondHasRepresentative
+      ) {
+        return firstHasRepresentative
+          ? -1
+          : 1;
+      }
+
+      const depthDifference =
+        getCategoryDepth(
+          first,
+          categoryById
+        ) -
+        getCategoryDepth(
+          second,
+          categoryById
+        );
+
+      if (depthDifference !== 0) {
+        return depthDifference;
+      }
+
+      if (
+        first.order !==
+        second.order
+      ) {
+        return (
+          first.order -
+          second.order
+        );
+      }
+
+      return first.id - second.id;
+    }
+  );
+
+  return candidates[0] ?? null;
+}
+
+function selectTargetDocument(
+  category: NormalizedCategory,
+  documents: NormalizedDocument[],
+  documentById: Map<
+    number,
+    NormalizedDocument
+  >,
+  categoryById: Map<
+    number,
+    NormalizedCategory
+  >
+) {
+  if (category.documentId) {
+    const representative =
+      documentById.get(
+        category.documentId
+      );
+
+    if (representative) {
+      return representative;
+    }
+  }
+
+  const subtreeDocuments =
+    documents.filter(
+      (document) =>
+        isCategoryInsideTarget(
+          document.categoryId,
+          category.id,
+          categoryById
+        )
+    );
+
+  subtreeDocuments.sort(
+    (first, second) => {
+      const firstDistance =
+        getDistanceFromTarget(
+          first.categoryId,
+          category.id,
+          categoryById
+        );
+      const secondDistance =
+        getDistanceFromTarget(
+          second.categoryId,
+          category.id,
+          categoryById
+        );
+
+      if (
+        firstDistance !==
+        secondDistance
+      ) {
+        return (
+          firstDistance -
+          secondDistance
+        );
+      }
+
+      if (
+        first.order !==
+        second.order
+      ) {
+        return (
+          first.order -
+          second.order
+        );
+      }
+
+      const titleDifference =
+        first.title.localeCompare(
+          second.title,
+          'ko'
+        );
+
+      if (titleDifference !== 0) {
+        return titleDifference;
+      }
+
+      return first.id - second.id;
+    }
+  );
+
+  return subtreeDocuments[0] ?? null;
 }
 
 export async function getRecentHomeDocuments(
@@ -181,7 +676,8 @@ export async function getRecentHomeDocuments(
                 ON c.id::text =
                   d.path::text
               WHERE
-                d.updated_at IS NOT NULL
+                d.updated_at
+                  IS NOT NULL
               ORDER BY
                 d.updated_at DESC,
                 d.id DESC
@@ -195,16 +691,17 @@ export async function getRecentHomeDocuments(
             (
               row
             ): HomeRecentDocument | null => {
-              const id = Number(row.id);
-              const path = Number(row.path);
+              const id =
+                toPositiveInteger(
+                  row.id
+                );
               const updatedDate =
                 normalizeDate(
                   row.updated_at
                 );
 
               if (
-                !Number.isFinite(id) ||
-                id <= 0 ||
+                !id ||
                 !row.title ||
                 !updatedDate
               ) {
@@ -218,11 +715,9 @@ export async function getRecentHomeDocuments(
                   row.category_name ||
                   '문서',
                 href:
-                  createWikiDocumentHref(
+                  createRecentDocumentHref(
                     id,
-                    Number.isFinite(path)
-                      ? path
-                      : 0,
+                    row.path,
                     row.title
                   ),
                 updatedAt:
@@ -257,7 +752,7 @@ export async function getHomeCategoryLinks(): Promise<
 > {
   try {
     return await cached(
-      'home:category-links:v4',
+      'home:category-links:v5',
       {
         ttlSec: 60,
         tags: [
@@ -267,86 +762,85 @@ export async function getHomeCategoryLinks(): Promise<
         ],
       },
       async () => {
-        /*
-         * buildCategoryTree.ts와 동일한 루트 판정:
-         * parent_id IS NULL 또는 parent_id = 0
-         */
-        const rows = (await runDbRead(
-          'home:category-links:v4',
-          async () => {
-            return await sql`
-              SELECT
-                category.id
-                  AS category_id,
-                category.name
-                  AS category_name,
-                category.document_id
-                  AS document_id,
-                document.title
-                  AS document_title
-              FROM categories category
-              LEFT JOIN documents document
-                ON document.id =
-                  category.document_id
-              WHERE
-                (
-                  category.parent_id IS NULL
-                  OR category.parent_id = 0
-                )
-                AND category.name IN (
-                  '컨텐츠',
-                  '시스템',
-                  '시세표',
-                  '법전'
-                )
-              ORDER BY
-                CASE
-                  WHEN EXISTS (
-                    SELECT 1
-                    FROM unnest(
-                      COALESCE(
-                        category.mode_tags,
-                        '{}'::text[]
-                      )
-                    ) AS mode_tag
-                    WHERE
-                      LOWER(mode_tag) = 'rpg'
-                  )
-                  THEN 0
-                  ELSE 1
-                END,
-                category."order",
-                category.id
-            `;
-          }
-        )) as unknown as HomeCategoryRow[];
+        const [
+          rawCategories,
+          rawDocuments,
+        ] = await Promise.all([
+          runDbRead(
+            'home:category-links:categories',
+            async () => {
+              return await sql`
+                SELECT
+                  id,
+                  name,
+                  parent_id,
+                  document_id,
+                  mode_tags,
+                  "order"
+                FROM categories
+                ORDER BY
+                  parent_id,
+                  "order",
+                  id
+              `;
+            }
+          ),
+          runDbRead(
+            'home:category-links:documents',
+            async () => {
+              return await sql`
+                SELECT
+                  id,
+                  title,
+                  path,
+                  "order",
+                  is_featured
+                FROM documents
+              `;
+            }
+          ),
+        ]);
 
-        const firstRowByName =
-          new Map<string, HomeCategoryRow>();
+        const categories =
+          normalizeCategories(
+            rawCategories as unknown as CategoryRow[]
+          );
+        const documents =
+          normalizeDocuments(
+            rawDocuments as unknown as DocumentRow[]
+          );
 
-        for (const row of rows) {
-          if (
-            !firstRowByName.has(
-              row.category_name
+        const categoryById =
+          new Map(
+            categories.map(
+              (category) => [
+                category.id,
+                category,
+              ]
             )
-          ) {
-            firstRowByName.set(
-              row.category_name,
-              row
-            );
-          }
-        }
+          );
+        const documentById =
+          new Map(
+            documents.map(
+              (document) => [
+                document.id,
+                document,
+              ]
+            )
+          );
 
         return HOME_CATEGORY_DEFINITIONS.map(
           (definition) => {
-            const row =
-              firstRowByName.get(
-                definition.title
-              ) ?? null;
+            const category =
+              selectTargetCategory(
+                definition.title,
+                categories,
+                categoryById
+              );
 
-            if (!row) {
+            if (!category) {
               console.error(
-                `[home] 루트 카테고리를 찾지 못했습니다: ${definition.title}`
+                `[home] 카테고리를 찾지 못했습니다: ${definition.title}`
               );
 
               return {
@@ -358,46 +852,22 @@ export async function getHomeCategoryLinks(): Promise<
               };
             }
 
-            const categoryId = Number(
-              row.category_id
-            );
-            const documentId = Number(
-              row.document_id
-            );
-            const documentTitle =
-              String(
-                row.document_title ?? ''
-              ).trim();
+            const document =
+              selectTargetDocument(
+                category,
+                documents,
+                documentById,
+                categoryById
+              );
 
-            const validCategory =
-              Number.isFinite(
-                categoryId
-              ) && categoryId > 0;
-
-            const validRepresentativeDocument =
-              Number.isFinite(
-                documentId
-              ) &&
-              documentId > 0 &&
-              documentTitle.length > 0;
-
-            if (
-              !validCategory ||
-              !validRepresentativeDocument
-            ) {
+            if (!document) {
               console.error(
-                `[home] 대표 문서가 지정되지 않았습니다: ${definition.title}`,
+                `[home] 카테고리 하위에서 열 문서를 찾지 못했습니다: ${definition.title}`,
                 {
                   categoryId:
-                    validCategory
-                      ? categoryId
-                      : null,
-                  documentId:
-                    Number.isFinite(
-                      documentId
-                    )
-                      ? documentId
-                      : null,
+                    category.id,
+                  representativeDocumentId:
+                    category.documentId,
                 }
               );
 
@@ -406,9 +876,7 @@ export async function getHomeCategoryLinks(): Promise<
                 title: definition.title,
                 href: '/wiki',
                 categoryId:
-                  validCategory
-                    ? categoryId
-                    : null,
+                  category.id,
                 documentId: null,
               };
             }
@@ -418,12 +886,12 @@ export async function getHomeCategoryLinks(): Promise<
               title: definition.title,
               href:
                 createWikiDocumentHref(
-                  documentId,
-                  categoryId,
-                  documentTitle
+                  document.id
                 ),
-              categoryId,
-              documentId,
+              categoryId:
+                category.id,
+              documentId:
+                document.id,
             };
           }
         );
