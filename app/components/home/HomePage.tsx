@@ -38,9 +38,9 @@ const categoryCards: ReadonlyArray<{
 }> = [
   {
     key: 'content',
-    title: '콘텐츠',
+    title: '컨텐츠',
     description:
-      '던전, 퀘스트, 이벤트와 생활 콘텐츠 정보를 확인하세요.',
+      '던전, 퀘스트, 이벤트와 생활 컨텐츠 정보를 확인하세요.',
     icon: '🎮',
     tone: 'green',
   },
@@ -62,9 +62,9 @@ const categoryCards: ReadonlyArray<{
   },
   {
     key: 'policy',
-    title: '운영 원칙',
+    title: '법전',
     description:
-      '서버 운영 규칙과 이용 정책을 확인할 수 있습니다.',
+      '서버의 규칙과 운영 기준을 확인할 수 있습니다.',
     icon: '⚖️',
     tone: 'orange',
   },
@@ -300,7 +300,7 @@ export default function HomePage({
               href={getCategoryHref('content')}
               className={styles.headerNavLink}
             >
-              콘텐츠
+              컨텐츠
             </Link>
 
             <Link
@@ -328,7 +328,7 @@ export default function HomePage({
               href={getCategoryHref('policy')}
               className={`${styles.headerNavLink} ${styles.headerNavPrimary}`}
             >
-              운영 원칙
+              법전
             </Link>
           </nav>
         </div>

@@ -1,13 +1,10 @@
 // =============================================
 // File: app/components/home/homeData.ts
 // 전체 교체용 코드
-//
-// 수정 핵심:
-// 1. 대표 카테고리는 최상위 카테고리에서만 찾음
-// 2. categories.document_id에 지정된 대표 문서만 사용
-// 3. URL의 path에는 문서의 path가 아니라 클릭한 카테고리 id를 사용
-// 4. 임의의 최근 하위 문서 fallback 제거
-// 5. 기존 오답 캐시와 분리하기 위해 캐시 키 v2 사용
+// - 최근 업데이트 문서 조회
+// - 정식 최상위 카테고리명으로 대표 문서 연결
+//   컨텐츠 / 시스템 / 시세표 / 법전
+// - 기존 CategoryTree와 동일하게 categories.document_id 사용
 // =============================================
 
 import 'server-only';
@@ -46,37 +43,32 @@ type RecentDocumentRow = {
   category_name: string | null;
 };
 
-type RootCategoryRow = {
+type HomeCategoryRow = {
   category_id: number | string;
   category_name: string;
   document_id: number | string | null;
   document_title: string | null;
 };
 
-const CATEGORY_DEFINITIONS: ReadonlyArray<{
+const HOME_CATEGORY_DEFINITIONS: ReadonlyArray<{
   key: HomeCategoryKey;
   title: string;
-  aliases: readonly string[];
 }> = [
   {
     key: 'content',
-    title: '콘텐츠',
-    aliases: ['콘텐츠', '컨텐츠'],
+    title: '컨텐츠',
   },
   {
     key: 'system',
     title: '시스템',
-    aliases: ['시스템'],
   },
   {
     key: 'price',
     title: '시세표',
-    aliases: ['시세표', '시세'],
   },
   {
     key: 'policy',
-    title: '운영 원칙',
-    aliases: ['운영 원칙', '운영원칙'],
+    title: '법전',
   },
 ];
 
@@ -124,13 +116,13 @@ function formatDateLabel(date: Date) {
 }
 
 function createWikiDocumentHref(
-  id: number,
+  documentId: number,
   categoryId: number,
   title: string
 ) {
   const searchParams =
     new URLSearchParams({
-      id: String(id),
+      id: String(documentId),
       path: String(categoryId),
       title,
     });
@@ -138,17 +130,8 @@ function createWikiDocumentHref(
   return `/wiki?${searchParams.toString()}`;
 }
 
-function normalizeCategoryName(
-  value: string
-) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '');
-}
-
-function createCategoryFallbacks(): HomeCategoryLink[] {
-  return CATEGORY_DEFINITIONS.map(
+function createEmptyCategoryLinks(): HomeCategoryLink[] {
+  return HOME_CATEGORY_DEFINITIONS.map(
     (definition) => ({
       key: definition.key,
       title: definition.title,
@@ -211,6 +194,7 @@ export async function getRecentHomeDocuments(
               row
             ): HomeRecentDocument | null => {
               const id = Number(row.id);
+              const path = Number(row.path);
               const updatedDate =
                 normalizeDate(
                   row.updated_at
@@ -224,8 +208,6 @@ export async function getRecentHomeDocuments(
               ) {
                 return null;
               }
-
-              const path = Number(row.path);
 
               return {
                 id,
@@ -273,7 +255,7 @@ export async function getHomeCategoryLinks(): Promise<
 > {
   try {
     return await cached(
-      'home:category-links:v2',
+      'home:category-links:v3',
       {
         ttlSec: 60,
         tags: [
@@ -284,15 +266,14 @@ export async function getHomeCategoryLinks(): Promise<
       },
       async () => {
         /*
-         * CategoryTree와 동일한 의미를 사용한다.
+         * CategoryTree의 카테고리 클릭과 같은 원리:
+         * categories.document_id에 지정된 대표 문서를 연다.
          *
-         * - 대표 카테고리 버튼은 최상위 카테고리를 대상으로 함
-         * - 이동 대상은 categories.document_id
-         * - path는 대표 문서 자체의 path가 아니라
-         *   사용자가 클릭한 category.id
+         * 같은 이름이 중복될 가능성에 대비해
+         * RPG mode_tags를 가진 최상위 카테고리를 우선한다.
          */
         const rows = (await runDbRead(
-          'home:category-links:v2',
+          'home:category-links:v3',
           async () => {
             return await sql`
               SELECT
@@ -310,6 +291,12 @@ export async function getHomeCategoryLinks(): Promise<
                   category.document_id
               WHERE
                 category.parent_id IS NULL
+                AND category.name IN (
+                  '컨텐츠',
+                  '시스템',
+                  '시세표',
+                  '법전'
+                )
               ORDER BY
                 CASE
                   WHEN EXISTS (
@@ -330,51 +317,34 @@ export async function getHomeCategoryLinks(): Promise<
                 category.id
             `;
           }
-        )) as unknown as RootCategoryRow[];
+        )) as unknown as HomeCategoryRow[];
 
-        const rowByName =
-          new Map<string, RootCategoryRow>();
+        const firstRowByName =
+          new Map<string, HomeCategoryRow>();
 
         for (const row of rows) {
-          const normalizedName =
-            normalizeCategoryName(
-              row.category_name
-            );
-
           if (
-            normalizedName &&
-            !rowByName.has(
-              normalizedName
+            !firstRowByName.has(
+              row.category_name
             )
           ) {
-            rowByName.set(
-              normalizedName,
+            firstRowByName.set(
+              row.category_name,
               row
             );
           }
         }
 
-        return CATEGORY_DEFINITIONS.map(
+        return HOME_CATEGORY_DEFINITIONS.map(
           (definition) => {
             const row =
-              definition.aliases
-                .map((alias) =>
-                  rowByName.get(
-                    normalizeCategoryName(
-                      alias
-                    )
-                  )
-                )
-                .find(
-                  (
-                    candidate
-                  ): candidate is RootCategoryRow =>
-                    candidate !== undefined
-                ) ?? null;
+              firstRowByName.get(
+                definition.title
+              ) ?? null;
 
             if (!row) {
               console.warn(
-                `[home] 최상위 카테고리를 찾지 못했습니다: ${definition.title}`
+                `[home] 카테고리를 찾지 못했습니다: ${definition.title}`
               );
 
               return {
@@ -397,12 +367,12 @@ export async function getHomeCategoryLinks(): Promise<
                 row.document_title ?? ''
               ).trim();
 
-            const hasCategory =
+            const validCategory =
               Number.isFinite(
                 categoryId
               ) && categoryId > 0;
 
-            const hasRepresentative =
+            const validRepresentativeDocument =
               Number.isFinite(
                 documentId
               ) &&
@@ -410,11 +380,11 @@ export async function getHomeCategoryLinks(): Promise<
               documentTitle.length > 0;
 
             if (
-              !hasCategory ||
-              !hasRepresentative
+              !validCategory ||
+              !validRepresentativeDocument
             ) {
               console.warn(
-                `[home] 대표 문서가 지정되지 않은 카테고리입니다: ${row.category_name}`
+                `[home] 대표 문서가 지정되지 않았습니다: ${definition.title}`
               );
 
               return {
@@ -422,7 +392,7 @@ export async function getHomeCategoryLinks(): Promise<
                 title: definition.title,
                 href: '/wiki',
                 categoryId:
-                  hasCategory
+                  validCategory
                     ? categoryId
                     : null,
                 documentId: null,
@@ -451,6 +421,6 @@ export async function getHomeCategoryLinks(): Promise<
       error
     );
 
-    return createCategoryFallbacks();
+    return createEmptyCategoryLinks();
   }
 }
