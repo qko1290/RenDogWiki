@@ -1215,7 +1215,7 @@ export default function HomePage({
                   rel="noreferrer"
                   className={`${styles.communityLink} ${styles.communityLinkDiscord}`}
                   aria-label="렌독 디스코드 열기"
-                  data-tooltip="실시간 채팅과 서버 소식"
+                  data-tooltip="렌독서버 디스코드"
                 >
                   <svg
                     viewBox="0 0 24 24"
@@ -1233,7 +1233,7 @@ export default function HomePage({
                   rel="noreferrer"
                   className={`${styles.communityLink} ${styles.communityLinkNaver}`}
                   aria-label="렌독 네이버 카페 열기"
-                  data-tooltip="공지와 커뮤니티 게시글"
+                  data-tooltip="렌독서버 공식카페"
                 >
                   <span aria-hidden="true">N</span>
                 </a>
@@ -1244,7 +1244,7 @@ export default function HomePage({
                   rel="noreferrer"
                   className={`${styles.communityLink} ${styles.communityLinkMinelist}`}
                   aria-label="렌독 마인리스트 열기"
-                  data-tooltip="서버 정보와 추천 페이지"
+                  data-tooltip="마인리스트"
                 >
                   <svg
                     viewBox="0 0 24 24"
