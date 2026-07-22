@@ -861,7 +861,13 @@ export default function HomePage({
       </div>
 
       <header className={styles.header}>
-        <div className={styles.headerInner}>
+        <div
+          className={styles.headerInner}
+          style={{
+            width:
+              'min(calc(100% - 48px), 1480px)',
+          }}
+        >
           <Link
             href="/"
             className={styles.brand}
