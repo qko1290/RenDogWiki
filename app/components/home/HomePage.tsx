@@ -59,7 +59,7 @@ const categoryCards: ReadonlyArray<{
     key: 'content',
     title: '컨텐츠',
     description:
-      '던전, 퀘스트, 이벤트와 생활 컨텐츠 정보를 확인하세요.',
+      '던전, 보스, 도감 등\n다양한 컨텐츠의 정보를 확인하세요',
     iconSrc: '/images/home/icons/content.png',
     tone: 'green',
   },
@@ -67,7 +67,7 @@ const categoryCards: ReadonlyArray<{
     key: 'system',
     title: '시스템',
     description:
-      '성장, 강화, 거래 등 서버의 주요 시스템을 알아보세요.',
+      '강화, 거래, 명령어 등\n서버의 주요 시스템을 알아보세요',
     iconSrc: '/images/home/icons/system.png',
     tone: 'mint',
   },
@@ -75,7 +75,7 @@ const categoryCards: ReadonlyArray<{
     key: 'price',
     title: '퀘스트',
     description:
-      '서버의 주요 퀘스트와 진행에 필요한 정보를 확인하세요.',
+      '퀘스트의 위치, 보상 같은 정보를\n 간편하게 확인해보세요',
     iconSrc: '/images/home/icons/quest.png',
     tone: 'blue',
     href:
@@ -111,28 +111,28 @@ const FAQ_DOCUMENT_HREF =
 
 const recommendations = [
   {
-    label: '장비 정보를 찾고 있다면',
+    label: '무기 정보를 찾고 있다면',
     title: '무기',
     description:
-      '렌독 서버의 무기 종류와 관련 정보를 확인해 보세요.',
+      '렌독 서버의 무기 종류와\n무기별 상세 정보를 확인해 보세요',
     iconSrc: '/images/home/icons/weapon.png',
     href:
       '/wiki?mode=RPG&path=48&title=%EB%AC%B4%EA%B8%B0&id=289',
   },
   {
-    label: '함께 도전할 콘텐츠를 찾는다면',
+    label: '레이드의 패턴을 알고 싶다면',
     title: '레이드',
     description:
-      '레이드 종류와 공략에 필요한 정보를 확인해 보세요.',
+      '레이드 종류와 공략에 필요한 정보를 확인해 보세요',
     iconSrc: '/images/home/icons/raid.png',
     href:
       '/wiki?mode=RPG&path=82&title=%EB%A0%88%EC%9D%B4%EB%93%9C&id=248',
   },
   {
-    label: '수집 정보를 확인하고 싶다면',
+    label: '도감 목록을 확인하고 싶다면',
     title: '도감',
     description:
-      '서버의 다양한 수집 요소와 도감 정보를 살펴보세요.',
+      '도감 목록과 보상을\n간편하게 확인해 보세요',
     iconSrc: '/images/home/icons/collection-book.png',
     href:
       '/wiki?mode=RPG&path=34&title=%EB%8F%84%EA%B0%90&id=207',
@@ -723,7 +723,7 @@ export default function HomePage({
                 </h1>
 
                 <p className={styles.heroDescription}>
-                  원하는 정보를 빠르고 편하게 찾아보세요.
+                  원하는 정보를 빠르고 편하게 찾아보세요
                 </p>
 
                 <div
