@@ -1,11 +1,11 @@
 // =============================================
 // File: app/components/common/Header.tsx
 // 전체 코드
-// - 홈 헤더와 동일한 디자인 적용
-// - 문서 헤더에만 중앙 검색창 유지
-// - 바로가기/즐겨찾기 전환 버튼 제거
-// - 기존 관리자 메뉴 및 모바일 카테고리 동작 유지
-// - 홈 분위기의 카테고리/목차 디자인 CSS 적용
+//
+// - 홈 헤더 디자인을 문서 화면에도 적용
+// - 문서 화면 중앙 검색창 유지
+// - 바로가기/즐겨찾기 전환기는 왼쪽 배지에 고정
+// - 헤더 디자인은 wikiShell.css 한 곳에서 관리
 // =============================================
 
 'use client';
@@ -23,9 +23,6 @@ import ThemeToggle from '@/components/common/ThemeToggle';
 import DocBadgeModeSwitcher from '@/components/wiki/DocBadgeModeSwitcher';
 
 import '@/wiki/css/header.css';
-import '@/wiki/css/wikiChromeRefresh.css';
-
-import styles from '@/wiki/css/wikiHeaderHome.module.css';
 
 type WikiHeaderProps = {
   user: {
@@ -63,10 +60,6 @@ export default function WikiHeader({
     setIsMenuOpen,
   ] = useState(false);
 
-  /*
-   * 기존 문서 화면이 사용하던 mode 파라미터 초기화는 유지한다.
-   * 화면에 표시되던 모드 선택 UI와는 별개인 호환성 처리다.
-   */
   useEffect(() => {
     const url =
       new URL(window.location.href);
@@ -139,10 +132,6 @@ export default function WikiHeader({
     };
   }, [isMenuOpen]);
 
-  const openAdminMenu = () => {
-    setIsMenuOpen(true);
-  };
-
   async function handleLogout() {
     try {
       const response = await fetch(
@@ -173,11 +162,11 @@ export default function WikiHeader({
   }
 
   return (
-    <header className={styles.header}>
-      <div className={styles.inner}>
+    <header className="wiki-shell-header">
+      <div className="wiki-shell-header-inner">
         <Link
           href="/"
-          className={styles.brand}
+          className="wiki-shell-header-brand"
           aria-label="RDWIKI 홈"
         >
           <Image
@@ -185,12 +174,12 @@ export default function WikiHeader({
             alt="RDWIKI"
             width={360}
             height={120}
-            className={styles.brandLogo}
+            className="wiki-shell-header-logo"
             priority
           />
         </Link>
 
-        <div className={styles.search}>
+        <div className="wiki-shell-header-search">
           <SearchBox
             align="center"
             width="100%"
@@ -201,14 +190,16 @@ export default function WikiHeader({
           />
         </div>
 
-        <div className={styles.actions}>
+        <div className="wiki-shell-header-actions">
           <ThemeToggle />
 
           {!hideAdminMenu && (
             <button
               type="button"
-              onClick={openAdminMenu}
-              className={`${styles.iconButton} ${styles.desktopAdminButton}`}
+              onClick={() => {
+                setIsMenuOpen(true);
+              }}
+              className="wiki-shell-header-button wiki-shell-header-admin"
               aria-label="관리 메뉴 열기"
               aria-haspopup="dialog"
               aria-expanded={isMenuOpen}
@@ -220,7 +211,7 @@ export default function WikiHeader({
           {onToggleMobileCategory ? (
             <button
               type="button"
-              className={`${styles.iconButton} ${styles.mobileMenuButton}`}
+              className="wiki-shell-header-button wiki-shell-header-mobile"
               onClick={
                 onToggleMobileCategory
               }
@@ -239,8 +230,10 @@ export default function WikiHeader({
             !hideAdminMenu && (
               <button
                 type="button"
-                onClick={openAdminMenu}
-                className={`${styles.iconButton} ${styles.mobileMenuButton}`}
+                onClick={() => {
+                  setIsMenuOpen(true);
+                }}
+                className="wiki-shell-header-button wiki-shell-header-mobile"
                 aria-label="관리 메뉴 열기"
                 aria-haspopup="dialog"
                 aria-expanded={isMenuOpen}
