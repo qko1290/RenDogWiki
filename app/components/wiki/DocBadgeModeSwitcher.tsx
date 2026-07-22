@@ -1,10 +1,10 @@
 // =============================================
 // File: app/components/wiki/DocBadgeModeSwitcher.tsx
 // 전체 코드
-// - 바로가기 배지 영역을 감지해 전환 버튼을 위쪽 말풍선으로 표시
-// - 말풍선과 배지 사이 이동 구간을 연결해 조작감 개선
-// - 기존 바로가기 배지의 transition 시간을 읽어 표시/숨김 속도 동기화
-// - 기존 localStorage 및 전환 이벤트 유지
+// - 실제 .wiki-quick-badges-wrap 내부의 .qbd-root만 감지
+// - 카테고리/본문 요소를 바로가기 배지로 오인하는 문제 제거
+// - 전환 버튼을 실제 .qbd-main 버튼 위에 고정
+// - 기존 transition 시간과 localStorage 이벤트 유지
 // =============================================
 
 'use client';
@@ -31,30 +31,19 @@ type SwitcherPosition = {
   top: number;
 };
 
-type BadgeContext = {
-  anchor: HTMLElement;
-  root: HTMLElement;
-};
+const BADGE_ROOT_SELECTOR =
+  '.wiki-quick-badges-wrap .qbd-root';
 
-const BADGE_MODE_STORAGE =
+const BADGE_ANCHOR_SELECTOR =
+  '.qbd-main';
+
+  const BADGE_MODE_STORAGE =
   'wiki:doc-badge-mode';
 
 const BADGE_MODE_EVENT =
   'wiki-doc-badge-mode-change';
 
 const DEFAULT_TRANSITION_MS = 180;
-
-const QUICK_BADGE_WORDS = [
-  '바로가기',
-  '즐겨찾기',
-  '퀘스트',
-  '상점',
-  '도감',
-  '계산기',
-] as const;
-
-const INTERACTIVE_SELECTOR =
-  'button, a, [role="button"]';
 
 function readBadgeMode(): DocBadgeMode {
   if (typeof window === 'undefined') {
@@ -66,20 +55,6 @@ function readBadgeMode(): DocBadgeMode {
   ) === 'favorites'
     ? 'favorites'
     : 'quick';
-}
-
-function getElementLabel(
-  element: HTMLElement,
-) {
-  return [
-    element.textContent,
-    element.getAttribute('aria-label'),
-    element.getAttribute('title'),
-    element.getAttribute('data-tooltip'),
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .trim();
 }
 
 function isVisible(
@@ -98,148 +73,50 @@ function isVisible(
   );
 }
 
-function findTopBadgeButton(
+function findBadgeRoot() {
+  const root =
+    document.querySelector<HTMLElement>(
+      BADGE_ROOT_SELECTOR,
+    );
+
+  if (
+    !root ||
+    !root.isConnected ||
+    !isVisible(root)
+  ) {
+    return null;
+  }
+
+  return root;
+}
+
+function findBadgeAnchor(
   root: HTMLElement,
 ) {
-  const candidates = Array.from(
-    root.querySelectorAll<HTMLElement>(
-      INTERACTIVE_SELECTOR,
-    ),
-  )
-    .filter(isVisible)
-    .filter((element) => {
-      const rect =
-        element.getBoundingClientRect();
-
-      return (
-        rect.left < 110 &&
-        rect.top >= 64 &&
-        rect.width >= 34 &&
-        rect.width <= 90 &&
-        rect.height >= 34 &&
-        rect.height <= 90
-      );
-    })
-    .sort(
-      (a, b) =>
-        a.getBoundingClientRect().top -
-        b.getBoundingClientRect().top,
+  const mainButton =
+    root.querySelector<HTMLElement>(
+      BADGE_ANCHOR_SELECTOR,
     );
 
-  return candidates[0] ?? root;
-}
-
-function resolveBadgeContext(
-  start: HTMLElement,
-): BadgeContext | null {
-  let current: HTMLElement | null =
-    start;
-  let fallbackRoot: HTMLElement | null =
-    null;
-
-  for (
-    let depth = 0;
-    current && depth < 10;
-    depth += 1
-  ) {
-    const rect =
-      current.getBoundingClientRect();
-
-    const isLeftBadgeArea =
-      rect.left < 280 &&
-      rect.right < 330 &&
-      rect.top >= 64 &&
-      rect.width <= 280 &&
-      rect.height <= 620;
-
-    if (isLeftBadgeArea) {
-      const label =
-        getElementLabel(current);
-
-      const hasKnownLabel =
-        QUICK_BADGE_WORDS.some(
-          (word) =>
-            label.includes(word),
-        );
-
-      const interactiveCount =
-        current.querySelectorAll(
-          INTERACTIVE_SELECTOR,
-        ).length;
-
-      const style =
-        window.getComputedStyle(current);
-
-      if (
-        hasKnownLabel ||
-        interactiveCount >= 2
-      ) {
-        fallbackRoot = current;
-      }
-
-      if (
-        style.position === 'fixed' &&
-        (
-          hasKnownLabel ||
-          interactiveCount >= 2
-        )
-      ) {
-        return {
-          root: current,
-          anchor:
-            findTopBadgeButton(current),
-        };
-      }
-    }
-
-    current =
-      current.parentElement;
-  }
-
-  if (!fallbackRoot) {
-    return null;
-  }
-
-  return {
-    root: fallbackRoot,
-    anchor:
-      findTopBadgeButton(fallbackRoot),
-  };
-}
-
-function findBadgeContextAtPoint(
-  clientX: number,
-  clientY: number,
-) {
   if (
-    clientY < 64 ||
-    clientX > 290
+    mainButton &&
+    mainButton.isConnected
   ) {
-    return null;
+    return mainButton;
   }
 
-  const elements =
-    document.elementsFromPoint(
-      clientX,
-      clientY,
-    );
+  return root;
+}
 
-  for (const element of elements) {
-    if (
-      !(element instanceof HTMLElement)
-    ) {
-      continue;
-    }
-
-    const context =
-      resolveBadgeContext(element);
-
-    if (context) {
-      return context;
-    }
-  }
-
-  return null;
+function isInsideElement(
+  target: EventTarget | null,
+  element: HTMLElement | null,
+) {
+  return (
+    Boolean(element) &&
+    target instanceof Node &&
+    element!.contains(target)
+  );
 }
 
 function parseTimeList(
@@ -452,28 +329,6 @@ export default function DocBadgeModeSwitcher() {
       [],
     );
 
-  const rememberBadgeContext =
-    useCallback(
-      (context: BadgeContext) => {
-        badgeRootRef.current =
-          context.root;
-
-        badgeAnchorRef.current =
-          context.anchor;
-
-        updatePosition(
-          context.anchor,
-        );
-
-        setTransitionMs(
-          readTransitionMs(
-            context.root,
-          ),
-        );
-      },
-      [updatePosition],
-    );
-
   useEffect(() => {
     setIsMounted(true);
     setMode(readBadgeMode());
@@ -523,32 +378,123 @@ export default function DocBadgeModeSwitcher() {
   }, []);
 
   useEffect(() => {
+    let observedRoot:
+      | HTMLElement
+      | null = null;
+
+    const syncBadgeElements = () => {
+      const nextRoot =
+        findBadgeRoot();
+
+      if (
+        nextRoot === observedRoot &&
+        nextRoot === badgeRootRef.current
+      ) {
+        return;
+      }
+
+      observedRoot = nextRoot;
+      badgeRootRef.current =
+        nextRoot;
+      badgeAnchorRef.current =
+        nextRoot
+          ? findBadgeAnchor(
+              nextRoot,
+            )
+          : null;
+
+      if (nextRoot) {
+        setTransitionMs(
+          readTransitionMs(
+            nextRoot,
+          ),
+        );
+
+        updatePosition(
+          badgeAnchorRef.current,
+        );
+      } else {
+        setOpenState(false);
+      }
+    };
+
+    syncBadgeElements();
+
+    const observer =
+      new MutationObserver(() => {
+        const currentRoot =
+          badgeRootRef.current;
+
+        if (
+          !currentRoot ||
+          !currentRoot.isConnected
+        ) {
+          syncBadgeElements();
+          return;
+        }
+
+        const nextAnchor =
+          findBadgeAnchor(
+            currentRoot,
+          );
+
+        if (
+          nextAnchor !==
+          badgeAnchorRef.current
+        ) {
+          badgeAnchorRef.current =
+            nextAnchor;
+
+          updatePosition(
+            nextAnchor,
+          );
+        }
+      });
+
+    observer.observe(
+      document.body,
+      {
+        childList: true,
+        subtree: true,
+      },
+    );
+
     const onPointerMove = (
       event: PointerEvent,
     ) => {
+      const root =
+        badgeRootRef.current;
       const switcher =
         switcherRef.current;
 
       if (
-        switcher &&
-        event.target instanceof Node &&
-        switcher.contains(
+        isInsideElement(
           event.target,
+          switcher,
         )
       ) {
         setOpenState(true);
         return;
       }
 
-      const context =
-        findBadgeContextAtPoint(
-          event.clientX,
-          event.clientY,
-        );
+      if (
+        isInsideElement(
+          event.target,
+          root,
+        )
+      ) {
+        const anchor =
+          root
+            ? findBadgeAnchor(
+                root,
+              )
+            : null;
 
-      if (context) {
-        rememberBadgeContext(
-          context,
+        badgeAnchorRef.current =
+          anchor;
+
+        updatePosition(
+          anchor,
         );
 
         setOpenState(true);
@@ -576,6 +522,8 @@ export default function DocBadgeModeSwitcher() {
     );
 
     return () => {
+      observer.disconnect();
+
       document.removeEventListener(
         'pointermove',
         onPointerMove,
@@ -587,8 +535,8 @@ export default function DocBadgeModeSwitcher() {
       );
     };
   }, [
-    rememberBadgeContext,
     setOpenState,
+    updatePosition,
   ]);
 
   useEffect(() => {
@@ -675,7 +623,7 @@ export default function DocBadgeModeSwitcher() {
           root.isConnected
         ) {
           badgeAnchorRef.current =
-            findTopBadgeButton(root);
+            findBadgeAnchor(root);
 
           updatePosition();
         }
