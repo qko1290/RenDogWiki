@@ -19,6 +19,7 @@ import Link from 'next/link';
 import HamburgerMenu from '@/components/common/HamburgerMenu';
 import SearchBox from '@/components/common/SearchBox';
 import ThemeToggle from '@/components/common/ThemeToggle';
+import DocBadgeModeSwitcher from '@/components/wiki/DocBadgeModeSwitcher';
 
 import '@/wiki/css/header.css';
 
@@ -248,6 +249,8 @@ export default function WikiHeader({
           )}
         </div>
       </div>
+
+      <DocBadgeModeSwitcher />
 
       {isMenuOpen && !hideAdminMenu && (
         <HamburgerMenu
