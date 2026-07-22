@@ -413,6 +413,404 @@
   color: var(--home-dark-muted);
 }
 
+
+/* =============================================
+ * 다크 모드 배경 입자
+ * - 라이트 모드에서는 기존 나뭇잎 애니메이션 유지
+ * - 다크 모드에서는 같은 입자를 초록 네온 반딧불이로 전환
+ * - 아래에서 위로 천천히 떠오르며 밝기가 불규칙하게 깜빡임
+ * ============================================= */
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-atmosphere='true'] {
+  overflow: hidden;
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-particle='true'] {
+  --firefly-size: 4px;
+  --firefly-left: 50%;
+  --firefly-duration: 12s;
+  --firefly-delay: 0s;
+  --firefly-drift-a: 12px;
+  --firefly-drift-b: -14px;
+  --firefly-drift-c: 18px;
+  --firefly-drift-d: -8px;
+  --firefly-drift-e: 10px;
+
+  position: absolute !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: -10vh !important;
+  left: var(--firefly-left) !important;
+  width: var(--firefly-size) !important;
+  height: var(--firefly-size) !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  clip-path: none !important;
+  background:
+    radial-gradient(
+      circle,
+      #f0ffe8 0%,
+      #c9ff9f 20%,
+      #75ff80 43%,
+      rgba(43, 255, 99, 0.72) 62%,
+      rgba(31, 255, 86, 0) 100%
+    ) !important;
+  box-shadow:
+    0 0 5px rgba(174, 255, 151, 0.98),
+    0 0 12px rgba(79, 255, 105, 0.86),
+    0 0 24px rgba(27, 255, 80, 0.48) !important;
+  opacity: 0;
+  filter: none !important;
+  transform-origin: center;
+  animation:
+    homeDarkFireflyRise
+    var(--firefly-duration)
+    ease-in-out
+    var(--firefly-delay)
+    infinite !important;
+  will-change: transform, opacity;
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-particle='true']::before {
+  content: '' !important;
+  position: absolute;
+  inset: -8px;
+  display: block !important;
+  border: 0 !important;
+  border-radius: 999px;
+  background:
+    radial-gradient(
+      circle,
+      rgba(123, 255, 120, 0.34) 0%,
+      rgba(61, 255, 92, 0.16) 38%,
+      transparent 72%
+    );
+  opacity: 0.8;
+  transform: none !important;
+  animation:
+    homeDarkFireflyPulse
+    2.4s
+    ease-in-out
+    infinite;
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-particle='true']::after {
+  content: '' !important;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: block !important;
+  width: 1px;
+  height: 18px;
+  border: 0 !important;
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(118, 255, 122, 0.26),
+      transparent
+    );
+  opacity: 0.32;
+  filter: blur(1px);
+  transform:
+    translate3d(-50%, 1px, 0) !important;
+}
+
+/* 각 반딧불이의 위치·크기·속도를 다르게 해 반복감을 줄인다. */
+:global(:root[data-theme='dark'])
+.scope
+[data-home-particle='true']:nth-child(1) {
+  --firefly-left: 7%;
+  --firefly-size: 3px;
+  --firefly-duration: 13.6s;
+  --firefly-delay: -8.4s;
+  --firefly-drift-a: 18px;
+  --firefly-drift-b: -9px;
+  --firefly-drift-c: 24px;
+  --firefly-drift-d: 5px;
+  --firefly-drift-e: -12px;
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-particle='true']:nth-child(2) {
+  --firefly-left: 15%;
+  --firefly-size: 5px;
+  --firefly-duration: 11.8s;
+  --firefly-delay: -2.7s;
+  --firefly-drift-a: -16px;
+  --firefly-drift-b: 12px;
+  --firefly-drift-c: -22px;
+  --firefly-drift-d: 8px;
+  --firefly-drift-e: 17px;
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-particle='true']:nth-child(3) {
+  --firefly-left: 23%;
+  --firefly-size: 3.5px;
+  --firefly-duration: 15.2s;
+  --firefly-delay: -11.6s;
+  --firefly-drift-a: 10px;
+  --firefly-drift-b: 28px;
+  --firefly-drift-c: -10px;
+  --firefly-drift-d: -22px;
+  --firefly-drift-e: 8px;
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-particle='true']:nth-child(4) {
+  --firefly-left: 31%;
+  --firefly-size: 4px;
+  --firefly-duration: 10.9s;
+  --firefly-delay: -5.1s;
+  --firefly-drift-a: -20px;
+  --firefly-drift-b: -4px;
+  --firefly-drift-c: 19px;
+  --firefly-drift-d: 25px;
+  --firefly-drift-e: -9px;
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-particle='true']:nth-child(5) {
+  --firefly-left: 39%;
+  --firefly-size: 2.8px;
+  --firefly-duration: 14.5s;
+  --firefly-delay: -1.4s;
+  --firefly-drift-a: 12px;
+  --firefly-drift-b: -24px;
+  --firefly-drift-c: -5px;
+  --firefly-drift-d: 17px;
+  --firefly-drift-e: 27px;
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-particle='true']:nth-child(6) {
+  --firefly-left: 47%;
+  --firefly-size: 4.8px;
+  --firefly-duration: 12.7s;
+  --firefly-delay: -9.8s;
+  --firefly-drift-a: -8px;
+  --firefly-drift-b: 18px;
+  --firefly-drift-c: 29px;
+  --firefly-drift-d: -14px;
+  --firefly-drift-e: -22px;
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-particle='true']:nth-child(7) {
+  --firefly-left: 54%;
+  --firefly-size: 3.2px;
+  --firefly-duration: 16s;
+  --firefly-delay: -4.3s;
+  --firefly-drift-a: 24px;
+  --firefly-drift-b: 6px;
+  --firefly-drift-c: -18px;
+  --firefly-drift-d: -26px;
+  --firefly-drift-e: 9px;
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-particle='true']:nth-child(8) {
+  --firefly-left: 62%;
+  --firefly-size: 4px;
+  --firefly-duration: 11.3s;
+  --firefly-delay: -7.2s;
+  --firefly-drift-a: -18px;
+  --firefly-drift-b: 22px;
+  --firefly-drift-c: 6px;
+  --firefly-drift-d: -11px;
+  --firefly-drift-e: 20px;
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-particle='true']:nth-child(9) {
+  --firefly-left: 69%;
+  --firefly-size: 2.6px;
+  --firefly-duration: 14.1s;
+  --firefly-delay: -12.3s;
+  --firefly-drift-a: 14px;
+  --firefly-drift-b: -18px;
+  --firefly-drift-c: -27px;
+  --firefly-drift-d: 6px;
+  --firefly-drift-e: 16px;
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-particle='true']:nth-child(10) {
+  --firefly-left: 76%;
+  --firefly-size: 5px;
+  --firefly-duration: 12.2s;
+  --firefly-delay: -3.8s;
+  --firefly-drift-a: -25px;
+  --firefly-drift-b: -7px;
+  --firefly-drift-c: 21px;
+  --firefly-drift-d: 15px;
+  --firefly-drift-e: -13px;
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-particle='true']:nth-child(11) {
+  --firefly-left: 83%;
+  --firefly-size: 3.4px;
+  --firefly-duration: 15.7s;
+  --firefly-delay: -6.5s;
+  --firefly-drift-a: 17px;
+  --firefly-drift-b: 26px;
+  --firefly-drift-c: -7px;
+  --firefly-drift-d: -19px;
+  --firefly-drift-e: 11px;
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-particle='true']:nth-child(12) {
+  --firefly-left: 90%;
+  --firefly-size: 4.5px;
+  --firefly-duration: 10.8s;
+  --firefly-delay: -10.1s;
+  --firefly-drift-a: -13px;
+  --firefly-drift-b: 9px;
+  --firefly-drift-c: 25px;
+  --firefly-drift-d: -5px;
+  --firefly-drift-e: -18px;
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-particle='true']:nth-child(13) {
+  --firefly-left: 96%;
+  --firefly-size: 3px;
+  --firefly-duration: 13.1s;
+  --firefly-delay: -4.9s;
+  --firefly-drift-a: -20px;
+  --firefly-drift-b: -27px;
+  --firefly-drift-c: 4px;
+  --firefly-drift-d: 18px;
+  --firefly-drift-e: -7px;
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-particle='true']:nth-child(14) {
+  --firefly-left: 3%;
+  --firefly-size: 4px;
+  --firefly-duration: 16.4s;
+  --firefly-delay: -13.7s;
+  --firefly-drift-a: 8px;
+  --firefly-drift-b: 24px;
+  --firefly-drift-c: -14px;
+  --firefly-drift-d: -23px;
+  --firefly-drift-e: 6px;
+}
+
+@keyframes homeDarkFireflyRise {
+  0% {
+    opacity: 0;
+    transform:
+      translate3d(0, 12vh, 0)
+      scale(0.48);
+  }
+
+  10% {
+    opacity: 0.8;
+  }
+
+  22% {
+    opacity: 0.42;
+    transform:
+      translate3d(
+        var(--firefly-drift-a),
+        -18vh,
+        0
+      )
+      scale(0.9);
+  }
+
+  39% {
+    opacity: 1;
+    transform:
+      translate3d(
+        var(--firefly-drift-b),
+        -40vh,
+        0
+      )
+      scale(1.12);
+  }
+
+  56% {
+    opacity: 0.38;
+    transform:
+      translate3d(
+        var(--firefly-drift-c),
+        -63vh,
+        0
+      )
+      scale(0.78);
+  }
+
+  73% {
+    opacity: 0.92;
+    transform:
+      translate3d(
+        var(--firefly-drift-d),
+        -84vh,
+        0
+      )
+      scale(1);
+  }
+
+  90% {
+    opacity: 0.52;
+  }
+
+  100% {
+    opacity: 0;
+    transform:
+      translate3d(
+        var(--firefly-drift-e),
+        -116vh,
+        0
+      )
+      scale(0.52);
+  }
+}
+
+@keyframes homeDarkFireflyPulse {
+  0%,
+  100% {
+    opacity: 0.38;
+    transform: scale(0.78);
+  }
+
+  46% {
+    opacity: 0.92;
+    transform: scale(1.18);
+  }
+
+  68% {
+    opacity: 0.55;
+    transform: scale(0.94);
+  }
+}
+
 @media (max-width: 1024px) {
   :global(:root[data-theme='dark'])
   .scope
@@ -429,5 +827,12 @@
   .scope
   [data-home-card='recommend'] {
     transition: none;
+  }
+
+  :global(:root[data-theme='dark'])
+  .scope
+  [data-home-particle='true'] {
+    display: none !important;
+    animation: none !important;
   }
 }
