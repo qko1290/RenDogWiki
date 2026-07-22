@@ -840,6 +840,7 @@ export default function HomePage({
     >
       <div
         className={styles.springAtmosphere}
+        data-home-atmosphere="true"
         aria-hidden="true"
       >
         {Array.from(
@@ -853,6 +854,7 @@ export default function HomePage({
               className={
                 styles.springLeaf
               }
+              data-home-particle="true"
             />
           )
         )}
