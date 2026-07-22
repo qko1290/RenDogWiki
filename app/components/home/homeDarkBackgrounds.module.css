@@ -23,56 +23,60 @@
 }
 
 /*
- * 좌우 이미지와 중앙 본문 사이 경계가
- * 그림자처럼 딱 끊겨 보이지 않도록,
- * 덮는 그라데이션을 약하게 하고 마스크로
- * 중앙 쪽으로 자연스럽게 사라지게 만든다.
+ * 좌우 배경 자체의 밝기는 유지하고,
+ * 이미지 안에 포함된 흰색 페이드 영역은 살짝 확대해 잘라낸다.
+ * 중앙 경계에서만 배경색으로 천천히 섞이게 처리한다.
  */
 :global(:root[data-theme='dark'])
 .scope
 [data-home-rail]::before {
   background-repeat: no-repeat;
-  background-size:
-    100% 100%,
-    cover;
-  opacity: 0.64;
+  opacity: 0.96;
   filter:
-    saturate(0.8)
-    brightness(0.7)
-    contrast(0.98);
-  will-change: opacity;
+    saturate(0.94)
+    brightness(1)
+    contrast(1);
 }
 
+/*
+ * 첫 번째 레이어는 중앙 경계 전용 페이드,
+ * 두 번째 레이어는 실제 야간 배경 이미지다.
+ *
+ * 이미지 크기를 112%로 확대해 이미지 자체의
+ * 밝은 흰색 페이드가 화면 안쪽에 과하게 나타나지 않게 한다.
+ */
 :global(:root[data-theme='dark'])
 .scope
 [data-home-rail='left']::before {
   background-image:
     linear-gradient(
-      to bottom,
-      rgba(4, 10, 22, 0.4) 0%,
-      rgba(4, 10, 22, 0.1) 40%,
-      rgba(4, 10, 22, 0.22) 100%
+      to right,
+      transparent 0%,
+      transparent 56%,
+      color-mix(
+        in srgb,
+        var(--background) 10%,
+        transparent
+      ) 68%,
+      color-mix(
+        in srgb,
+        var(--background) 32%,
+        transparent
+      ) 79%,
+      color-mix(
+        in srgb,
+        var(--background) 68%,
+        transparent
+      ) 91%,
+      var(--background) 100%
     ),
     url('/images/home/home-side-background-left-dark.png');
   background-position:
     center,
-    left top;
-  mask-image: linear-gradient(
-    to right,
-    rgba(0, 0, 0, 0.98) 0%,
-    rgba(0, 0, 0, 0.9) 34%,
-    rgba(0, 0, 0, 0.64) 56%,
-    rgba(0, 0, 0, 0.26) 78%,
-    transparent 100%
-  );
-  -webkit-mask-image: linear-gradient(
-    to right,
-    rgba(0, 0, 0, 0.98) 0%,
-    rgba(0, 0, 0, 0.9) 34%,
-    rgba(0, 0, 0, 0.64) 56%,
-    rgba(0, 0, 0, 0.26) 78%,
-    transparent 100%
-  );
+    left center;
+  background-size:
+    100% 100%,
+    auto 112%;
 }
 
 :global(:root[data-theme='dark'])
@@ -80,52 +84,33 @@
 [data-home-rail='right']::before {
   background-image:
     linear-gradient(
-      to bottom,
-      rgba(4, 10, 22, 0.4) 0%,
-      rgba(4, 10, 22, 0.1) 40%,
-      rgba(4, 10, 22, 0.22) 100%
+      to left,
+      transparent 0%,
+      transparent 56%,
+      color-mix(
+        in srgb,
+        var(--background) 10%,
+        transparent
+      ) 68%,
+      color-mix(
+        in srgb,
+        var(--background) 32%,
+        transparent
+      ) 79%,
+      color-mix(
+        in srgb,
+        var(--background) 68%,
+        transparent
+      ) 91%,
+      var(--background) 100%
     ),
     url('/images/home/home-side-background-right-dark.png');
   background-position:
     center,
-    right top;
-  mask-image: linear-gradient(
-    to left,
-    rgba(0, 0, 0, 0.98) 0%,
-    rgba(0, 0, 0, 0.9) 34%,
-    rgba(0, 0, 0, 0.64) 56%,
-    rgba(0, 0, 0, 0.26) 78%,
-    transparent 100%
-  );
-  -webkit-mask-image: linear-gradient(
-    to left,
-    rgba(0, 0, 0, 0.98) 0%,
-    rgba(0, 0, 0, 0.9) 34%,
-    rgba(0, 0, 0, 0.64) 56%,
-    rgba(0, 0, 0, 0.26) 78%,
-    transparent 100%
-  );
-}
-
-/*
- * 중앙 본문 가장자리에도 아주 옅은 비네팅을 넣어
- * 양옆 배경과의 연결이 더 자연스럽게 보이게 한다.
- */
-:global(:root[data-theme='dark'])
-.scope::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background:
-    linear-gradient(
-      to right,
-      rgba(6, 13, 26, 0.1) 0%,
-      transparent 13%,
-      transparent 87%,
-      rgba(6, 13, 26, 0.1) 100%
-    );
+    right center;
+  background-size:
+    100% 100%,
+    auto 112%;
 }
 
 /* Hero 이미지는 텍스트와 검색창보다 한 단계 뒤로 물린다. */
