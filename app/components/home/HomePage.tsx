@@ -65,7 +65,7 @@ const categoryCards: ReadonlyArray<{
     key: 'content',
     title: '컨텐츠',
     description:
-      '던전, 보스, 도감 등\n다양한 컨텐츠들의 정보를 확인하세요',
+      '던전, 퀘스트, 이벤트와 생활 컨텐츠 정보를 확인하세요.',
     iconSrc: '/images/home/icons/content.png',
     tone: 'green',
   },
@@ -73,7 +73,7 @@ const categoryCards: ReadonlyArray<{
     key: 'system',
     title: '시스템',
     description:
-      '추천, 거래, 명령어 등\n서버의 주요 시스템을 알아보세요',
+      '성장, 강화, 거래 등 서버의 주요 시스템을 알아보세요.',
     iconSrc: '/images/home/icons/system.png',
     tone: 'mint',
   },
@@ -81,7 +81,7 @@ const categoryCards: ReadonlyArray<{
     key: 'price',
     title: '퀘스트',
     description:
-      '서버의 여러 퀘스트와\n진행에 필요한 정보를 확인하세요',
+      '서버의 주요 퀘스트와 진행에 필요한 정보를 확인하세요.',
     iconSrc: '/images/home/icons/quest.png',
     tone: 'blue',
     href:
@@ -91,7 +91,7 @@ const categoryCards: ReadonlyArray<{
     key: 'policy',
     title: '법전',
     description:
-      '서버의 규칙과 운영 기준을 확인할 수 있습니다',
+      '서버의 규칙과 운영 기준을 확인할 수 있습니다.',
     iconSrc: '/images/home/icons/rules.png',
     tone: 'orange',
   },
@@ -117,28 +117,28 @@ const FAQ_DOCUMENT_HREF =
 
 const recommendations = [
   {
-    label: '무기 정보를 찾고 있다면',
+    label: '장비 정보를 찾고 있다면',
     title: '무기',
     description:
-      '렌독 서버의 무기 종류와\n세부 정보를 확인해 보세요',
+      '렌독 서버의 무기 종류와 관련 정보를 확인해 보세요.',
     iconSrc: '/images/home/icons/weapon.png',
     href:
       '/wiki?mode=RPG&path=48&title=%EB%AC%B4%EA%B8%B0&id=289',
   },
   {
-    label: '레이드 패턴 정보를 찾는다면',
+    label: '함께 도전할 콘텐츠를 찾는다면',
     title: '레이드',
     description:
-      '레이드 종류와 공략에 필요한\n정보를 확인해 보세요.',
+      '레이드 종류와 공략에 필요한 정보를 확인해 보세요.',
     iconSrc: '/images/home/icons/raid.png',
     href:
       '/wiki?mode=RPG&path=82&title=%EB%A0%88%EC%9D%B4%EB%93%9C&id=248',
   },
   {
-    label: '도감 정보를 확인하고 싶다면',
+    label: '수집 정보를 확인하고 싶다면',
     title: '도감',
     description:
-      '도감 목록과 세부 정보를 살펴보세요.',
+      '서버의 다양한 수집 요소와 도감 정보를 살펴보세요.',
     iconSrc: '/images/home/icons/collection-book.png',
     href:
       '/wiki?mode=RPG&path=34&title=%EB%8F%84%EA%B0%90&id=207',
@@ -840,7 +840,6 @@ export default function HomePage({
     >
       <div
         className={styles.springAtmosphere}
-        data-home-atmosphere="true"
         aria-hidden="true"
       >
         {Array.from(
@@ -854,7 +853,6 @@ export default function HomePage({
               className={
                 styles.springLeaf
               }
-              data-home-particle="true"
             />
           )
         )}
@@ -952,7 +950,7 @@ export default function HomePage({
                   className={styles.heroDescription}
                   data-home-hero-text="description"
                 >
-                  원하는 정보를 빠르고 편하게 찾아보세요
+                  원하는 정보를 빠르고 편하게 찾아보세요.
                 </p>
 
                 <div
@@ -1088,7 +1086,7 @@ export default function HomePage({
 
                 <div className={styles.newcomerTags}>
                   <Link
-                    href="/wiki?mode=RPG&path=32&title=%EC%84%9C%EB%B2%84%EC%97%90_%EC%B2%98%EC%9D%8C_%EB%93%A4%EC%96%B4%EC%99%94%EC%96%B4%EC%9A%94&id=323"
+                    href="/wiki?mode=RPG&path=32&title=%EC%9C%84%ED%82%A4%EC%9D%98_%EC%9D%B4%EC%9A%A9_%EB%B0%A9%EB%B2%95%EC%9D%84_%EC%95%8C%EA%B3%A0%EC%8B%B6%EC%96%B4%EC%9A%94&id=349"
                   >
                     위키 사용법
                   </Link>
@@ -1484,13 +1482,18 @@ export default function HomePage({
               data-home-panel="footer"
             >
               <div className={styles.footerBrand}>
-                <Image
-                  src="/images/home/branding/rdwiki-logo.png"
-                  alt="RDWIKI"
-                  width={360}
-                  height={120}
-                  className={styles.footerLogo}
-                />
+                <Link
+                  href="/"
+                  aria-label="RDWIKI 홈"
+                >
+                  <Image
+                    src="/images/home/branding/rdwiki-logo.png"
+                    alt="RDWIKI"
+                    width={360}
+                    height={120}
+                    className={styles.footerLogo}
+                  />
+                </Link>
 
                 <span>
                   렌독 유저를 위한 비공식 정보 위키
