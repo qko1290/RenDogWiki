@@ -340,10 +340,13 @@ export default function HomePage({
     headerUser,
     setHeaderUser,
   ] = useState<HomeHeaderUser | null>(null);
-
   const backgroundImagesRef =
-  useRef<HTMLImageElement[]>([]);
+    useRef<HTMLImageElement[]>([]);
 
+  /*
+   * 테마를 처음 전환할 때 이미지 다운로드와 디코딩 때문에
+   * 화면이 잠깐 끊기지 않도록 낮/밤 배경을 함께 준비한다.
+   */
   useEffect(() => {
     backgroundImagesRef.current =
       HOME_BACKGROUND_IMAGES.map((src) => {
@@ -353,11 +356,18 @@ export default function HomePage({
         image.src = src;
 
         void image.decode().catch(() => {
-          // 브라우저 캐시 적재만 성공해도 전환에는 문제없음
+          /*
+           * 일부 브라우저는 캐시에 들어간 이미지도 decode()를
+           * 거부할 수 있다. 이미지 요청 자체는 그대로 유지한다.
+           */
         });
 
         return image;
       });
+
+    return () => {
+      backgroundImagesRef.current = [];
+    };
   }, []);
 
   /*
@@ -922,15 +932,24 @@ export default function HomePage({
               }}
             >
               <div className={styles.heroContent}>
-                <p className={styles.heroEyebrow}>
+                <p
+                  className={styles.heroEyebrow}
+                  data-home-hero-text="eyebrow"
+                >
                   마인크래프트 렌독 서버 비공식 위키
                 </p>
 
-                <h1 className={styles.heroTitle}>
+                <h1
+                  className={styles.heroTitle}
+                  data-home-hero-text="title"
+                >
                   RDWIKI
                 </h1>
 
-                <p className={styles.heroDescription}>
+                <p
+                  className={styles.heroDescription}
+                  data-home-hero-text="description"
+                >
                   원하는 정보를 빠르고 편하게 찾아보세요.
                 </p>
 
@@ -976,7 +995,10 @@ export default function HomePage({
                   )}
                 </div>
 
-                <div className={styles.keywordRow}>
+                <div
+                  className={styles.keywordRow}
+                  data-home-keywords="true"
+                >
                   <strong>인기 검색어</strong>
 
                   {popularSearchesLoading ? (
@@ -1027,7 +1049,10 @@ export default function HomePage({
 
             </section>
 
-            <section className={styles.newcomer}>
+            <section
+              className={styles.newcomer}
+              data-home-panel="newcomer"
+            >
               <div
                 className={styles.newcomerCharacter}
                 aria-hidden="true"
@@ -1044,7 +1069,10 @@ export default function HomePage({
               </div>
 
               <div className={styles.newcomerContent}>
-                <p className={styles.sectionEyebrow}>
+                <p
+                  className={styles.sectionEyebrow}
+                  data-home-eyebrow="true"
+                >
                   WELCOME TO RDWIKI
                 </p>
 
@@ -1086,6 +1114,7 @@ export default function HomePage({
               <Link
                 href="/wiki?mode=RPG&path=32&title=%EC%84%9C%EB%B2%84%EC%97%90_%EC%B2%98%EC%9D%8C_%EB%93%A4%EC%96%B4%EC%99%94%EC%96%B4%EC%9A%94&id=323"
                 className={styles.outlineButton}
+                data-home-action="newcomer"
               >
                 뉴비 가이드 보기
                 <span aria-hidden="true">›</span>
@@ -1103,6 +1132,7 @@ export default function HomePage({
                     category.href ??
                     getCategoryHref(category.key)
                   }
+                  data-home-card="category"
                   className={`${styles.categoryCard} ${
                     styles[
                       `categoryCard_${category.tone}`
@@ -1133,6 +1163,7 @@ export default function HomePage({
 
                   <span
                     className={styles.categoryArrow}
+                    data-home-arrow="true"
                     aria-hidden="true"
                   >
                     ›
@@ -1146,6 +1177,7 @@ export default function HomePage({
             >
               <article
                 className={styles.informationCard}
+                data-home-card="information"
               >
                 <div className={styles.cardHeading}>
                   <h2>
@@ -1195,6 +1227,7 @@ export default function HomePage({
                               className={
                                 styles.popularRank
                               }
+                              data-home-badge="rank"
                             >
                               {index + 1}
                             </span>
@@ -1218,6 +1251,7 @@ export default function HomePage({
 
               <article
                 className={styles.informationCard}
+                data-home-card="information"
               >
                 <div className={styles.cardHeading}>
                   <h2>
@@ -1247,6 +1281,7 @@ export default function HomePage({
                             className={
                               styles.documentType
                             }
+                            data-home-badge="type"
                           >
                             {document.category}
                           </span>
@@ -1284,6 +1319,7 @@ export default function HomePage({
 
               <article
                 className={styles.informationCard}
+                data-home-card="information"
               >
                 <div className={styles.cardHeading}>
                   <h2>
@@ -1329,6 +1365,7 @@ export default function HomePage({
                               className={
                                 styles.popularRank
                               }
+                              data-home-badge="rank"
                             >
                               {index + 1}
                             </span>
@@ -1356,6 +1393,7 @@ export default function HomePage({
 
             <section
               className={styles.recommendSection}
+              data-home-panel="recommend"
             >
               <div className={styles.sectionHeading}>
                 <div>
@@ -1363,6 +1401,7 @@ export default function HomePage({
                     className={
                       styles.sectionEyebrow
                     }
+                    data-home-eyebrow="true"
                   >
                     RECOMMENDED
                   </p>
@@ -1384,6 +1423,7 @@ export default function HomePage({
                       className={
                         styles.recommendCard
                       }
+                      data-home-card="recommend"
                     >
                       <span
                         className={
@@ -1426,6 +1466,7 @@ export default function HomePage({
                         className={
                           styles.recommendArrow
                         }
+                        data-home-arrow="true"
                         aria-hidden="true"
                       >
                         ›
@@ -1436,7 +1477,10 @@ export default function HomePage({
               </div>
             </section>
 
-            <footer className={styles.footer}>
+            <footer
+              className={styles.footer}
+              data-home-panel="footer"
+            >
               <div className={styles.footerBrand}>
                 <Image
                   src="/images/home/branding/rdwiki-logo.png"

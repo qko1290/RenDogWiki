@@ -1,12 +1,45 @@
 /* =============================================
  * File: app/components/home/homeDarkBackgrounds.module.css
  * 전체 코드
- * - 다크 모드에서 홈 Hero와 좌우 배경 이미지만 야간 이미지로 교체
- * - 사용자가 제공한 HomePage.tsx의 헤더/메뉴 코드는 변경하지 않음
+ * - 야간 Hero/좌우 배경 이미지 적용
+ * - 밝은 안개 경계와 반복되는 달의 시선 분산 완화
+ * - 다크 모드 카드/텍스트/배지 대비 조정
+ * - 홈 범위에만 적용
  * ============================================= */
 
 .scope {
   isolation: isolate;
+}
+
+:global(:root[data-theme='dark']) .scope {
+  --home-dark-accent: #8fc99b;
+  --home-dark-accent-strong: #a9dcb2;
+  --home-dark-text: #eef4f7;
+  --home-dark-muted: #b9c7d1;
+  --home-dark-muted-2: #8fa1af;
+  --home-dark-border: rgba(148, 177, 160, 0.18);
+  --home-dark-panel: rgba(14, 24, 40, 0.94);
+  --home-dark-panel-soft: rgba(17, 29, 46, 0.9);
+}
+
+/*
+ * 좌우 이미지에 원래 포함된 흰색 페이드가
+ * 다크 배경에서 회색 띠처럼 보이지 않도록
+ * 중앙 경계를 짙은 배경색으로 다시 덮는다.
+ */
+:global(:root[data-theme='dark'])
+.scope
+[data-home-rail]::before {
+  background-repeat: no-repeat;
+  background-size:
+    100% 100%,
+    100% 100%,
+    cover;
+  opacity: 0.72;
+  filter:
+    saturate(0.78)
+    brightness(0.68)
+    contrast(0.98);
 }
 
 :global(:root[data-theme='dark'])
@@ -14,24 +47,22 @@
 [data-home-rail='left']::before {
   background-image:
     linear-gradient(
+      to bottom,
+      rgba(4, 10, 22, 0.44) 0%,
+      rgba(4, 10, 22, 0.12) 42%,
+      rgba(4, 10, 22, 0.24) 100%
+    ),
+    linear-gradient(
       to right,
-      transparent 62%,
-      color-mix(
-        in srgb,
-        var(--background) 96%,
-        transparent
-      ) 100%
+      rgba(7, 14, 27, 0) 42%,
+      rgba(7, 14, 27, 0.58) 68%,
+      var(--background) 96%
     ),
     url('/images/home/home-side-background-left-dark.png');
   background-position:
     center,
+    center,
     left top;
-  background-repeat: no-repeat;
-  background-size: cover;
-  opacity: 0.9;
-  filter:
-    saturate(0.92)
-    brightness(0.88);
 }
 
 :global(:root[data-theme='dark'])
@@ -39,49 +70,362 @@
 [data-home-rail='right']::before {
   background-image:
     linear-gradient(
+      to bottom,
+      rgba(4, 10, 22, 0.44) 0%,
+      rgba(4, 10, 22, 0.12) 42%,
+      rgba(4, 10, 22, 0.24) 100%
+    ),
+    linear-gradient(
       to left,
-      transparent 62%,
-      color-mix(
-        in srgb,
-        var(--background) 96%,
-        transparent
-      ) 100%
+      rgba(7, 14, 27, 0) 42%,
+      rgba(7, 14, 27, 0.58) 68%,
+      var(--background) 96%
     ),
     url('/images/home/home-side-background-right-dark.png');
   background-position:
     center,
+    center,
     right top;
-  background-repeat: no-repeat;
-  background-size: cover;
-  opacity: 0.9;
-  filter:
-    saturate(0.92)
-    brightness(0.88);
 }
 
+/* Hero 이미지는 텍스트와 검색창보다 한 단계 뒤로 물린다. */
 :global(:root[data-theme='dark'])
 .scope
 [data-home-hero='true']::before {
   background:
     radial-gradient(
-      ellipse at 50% 40%,
-      rgba(4, 12, 26, 0.02) 0%,
-      rgba(4, 12, 26, 0.09) 52%,
-      rgba(3, 9, 20, 0.22) 100%
+      ellipse at 50% 42%,
+      rgba(4, 10, 22, 0.05) 0%,
+      rgba(4, 10, 22, 0.18) 54%,
+      rgba(3, 8, 18, 0.42) 100%
     ),
     linear-gradient(
       180deg,
-      rgba(8, 18, 38, 0.04),
-      rgba(4, 11, 25, 0.14)
+      rgba(5, 12, 25, 0.16),
+      rgba(3, 9, 20, 0.34)
     ),
     url('/images/home/home-hero-background-dark.png');
   background-position: center 55%;
   background-repeat: no-repeat;
   background-size: cover;
   filter:
-    saturate(0.96)
-    brightness(0.92);
+    saturate(0.84)
+    brightness(0.82)
+    contrast(1.02);
   box-shadow:
-    0 18px 40px
-    rgba(0, 0, 0, 0.2);
+    0 18px 38px
+    rgba(0, 0, 0, 0.24);
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-hero-text='eyebrow'],
+:global(:root[data-theme='dark'])
+.scope
+[data-home-hero-text='description'] {
+  color: #d8e7dc;
+  text-shadow:
+    0 2px 8px
+    rgba(0, 0, 0, 0.82);
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-hero-text='title'] {
+  color: #a5dfad;
+  -webkit-text-stroke-color: #82c990;
+  text-shadow:
+    0 2px 0
+    rgba(4, 10, 20, 0.82),
+    0 8px 22px
+    rgba(0, 0, 0, 0.52);
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-keywords='true'] {
+  border-color: rgba(154, 183, 166, 0.22);
+  background: rgba(7, 16, 29, 0.82);
+  box-shadow:
+    0 9px 24px
+    rgba(0, 0, 0, 0.24);
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-keywords='true'] strong {
+  color: #e2eee5;
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-keywords='true'] a {
+  border-color: rgba(148, 177, 160, 0.2);
+  background: rgba(19, 32, 48, 0.94);
+  color: #d8e7dd;
+  box-shadow: none;
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-keywords='true'] a:hover {
+  border-color: rgba(143, 201, 155, 0.45);
+  background: rgba(31, 53, 60, 0.96);
+  color: #f1f8f3;
+}
+
+/* 신규 이용자 안내는 초록색을 유지하되 글자가 묻히지 않게 조정한다. */
+:global(:root[data-theme='dark'])
+.scope
+[data-home-panel='newcomer'] {
+  border-color: rgba(115, 180, 126, 0.3);
+  background:
+    linear-gradient(
+      118deg,
+      rgba(29, 66, 43, 0.72),
+      rgba(14, 25, 42, 0.96) 72%
+    );
+  box-shadow:
+    0 10px 28px
+    rgba(0, 0, 0, 0.13);
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-panel='newcomer'] h2 {
+  color: var(--home-dark-accent-strong);
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-panel='newcomer'] p:not([data-home-eyebrow]) {
+  color: #c6d3dc;
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-eyebrow='true'] {
+  color: #82bd90;
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-panel='newcomer'] a:not([data-home-action]) {
+  border-color: rgba(143, 201, 155, 0.22);
+  background: rgba(8, 19, 31, 0.62);
+  color: #dbe8df;
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-action='newcomer'] {
+  border-color: rgba(143, 201, 155, 0.42);
+  background: rgba(48, 104, 63, 0.12);
+  color: #a7d9b0;
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-action='newcomer']:hover {
+  background: rgba(65, 130, 79, 0.22);
+  color: #e5f2e8;
+}
+
+/* 기본 카드들은 녹색보다 차분한 남청색 표면을 사용한다. */
+:global(:root[data-theme='dark'])
+.scope
+[data-home-card='category'],
+:global(:root[data-theme='dark'])
+.scope
+[data-home-card='information'],
+:global(:root[data-theme='dark'])
+.scope
+[data-home-panel='recommend'],
+:global(:root[data-theme='dark'])
+.scope
+[data-home-panel='footer'] {
+  border-color: var(--home-dark-border);
+  background: var(--home-dark-panel);
+  box-shadow:
+    0 8px 24px
+    rgba(0, 0, 0, 0.11);
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-card='category']:hover {
+  border-color: rgba(143, 201, 155, 0.34);
+  box-shadow:
+    0 13px 28px
+    rgba(0, 0, 0, 0.18);
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-card='category']
+> span:first-child {
+  filter:
+    saturate(0.88)
+    brightness(0.86);
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-card='category']
+> span:nth-child(2)
+> strong {
+  color: var(--home-dark-text);
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-card='category']
+> span:nth-child(2)
+> span {
+  color: var(--home-dark-muted);
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-arrow='true'] {
+  border-color: rgba(143, 201, 155, 0.24);
+  color: var(--home-dark-accent);
+}
+
+/* 카드 헤더의 초록 링크는 어두운 배경에서도 읽히는 밝기로 올린다. */
+:global(:root[data-theme='dark'])
+.scope
+[data-home-card='information']
+> div:first-child
+> a,
+:global(:root[data-theme='dark'])
+.scope
+[data-home-panel='recommend']
+> div:first-child
+> a {
+  color: var(--home-dark-accent);
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-card='information'] h2,
+:global(:root[data-theme='dark'])
+.scope
+[data-home-panel='recommend'] h2 {
+  color: var(--home-dark-text);
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-card='information'] a {
+  color: #e5edf2;
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-card='information'] time {
+  color: var(--home-dark-muted-2);
+}
+
+/* 흰색에 가까웠던 순위/분류 배지는 어두운 초록 배지로 낮춘다. */
+:global(:root[data-theme='dark'])
+.scope
+[data-home-badge='rank'],
+:global(:root[data-theme='dark'])
+.scope
+[data-home-badge='type'] {
+  border: 1px solid rgba(143, 201, 155, 0.18);
+  background: rgba(72, 128, 81, 0.18);
+  color: #a8d9b0;
+  box-shadow: none;
+}
+
+/* 추천 카드는 바깥 카드보다 아주 조금만 밝게 구분한다. */
+:global(:root[data-theme='dark'])
+.scope
+[data-home-card='recommend'] {
+  border-color: rgba(143, 201, 155, 0.17);
+  background:
+    linear-gradient(
+      135deg,
+      rgba(20, 39, 39, 0.86),
+      rgba(14, 25, 42, 0.96)
+    );
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-card='recommend']:hover {
+  border-color: rgba(143, 201, 155, 0.32);
+  background:
+    linear-gradient(
+      135deg,
+      rgba(25, 48, 45, 0.9),
+      rgba(17, 30, 47, 0.98)
+    );
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-card='recommend']
+> span:first-child {
+  filter:
+    saturate(0.86)
+    brightness(0.88);
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-card='recommend'] small {
+  color: #8fc59a;
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-card='recommend'] strong {
+  color: var(--home-dark-text);
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-card='recommend']
+> span:nth-child(2)
+> span {
+  color: var(--home-dark-muted);
+}
+
+/* 푸터는 본문 카드와 같게 두고 브랜드 아이콘만 과도하게 뜨지 않게 한다. */
+:global(:root[data-theme='dark'])
+.scope
+[data-home-panel='footer'] img {
+  filter:
+    saturate(0.88)
+    brightness(0.9);
+}
+
+:global(:root[data-theme='dark'])
+.scope
+[data-home-panel='footer']
+> div:first-child
+> span {
+  color: var(--home-dark-muted);
+}
+
+@media (max-width: 1024px) {
+  :global(:root[data-theme='dark'])
+  .scope
+  [data-home-rail]::before {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :global(:root[data-theme='dark'])
+  .scope
+  [data-home-card='category'],
+  :global(:root[data-theme='dark'])
+  .scope
+  [data-home-card='recommend'] {
+    transition: none;
+  }
 }
