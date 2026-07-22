@@ -1,10 +1,10 @@
 // =============================================
 // File: app/components/wiki/DocBadgeModeSwitcher.tsx
 // 전체 코드
-// - 실제 .wiki-quick-badges-wrap 내부의 .qbd-root만 감지
-// - 카테고리/본문 요소를 바로가기 배지로 오인하는 문제 제거
-// - 전환 버튼을 실제 .qbd-main 버튼 위에 고정
-// - 기존 transition 시간과 localStorage 이벤트 유지
+//
+// - 자체 hover 판정 제거
+// - DocQuickBadges가 계산한 open 상태를 그대로 사용
+// - 바로가기 버튼과 전환 버튼이 정확히 동시에 열리고 닫힘
 // =============================================
 
 'use client';
@@ -12,7 +12,6 @@
 import {
   useCallback,
   useEffect,
-  useRef,
   useState,
   type CSSProperties,
 } from 'react';
@@ -26,10 +25,23 @@ type DocBadgeMode =
   | 'quick'
   | 'favorites';
 
+type HoverEventDetail = {
+  open: boolean;
+};
+
 type SwitcherPosition = {
   left: number;
   top: number;
 };
+
+const BADGE_MODE_STORAGE =
+  'wiki:doc-badge-mode';
+
+const BADGE_MODE_EVENT =
+  'wiki-doc-badge-mode-change';
+
+const BADGE_HOVER_EVENT =
+  'wiki-doc-quick-badges-hover';
 
 const BADGE_ROOT_SELECTOR =
   '.wiki-quick-badges-wrap .qbd-root';
@@ -37,16 +49,13 @@ const BADGE_ROOT_SELECTOR =
 const BADGE_ANCHOR_SELECTOR =
   '.qbd-main';
 
-  const BADGE_MODE_STORAGE =
-  'wiki:doc-badge-mode';
-
-const BADGE_MODE_EVENT =
-  'wiki-doc-badge-mode-change';
-
-const DEFAULT_TRANSITION_MS = 180;
+const BADGE_TRANSITION_MS = 220;
 
 function readBadgeMode(): DocBadgeMode {
-  if (typeof window === 'undefined') {
+  if (
+    typeof window ===
+    'undefined'
+  ) {
     return 'quick';
   }
 
@@ -57,23 +66,7 @@ function readBadgeMode(): DocBadgeMode {
     : 'quick';
 }
 
-function isVisible(
-  element: HTMLElement,
-) {
-  const rect =
-    element.getBoundingClientRect();
-  const style =
-    window.getComputedStyle(element);
-
-  return (
-    rect.width > 0 &&
-    rect.height > 0 &&
-    style.display !== 'none' &&
-    style.visibility !== 'hidden'
-  );
-}
-
-function findBadgeRoot() {
+function findAnchor() {
   const root =
     document.querySelector<HTMLElement>(
       BADGE_ROOT_SELECTOR,
@@ -81,260 +74,72 @@ function findBadgeRoot() {
 
   if (
     !root ||
-    !root.isConnected ||
-    !isVisible(root)
+    !root.isConnected
   ) {
     return null;
   }
 
-  return root;
-}
-
-function findBadgeAnchor(
-  root: HTMLElement,
-) {
-  const mainButton =
+  return (
     root.querySelector<HTMLElement>(
       BADGE_ANCHOR_SELECTOR,
-    );
-
-  if (
-    mainButton &&
-    mainButton.isConnected
-  ) {
-    return mainButton;
-  }
-
-  return root;
-}
-
-function isInsideElement(
-  target: EventTarget | null,
-  element: HTMLElement | null,
-) {
-  return (
-    Boolean(element) &&
-    target instanceof Node &&
-    element!.contains(target)
-  );
-}
-
-function parseTimeList(
-  value: string,
-) {
-  return value
-    .split(',')
-    .map((entry) => {
-      const normalized =
-        entry.trim();
-
-      if (
-        normalized.endsWith('ms')
-      ) {
-        return (
-          Number.parseFloat(
-            normalized,
-          ) || 0
-        );
-      }
-
-      if (
-        normalized.endsWith('s')
-      ) {
-        return (
-          (
-            Number.parseFloat(
-              normalized,
-            ) || 0
-          ) * 1000
-        );
-      }
-
-      return 0;
-    });
-}
-
-function readTransitionMs(
-  root: HTMLElement,
-) {
-  const elements = [
-    root,
-    ...Array.from(
-      root.querySelectorAll<HTMLElement>(
-        '*',
-      ),
-    ),
-  ];
-
-  let maxMs = 0;
-
-  for (const element of elements) {
-    const style =
-      window.getComputedStyle(element);
-
-    const durations =
-      parseTimeList(
-        style.transitionDuration,
-      );
-
-    const delays =
-      parseTimeList(
-        style.transitionDelay,
-      );
-
-    const entryCount = Math.max(
-      durations.length,
-      delays.length,
-    );
-
-    for (
-      let index = 0;
-      index < entryCount;
-      index += 1
-    ) {
-      const duration =
-        durations[
-          index % durations.length
-        ] ?? 0;
-
-      const delay =
-        delays[
-          index % delays.length
-        ] ?? 0;
-
-      maxMs = Math.max(
-        maxMs,
-        duration + delay,
-      );
-    }
-  }
-
-  if (
-    !Number.isFinite(maxMs) ||
-    maxMs <= 0
-  ) {
-    return DEFAULT_TRANSITION_MS;
-  }
-
-  return Math.min(
-    Math.max(
-      Math.round(maxMs),
-      100,
-    ),
-    400,
+    ) ??
+    root
   );
 }
 
 export default function DocBadgeModeSwitcher() {
   const [
-    isMounted,
-    setIsMounted,
+    mounted,
+    setMounted,
   ] = useState(false);
 
   const [
-    isOpen,
-    setIsOpen,
+    open,
+    setOpen,
   ] = useState(false);
 
   const [
     mode,
     setMode,
-  ] = useState<DocBadgeMode>('quick');
+  ] = useState<DocBadgeMode>(
+    'quick',
+  );
 
   const [
     position,
     setPosition,
   ] = useState<SwitcherPosition>({
-    left: 46,
-    top: 104,
+    left: 41,
+    top: 84,
   });
 
-  const [
-    transitionMs,
-    setTransitionMs,
-  ] = useState(
-    DEFAULT_TRANSITION_MS,
-  );
+  const updatePosition =
+    useCallback(() => {
+      const anchor =
+        findAnchor();
 
-  const switcherRef =
-    useRef<HTMLDivElement | null>(
-      null,
-    );
-
-  const badgeRootRef =
-    useRef<HTMLElement | null>(
-      null,
-    );
-
-  const badgeAnchorRef =
-    useRef<HTMLElement | null>(
-      null,
-    );
-
-  const openRef =
-    useRef(false);
-
-  const setOpenState =
-    useCallback((nextOpen: boolean) => {
-      if (
-        openRef.current === nextOpen
-      ) {
+      if (!anchor) {
         return;
       }
 
-      openRef.current = nextOpen;
-      setIsOpen(nextOpen);
+      const rect =
+        anchor.getBoundingClientRect();
+
+      setPosition({
+        left:
+          rect.left +
+          rect.width / 2,
+        top:
+          rect.top - 8,
+      });
     }, []);
 
-  const updatePosition =
-    useCallback(
-      (
-        anchor =
-          badgeAnchorRef.current,
-      ) => {
-        if (
-          !anchor ||
-          !anchor.isConnected
-        ) {
-          return;
-        }
-
-        const rect =
-          anchor.getBoundingClientRect();
-
-        setPosition((previous) => {
-          const next = {
-            left:
-              rect.left +
-              rect.width / 2,
-            top: rect.top - 8,
-          };
-
-          if (
-            Math.abs(
-              previous.left -
-              next.left,
-            ) < 0.5 &&
-            Math.abs(
-              previous.top -
-              next.top,
-            ) < 0.5
-          ) {
-            return previous;
-          }
-
-          return next;
-        });
-      },
-      [],
-    );
-
   useEffect(() => {
-    setIsMounted(true);
+    setMounted(true);
     setMode(readBadgeMode());
 
     return () => {
-      setIsMounted(false);
+      setMounted(false);
     };
   }, []);
 
@@ -378,170 +183,44 @@ export default function DocBadgeModeSwitcher() {
   }, []);
 
   useEffect(() => {
-    let observedRoot:
-      | HTMLElement
-      | null = null;
-
-    const syncBadgeElements = () => {
-      const nextRoot =
-        findBadgeRoot();
-
-      if (
-        nextRoot === observedRoot &&
-        nextRoot === badgeRootRef.current
-      ) {
-        return;
-      }
-
-      observedRoot = nextRoot;
-      badgeRootRef.current =
-        nextRoot;
-      badgeAnchorRef.current =
-        nextRoot
-          ? findBadgeAnchor(
-              nextRoot,
-            )
-          : null;
-
-      if (nextRoot) {
-        setTransitionMs(
-          readTransitionMs(
-            nextRoot,
-          ),
-        );
-
-        updatePosition(
-          badgeAnchorRef.current,
-        );
-      } else {
-        setOpenState(false);
-      }
-    };
-
-    syncBadgeElements();
-
-    const observer =
-      new MutationObserver(() => {
-        const currentRoot =
-          badgeRootRef.current;
-
-        if (
-          !currentRoot ||
-          !currentRoot.isConnected
-        ) {
-          syncBadgeElements();
-          return;
-        }
-
-        const nextAnchor =
-          findBadgeAnchor(
-            currentRoot,
-          );
-
-        if (
-          nextAnchor !==
-          badgeAnchorRef.current
-        ) {
-          badgeAnchorRef.current =
-            nextAnchor;
-
-          updatePosition(
-            nextAnchor,
-          );
-        }
-      });
-
-    observer.observe(
-      document.body,
-      {
-        childList: true,
-        subtree: true,
-      },
-    );
-
-    const onPointerMove = (
-      event: PointerEvent,
+    const onHoverChange = (
+      event: Event,
     ) => {
-      const root =
-        badgeRootRef.current;
-      const switcher =
-        switcherRef.current;
+      const customEvent =
+        event as CustomEvent<
+          HoverEventDetail
+        >;
 
-      if (
-        isInsideElement(
-          event.target,
-          switcher,
-        )
-      ) {
-        setOpenState(true);
-        return;
-      }
-
-      if (
-        isInsideElement(
-          event.target,
-          root,
-        )
-      ) {
-        const anchor =
-          root
-            ? findBadgeAnchor(
-                root,
-              )
-            : null;
-
-        badgeAnchorRef.current =
-          anchor;
-
-        updatePosition(
-          anchor,
+      const nextOpen =
+        Boolean(
+          customEvent.detail?.open,
         );
 
-        setOpenState(true);
-        return;
+      if (nextOpen) {
+        updatePosition();
       }
 
-      setOpenState(false);
+      setOpen(nextOpen);
     };
 
-    const onPointerLeave = () => {
-      setOpenState(false);
-    };
-
-    document.addEventListener(
-      'pointermove',
-      onPointerMove,
-      {
-        passive: true,
-      },
-    );
-
-    document.documentElement.addEventListener(
-      'pointerleave',
-      onPointerLeave,
+    window.addEventListener(
+      BADGE_HOVER_EVENT,
+      onHoverChange,
     );
 
     return () => {
-      observer.disconnect();
-
-      document.removeEventListener(
-        'pointermove',
-        onPointerMove,
-      );
-
-      document.documentElement.removeEventListener(
-        'pointerleave',
-        onPointerLeave,
+      window.removeEventListener(
+        BADGE_HOVER_EVENT,
+        onHoverChange,
       );
     };
-  }, [
-    setOpenState,
-    updatePosition,
-  ]);
+  }, [updatePosition]);
 
   useEffect(() => {
     const onViewportChange = () => {
-      updatePosition();
+      if (open) {
+        updatePosition();
+      }
     };
 
     window.addEventListener(
@@ -567,7 +246,10 @@ export default function DocBadgeModeSwitcher() {
         true,
       );
     };
-  }, [updatePosition]);
+  }, [
+    open,
+    updatePosition,
+  ]);
 
   const toggleMode = () => {
     const nextMode: DocBadgeMode =
@@ -582,19 +264,19 @@ export default function DocBadgeModeSwitcher() {
 
     setMode(nextMode);
 
-    /*
-     * 같은 탭에서는 native storage 이벤트가 자동 발생하지 않는다.
-     * 기존 문서 영역이 어느 이벤트를 사용하더라도 즉시 반영되도록
-     * storage 이벤트와 프로젝트 커스텀 이벤트를 함께 보낸다.
-     */
     window.dispatchEvent(
-      new StorageEvent('storage', {
-        key: BADGE_MODE_STORAGE,
-        oldValue: mode,
-        newValue: nextMode,
-        storageArea:
-          window.localStorage,
-      }),
+      new StorageEvent(
+        'storage',
+        {
+          key:
+            BADGE_MODE_STORAGE,
+          oldValue: mode,
+          newValue:
+            nextMode,
+          storageArea:
+            window.localStorage,
+        },
+      ),
     );
 
     window.dispatchEvent(
@@ -602,7 +284,8 @@ export default function DocBadgeModeSwitcher() {
         BADGE_MODE_EVENT,
         {
           detail: {
-            mode: nextMode,
+            mode:
+              nextMode,
           },
         },
       ),
@@ -614,24 +297,11 @@ export default function DocBadgeModeSwitcher() {
     );
 
     window.requestAnimationFrame(
-      () => {
-        const root =
-          badgeRootRef.current;
-
-        if (
-          root &&
-          root.isConnected
-        ) {
-          badgeAnchorRef.current =
-            findBadgeAnchor(root);
-
-          updatePosition();
-        }
-      },
+      updatePosition,
     );
   };
 
-  if (!isMounted) {
+  if (!mounted) {
     return null;
   }
 
@@ -647,29 +317,36 @@ export default function DocBadgeModeSwitcher() {
 
   return createPortal(
     <div
-      ref={switcherRef}
       className={`${styles.switcher} ${
-        isOpen
+        open
           ? styles.switcherOpen
           : ''
       }`}
       style={
         {
-          left: position.left,
-          top: position.top,
+          left:
+            position.left,
+          top:
+            position.top,
           '--badge-transition-ms':
-            `${transitionMs}ms`,
+            `${BADGE_TRANSITION_MS}ms`,
         } as CSSProperties
       }
-      aria-hidden={!isOpen}
+      aria-hidden={!open}
     >
       <button
         type="button"
         className={
           styles.switchButton
         }
-        onClick={toggleMode}
-        tabIndex={isOpen ? 0 : -1}
+        onClick={
+          toggleMode
+        }
+        tabIndex={
+          open
+            ? 0
+            : -1
+        }
         aria-label={`${currentModeLabel}에서 ${nextModeLabel}로 전환`}
         title={`${nextModeLabel}로 전환`}
       >
