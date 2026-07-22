@@ -860,6 +860,7 @@ export default function HomePage({
 
       {isHeaderMenuOpen && (
         <HamburgerMenu
+          isOpen={isHeaderMenuOpen}
           onClose={() =>
             setIsHeaderMenuOpen(false)
           }
