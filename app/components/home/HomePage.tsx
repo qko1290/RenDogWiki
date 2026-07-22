@@ -19,6 +19,7 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 import Image from 'next/image';
@@ -145,6 +146,15 @@ const recommendations = [
 ] as const;
 
 const SPRING_LEAF_COUNT = 14;
+
+const HOME_BACKGROUND_IMAGES = [
+  '/images/home/home-hero-background.png',
+  '/images/home/home-side-background-left.png',
+  '/images/home/home-side-background-right.png',
+  '/images/home/home-hero-background-dark.png',
+  '/images/home/home-side-background-left-dark.png',
+  '/images/home/home-side-background-right-dark.png',
+] as const;
 
 type HomePageProps = {
   recentDocuments: HomeRecentDocument[];
@@ -330,6 +340,25 @@ export default function HomePage({
     headerUser,
     setHeaderUser,
   ] = useState<HomeHeaderUser | null>(null);
+
+  const backgroundImagesRef =
+  useRef<HTMLImageElement[]>([]);
+
+  useEffect(() => {
+    backgroundImagesRef.current =
+      HOME_BACKGROUND_IMAGES.map((src) => {
+        const image = new window.Image();
+
+        image.decoding = 'async';
+        image.src = src;
+
+        void image.decode().catch(() => {
+          // 브라우저 캐시 적재만 성공해도 전환에는 문제없음
+        });
+
+        return image;
+      });
+  }, []);
 
   /*
    * 기존 위키 헤더와 동일한 메뉴 상태를 홈에서도 사용한다.
