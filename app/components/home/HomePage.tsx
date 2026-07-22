@@ -24,9 +24,7 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 
-import HamburgerMenu from '@/components/common/HamburgerMenu';
 import SearchBox from '@/components/common/SearchBox';
-import ThemeToggle from '@/components/common/ThemeToggle';
 import NpcDetailModal, {
   type Npc,
 } from '@/components/wiki/NpcDetailModal';
@@ -47,8 +45,6 @@ import type {
   HomePopularDocument,
   HomeRecentDocument,
 } from './homeData';
-import '@/wiki/css/header.css';
-
 import styles from './home.module.css';
 
 const categoryCards: ReadonlyArray<{
@@ -171,13 +167,6 @@ type HomePopularSearchItem = {
 
 type HomePopularSearchResponse = {
   items?: HomePopularSearchItem[];
-};
-
-type HomeHeaderUser = {
-  id: number;
-  username: string;
-  minecraft_name: string;
-  email: string;
 };
 
 function normalizeNpcPayload(payload: unknown): Npc {
@@ -321,171 +310,6 @@ export default function HomePage({
     popularSearchesLoading,
     setPopularSearchesLoading,
   ] = useState(true);
-  const [
-    isHeaderMenuOpen,
-    setIsHeaderMenuOpen,
-  ] = useState(false);
-  const [
-    headerUser,
-    setHeaderUser,
-  ] = useState<HomeHeaderUser | null>(null);
-
-  /*
-   * 기존 위키 헤더와 동일한 메뉴 상태를 홈에서도 사용한다.
-   * 인증 확인에 실패해도 홈 화면과 메뉴 버튼은 정상 표시된다.
-   */
-  useEffect(() => {
-    const controller =
-      new AbortController();
-    let active = true;
-
-    void fetch('/api/auth/me', {
-      cache: 'no-store',
-      credentials: 'include',
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (
-          response.status === 401 ||
-          response.status === 403
-        ) {
-          return null;
-        }
-
-        if (!response.ok) {
-          throw new Error(
-            `home-auth-fetch-failed:${response.status}`
-          );
-        }
-
-        return (await response.json()) as unknown;
-      })
-      .then((payload) => {
-        if (
-          !active ||
-          !payload ||
-          typeof payload !== 'object'
-        ) {
-          return;
-        }
-
-        const payloadRecord =
-          payload as Record<string, unknown>;
-        const nestedUser =
-          payloadRecord.user &&
-          typeof payloadRecord.user === 'object'
-            ? (payloadRecord.user as Record<
-                string,
-                unknown
-              >)
-            : payloadRecord;
-        const id = Number(nestedUser.id ?? 0);
-
-        if (
-          !Number.isInteger(id) ||
-          id <= 0
-        ) {
-          setHeaderUser(null);
-          return;
-        }
-
-        setHeaderUser({
-          id,
-          username: String(
-            nestedUser.username ?? ''
-          ),
-          minecraft_name: String(
-            nestedUser.minecraft_name ??
-              nestedUser.username ??
-              ''
-          ),
-          email: String(
-            nestedUser.email ?? ''
-          ),
-        });
-      })
-      .catch((error) => {
-        if (
-          error instanceof DOMException &&
-          error.name === 'AbortError'
-        ) {
-          return;
-        }
-
-        console.error(
-          '[HomePage] 사용자 정보 조회 실패:',
-          error
-        );
-
-        if (active) {
-          setHeaderUser(null);
-        }
-      });
-
-    return () => {
-      active = false;
-      controller.abort();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!isHeaderMenuOpen) {
-      return;
-    }
-
-    const onKeyDown = (
-      event: KeyboardEvent
-    ) => {
-      if (event.key === 'Escape') {
-        setIsHeaderMenuOpen(false);
-      }
-    };
-
-    window.addEventListener(
-      'keydown',
-      onKeyDown
-    );
-
-    return () => {
-      window.removeEventListener(
-        'keydown',
-        onKeyDown
-      );
-    };
-  }, [isHeaderMenuOpen]);
-
-  const handleHeaderLogout = useCallback(
-    async () => {
-      try {
-        const response = await fetch(
-          '/api/auth/logout',
-          {
-            method: 'POST',
-            credentials: 'include',
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(
-            `home-logout-failed:${response.status}`
-          );
-        }
-
-        setHeaderUser(null);
-        setIsHeaderMenuOpen(false);
-        window.location.href = '/';
-      } catch (error) {
-        console.error(
-          '[HomePage] 로그아웃 실패:',
-          error
-        );
-        window.alert(
-          '로그아웃에 실패했습니다.'
-        );
-      }
-    },
-    []
-  );
 
   /*
    * 인기 문서는 Home 서버 렌더링과 분리한다.
@@ -833,45 +657,47 @@ export default function HomePage({
             />
           </Link>
 
-          <div
+          <nav
             className={styles.headerNav}
-            aria-label="홈 도구"
+            aria-label="주요 메뉴"
           >
-            <ThemeToggle />
-
-            <button
-              type="button"
-              onClick={() =>
-                setIsHeaderMenuOpen(true)
-              }
-              className="wiki-admin-menu-btn"
-              aria-label="관리 메뉴 열기"
-              aria-haspopup="dialog"
-              aria-expanded={isHeaderMenuOpen}
-              style={{
-                display: 'inline-flex',
-              }}
+            <Link
+              href={getCategoryHref('content')}
+              className={styles.headerNavLink}
             >
-              ☰
-            </button>
-          </div>
+              컨텐츠
+            </Link>
+
+            <Link
+              href={getCategoryHref('system')}
+              className={styles.headerNavLink}
+            >
+              시스템
+            </Link>
+
+            <Link
+              href="/wiki?mode=RPG&path=27&title=%ED%80%98%EC%8A%A4%ED%8A%B8&id=271"
+              className={styles.headerNavLink}
+            >
+              퀘스트
+            </Link>
+
+            <Link
+              href="/wiki"
+              className={styles.headerNavLink}
+            >
+              후원
+            </Link>
+
+            <Link
+              href={getCategoryHref('policy')}
+              className={`${styles.headerNavLink} ${styles.headerNavPrimary}`}
+            >
+              법전
+            </Link>
+          </nav>
         </div>
       </header>
-
-      {isHeaderMenuOpen && (
-        <HamburgerMenu
-          isOpen={isHeaderMenuOpen}
-          onClose={() =>
-            setIsHeaderMenuOpen(false)
-          }
-          isLoggedIn={Boolean(headerUser)}
-          username={
-            headerUser?.minecraft_name || ''
-          }
-          uuid={undefined}
-          onLogout={handleHeaderLogout}
-        />
-      )}
 
       <div className={styles.shell}>
         <div className={styles.layout}>
@@ -1434,7 +1260,7 @@ export default function HomePage({
                     aria-hidden="true"
                   >
                     <path
-                      d="M13.545 2.907a13.2 13.2 0 0 0-3.257-.639c.05.09.11.212.15.315a12.3 12.3 0 0 0-3.495 0 8 8 0 0 1 .152-.315 13.2 13.2 0 0 0-3.258.639C1.735 6.028 1.06 9.067 1.36 12.06c1.253.93 2.466 1.494 3.659 1.865q.444-.608.808-1.272a8 8 0 0 1-1.262-.61q.158-.118.311-.242c2.434 1.126 5.073 1.126 7.477 0q.153.124.311.242a8 8 0 0 1-1.262.61q.364.665.808 1.272c1.193-.371 2.406-.935 3.659-1.865.35-3.467-.599-6.476-2.324-9.153M6.07 10.245c-.732 0-1.333-.667-1.333-1.485s.588-1.485 1.333-1.485c.752 0 1.345.673 1.333 1.485 0 .818-.588 1.485-1.333 1.485m4.639 0c-.733 0-1.334-.667-1.334-1.485s.588-1.485 1.334-1.485c.752 0 1.345.673 1.333 1.485 0 .818-.581 1.485-1.333 1.485"
+                      d="M13.545 2.907a13.2 13.2 0 0 0-3.257-.639c.05.09.11.212.15.315a12.3 12.3 0 0 0-3.495 0 8 8 0 0 1 .152-.315 13.2 13.2 0 0 0-3.258.639C1.735 6.028 1.06 9.067 1.36 12.06c1.253.93 2.466 1.494 3.659 1.865q.444-.608.808-1.272a8 8 0 0 1-1.262-.61q.158-.118.311-.242c2.434 1.126 5.073 1.126 7.477 0q.153.124.311.242a8 8 0 0 1-1.262.61q.364.665.808 1.272c1.193-.371 2.406-.935 3.659-1.865.35-3.467-.599-6.476-2.324-9.153M5.82 10.245c-.732 0-1.333-.667-1.333-1.485s.588-1.485 1.333-1.485c.752 0 1.345.673 1.333 1.485 0 .818-.588 1.485-1.333 1.485m4.639 0c-.733 0-1.334-.667-1.334-1.485s.588-1.485 1.334-1.485c.752 0 1.345.673 1.333 1.485 0 .818-.581 1.485-1.333 1.485"
                     />
                   </svg>
                 </a>
