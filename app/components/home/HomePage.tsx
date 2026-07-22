@@ -32,7 +32,6 @@ import {
   FaqDetailModal,
   type FaqItem,
 } from '@/components/wiki/FaqList';
-import logo from '@/image/logo.png';
 import {
   recordFaqView,
 } from '@/wiki/lib/faqView';
@@ -649,23 +648,13 @@ export default function HomePage({
             aria-label="RDWIKI 홈"
           >
             <Image
-              src={logo}
-              alt=""
-              width={46}
-              height={46}
-              className={styles.brandImage}
+              src="/images/home/branding/rdwiki-logo.png"
+              alt="RDWIKI"
+              width={360}
+              height={120}
+              className={styles.brandLogo}
               priority
             />
-
-            <span className={styles.brandTextGroup}>
-              <strong className={styles.brandTitle}>
-                RDWIKI
-              </strong>
-
-              <span className={styles.brandSubtitle}>
-                REN DOG WIKI
-              </span>
-            </span>
           </Link>
 
           <nav
@@ -1242,19 +1231,16 @@ export default function HomePage({
             <footer className={styles.footer}>
               <div className={styles.footerBrand}>
                 <Image
-                  src={logo}
-                  alt=""
-                  width={34}
-                  height={34}
+                  src="/images/home/branding/rdwiki-logo.png"
+                  alt="RDWIKI"
+                  width={360}
+                  height={120}
+                  className={styles.footerLogo}
                 />
 
-                <div>
-                  <strong>RDWIKI</strong>
-                  <span>
-                    렌독 유저를 위한 비공식 정보
-                    위키
-                  </span>
-                </div>
+                <span>
+                  렌독 유저를 위한 비공식 정보 위키
+                </span>
               </div>
 
               <div
