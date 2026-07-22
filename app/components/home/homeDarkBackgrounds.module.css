@@ -23,60 +23,46 @@
 }
 
 /*
- * 좌우 배경 자체의 밝기는 유지하고,
- * 이미지 안에 포함된 흰색 페이드 영역은 살짝 확대해 잘라낸다.
- * 중앙 경계에서만 배경색으로 천천히 섞이게 처리한다.
+ * 좌우 이미지에 원래 포함된 흰색 페이드가
+ * 다크 배경에서 회색 띠처럼 보이지 않도록
+ * 중앙 경계를 짙은 배경색으로 다시 덮는다.
  */
 :global(:root[data-theme='dark'])
 .scope
 [data-home-rail]::before {
   background-repeat: no-repeat;
-  opacity: 0.96;
+  background-size:
+    100% 100%,
+    100% 100%,
+    cover;
+  opacity: 0.72;
   filter:
-    saturate(0.94)
-    brightness(1)
-    contrast(1);
+    saturate(0.78)
+    brightness(0.68)
+    contrast(0.98);
 }
 
-/*
- * 첫 번째 레이어는 중앙 경계 전용 페이드,
- * 두 번째 레이어는 실제 야간 배경 이미지다.
- *
- * 이미지 크기를 112%로 확대해 이미지 자체의
- * 밝은 흰색 페이드가 화면 안쪽에 과하게 나타나지 않게 한다.
- */
 :global(:root[data-theme='dark'])
 .scope
 [data-home-rail='left']::before {
   background-image:
     linear-gradient(
+      to bottom,
+      rgba(4, 10, 22, 0.44) 0%,
+      rgba(4, 10, 22, 0.12) 42%,
+      rgba(4, 10, 22, 0.24) 100%
+    ),
+    linear-gradient(
       to right,
-      transparent 0%,
-      transparent 56%,
-      color-mix(
-        in srgb,
-        var(--background) 10%,
-        transparent
-      ) 68%,
-      color-mix(
-        in srgb,
-        var(--background) 32%,
-        transparent
-      ) 79%,
-      color-mix(
-        in srgb,
-        var(--background) 68%,
-        transparent
-      ) 91%,
-      var(--background) 100%
+      rgba(7, 14, 27, 0) 42%,
+      rgba(7, 14, 27, 0.58) 68%,
+      var(--background) 96%
     ),
     url('/images/home/home-side-background-left-dark.png');
   background-position:
     center,
-    left center;
-  background-size:
-    100% 100%,
-    auto 112%;
+    center,
+    left top;
 }
 
 :global(:root[data-theme='dark'])
@@ -84,33 +70,22 @@
 [data-home-rail='right']::before {
   background-image:
     linear-gradient(
+      to bottom,
+      rgba(4, 10, 22, 0.44) 0%,
+      rgba(4, 10, 22, 0.12) 42%,
+      rgba(4, 10, 22, 0.24) 100%
+    ),
+    linear-gradient(
       to left,
-      transparent 0%,
-      transparent 56%,
-      color-mix(
-        in srgb,
-        var(--background) 10%,
-        transparent
-      ) 68%,
-      color-mix(
-        in srgb,
-        var(--background) 32%,
-        transparent
-      ) 79%,
-      color-mix(
-        in srgb,
-        var(--background) 68%,
-        transparent
-      ) 91%,
-      var(--background) 100%
+      rgba(7, 14, 27, 0) 42%,
+      rgba(7, 14, 27, 0.58) 68%,
+      var(--background) 96%
     ),
     url('/images/home/home-side-background-right-dark.png');
   background-position:
     center,
-    right center;
-  background-size:
-    100% 100%,
-    auto 112%;
+    center,
+    right top;
 }
 
 /* Hero 이미지는 텍스트와 검색창보다 한 단계 뒤로 물린다. */
