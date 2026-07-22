@@ -708,9 +708,13 @@
   margin: 0;
   color: #1d6433;
   font-size: clamp(42px, 5vw, 59px);
-  line-height: 1.08;
-  font-weight: 900;
-  letter-spacing: -3px;
+  line-height: 0.98;
+  font-weight: 1000;
+  letter-spacing: -3.8px;
+  -webkit-text-stroke:
+    1.5px
+    #1d6433;
+  paint-order: stroke fill;
   text-shadow:
     0 2px 0
     rgba(255, 255, 255, 0.72),
