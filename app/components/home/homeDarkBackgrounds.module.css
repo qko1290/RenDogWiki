@@ -2,7 +2,7 @@
  * File: app/components/home/homeDarkBackgrounds.module.css
  * 전체 코드
  * - 야간 Hero/좌우 배경 이미지 적용
- * - 좌우 배경의 흐린 경계 제거 및 밤하늘색 배경 통일
+ * - 밝은 안개 경계와 반복되는 달의 시선 분산 완화
  * - 다크 모드 카드/텍스트/배지 대비 조정
  * - 홈 범위에만 적용
  * ============================================= */
@@ -12,7 +12,6 @@
 }
 
 :global(:root[data-theme='dark']) .scope {
-  --home-night-sky: #081a34;
   --home-dark-accent: #8fc99b;
   --home-dark-accent-strong: #a9dcb2;
   --home-dark-text: #eef4f7;
@@ -21,47 +20,76 @@
   --home-dark-border: rgba(148, 177, 160, 0.18);
   --home-dark-panel: rgba(14, 24, 40, 0.94);
   --home-dark-panel-soft: rgba(17, 29, 46, 0.9);
-
-  background-color: var(--home-night-sky);
 }
 
 /*
- * 좌우 배경의 흐린 경계 효과를 제거한다.
- *
- * 생성 이미지 자체에 포함된 밝은 안쪽 페이드가 보이지 않도록
- * 이미지를 조금 확대하고 바깥쪽 기준으로 고정한다.
- * 중앙 영역은 같은 밤하늘색 배경으로 이어진다.
+ * 좌우 야간 배경의 크기와 밝기는 이전 상태로 유지한다.
+ * 이미지 안쪽의 흐린 경계도 그대로 두되,
+ * 흰색으로 떠 보이는 부분만 짙은 밤색 그라데이션으로 눌러준다.
  */
 :global(:root[data-theme='dark'])
 .scope
 [data-home-rail]::before {
-  background-color: var(--home-night-sky);
   background-repeat: no-repeat;
-  opacity: 0.98;
+  background-size:
+    100% 100%,
+    100% 100%,
+    cover;
+  opacity: 0.94;
   filter:
-    saturate(0.98)
-    brightness(0.98)
+    saturate(0.92)
+    brightness(0.94)
     contrast(1.01);
-  mask-image: none;
-  -webkit-mask-image: none;
 }
 
 :global(:root[data-theme='dark'])
 .scope
 [data-home-rail='left']::before {
   background-image:
+    linear-gradient(
+      to bottom,
+      rgba(4, 10, 22, 0.14) 0%,
+      rgba(4, 10, 22, 0.02) 42%,
+      rgba(4, 10, 22, 0.08) 100%
+    ),
+    linear-gradient(
+      to right,
+      rgba(8, 20, 40, 0) 48%,
+      rgba(8, 20, 40, 0.2) 66%,
+      rgba(8, 20, 40, 0.5) 82%,
+      rgba(8, 20, 40, 0.82) 94%,
+      #081428 100%
+    ),
     url('/images/home/home-side-background-left-dark.png');
-  background-position: left center;
-  background-size: auto 134%;
+  background-position:
+    center,
+    center,
+    left top;
 }
 
 :global(:root[data-theme='dark'])
 .scope
 [data-home-rail='right']::before {
   background-image:
+    linear-gradient(
+      to bottom,
+      rgba(4, 10, 22, 0.14) 0%,
+      rgba(4, 10, 22, 0.02) 42%,
+      rgba(4, 10, 22, 0.08) 100%
+    ),
+    linear-gradient(
+      to left,
+      rgba(8, 20, 40, 0) 48%,
+      rgba(8, 20, 40, 0.2) 66%,
+      rgba(8, 20, 40, 0.5) 82%,
+      rgba(8, 20, 40, 0.82) 94%,
+      #081428 100%
+    ),
     url('/images/home/home-side-background-right-dark.png');
-  background-position: right center;
-  background-size: auto 134%;
+  background-position:
+    center,
+    center,
+    right top;
 }
 
 /* Hero 이미지는 텍스트와 검색창보다 한 단계 뒤로 물린다. */
