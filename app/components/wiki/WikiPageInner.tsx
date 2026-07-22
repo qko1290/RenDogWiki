@@ -2384,31 +2384,6 @@ export default function WikiPageInner({ user }: Props) {
     };
   }, [bootstrapReady, categories, allDocuments, selectedDocId, docContent, searchParams]);
 
-  // ✅ 로고 클릭: 루트 대표 문서(ID=73) 강제 오픈
-  useEffect(() => {
-    const onClick = (e: MouseEvent) => {
-      const targ = e.target as HTMLElement | null;
-      const a = targ?.closest('a') as HTMLAnchorElement | null;
-      if (!a) return;
-
-      const href = a.getAttribute('href') || '';
-      const looksLikeLogo =
-        href === '/' ||
-        href === '/wiki' ||
-        a.id === 'wiki-logo' ||
-        a.classList.contains('wiki-logo');
-
-      if (!looksLikeLogo) return;
-
-      e.preventDefault();
-      e.stopPropagation();
-      openRootDocById(ROOT_FEATURED_DOC_ID);
-    };
-
-    document.addEventListener('click', onClick, true);
-    return () => document.removeEventListener('click', onClick, true);
-  }, [allDocuments]);
-
   // 로딩/보이기 제어: 딜레이 중에도 로더만 보이도록 hold 사용
   const isLoadingView = loadingDoc || docContent === null;
   const hold = isLoadingView || delaying;
