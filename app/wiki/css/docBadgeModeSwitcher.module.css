@@ -57,14 +57,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  min-width: 108px;
-  height: 40px;
-  padding: 0 14px;
+  gap: 6px;
+  min-width: 84px;
+  height: 32px;
+  padding: 0 10px;
   border:
     1px solid
     rgba(255, 255, 255, 0.1);
-  border-radius: 11px;
+  border-radius: 8px;
   background:
     var(--switcher-bg);
   box-shadow:
@@ -72,7 +72,7 @@
     rgba(0, 0, 0, 0.25);
   color: #ffffff;
   font-family: inherit;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
   line-height: 1;
   white-space: nowrap;
@@ -100,10 +100,10 @@
   width: 0;
   height: 0;
   border-top:
-    7px solid
+    6px solid
     var(--switcher-bg);
   border-right:
-    7px solid transparent;
+    6px solid transparent;
   border-left:
     7px solid transparent;
   transform: translateX(-50%);
@@ -140,10 +140,10 @@
 .switchIcon {
   display: grid;
   place-items: center;
-  width: 17px;
-  height: 17px;
+  width: 14px;
+  height: 14px;
   color: #8fd39c;
-  font-size: 15px;
+  font-size: 13px;
   line-height: 1;
 }
 
@@ -160,8 +160,8 @@
   top: calc(100% - 2px);
   left: 50%;
   z-index: 1;
-  width: 76px;
-  height: 22px;
+  width: 66px;
+  height: 18px;
   transform:
     translateX(-50%);
 }
