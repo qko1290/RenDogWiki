@@ -1,3 +1,9 @@
+// =============================================
+/* 전체 코드
+ * - 바로가기/즐겨찾기 전환 직후 펼친 상태 유지
+ * - 실제 마우스가 hover 영역을 벗어날 때만 닫힘
+ * ============================================= */
+
 'use client';
 
 import React, {
@@ -467,11 +473,6 @@ export default function DocQuickBadges({
         null;
     }
   }, [hidden]);
-
-  useEffect(() => {
-    setOpen(false);
-    emitHoverState(false);
-  }, [mode]);
 
   useEffect(() => {
     let raf = 0;
