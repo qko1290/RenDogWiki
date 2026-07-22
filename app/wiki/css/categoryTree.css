@@ -11,6 +11,7 @@
  * - 하위 카테고리와 문서
  * - 활성/hover 상태
  * - 라이트/다크 모드
+ * - 문서 선택 시 가로 흔들림 방지
  *
  * CategoryTree.tsx의 구조와 동작은 변경하지 않는다.
  * ============================================= */
@@ -93,6 +94,9 @@
     );
   box-shadow:
     var(--category-home-shadow);
+  overflow-x: hidden;
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
   scrollbar-width: thin;
   scrollbar-color:
     rgba(79, 143, 88, 0.28)
@@ -170,8 +174,7 @@
     border-color 0.16s ease,
     background-color 0.16s ease,
     box-shadow 0.16s ease,
-    color 0.16s ease,
-    transform 0.16s ease;
+    color 0.16s ease;
 }
 
 .wiki-sidebar
@@ -188,8 +191,6 @@
     var(
       --category-home-accent-strong
     ) !important;
-  transform:
-    translateY(-1px);
 }
 
 .wiki-sidebar
@@ -264,6 +265,8 @@
 .wiki-category-main {
   display: flex;
   align-items: center;
+  flex: 1 1 auto;
+  width: 0;
   min-width: 0;
 }
 
@@ -339,7 +342,7 @@
     30px;
   width: 30px;
   height: 30px;
-  margin-left: 6px;
+  margin-left: auto;
   border:
     1px solid transparent;
   border-radius: 10px;
@@ -492,12 +495,11 @@
   color:
     #303b33 !important;
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 700;
   transition:
     border-color 0.15s ease,
     background-color 0.15s ease,
-    color 0.15s ease,
-    transform 0.15s ease;
+    color 0.15s ease;
 }
 
 .wiki-sidebar
@@ -510,8 +512,6 @@
     var(
       --category-home-accent-strong
     ) !important;
-  transform:
-    translateX(2px);
 }
 
 .wiki-sidebar
@@ -529,7 +529,7 @@
     var(
       --category-home-accent-strong
     ) !important;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .wiki-sidebar
