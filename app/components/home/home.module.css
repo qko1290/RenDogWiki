@@ -19,7 +19,7 @@
   --home-header-content-width:
     calc(
       var(--home-center-width) +
-      320px
+      180px
     );
   --home-header-height: 64px;
 
@@ -343,7 +343,7 @@
   height: 100%;
   margin: 0 auto;
   padding: 0;
-  gap: 24px;
+  gap: 18px;
 }
 
 .brand {
@@ -356,9 +356,9 @@
 
 .brandLogo {
   display: block;
-  width: 158px;
+  width: 205px;
   height: auto;
-  max-height: 48px;
+  max-height: 54px;
   object-fit: contain;
   object-position: left center;
 }
@@ -1694,8 +1694,8 @@
   }
 
   .brandLogo {
-    width: 138px;
-    max-height: 43px;
+    width: 176px;
+    max-height: 47px;
   }
 
   .shell {
