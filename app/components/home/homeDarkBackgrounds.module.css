@@ -23,9 +23,9 @@
 }
 
 /*
- * 좌우 이미지에 원래 포함된 흰색 페이드가
- * 다크 배경에서 회색 띠처럼 보이지 않도록
- * 중앙 경계를 짙은 배경색으로 다시 덮는다.
+ * 좌우 야간 배경은 어둡게 눌러버리지 않고
+ * 이미지 본래 밝기를 최대한 유지한다.
+ * 중앙 본문과 맞닿는 안쪽 가장자리만 배경색으로 자연스럽게 섞는다.
  */
 :global(:root[data-theme='dark'])
 .scope
@@ -35,11 +35,11 @@
     100% 100%,
     100% 100%,
     cover;
-  opacity: 0.72;
+  opacity: 0.94;
   filter:
-    saturate(0.78)
-    brightness(0.68)
-    contrast(0.98);
+    saturate(0.92)
+    brightness(0.94)
+    contrast(1.01);
 }
 
 :global(:root[data-theme='dark'])
@@ -48,15 +48,16 @@
   background-image:
     linear-gradient(
       to bottom,
-      rgba(4, 10, 22, 0.44) 0%,
-      rgba(4, 10, 22, 0.12) 42%,
-      rgba(4, 10, 22, 0.24) 100%
+      rgba(4, 10, 22, 0.14) 0%,
+      rgba(4, 10, 22, 0.02) 42%,
+      rgba(4, 10, 22, 0.08) 100%
     ),
     linear-gradient(
       to right,
-      rgba(7, 14, 27, 0) 42%,
-      rgba(7, 14, 27, 0.58) 68%,
-      var(--background) 96%
+      rgba(7, 14, 27, 0) 52%,
+      rgba(7, 14, 27, 0.16) 72%,
+      rgba(7, 14, 27, 0.42) 86%,
+      var(--background) 100%
     ),
     url('/images/home/home-side-background-left-dark.png');
   background-position:
@@ -71,15 +72,16 @@
   background-image:
     linear-gradient(
       to bottom,
-      rgba(4, 10, 22, 0.44) 0%,
-      rgba(4, 10, 22, 0.12) 42%,
-      rgba(4, 10, 22, 0.24) 100%
+      rgba(4, 10, 22, 0.14) 0%,
+      rgba(4, 10, 22, 0.02) 42%,
+      rgba(4, 10, 22, 0.08) 100%
     ),
     linear-gradient(
       to left,
-      rgba(7, 14, 27, 0) 42%,
-      rgba(7, 14, 27, 0.58) 68%,
-      var(--background) 96%
+      rgba(7, 14, 27, 0) 52%,
+      rgba(7, 14, 27, 0.16) 72%,
+      rgba(7, 14, 27, 0.42) 86%,
+      var(--background) 100%
     ),
     url('/images/home/home-side-background-right-dark.png');
   background-position:
