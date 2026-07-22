@@ -1,12 +1,12 @@
 /* =============================================
  * File: app/components/home/homeDarkBackgrounds.module.css
  * 전체 코드
- * - 다크 모드에서 홈 Hero 및 좌우 배경을 야간 이미지로 교체
- * - 기존 home.module.css의 레이아웃과 카드 디자인에는 영향 없음
+ * - 다크 모드에서 홈 Hero와 좌우 배경 이미지만 야간 이미지로 교체
+ * - 사용자가 제공한 HomePage.tsx의 헤더/메뉴 코드는 변경하지 않음
  * ============================================= */
 
 .scope {
-  /* 이 클래스는 다크 배경 전용 스타일의 적용 범위를 홈으로 제한한다. */
+  isolation: isolate;
 }
 
 :global(:root[data-theme='dark'])
@@ -26,6 +26,8 @@
   background-position:
     center,
     left top;
+  background-repeat: no-repeat;
+  background-size: cover;
   opacity: 0.9;
   filter:
     saturate(0.92)
@@ -49,6 +51,8 @@
   background-position:
     center,
     right top;
+  background-repeat: no-repeat;
+  background-size: cover;
   opacity: 0.9;
   filter:
     saturate(0.92)
