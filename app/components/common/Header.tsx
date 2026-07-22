@@ -5,6 +5,7 @@
 // - 문서 헤더에만 중앙 검색창 유지
 // - 바로가기/즐겨찾기 전환 버튼 제거
 // - 기존 관리자 메뉴 및 모바일 카테고리 동작 유지
+// - 홈 분위기의 카테고리/목차 디자인 CSS 적용
 // =============================================
 
 'use client';
@@ -22,6 +23,7 @@ import ThemeToggle from '@/components/common/ThemeToggle';
 import DocBadgeModeSwitcher from '@/components/wiki/DocBadgeModeSwitcher';
 
 import '@/wiki/css/header.css';
+import '@/wiki/css/wikiChromeRefresh.css';
 
 import styles from '@/wiki/css/wikiHeaderHome.module.css';
 
