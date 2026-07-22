@@ -174,86 +174,88 @@ export default function WikiHeader({
   }
 
   return (
-    <header className={styles.header}>
-      <div className={styles.inner}>
-        <Link
-          href="/"
-          className={styles.brand}
-          aria-label="RDWIKI 홈"
-        >
-          <Image
-            src="/images/home/branding/rdwiki-logo.png"
-            alt="RDWIKI"
-            width={360}
-            height={120}
-            className={styles.brandLogo}
-            priority
-          />
-        </Link>
+    <>
+      <header className={styles.header}>
+        <div className={styles.inner}>
+          <Link
+            href="/"
+            className={styles.brand}
+            aria-label="RDWIKI 홈"
+          >
+            <Image
+              src="/images/home/branding/rdwiki-logo.png"
+              alt="RDWIKI"
+              width={360}
+              height={120}
+              className={styles.brandLogo}
+              priority
+            />
+          </Link>
 
-        <div className={styles.search}>
-          <SearchBox
-            align="center"
-            width="100%"
-            paddingLeft={0}
-            onQuestNpcClick={
-              onQuestNpcClick
-            }
-          />
-        </div>
-
-        <div className={styles.actions}>
-          <ThemeToggle />
-
-          {!hideAdminMenu && (
-            <button
-              type="button"
-              onClick={openAdminMenu}
-              className={`${styles.iconButton} ${styles.desktopAdminButton}`}
-              aria-label="관리 메뉴 열기"
-              aria-haspopup="dialog"
-              aria-expanded={isMenuOpen}
-            >
-              ☰
-            </button>
-          )}
-
-          {onToggleMobileCategory ? (
-            <button
-              type="button"
-              className={`${styles.iconButton} ${styles.mobileMenuButton}`}
-              onClick={
-                onToggleMobileCategory
+          <div className={styles.search}>
+            <SearchBox
+              align="center"
+              width="100%"
+              paddingLeft={0}
+              onQuestNpcClick={
+                onQuestNpcClick
               }
-              aria-label={
-                mobileCategoryOpen
-                  ? '카테고리 닫기'
-                  : '카테고리 열기'
-              }
-              aria-expanded={
-                mobileCategoryOpen
-              }
-            >
-              ☰
-            </button>
-          ) : (
-            !hideAdminMenu && (
+            />
+          </div>
+
+          <div className={styles.actions}>
+            <ThemeToggle />
+
+            {!hideAdminMenu && (
               <button
                 type="button"
                 onClick={openAdminMenu}
-                className={`${styles.iconButton} ${styles.mobileMenuButton}`}
+                className={`${styles.iconButton} ${styles.desktopAdminButton}`}
                 aria-label="관리 메뉴 열기"
                 aria-haspopup="dialog"
                 aria-expanded={isMenuOpen}
               >
                 ☰
               </button>
-            )
-          )}
-        </div>
-      </div>
+            )}
 
-      <DocBadgeModeSwitcher />
+            {onToggleMobileCategory ? (
+              <button
+                type="button"
+                className={`${styles.iconButton} ${styles.mobileMenuButton}`}
+                onClick={
+                  onToggleMobileCategory
+                }
+                aria-label={
+                  mobileCategoryOpen
+                    ? '카테고리 닫기'
+                    : '카테고리 열기'
+                }
+                aria-expanded={
+                  mobileCategoryOpen
+                }
+              >
+                ☰
+              </button>
+            ) : (
+              !hideAdminMenu && (
+                <button
+                  type="button"
+                  onClick={openAdminMenu}
+                  className={`${styles.iconButton} ${styles.mobileMenuButton}`}
+                  aria-label="관리 메뉴 열기"
+                  aria-haspopup="dialog"
+                  aria-expanded={isMenuOpen}
+                >
+                  ☰
+                </button>
+              )
+            )}
+          </div>
+        </div>
+
+        <DocBadgeModeSwitcher />
+      </header>
 
       {isMenuOpen && !hideAdminMenu && (
         <HamburgerMenu
@@ -269,6 +271,6 @@ export default function WikiHeader({
           onLogout={handleLogout}
         />
       )}
-    </header>
+    </>
   );
 }
