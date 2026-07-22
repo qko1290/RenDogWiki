@@ -24,7 +24,7 @@ import {
   createPortal,
 } from 'react-dom';
 
-import styles from './hamburgerMenu.module.css';
+import styles from '@/wiki/css/hamburgerMenu.module.css';
 
 type HamburgerMenuProps = {
   isOpen?: boolean;
