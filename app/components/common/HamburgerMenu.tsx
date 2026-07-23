@@ -8,7 +8,7 @@
 // - writer/admin 권한 확인 후 관리 메뉴 이동
 // - 권한이 없으면 기존과 동일하게 경고 모달 표시
 // - Minecraft UUID와 스킨 아이콘 보정
-// - 기존 특수 닉네임 표시 유지
+// - minecraft_name을 별도 치환 없이 그대로 표시
 // - 메뉴 내부 Link prefetch 비활성화
 // - portal, 백드롭, ESC, 스크롤 잠금 유지
 // =============================================
@@ -77,20 +77,6 @@ type MenuItem = {
     | 'blue'
     | 'orange'
     | 'lime';
-};
-
-const SPECIAL_NICKS: Record<
-  string,
-  string
-> = {
-  q_ko: '큐코',
-  rounding_: '라운딩',
-  daramg__: '다람지',
-  _kei_yuki: '케이유키',
-  minnseo: '민서',
-  wonjun125: '원준',
-  iellre: '일레',
-  carmenia434: '카르메니아',
 };
 
 const menuItems: ReadonlyArray<MenuItem> = [
@@ -593,22 +579,7 @@ export default function HamburgerMenu({
     denyOpen,
   ]);
 
-  const normalizedName =
-    useMemo(
-      () =>
-        effectiveUsername
-          .trim()
-          .toLowerCase(),
-      [effectiveUsername],
-    );
-
-  const specialDisplayName =
-    SPECIAL_NICKS[
-      normalizedName
-    ];
-
   const displayName =
-    specialDisplayName ||
     effectiveUsername.trim() ||
     'RDWIKI 사용자';
 
@@ -807,7 +778,13 @@ export default function HamburgerMenu({
                     ? '현재 계정과 관리 권한을 확인하고 있습니다.'
                     : effectiveLoggedIn
                       ? canManage
-                        ? '렌독위키 관리 도구와 개인 메뉴를 이용할 수 있습니다.'
+                        ? (
+                          <>
+                            렌독위키 관리 도구와
+                            <br />
+                            개인 메뉴를 이용할 수 있습니다.
+                          </>
+                        )
                         : '로그인되었습니다. 관리 기능은 권한이 있는 계정만 이용할 수 있습니다.'
                       : '로그인하면 문서와 관리 기능을 더욱 편하게 이용할 수 있습니다.'}
                 </p>
@@ -829,9 +806,6 @@ export default function HamburgerMenu({
                   </h3>
                 </div>
 
-                <span>
-                  {menuItems.length}
-                </span>
               </div>
 
               <nav
