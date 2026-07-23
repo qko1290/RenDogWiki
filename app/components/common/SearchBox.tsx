@@ -11,6 +11,8 @@
 // - 키보드 탐색, 외부 클릭, ESC 동작 유지
 // - 명시적인 검색 초기화 X 버튼 사용
 // - 마우스가 결과 영역을 벗어나면 강조 해제
+// - FAQ 모달은 document.body portal로 렌더링
+// - 홈/문서 헤더의 containing block 영향을 받지 않음
 // =============================================
 
 'use client';
@@ -24,6 +26,7 @@ import {
   type KeyboardEventHandler,
 } from 'react';
 import { useRouter } from 'next/navigation';
+import { createPortal } from 'react-dom';
 
 import { toProxyUrl } from '@lib/cdn';
 import {
@@ -521,6 +524,11 @@ export default function SearchBox({
     null,
   );
 
+  const [
+    portalReady,
+    setPortalReady,
+  ] = useState(false);
+
   const inputRef =
     useRef<HTMLInputElement | null>(
       null,
@@ -658,6 +666,62 @@ export default function SearchBox({
         syncSearchCommitSession,
       ],
     );
+
+  useEffect(() => {
+    setPortalReady(true);
+
+    return () => {
+      setPortalReady(false);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!faqView) {
+      return;
+    }
+
+    const previousOverflow =
+      document.body.style.overflow;
+    const previousPaddingRight =
+      document.body.style.paddingRight;
+
+    const scrollbarWidth =
+      window.innerWidth -
+      document.documentElement.clientWidth;
+
+    document.body.style.overflow =
+      'hidden';
+
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight =
+        `${scrollbarWidth}px`;
+    }
+
+    const onKeyDown = (
+      event: KeyboardEvent,
+    ) => {
+      if (event.key === 'Escape') {
+        setFaqView(null);
+      }
+    };
+
+    window.addEventListener(
+      'keydown',
+      onKeyDown,
+    );
+
+    return () => {
+      document.body.style.overflow =
+        previousOverflow;
+      document.body.style.paddingRight =
+        previousPaddingRight;
+
+      window.removeEventListener(
+        'keydown',
+        onKeyDown,
+      );
+    };
+  }, [faqView]);
 
   useEffect(() => {
     const onSearchQueryRequest = (
@@ -1886,80 +1950,88 @@ export default function SearchBox({
         ) : null}
       </div>
 
-      {faqView ? (
-        <div
-          className="search-faq-modal-backdrop"
-          role="presentation"
-          onClick={() => {
-            setFaqView(null);
-          }}
-        >
-          <article
-            className="search-faq-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="search-faq-modal-title"
-            onClick={(event) => {
-              event.stopPropagation();
-            }}
-          >
-            <header className="search-faq-modal-header">
-              <span
-                className="search-faq-modal-icon"
-                aria-hidden="true"
-              >
-                Q
-              </span>
-
-              <h3 id="search-faq-modal-title">
-                {faqView.title}
-              </h3>
-
-              <button
-                type="button"
-                className="search-faq-modal-close"
-                onClick={() => {
+      {portalReady && faqView
+        ? createPortal(
+            <div
+              className="search-faq-modal-backdrop"
+              role="presentation"
+              onMouseDown={(event) => {
+                if (
+                  event.target ===
+                  event.currentTarget
+                ) {
                   setFaqView(null);
+                }
+              }}
+            >
+              <article
+                className="search-faq-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="search-faq-modal-title"
+                onMouseDown={(event) => {
+                  event.stopPropagation();
                 }}
-                aria-label="질문 닫기"
               >
-                ×
-              </button>
-            </header>
+                <header className="search-faq-modal-header">
+                  <span
+                    className="search-faq-modal-icon"
+                    aria-hidden="true"
+                  >
+                    Q
+                  </span>
 
-            <div className="search-faq-modal-answer">
-              <span
-                className="search-faq-modal-icon is-answer"
-                aria-hidden="true"
-              >
-                A
-              </span>
+                  <h3 id="search-faq-modal-title">
+                    {faqView.title}
+                  </h3>
 
-              <p>
-                {faqView.content}
-              </p>
-            </div>
+                  <button
+                    type="button"
+                    className="search-faq-modal-close"
+                    onClick={() => {
+                      setFaqView(null);
+                    }}
+                    aria-label="질문 닫기"
+                  >
+                    ×
+                  </button>
+                </header>
 
-            {faqView.tags?.length >
-            0 ? (
-              <div className="search-faq-modal-tags">
-                {faqView.tags.map(
-                  (
-                    tag,
-                    index,
-                  ) => (
-                    <span
-                      key={`${tag}-${index}`}
-                    >
-                      #{tag}
-                    </span>
-                  ),
-                )}
-              </div>
-            ) : null}
-          </article>
-        </div>
-      ) : null}
+                <div className="search-faq-modal-answer">
+                  <span
+                    className="search-faq-modal-icon is-answer"
+                    aria-hidden="true"
+                  >
+                    A
+                  </span>
+
+                  <p>
+                    {faqView.content}
+                  </p>
+                </div>
+
+                {faqView.tags?.length >
+                0 ? (
+                  <div className="search-faq-modal-tags">
+                    {faqView.tags.map(
+                      (
+                        tag,
+                        index,
+                      ) => (
+                        <span
+                          key={`${tag}-${index}`}
+                        >
+                          #{tag}
+                        </span>
+                      ),
+                    )}
+                  </div>
+                ) : null}
+              </article>
+            </div>,
+            document.body,
+          )
+        : null}
     </>
   );
 }
