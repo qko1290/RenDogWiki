@@ -32,6 +32,7 @@ import {
   SEARCH_QUERY_REQUEST_EVENT,
   type SearchCommitResultType,
 } from '@/wiki/lib/searchPopularity';
+import '@/wiki/css/searchBox.css';
 
 type DocResult = {
   id: number;
