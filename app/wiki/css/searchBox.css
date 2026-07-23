@@ -1,0 +1,681 @@
+/* =============================================
+ * File: app/wiki/css/searchBox.css
+ * 전체 코드
+ *
+ * 공통 SearchBox 전용 스타일
+ * - 홈 화면과 문서 헤더에서 동일하게 적용
+ * - 기존 너비, 검색 로직, 결과 구조는 유지
+ * - 크림·민트·초록 계열의 홈 디자인 적용
+ * - 라이트/다크 모드 및 모바일 대응
+ * ============================================= */
+
+/* ---------------------------------------------
+ * 1. 공통 디자인 토큰
+ * --------------------------------------------- */
+
+.search-wrapper {
+  --rd-search-bg:
+    rgba(255, 255, 251, 0.96);
+  --rd-search-bg-hover:
+    rgba(250, 253, 247, 0.99);
+  --rd-search-border:
+    rgba(86, 139, 91, 0.24);
+  --rd-search-border-hover:
+    rgba(76, 151, 87, 0.38);
+  --rd-search-border-focus:
+    rgba(69, 156, 83, 0.62);
+  --rd-search-text:
+    #1b271d;
+  --rd-search-placeholder:
+    #8a968c;
+  --rd-search-icon:
+    #6c9873;
+  --rd-search-icon-focus:
+    #3f8e4c;
+  --rd-search-soft:
+    rgba(233, 246, 229, 0.92);
+  --rd-search-soft-strong:
+    rgba(221, 241, 216, 0.96);
+  --rd-search-shadow:
+    0 8px 22px
+    rgba(40, 77, 45, 0.075);
+  --rd-search-shadow-focus:
+    0 11px 28px
+    rgba(48, 104, 56, 0.13);
+  --rd-search-ring:
+    0 0 0 4px
+    rgba(91, 174, 103, 0.12);
+  --rd-search-dropdown:
+    rgba(255, 255, 251, 0.985);
+  --rd-search-dropdown-soft:
+    rgba(247, 251, 244, 0.98);
+  --rd-search-muted:
+    #6f7c72;
+  --rd-search-muted-2:
+    #929d95;
+  --rd-search-divider:
+    rgba(83, 137, 89, 0.14);
+  --rd-search-selected:
+    rgba(229, 244, 225, 0.92);
+  --rd-search-selected-border:
+    rgba(75, 151, 85, 0.2);
+
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+  min-width: 0;
+  height: 46px !important;
+  min-height: 46px !important;
+  padding: 0 14px !important;
+  overflow: visible !important;
+  border:
+    1px solid
+    var(--rd-search-border) !important;
+  border-radius: 15px !important;
+  background:
+    linear-gradient(
+      180deg,
+      var(--rd-search-bg) 0%,
+      rgba(247, 252, 244, 0.96) 100%
+    ) !important;
+  box-shadow:
+    inset 0 1px 0
+      rgba(255, 255, 255, 0.88),
+    var(--rd-search-shadow) !important;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease !important;
+  isolation: isolate;
+}
+
+.search-wrapper:hover {
+  border-color:
+    var(--rd-search-border-hover) !important;
+  background:
+    var(--rd-search-bg-hover) !important;
+}
+
+.search-wrapper:focus-within {
+  border-color:
+    var(--rd-search-border-focus) !important;
+  background:
+    var(--rd-search-bg-hover) !important;
+  box-shadow:
+    inset 0 1px 0
+      rgba(255, 255, 255, 0.9),
+    var(--rd-search-ring),
+    var(--rd-search-shadow-focus) !important;
+}
+
+/*
+ * 검색창의 왼쪽에 아주 옅은 홈 분위기의 강조선을 둔다.
+ * 입력이나 클릭을 막지 않도록 pointer-events는 끈다.
+ */
+.search-wrapper::before {
+  position: absolute;
+  z-index: -1;
+  top: 7px;
+  bottom: 7px;
+  left: 7px;
+  width: 31px;
+  border-radius: 10px;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(224, 242, 219, 0.9),
+      rgba(231, 247, 235, 0.82)
+    );
+  content: '';
+  opacity: 0.78;
+  pointer-events: none;
+  transition:
+    background-color 160ms ease,
+    opacity 160ms ease;
+}
+
+.search-wrapper:focus-within::before {
+  background:
+    linear-gradient(
+      135deg,
+      rgba(213, 238, 207, 0.98),
+      rgba(221, 243, 227, 0.94)
+    );
+  opacity: 1;
+}
+
+/* ---------------------------------------------
+ * 2. 검색 아이콘과 입력창
+ * --------------------------------------------- */
+
+.search-wrapper .search-icon {
+  position: relative !important;
+  z-index: 1;
+  flex: 0 0 18px;
+  width: 18px !important;
+  height: 18px !important;
+  margin: 0 11px 0 0 !important;
+  fill:
+    var(--rd-search-icon) !important;
+  color:
+    var(--rd-search-icon) !important;
+  opacity: 0.96;
+  pointer-events: none;
+  transition:
+    fill 160ms ease,
+    color 160ms ease,
+    transform 160ms ease !important;
+}
+
+.search-wrapper:focus-within
+.search-icon {
+  fill:
+    var(--rd-search-icon-focus) !important;
+  color:
+    var(--rd-search-icon-focus) !important;
+  transform:
+    scale(1.04);
+}
+
+.search-wrapper .search-input {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 auto !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 44px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  outline: 0 !important;
+  background:
+    transparent !important;
+  box-shadow:
+    none !important;
+  color:
+    var(--rd-search-text) !important;
+  font-family:
+    'Pretendard',
+    'NanumSquareRound',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 650 !important;
+  line-height: 44px !important;
+  letter-spacing:
+    -0.012em;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.search-wrapper
+.search-input::placeholder {
+  color:
+    var(--rd-search-placeholder) !important;
+  font-weight: 600;
+  opacity: 1;
+}
+
+.search-wrapper
+.search-input::-webkit-search-decoration {
+  display: none;
+}
+
+.search-wrapper
+.search-input::-webkit-search-cancel-button {
+  width: 17px;
+  height: 17px;
+  margin-left: 8px;
+  border-radius: 999px;
+  background:
+    var(--rd-search-soft-strong);
+  cursor: pointer;
+  opacity: 0.72;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.search-wrapper
+.search-input::-webkit-search-cancel-button:hover {
+  opacity: 1;
+}
+
+/* ---------------------------------------------
+ * 3. 검색 결과 드롭다운
+ * --------------------------------------------- */
+
+.search-wrapper
+.wiki-search-dropdown {
+  top:
+    calc(100% + 10px) !important;
+  right: 0 !important;
+  left: 0 !important;
+  box-sizing: border-box !important;
+  padding:
+    13px
+    14px !important;
+  overflow:
+    auto !important;
+  border:
+    1px solid
+    var(--rd-search-border) !important;
+  border-radius:
+    18px !important;
+  background:
+    linear-gradient(
+      180deg,
+      var(--rd-search-dropdown) 0%,
+      var(--rd-search-dropdown-soft) 100%
+    ) !important;
+  box-shadow:
+    0 22px 52px
+      rgba(35, 68, 40, 0.16),
+    inset 0 1px 0
+      rgba(255, 255, 255, 0.84) !important;
+  color:
+    var(--rd-search-text) !important;
+  scrollbar-width: thin;
+  scrollbar-color:
+    rgba(78, 148, 87, 0.3)
+    transparent;
+  backdrop-filter:
+    blur(17px);
+  -webkit-backdrop-filter:
+    blur(17px);
+}
+
+.search-wrapper
+.wiki-search-dropdown::-webkit-scrollbar,
+.search-wrapper
+.wiki-search-dropdown ul::-webkit-scrollbar {
+  width: 7px;
+}
+
+.search-wrapper
+.wiki-search-dropdown::-webkit-scrollbar-track,
+.search-wrapper
+.wiki-search-dropdown ul::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.search-wrapper
+.wiki-search-dropdown::-webkit-scrollbar-thumb,
+.search-wrapper
+.wiki-search-dropdown ul::-webkit-scrollbar-thumb {
+  border:
+    2px solid transparent;
+  border-radius: 999px;
+  background:
+    rgba(78, 148, 87, 0.31);
+  background-clip:
+    padding-box;
+}
+
+/* 두 검색 결과 열 사이 구분선 */
+.search-wrapper
+.wiki-search-dropdown
+> div
+> div:first-child {
+  border-right:
+    1px solid
+    var(--rd-search-divider) !important;
+}
+
+/* 문서/퀘스트 결과 */
+.search-wrapper
+.wiki-search-dropdown
+[role='option'] {
+  box-sizing: border-box !important;
+  margin:
+    2px
+    0 !important;
+  padding:
+    10px
+    11px !important;
+  border:
+    1px solid
+    transparent !important;
+  border-bottom-color:
+    transparent !important;
+  border-radius:
+    11px !important;
+  background:
+    transparent !important;
+  color:
+    var(--rd-search-text) !important;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease !important;
+}
+
+.search-wrapper
+.wiki-search-dropdown
+[role='option']:hover {
+  border-color:
+    var(--rd-search-selected-border) !important;
+  background:
+    var(--rd-search-selected) !important;
+  box-shadow:
+    0 6px 14px
+    rgba(48, 92, 54, 0.06);
+  transform:
+    translateY(-1px);
+}
+
+.search-wrapper
+.wiki-search-dropdown
+[role='option'][aria-selected='true'] {
+  border-color:
+    var(--rd-search-selected-border) !important;
+  background:
+    var(--rd-search-selected) !important;
+  box-shadow:
+    inset 3px 0 0
+      var(--rd-search-icon-focus),
+    0 6px 14px
+      rgba(48, 92, 54, 0.055);
+}
+
+/* FAQ 결과 항목 */
+.search-wrapper
+.wiki-search-dropdown
+> div
+> div:last-child
+> ul
+> li {
+  box-sizing: border-box !important;
+  margin:
+    2px
+    0 !important;
+  padding:
+    10px
+    11px !important;
+  border:
+    1px solid
+    transparent !important;
+  border-bottom-color:
+    transparent !important;
+  border-radius:
+    11px !important;
+  background:
+    transparent !important;
+  color:
+    var(--rd-search-text) !important;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease !important;
+}
+
+.search-wrapper
+.wiki-search-dropdown
+> div
+> div:last-child
+> ul
+> li:hover {
+  border-color:
+    var(--rd-search-selected-border) !important;
+  background:
+    var(--rd-search-selected) !important;
+  box-shadow:
+    0 6px 14px
+    rgba(48, 92, 54, 0.06);
+  transform:
+    translateY(-1px);
+}
+
+/* 결과의 섹션 제목 */
+.search-wrapper
+.wiki-search-dropdown
+> div
+> div
+> div:first-child {
+  color:
+    var(--rd-search-muted) !important;
+}
+
+/* 결과 태그 */
+.search-wrapper
+.wiki-search-dropdown
+span[style*='var(--tag-bg)'] {
+  border-color:
+    rgba(77, 145, 86, 0.16) !important;
+  background:
+    rgba(233, 246, 229, 0.88) !important;
+  color:
+    var(--rd-search-icon-focus) !important;
+}
+
+/* 검색어 강조 */
+.search-wrapper
+.wiki-search-dropdown mark,
+.search-wrapper
+.wiki-search-dropdown
+.search-highlight {
+  border-radius: 4px;
+  background:
+    rgba(202, 232, 151, 0.54) !important;
+  color:
+    inherit !important;
+}
+
+/* ---------------------------------------------
+ * 4. 다크 모드
+ * --------------------------------------------- */
+
+:root[data-theme='dark']
+.search-wrapper,
+html.dark
+.search-wrapper,
+body.dark
+.search-wrapper {
+  --rd-search-bg:
+    rgba(17, 31, 42, 0.94);
+  --rd-search-bg-hover:
+    rgba(20, 38, 45, 0.97);
+  --rd-search-border:
+    rgba(133, 188, 145, 0.2);
+  --rd-search-border-hover:
+    rgba(128, 202, 141, 0.34);
+  --rd-search-border-focus:
+    rgba(134, 211, 148, 0.58);
+  --rd-search-text:
+    #edf5ef;
+  --rd-search-placeholder:
+    #8fa199;
+  --rd-search-icon:
+    #82ba8c;
+  --rd-search-icon-focus:
+    #aee0b6;
+  --rd-search-soft:
+    rgba(47, 82, 53, 0.46);
+  --rd-search-soft-strong:
+    rgba(58, 96, 64, 0.6);
+  --rd-search-shadow:
+    0 9px 24px
+    rgba(0, 0, 0, 0.22);
+  --rd-search-shadow-focus:
+    0 13px 31px
+    rgba(0, 0, 0, 0.31);
+  --rd-search-ring:
+    0 0 0 4px
+    rgba(125, 203, 139, 0.1);
+  --rd-search-dropdown:
+    rgba(14, 26, 39, 0.985);
+  --rd-search-dropdown-soft:
+    rgba(16, 34, 41, 0.98);
+  --rd-search-muted:
+    #a5b5ad;
+  --rd-search-muted-2:
+    #7e9087;
+  --rd-search-divider:
+    rgba(132, 188, 144, 0.16);
+  --rd-search-selected:
+    rgba(43, 78, 51, 0.48);
+  --rd-search-selected-border:
+    rgba(128, 202, 141, 0.22);
+
+  background:
+    linear-gradient(
+      180deg,
+      var(--rd-search-bg) 0%,
+      rgba(15, 29, 40, 0.96) 100%
+    ) !important;
+  box-shadow:
+    inset 0 1px 0
+      rgba(255, 255, 255, 0.035),
+    var(--rd-search-shadow) !important;
+}
+
+:root[data-theme='dark']
+.search-wrapper::before,
+html.dark
+.search-wrapper::before,
+body.dark
+.search-wrapper::before {
+  background:
+    linear-gradient(
+      135deg,
+      rgba(42, 76, 49, 0.7),
+      rgba(32, 67, 57, 0.65)
+    );
+}
+
+:root[data-theme='dark']
+.search-wrapper:focus-within,
+html.dark
+.search-wrapper:focus-within,
+body.dark
+.search-wrapper:focus-within {
+  box-shadow:
+    inset 0 1px 0
+      rgba(255, 255, 255, 0.045),
+    var(--rd-search-ring),
+    var(--rd-search-shadow-focus) !important;
+}
+
+:root[data-theme='dark']
+.search-wrapper
+.wiki-search-dropdown,
+html.dark
+.search-wrapper
+.wiki-search-dropdown,
+body.dark
+.search-wrapper
+.wiki-search-dropdown {
+  box-shadow:
+    0 24px 56px
+      rgba(0, 0, 0, 0.39),
+    inset 0 1px 0
+      rgba(255, 255, 255, 0.035) !important;
+}
+
+/* ---------------------------------------------
+ * 5. 반응형
+ * --------------------------------------------- */
+
+@media (max-width: 768px) {
+  .search-wrapper {
+    height:
+      44px !important;
+    min-height:
+      44px !important;
+    padding:
+      0
+      12px !important;
+    border-radius:
+      14px !important;
+  }
+
+  .search-wrapper::before {
+    top: 6px;
+    bottom: 6px;
+    left: 6px;
+    width: 30px;
+  }
+
+  .search-wrapper
+  .search-input {
+    height:
+      42px !important;
+    font-size:
+      14px !important;
+    line-height:
+      42px !important;
+  }
+
+  .search-wrapper
+  .wiki-search-dropdown {
+    top:
+      calc(100% + 8px) !important;
+    padding:
+      10px !important;
+    border-radius:
+      15px !important;
+  }
+
+  .search-wrapper
+  .wiki-search-dropdown
+  > div {
+    grid-template-columns:
+      1fr !important;
+    gap:
+      12px !important;
+  }
+
+  .search-wrapper
+  .wiki-search-dropdown
+  > div
+  > div:first-child {
+    padding-right:
+      0 !important;
+    padding-bottom:
+      10px;
+    border-right:
+      0 !important;
+    border-bottom:
+      1px solid
+      var(--rd-search-divider) !important;
+  }
+
+  .search-wrapper
+  .wiki-search-dropdown
+  > div
+  > div:last-child {
+    padding-left:
+      0 !important;
+  }
+}
+
+/* ---------------------------------------------
+ * 6. 모션 최소화
+ * --------------------------------------------- */
+
+@media (
+  prefers-reduced-motion:
+  reduce
+) {
+  .search-wrapper,
+  .search-wrapper::before,
+  .search-wrapper
+  .search-icon,
+  .search-wrapper
+  .wiki-search-dropdown
+  [role='option'],
+  .search-wrapper
+  .wiki-search-dropdown
+  > div
+  > div:last-child
+  > ul
+  > li {
+    transition:
+      none !important;
+  }
+}
