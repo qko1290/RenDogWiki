@@ -2,12 +2,15 @@
 // File: app/components/common/HamburgerMenu.tsx
 // 전체 코드
 //
-// - 홈 페이지와 같은 크림·민트·초록 계열 디자인
-// - 기존 관리 메뉴 경로와 로그인/로그아웃 동작 유지
-// - 기존 메뉴 로고를 홈 RDWIKI 로고로 교체
-// - portal 렌더링으로 헤더와 독립된 전체 화면 백드롭 유지
-// - ESC, 백드롭 클릭, 닫기 버튼 지원
-// - 다크 모드 및 모바일 대응
+// - 현재 홈 페이지용 햄버거 메뉴 디자인 유지
+// - 메뉴가 열릴 때 /api/auth/me로 실제 로그인 상태 재확인
+// - Header/Home에서 전달된 user prop이 없어도 로그인 상태 정상 표시
+// - writer/admin 권한 확인 후 관리 메뉴 이동
+// - 권한이 없으면 기존과 동일하게 경고 모달 표시
+// - Minecraft UUID와 스킨 아이콘 보정
+// - 기존 특수 닉네임 표시 유지
+// - 메뉴 내부 Link prefetch 비활성화
+// - portal, 백드롭, ESC, 스크롤 잠금 유지
 // =============================================
 
 'use client';
@@ -17,12 +20,20 @@ import {
   useMemo,
   useState,
   type ReactNode,
+  type MouseEvent as ReactMouseEvent,
 } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
   createPortal,
 } from 'react-dom';
+
+import {
+  ModalCard,
+} from '@/components/common/Modal';
+import {
+  toProxyUrl,
+} from '@lib/cdn';
 
 import styles from '@/wiki/css/hamburgerMenu.module.css';
 
@@ -33,6 +44,26 @@ type HamburgerMenuProps = {
   username?: string;
   uuid?: string;
   onLogout: () => void | Promise<void>;
+};
+
+type Role =
+  | 'guest'
+  | 'writer'
+  | 'admin';
+
+type AuthUser = {
+  id?: number;
+  username?: string;
+  email?: string;
+  minecraft_name?: string;
+  minecraft_uuid?: string;
+  role?: string | null;
+};
+
+type AuthMeResponse = {
+  loggedIn?: boolean;
+  role?: string | null;
+  user?: AuthUser | null;
 };
 
 type MenuItem = {
@@ -46,6 +77,20 @@ type MenuItem = {
     | 'blue'
     | 'orange'
     | 'lime';
+};
+
+const SPECIAL_NICKS: Record<
+  string,
+  string
+> = {
+  q_ko: '큐코',
+  rounding_: '라운딩',
+  daramg__: '다람지',
+  _kei_yuki: '케이유키',
+  minnseo: '민서',
+  wonjun125: '원준',
+  iellre: '일레',
+  carmenia434: '카르메니아',
 };
 
 const menuItems: ReadonlyArray<MenuItem> = [
@@ -138,6 +183,24 @@ const menuItems: ReadonlyArray<MenuItem> = [
     ),
   },
 ];
+
+function normalizeRole(
+  value: unknown,
+): Role {
+  const normalized =
+    String(value ?? '')
+      .trim()
+      .toLowerCase();
+
+  if (
+    normalized === 'admin' ||
+    normalized === 'writer'
+  ) {
+    return normalized;
+  }
+
+  return 'guest';
+}
 
 function ArrowIcon() {
   return (
@@ -233,24 +296,66 @@ export default function HamburgerMenu({
     setLoggingOut,
   ] = useState(false);
 
-  const displayName =
-    username.trim() || 'RDWIKI 사용자';
+  const [
+    authChecking,
+    setAuthChecking,
+  ] = useState(true);
 
-  const initial = useMemo(() => {
-    const value =
-      displayName.trim();
+  const [
+    effectiveLoggedIn,
+    setEffectiveLoggedIn,
+  ] = useState(isLoggedIn);
 
-    return (
-      value.charAt(0).toUpperCase() ||
-      'R'
+  const [
+    effectiveUsername,
+    setEffectiveUsername,
+  ] = useState(username);
+
+  const [
+    resolvedUUID,
+    setResolvedUUID,
+  ] = useState<string | null>(
+    uuid || null,
+  );
+
+  const [
+    role,
+    setRole,
+  ] = useState<Role>('guest');
+
+  const [
+    roleLoaded,
+    setRoleLoaded,
+  ] = useState(false);
+
+  const [
+    denyOpen,
+    setDenyOpen,
+  ] = useState(false);
+
+  useEffect(() => {
+    setEffectiveLoggedIn(
+      isLoggedIn,
     );
-  }, [displayName]);
+    setEffectiveUsername(
+      username || '',
+    );
+    setResolvedUUID(
+      uuid || null,
+    );
 
-  /*
-   * 현재 메뉴에서는 외부 스킨 이미지를 사용하지 않는다.
-   * uuid prop은 기존 호출부 호환성을 위해 유지한다.
-   */
-  void uuid;
+    /*
+     * props는 빠른 첫 표시를 위한 힌트다.
+     * 실제 로그인/권한 상태는 메뉴가 열릴 때
+     * /api/auth/me 응답으로 다시 확정한다.
+     */
+    setRole('guest');
+    setRoleLoaded(false);
+  }, [
+    isLoggedIn,
+    username,
+    uuid,
+  ]);
 
   useEffect(() => {
     setMounted(true);
@@ -259,6 +364,177 @@ export default function HamburgerMenu({
       setMounted(false);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    let aborted = false;
+
+    setAuthChecking(true);
+    setRoleLoaded(false);
+    setDenyOpen(false);
+
+    const fetchUuidByName =
+      async (
+        minecraftName: string,
+      ) => {
+        try {
+          const response =
+            await fetch(
+              `/api/mojang/uuid?name=${encodeURIComponent(
+                minecraftName,
+              )}`,
+              {
+                cache: 'no-store',
+                credentials:
+                  'same-origin',
+              },
+            );
+
+          if (!response.ok) {
+            return;
+          }
+
+          const payload =
+            await response
+              .json()
+              .catch(() => ({}));
+
+          const nextUuid =
+            typeof payload?.uuid ===
+            'string'
+              ? payload.uuid.trim()
+              : '';
+
+          if (
+            !aborted &&
+            nextUuid
+          ) {
+            setResolvedUUID(
+              nextUuid,
+            );
+          }
+        } catch {
+          /*
+           * UUID 조회 실패는 로그인 상태와 무관하다.
+           * 사용자명 표시는 그대로 유지한다.
+           */
+        }
+      };
+
+    void (async () => {
+      try {
+        const response =
+          await fetch(
+            '/api/auth/me',
+            {
+              cache: 'no-store',
+              credentials: 'include',
+            },
+          );
+
+        const payload:
+          AuthMeResponse | null =
+          response.ok
+            ? await response
+                .json()
+                .catch(() => null)
+            : null;
+
+        const authUser =
+          payload?.user ?? null;
+
+        const nextLoggedIn =
+          Boolean(
+            payload?.loggedIn &&
+              authUser,
+          );
+
+        const nextRole =
+          normalizeRole(
+            authUser?.role ??
+              payload?.role,
+          );
+
+        const nextUsername =
+          String(
+            authUser?.minecraft_name ??
+              authUser?.username ??
+              username ??
+              '',
+          ).trim();
+
+        const nextUuid =
+          String(
+            uuid ??
+              authUser?.minecraft_uuid ??
+              '',
+          ).trim();
+
+        if (aborted) {
+          return;
+        }
+
+        setEffectiveLoggedIn(
+          nextLoggedIn,
+        );
+        setEffectiveUsername(
+          nextUsername,
+        );
+        setRole(nextRole);
+        setRoleLoaded(true);
+
+        if (nextUuid) {
+          setResolvedUUID(
+            nextUuid,
+          );
+        } else {
+          setResolvedUUID(null);
+
+          if (nextUsername) {
+            void fetchUuidByName(
+              nextUsername,
+            );
+          }
+        }
+      } catch {
+        if (aborted) {
+          return;
+        }
+
+        /*
+         * API가 일시적으로 실패하면 호출부에서 전달한
+         * 로그인 정보는 유지하고 권한만 보수적으로 guest 처리한다.
+         */
+        setEffectiveLoggedIn(
+          isLoggedIn,
+        );
+        setEffectiveUsername(
+          username || '',
+        );
+        setResolvedUUID(
+          uuid || null,
+        );
+        setRole('guest');
+        setRoleLoaded(true);
+      } finally {
+        if (!aborted) {
+          setAuthChecking(false);
+        }
+      }
+    })();
+
+    return () => {
+      aborted = true;
+    };
+  }, [
+    isOpen,
+    isLoggedIn,
+    username,
+    uuid,
+  ]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -286,6 +562,11 @@ export default function HamburgerMenu({
       event: KeyboardEvent,
     ) => {
       if (event.key === 'Escape') {
+        if (denyOpen) {
+          setDenyOpen(false);
+          return;
+        }
+
         onClose();
       }
     };
@@ -309,21 +590,88 @@ export default function HamburgerMenu({
   }, [
     isOpen,
     onClose,
+    denyOpen,
   ]);
 
-  const handleLogout = async () => {
-    if (loggingOut) {
+  const normalizedName =
+    useMemo(
+      () =>
+        effectiveUsername
+          .trim()
+          .toLowerCase(),
+      [effectiveUsername],
+    );
+
+  const specialDisplayName =
+    SPECIAL_NICKS[
+      normalizedName
+    ];
+
+  const displayName =
+    specialDisplayName ||
+    effectiveUsername.trim() ||
+    'RDWIKI 사용자';
+
+  const initial =
+    useMemo(() => {
+      const value =
+        displayName.trim();
+
+      return (
+        value
+          .charAt(0)
+          .toUpperCase() ||
+        'R'
+      );
+    }, [displayName]);
+
+  const skinUrl =
+    resolvedUUID
+      ? `https://crafthead.net/helm/${resolvedUUID}/64.png`
+      : null;
+
+  const canManage =
+    role === 'writer' ||
+    role === 'admin';
+
+  const permissionMessage =
+    !effectiveLoggedIn
+      ? '로그인이 필요합니다.'
+      : '권한이 없습니다.\n관리자에게 문의해주세요.';
+
+  const handleGuardedClick = (
+    event:
+      ReactMouseEvent<
+        HTMLAnchorElement
+      >,
+  ) => {
+    if (
+      !roleLoaded ||
+      !canManage
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      setDenyOpen(true);
       return;
     }
 
-    setLoggingOut(true);
-
-    try {
-      await onLogout();
-    } finally {
-      setLoggingOut(false);
-    }
+    onClose();
   };
+
+  const handleLogout =
+    async () => {
+      if (loggingOut) {
+        return;
+      }
+
+      setLoggingOut(true);
+
+      try {
+        await onLogout();
+      } finally {
+        setLoggingOut(false);
+      }
+    };
 
   if (
     !mounted ||
@@ -333,215 +681,330 @@ export default function HamburgerMenu({
   }
 
   return createPortal(
-    <div
-      className={styles.layer}
-      role="presentation"
-    >
-      <button
-        type="button"
-        className={styles.backdrop}
-        aria-label="관리 메뉴 닫기"
-        onClick={onClose}
-      />
-
-      <aside
-        className={styles.panel}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="rdwiki-menu-title"
+    <>
+      <div
+        className={styles.layer}
+        role="presentation"
       >
-        <div
-          className={styles.ambient}
-          aria-hidden="true"
+        <button
+          type="button"
+          className={styles.backdrop}
+          aria-label="관리 메뉴 닫기"
+          onClick={onClose}
+        />
+
+        <aside
+          className={styles.panel}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="rdwiki-menu-title"
         >
-          <span />
-          <span />
-          <span />
-        </div>
-
-        <header className={styles.header}>
-          <Link
-            href="/"
-            className={styles.brand}
-            aria-label="RDWIKI 홈"
-            onClick={onClose}
+          <div
+            className={styles.ambient}
+            aria-hidden="true"
           >
-            <Image
-              src="/images/home/branding/rdwiki-logo.png"
-              alt="RDWIKI"
-              width={360}
-              height={120}
-              className={styles.logo}
-              priority
-            />
-          </Link>
+            <span />
+            <span />
+            <span />
+          </div>
 
-          <button
-            type="button"
-            className={styles.closeButton}
-            onClick={onClose}
-            aria-label="관리 메뉴 닫기"
-          >
-            <CloseIcon />
-          </button>
-        </header>
-
-        <div className={styles.scrollArea}>
-          <section
-            className={styles.welcomeCard}
-            aria-label={
-              isLoggedIn
-                ? '로그인 사용자 정보'
-                : '비로그인 사용자 안내'
-            }
-          >
-            <div
-              className={styles.avatar}
-              aria-hidden="true"
+          <header className={styles.header}>
+            <Link
+              href="/"
+              prefetch={false}
+              className={styles.brand}
+              aria-label="RDWIKI 홈"
+              onClick={onClose}
             >
-              {isLoggedIn ? (
-                <span>{initial}</span>
-              ) : (
-                <UserIcon />
-              )}
-            </div>
+              <Image
+                src="/images/home/branding/rdwiki-logo.png"
+                alt="RDWIKI"
+                width={360}
+                height={120}
+                className={styles.logo}
+                priority
+              />
+            </Link>
 
-            <div className={styles.welcomeBody}>
-              <p className={styles.eyebrow}>
-                {isLoggedIn
-                  ? 'WELCOME BACK'
-                  : 'WELCOME TO RDWIKI'}
-              </p>
+            <button
+              type="button"
+              className={
+                styles.closeButton
+              }
+              onClick={onClose}
+              aria-label="관리 메뉴 닫기"
+            >
+              <CloseIcon />
+            </button>
+          </header>
 
-              <h2 id="rdwiki-menu-title">
-                {isLoggedIn
-                  ? `${displayName}님`
-                  : '게스트로 둘러보는 중'}
-              </h2>
-
-              <p>
-                {isLoggedIn
-                  ? '렌독위키 관리 도구와 개인 메뉴를 이용할 수 있습니다.'
-                  : '로그인하면 문서와 관리 기능을 더욱 편하게 이용할 수 있습니다.'}
-              </p>
-            </div>
-          </section>
-
-          <section
-            className={styles.menuSection}
-            aria-labelledby="manage-menu-heading"
-          >
-            <div className={styles.sectionHeading}>
-              <div>
-                <p className={styles.eyebrow}>
-                  RDWIKI TOOLS
-                </p>
-
-                <h3 id="manage-menu-heading">
-                  관리 메뉴
-                </h3>
+          <div className={styles.scrollArea}>
+            <section
+              className={styles.welcomeCard}
+              aria-label={
+                authChecking
+                  ? '로그인 상태 확인 중'
+                  : effectiveLoggedIn
+                    ? '로그인 사용자 정보'
+                    : '비로그인 사용자 안내'
+              }
+            >
+              <div
+                className={styles.avatar}
+                aria-hidden="true"
+              >
+                {effectiveLoggedIn &&
+                skinUrl ? (
+                  <img
+                    src={toProxyUrl(
+                      skinUrl,
+                    )}
+                    alt=""
+                    width={58}
+                    height={58}
+                    loading="lazy"
+                    decoding="async"
+                    draggable={false}
+                    style={{
+                      display:
+                        'block',
+                      width: '100%',
+                      height: '100%',
+                      borderRadius:
+                        '16px',
+                      objectFit:
+                        'cover',
+                      imageRendering:
+                        'pixelated',
+                    }}
+                  />
+                ) : effectiveLoggedIn ? (
+                  <span>{initial}</span>
+                ) : (
+                  <UserIcon />
+                )}
               </div>
 
-              <span>
-                {menuItems.length}
-              </span>
-            </div>
+              <div className={styles.welcomeBody}>
+                <p className={styles.eyebrow}>
+                  {authChecking
+                    ? 'CHECKING ACCOUNT'
+                    : effectiveLoggedIn
+                      ? 'WELCOME BACK'
+                      : 'WELCOME TO RDWIKI'}
+                </p>
 
-            <nav
-              className={styles.menuList}
-              aria-label="관리 도구"
+                <h2 id="rdwiki-menu-title">
+                  {authChecking
+                    ? '로그인 상태 확인 중'
+                    : effectiveLoggedIn
+                      ? `${displayName}님`
+                      : '게스트로 둘러보는 중'}
+                </h2>
+
+                <p>
+                  {authChecking
+                    ? '현재 계정과 관리 권한을 확인하고 있습니다.'
+                    : effectiveLoggedIn
+                      ? canManage
+                        ? '렌독위키 관리 도구와 개인 메뉴를 이용할 수 있습니다.'
+                        : '로그인되었습니다. 관리 기능은 권한이 있는 계정만 이용할 수 있습니다.'
+                      : '로그인하면 문서와 관리 기능을 더욱 편하게 이용할 수 있습니다.'}
+                </p>
+              </div>
+            </section>
+
+            <section
+              className={styles.menuSection}
+              aria-labelledby="manage-menu-heading"
             >
-              {menuItems.map(
-                (item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={styles.menuItem}
-                    data-tone={item.tone}
-                    onClick={onClose}
-                  >
-                    <span
-                      className={styles.menuIcon}
-                      aria-hidden="true"
-                    >
-                      {item.icon}
-                    </span>
+              <div className={styles.sectionHeading}>
+                <div>
+                  <p className={styles.eyebrow}>
+                    RDWIKI TOOLS
+                  </p>
 
-                    <span className={styles.menuText}>
-                      <strong>
-                        {item.title}
-                      </strong>
+                  <h3 id="manage-menu-heading">
+                    관리 메뉴
+                  </h3>
+                </div>
 
-                      <span>
-                        {item.description}
-                      </span>
-                    </span>
-
-                    <span
-                      className={styles.menuArrow}
-                      aria-hidden="true"
-                    >
-                      <ArrowIcon />
-                    </span>
-                  </Link>
-                ),
-              )}
-            </nav>
-          </section>
-        </div>
-
-        <footer className={styles.footer}>
-          {isLoggedIn ? (
-            <>
-              <Link
-                href="/mypage"
-                className={`${styles.accountButton} ${styles.accountButtonPrimary}`}
-                onClick={onClose}
-              >
-                <UserIcon />
-                <span>마이페이지</span>
-              </Link>
-
-              <button
-                type="button"
-                className={`${styles.accountButton} ${styles.accountButtonSecondary}`}
-                onClick={() => {
-                  void handleLogout();
-                }}
-                disabled={loggingOut}
-              >
-                <LogoutIcon />
                 <span>
-                  {loggingOut
-                    ? '로그아웃 중'
-                    : '로그아웃'}
+                  {menuItems.length}
                 </span>
-              </button>
-            </>
-          ) : (
-            <>
-              <Link
-                href="/login"
-                className={`${styles.accountButton} ${styles.accountButtonPrimary}`}
-                onClick={onClose}
-              >
-                <LoginIcon />
-                <span>로그인</span>
-              </Link>
+              </div>
 
-              <Link
-                href="/register"
-                className={`${styles.accountButton} ${styles.accountButtonSecondary}`}
-                onClick={onClose}
+              <nav
+                className={styles.menuList}
+                aria-label="관리 도구"
               >
-                <UserPlusIcon />
-                <span>회원가입</span>
-              </Link>
-            </>
-          )}
-        </footer>
-      </aside>
-    </div>,
+                {menuItems.map(
+                  (item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      prefetch={false}
+                      className={
+                        styles.menuItem
+                      }
+                      data-tone={item.tone}
+                      onClick={
+                        handleGuardedClick
+                      }
+                      aria-disabled={
+                        !roleLoaded ||
+                        !canManage
+                      }
+                      title={
+                        !roleLoaded
+                          ? '권한 확인 중'
+                          : !canManage
+                            ? 'writer 또는 admin 권한 필요'
+                            : item.title
+                      }
+                    >
+                      <span
+                        className={
+                          styles.menuIcon
+                        }
+                        aria-hidden="true"
+                      >
+                        {item.icon}
+                      </span>
+
+                      <span
+                        className={
+                          styles.menuText
+                        }
+                      >
+                        <strong>
+                          {item.title}
+                        </strong>
+
+                        <span>
+                          {item.description}
+                        </span>
+                      </span>
+
+                      <span
+                        className={
+                          styles.menuArrow
+                        }
+                        aria-hidden="true"
+                      >
+                        <ArrowIcon />
+                      </span>
+                    </Link>
+                  ),
+                )}
+              </nav>
+            </section>
+          </div>
+
+          <footer className={styles.footer}>
+            {authChecking ? (
+              <>
+                <button
+                  type="button"
+                  className={`${styles.accountButton} ${styles.accountButtonPrimary}`}
+                  disabled
+                >
+                  <UserIcon />
+                  <span>확인 중</span>
+                </button>
+
+                <button
+                  type="button"
+                  className={`${styles.accountButton} ${styles.accountButtonSecondary}`}
+                  disabled
+                >
+                  <span>잠시만요</span>
+                </button>
+              </>
+            ) : effectiveLoggedIn ? (
+              <>
+                <Link
+                  href="/mypage"
+                  prefetch={false}
+                  className={`${styles.accountButton} ${styles.accountButtonPrimary}`}
+                  onClick={onClose}
+                >
+                  <UserIcon />
+                  <span>마이페이지</span>
+                </Link>
+
+                <button
+                  type="button"
+                  className={`${styles.accountButton} ${styles.accountButtonSecondary}`}
+                  onClick={() => {
+                    void handleLogout();
+                  }}
+                  disabled={loggingOut}
+                >
+                  <LogoutIcon />
+                  <span>
+                    {loggingOut
+                      ? '로그아웃 중'
+                      : '로그아웃'}
+                  </span>
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  prefetch={false}
+                  className={`${styles.accountButton} ${styles.accountButtonPrimary}`}
+                  onClick={onClose}
+                >
+                  <LoginIcon />
+                  <span>로그인</span>
+                </Link>
+
+                <Link
+                  href="/register"
+                  prefetch={false}
+                  className={`${styles.accountButton} ${styles.accountButtonSecondary}`}
+                  onClick={onClose}
+                >
+                  <UserPlusIcon />
+                  <span>회원가입</span>
+                </Link>
+              </>
+            )}
+          </footer>
+        </aside>
+      </div>
+
+      <ModalCard
+        open={denyOpen}
+        onClose={() => {
+          setDenyOpen(false);
+        }}
+        title="경고"
+        width={360}
+        actions={
+          <button
+            type="button"
+            className={`${styles.accountButton} ${styles.accountButtonPrimary}`}
+            onClick={() => {
+              setDenyOpen(false);
+            }}
+          >
+            확인
+          </button>
+        }
+      >
+        <div
+          style={{
+            whiteSpace:
+              'pre-line',
+          }}
+        >
+          {permissionMessage}
+        </div>
+      </ModalCard>
+    </>,
     document.body,
   );
 }
