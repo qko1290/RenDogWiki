@@ -1,12 +1,16 @@
 // =============================================
 // File: app/components/common/SearchBox.tsx
-// 전체 교체용 코드
-// - main 브랜치 SearchBox의 디자인/크기/2열 구성 그대로 사용
-// - main 브랜치와 동일한 문서·퀘스트 NPC·FAQ 검색 방식 유지
-// - 결과 상세 모달을 닫아도 검색어와 결과창 유지
-// - FAQ 클릭 시 최신 상세 조회와 열람수 기록
-// - 문서/FAQ/퀘스트 NPC 선택 시 검색어를 검색 세션당 1회 집계
-// - 모달이 없을 때만 바깥 클릭으로 결과창 닫기
+// 전체 코드
+//
+// - Home과 Wiki Header에서 공통 사용
+// - 문서 / 본문·목차 / 태그 검색
+// - 퀘스트 NPC 검색 및 상위 상세 모달 연결
+// - FAQ 검색, 최신 상세 조회, 열람수 기록
+// - 인기 검색어 칩의 외부 검색 요청 지원
+// - 검색어 선택 집계 유지
+// - 키보드 탐색, 외부 클릭, ESC 동작 유지
+// - 명시적인 검색 초기화 X 버튼 사용
+// - 마우스가 결과 영역을 벗어나면 강조 해제
 // =============================================
 
 'use client';
@@ -22,7 +26,6 @@ import {
 import { useRouter } from 'next/navigation';
 
 import { toProxyUrl } from '@lib/cdn';
-import { markNextDocViewSource } from '@/wiki/lib/viewSource';
 import {
   recordFaqView,
 } from '@/wiki/lib/faqView';
@@ -32,6 +35,10 @@ import {
   SEARCH_QUERY_REQUEST_EVENT,
   type SearchCommitResultType,
 } from '@/wiki/lib/searchPopularity';
+import {
+  markNextDocViewSource,
+} from '@/wiki/lib/viewSource';
+
 import '@/wiki/css/searchBox.css';
 
 type DocResult = {
@@ -40,13 +47,19 @@ type DocResult = {
   path: string | number;
   icon?: string;
   tags: string[];
-  match_type: 'title' | 'tags' | 'content';
+  match_type:
+    | 'title'
+    | 'tags'
+    | 'content';
   category_breadcrumb?: string;
   section_heading?: string | null;
   section_dom_id?: string | null;
   section_level?: 1 | 2 | 3 | null;
   section_snippet?: string | null;
-  section_match_source?: 'heading' | 'body' | null;
+  section_match_source?:
+    | 'heading'
+    | 'body'
+    | null;
 };
 
 type FaqItem = {
@@ -89,26 +102,30 @@ type SearchQueryRequestDetail = {
 };
 
 type Props = {
-  /** 헤더 안 정렬: center | left */
+  /** 헤더 안 정렬 */
   align?: 'center' | 'left';
 
-  /** 박스 너비 */
+  /** 검색창 전체 너비 */
   width?: string;
 
   /** 기존 호출부 호환용 */
   paddingLeft?: number;
 
-  /** 퀘스트 NPC 결과 클릭 시 상위에서 모달 열기 */
-  onQuestNpcClick?: (id: number) => void;
+  /** 퀘스트 NPC 결과 클릭 시 상위 모달 열기 */
+  onQuestNpcClick?: (
+    id: number,
+  ) => void;
 
   /**
-   * SearchBox 밖에서 열린 NPC 상세 모달의 상태.
-   * true인 동안 모달 배경 클릭을 검색창 외부 클릭으로 처리하지 않는다.
+   * SearchBox 외부에서 열린 상세 모달 상태.
+   * true인 동안 모달 클릭을 검색창 외부 클릭으로 처리하지 않는다.
    */
   resultModalOpen?: boolean;
 };
 
-function normalizeSearchText(value: string) {
+function normalizeSearchText(
+  value: string,
+) {
   return String(value ?? '')
     .toLowerCase()
     .replace(/\s+/g, '');
@@ -116,30 +133,45 @@ function normalizeSearchText(value: string) {
 
 function isSectionHeadingHighlighted(
   heading: string,
-  keyword: string
+  keyword: string,
 ) {
-  const normalizedHeading = normalizeSearchText(heading);
-  const normalizedKeyword = normalizeSearchText(keyword);
+  const normalizedHeading =
+    normalizeSearchText(heading);
+  const normalizedKeyword =
+    normalizeSearchText(keyword);
 
-  if (!normalizedHeading || !normalizedKeyword) {
+  if (
+    !normalizedHeading ||
+    !normalizedKeyword
+  ) {
     return false;
   }
 
-  return normalizedHeading.includes(normalizedKeyword);
+  return normalizedHeading.includes(
+    normalizedKeyword,
+  );
 }
 
-function buildCompactIndexMap(text: string) {
+function buildCompactIndexMap(
+  text: string,
+) {
   const compactChars: string[] = [];
   const indexMap: number[] = [];
 
-  for (let index = 0; index < text.length; index += 1) {
+  for (
+    let index = 0;
+    index < text.length;
+    index += 1
+  ) {
     const character = text[index];
 
     if (/\s/.test(character)) {
       continue;
     }
 
-    compactChars.push(character.toLowerCase());
+    compactChars.push(
+      character.toLowerCase(),
+    );
     indexMap.push(index);
   }
 
@@ -151,39 +183,67 @@ function buildCompactIndexMap(text: string) {
 
 function findLooseMatchRange(
   text: string,
-  keyword: string
-): { start: number; end: number } | null {
+  keyword: string,
+): {
+  start: number;
+  end: number;
+} | null {
   if (!text || !keyword) {
     return null;
   }
 
-  const normalizedKeyword = normalizeSearchText(keyword);
+  const normalizedKeyword =
+    normalizeSearchText(keyword);
 
   if (!normalizedKeyword) {
     return null;
   }
 
-  const { compact, indexMap } = buildCompactIndexMap(text);
-  const compactIndex = compact.indexOf(normalizedKeyword);
+  const {
+    compact,
+    indexMap,
+  } = buildCompactIndexMap(text);
+
+  const compactIndex =
+    compact.indexOf(
+      normalizedKeyword,
+    );
 
   if (compactIndex < 0) {
     return null;
   }
 
-  const start = indexMap[compactIndex];
-  const compactEnd =
-    compactIndex + normalizedKeyword.length - 1;
-  const end = (indexMap[compactEnd] ?? start) + 1;
+  const start =
+    indexMap[compactIndex];
 
-  return { start, end };
+  const compactEnd =
+    compactIndex +
+    normalizedKeyword.length -
+    1;
+
+  const end =
+    (indexMap[compactEnd] ??
+      start) + 1;
+
+  return {
+    start,
+    end,
+  };
 }
 
-function highlight(text: string, keyword: string) {
+function highlight(
+  text: string,
+  keyword: string,
+) {
   if (!keyword) {
     return text;
   }
 
-  const range = findLooseMatchRange(text, keyword);
+  const range =
+    findLooseMatchRange(
+      text,
+      keyword,
+    );
 
   if (!range) {
     return text;
@@ -191,38 +251,71 @@ function highlight(text: string, keyword: string) {
 
   return (
     <>
-      {range.start > 0 && text.slice(0, range.start)}
-      <mark>{text.slice(range.start, range.end)}</mark>
-      {range.end < text.length && text.slice(range.end)}
+      {range.start > 0
+        ? text.slice(
+            0,
+            range.start,
+          )
+        : null}
+
+      <mark className="search-highlight">
+        {text.slice(
+          range.start,
+          range.end,
+        )}
+      </mark>
+
+      {range.end < text.length
+        ? text.slice(range.end)
+        : null}
     </>
   );
 }
 
-const isImageLike = (value?: string | null) =>
+const isImageLike = (
+  value?: string | null,
+) =>
   Boolean(
     value &&
-      (/^https?:\/\//i.test(value) ||
-        value.startsWith('data:image'))
+      (/^https?:\/\//i.test(
+        value,
+      ) ||
+        value.startsWith(
+          'data:image',
+        ) ||
+        value.startsWith('/')),
   );
 
-const isRemoteHttp = (value?: string | null) =>
-  Boolean(value && /^https?:\/\//i.test(value));
+const isRemoteHttp = (
+  value?: string | null,
+) =>
+  Boolean(
+    value &&
+      /^https?:\/\//i.test(value),
+  );
 
-function normalizeTag(raw: string) {
+function normalizeTag(
+  raw: string,
+) {
   return String(raw ?? '')
     .replace(/^#+\s*/, '')
     .trim();
 }
 
-function escapeRegexCharacter(character: string) {
+function escapeRegexCharacter(
+  character: string,
+) {
   return character.replace(
     /[.*+?^${}()|[\]\\]/g,
-    '\\$&'
+    '\\$&',
   );
 }
 
-function makeLooseRegex(keyword: string) {
-  const compact = normalizeSearchText(keyword);
+function makeLooseRegex(
+  keyword: string,
+) {
+  const compact =
+    normalizeSearchText(keyword);
 
   if (!compact) {
     return null;
@@ -232,42 +325,58 @@ function makeLooseRegex(keyword: string) {
     return new RegExp(
       compact
         .split('')
-        .map(escapeRegexCharacter)
+        .map(
+          escapeRegexCharacter,
+        )
         .join('.*'),
-      'i'
+      'i',
     );
   } catch {
     return null;
   }
 }
 
-function isTagMatched(tag: string, keyword: string) {
-  const cleanTag = normalizeTag(tag);
-  const query = String(keyword ?? '').trim();
+function isTagMatched(
+  tag: string,
+  keyword: string,
+) {
+  const cleanTag =
+    normalizeTag(tag);
+  const query =
+    String(keyword ?? '').trim();
 
   if (!cleanTag || !query) {
     return false;
   }
 
-  const lowerTag = cleanTag.toLowerCase();
-  const lowerQuery = query.toLowerCase();
+  const lowerTag =
+    cleanTag.toLowerCase();
+  const lowerQuery =
+    query.toLowerCase();
 
-  if (lowerTag.includes(lowerQuery)) {
+  if (
+    lowerTag.includes(lowerQuery)
+  ) {
     return true;
   }
 
-  const compactTag = normalizeSearchText(cleanTag);
-  const compactQuery = normalizeSearchText(query);
+  const compactTag =
+    normalizeSearchText(cleanTag);
+  const compactQuery =
+    normalizeSearchText(query);
 
   if (
     compactQuery &&
-    compactTag.includes(compactQuery)
+    compactTag.includes(
+      compactQuery,
+    )
   ) {
     return true;
   }
 
   if (compactQuery.length >= 2) {
-    const looseRegex = makeLooseRegex(query);
+    const looseRegex =
+      makeLooseRegex(query);
 
     if (
       looseRegex &&
@@ -280,80 +389,166 @@ function isTagMatched(tag: string, keyword: string) {
   return false;
 }
 
-function getDocumentPriority(document: DocResult) {
-  if (document.match_type === 'title') {
+function getDocumentPriority(
+  document: DocResult,
+) {
+  if (
+    document.match_type ===
+    'title'
+  ) {
     return 0;
   }
 
   if (
-    document.match_type === 'content' &&
-    document.section_match_source === 'heading'
+    document.match_type ===
+      'content' &&
+    document.section_match_source ===
+      'heading'
   ) {
     return 1;
   }
 
-  if (document.match_type === 'tags') {
+  if (
+    document.match_type ===
+    'tags'
+  ) {
     return 2;
   }
 
   if (
-    document.match_type === 'content' &&
-    document.section_match_source === 'body'
+    document.match_type ===
+      'content' &&
+    document.section_match_source ===
+      'body'
   ) {
     return 3;
   }
 
-  if (document.match_type === 'content') {
+  if (
+    document.match_type ===
+    'content'
+  ) {
     return 4;
   }
 
   return 99;
 }
 
+function SearchIcon() {
+  return (
+    <svg
+      className="search-icon"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <path d="M10.8 3.5a7.3 7.3 0 1 0 4.55 13.01l4.07 4.07 1.16-1.16-4.07-4.07A7.3 7.3 0 0 0 10.8 3.5Zm0 1.65a5.65 5.65 0 1 1 0 11.3 5.65 5.65 0 0 1 0-11.3Z" />
+    </svg>
+  );
+}
+
+function ClearIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <path d="M6.5 6.5 17.5 17.5M17.5 6.5 6.5 17.5" />
+    </svg>
+  );
+}
+
 export default function SearchBox({
   align = 'center',
-  width = 'min(720px, 56vw)',
+  width =
+    'min(720px, 56vw)',
   paddingLeft = 100,
   onQuestNpcClick,
   resultModalOpen = false,
 }: Props) {
   void paddingLeft;
 
-  const [query, setQuery] = useState('');
-  const [open, setOpen] = useState(false);
+  const [
+    query,
+    setQuery,
+  ] = useState('');
 
-  const [docs, setDocs] = useState<DocResult[]>([]);
-  const [loadingDocs, setLoadingDocs] =
-    useState(false);
+  const [
+    open,
+    setOpen,
+  ] = useState(false);
 
-  const [questNpcs, setQuestNpcs] =
-    useState<QuestNpcResult[]>([]);
-  const [loadingQuestNpcs, setLoadingQuestNpcs] =
-    useState(false);
+  const [
+    docs,
+    setDocs,
+  ] = useState<DocResult[]>([]);
 
-  const [faqs, setFaqs] = useState<FaqItem[]>([]);
-  const [loadingFaqs, setLoadingFaqs] =
-    useState(false);
+  const [
+    loadingDocs,
+    setLoadingDocs,
+  ] = useState(false);
 
-  const [activeDocIndex, setActiveDocIndex] =
-    useState(-1);
-  const [faqView, setFaqView] =
-    useState<FaqItem | null>(null);
+  const [
+    questNpcs,
+    setQuestNpcs,
+  ] = useState<
+    QuestNpcResult[]
+  >([]);
 
-  const inputRef = useRef<HTMLInputElement | null>(
-    null
+  const [
+    loadingQuestNpcs,
+    setLoadingQuestNpcs,
+  ] = useState(false);
+
+  const [
+    faqs,
+    setFaqs,
+  ] = useState<FaqItem[]>([]);
+
+  const [
+    loadingFaqs,
+    setLoadingFaqs,
+  ] = useState(false);
+
+  const [
+    activeDocIndex,
+    setActiveDocIndex,
+  ] = useState(-1);
+
+  const [
+    faqView,
+    setFaqView,
+  ] = useState<FaqItem | null>(
+    null,
   );
-  const wrapRef = useRef<HTMLDivElement | null>(
-    null
-  );
+
+  const inputRef =
+    useRef<HTMLInputElement | null>(
+      null,
+    );
+
+  const wrapRef =
+    useRef<HTMLDivElement | null>(
+      null,
+    );
 
   const abortDocsRef =
-    useRef<AbortController | null>(null);
+    useRef<AbortController | null>(
+      null,
+    );
+
   const abortQuestNpcRef =
-    useRef<AbortController | null>(null);
+    useRef<AbortController | null>(
+      null,
+    );
+
   const abortFaqRef =
-    useRef<AbortController | null>(null);
-  const timerRef = useRef<number | null>(null);
+    useRef<AbortController | null>(
+      null,
+    );
+
+  const timerRef =
+    useRef<number | null>(null);
+
   const faqTimerRef =
     useRef<number | null>(null);
 
@@ -367,58 +562,74 @@ export default function SearchBox({
 
   const router = useRouter();
 
+  const listId =
+    useMemo(
+      () =>
+        `search-list-${Math.random()
+          .toString(36)
+          .slice(2)}`,
+      [],
+    );
+
   const syncSearchCommitSession =
     useCallback(
       (value: string) => {
         const queryKey =
-          normalizeSearchText(value);
+          normalizeSearchText(
+            value,
+          );
 
         if (
           queryKey !==
           searchCommitRef.current
             .queryKey
         ) {
-          searchCommitRef.current = {
-            queryKey,
-            sessionId:
-              createSearchSessionId(),
-            committed: false,
-          };
+          searchCommitRef.current =
+            {
+              queryKey,
+              sessionId:
+                createSearchSessionId(),
+              committed: false,
+            };
         }
 
         return searchCommitRef.current;
       },
-      []
+      [],
     );
 
   const updateQuery =
     useCallback(
       (value: string) => {
         syncSearchCommitSession(
-          value
+          value,
         );
+
         setQuery(value);
+        setActiveDocIndex(-1);
       },
-      [syncSearchCommitSession]
+      [
+        syncSearchCommitSession,
+      ],
     );
 
   const commitCurrentSearch =
     useCallback(
       (
         resultType:
-          SearchCommitResultType
+          SearchCommitResultType,
       ) => {
         const keyword =
           String(query ?? '')
             .replace(
               /\s+/g,
-              ' '
+              ' ',
             )
             .trim();
 
         if (
           normalizeSearchText(
-            keyword
+            keyword,
           ).length < 2
         ) {
           return;
@@ -426,13 +637,9 @@ export default function SearchBox({
 
         const session =
           syncSearchCommitSession(
-            keyword
+            keyword,
           );
 
-        /*
-         * 같은 입력 검색 세션에서 문서, FAQ, 퀘스트 NPC를
-         * 여러 번 선택해도 최초 한 번만 집계한다.
-         */
         if (session.committed) {
           return;
         }
@@ -449,24 +656,12 @@ export default function SearchBox({
       [
         query,
         syncSearchCommitSession,
-      ]
+      ],
     );
 
-  const listId = useMemo(
-    () =>
-      `search-list-${Math.random()
-        .toString(36)
-        .slice(2)}`,
-    []
-  );
-
-  /*
-   * Home의 인기 검색어 칩을 누르면
-   * 같은 SearchBox에 검색어를 넣고 실시간 검색을 시작한다.
-   */
   useEffect(() => {
     const onSearchQueryRequest = (
-      event: Event
+      event: Event,
     ) => {
       const customEvent =
         event as CustomEvent<
@@ -476,110 +671,157 @@ export default function SearchBox({
       const requestedKeyword =
         String(
           customEvent.detail
-            ?.keyword ?? ''
+            ?.keyword ?? '',
         )
           .replace(/\s+/g, ' ')
           .trim();
 
       if (
         normalizeSearchText(
-          requestedKeyword
+          requestedKeyword,
         ).length < 2
       ) {
         return;
       }
 
       updateQuery(
-        requestedKeyword
+        requestedKeyword,
       );
       setOpen(true);
 
       window.requestAnimationFrame(
         () => {
-          inputRef.current
-            ?.focus();
-        }
+          inputRef.current?.focus();
+        },
       );
     };
 
     window.addEventListener(
       SEARCH_QUERY_REQUEST_EVENT,
-      onSearchQueryRequest
+      onSearchQueryRequest,
     );
 
     return () => {
       window.removeEventListener(
         SEARCH_QUERY_REQUEST_EVENT,
-        onSearchQueryRequest
+        onSearchQueryRequest,
       );
     };
   }, [updateQuery]);
 
-  const sortedDocs = useMemo(() => {
-    return docs
-      .map((document, index) => ({
-        document,
-        index,
-      }))
-      .sort((first, second) => {
-        const firstPriority =
-          getDocumentPriority(first.document);
-        const secondPriority =
-          getDocumentPriority(second.document);
+  const sortedDocs =
+    useMemo(() => {
+      return docs
+        .map(
+          (
+            document,
+            index,
+          ) => ({
+            document,
+            index,
+          }),
+        )
+        .sort(
+          (
+            first,
+            second,
+          ) => {
+            const firstPriority =
+              getDocumentPriority(
+                first.document,
+              );
 
-        if (
-          firstPriority !== secondPriority
-        ) {
-          return (
-            firstPriority - secondPriority
-          );
-        }
+            const secondPriority =
+              getDocumentPriority(
+                second.document,
+              );
 
-        return first.index - second.index;
-      })
-      .map(({ document }) => document);
-  }, [docs]);
+            if (
+              firstPriority !==
+              secondPriority
+            ) {
+              return (
+                firstPriority -
+                secondPriority
+              );
+            }
+
+            return (
+              first.index -
+              second.index
+            );
+          },
+        )
+        .map(
+          ({
+            document,
+          }) => document,
+        );
+    }, [docs]);
 
   const combinedDocItems =
-    useMemo<SearchResultItem[]>(() => {
+    useMemo<
+      SearchResultItem[]
+    >(() => {
       const documentItems =
-        sortedDocs.map((document) => ({
-          kind: 'doc' as const,
-          id: document.id,
-          data: document,
-        }));
+        sortedDocs.map(
+          (document) => ({
+            kind:
+              'doc' as const,
+            id: document.id,
+            data: document,
+          }),
+        );
 
-      const questItems = questNpcs.map(
-        (npc) => ({
-          kind: 'quest' as const,
-          id: npc.id,
-          data: npc,
-        })
-      );
+      const questItems =
+        questNpcs.map(
+          (npc) => ({
+            kind:
+              'quest' as const,
+            id: npc.id,
+            data: npc,
+          }),
+        );
 
       return [
         ...documentItems,
         ...questItems,
       ];
-    }, [questNpcs, sortedDocs]);
+    }, [
+      questNpcs,
+      sortedDocs,
+    ]);
 
   const combinedCount =
     combinedDocItems.length;
 
   useEffect(() => {
-    const trimmedQuery = query.trim();
-    const compactQuery =
-      normalizeSearchText(trimmedQuery);
+    const trimmedQuery =
+      query.trim();
 
-    if (timerRef.current !== null) {
-      window.clearTimeout(timerRef.current);
+    const compactQuery =
+      normalizeSearchText(
+        trimmedQuery,
+      );
+
+    if (
+      timerRef.current !== null
+    ) {
+      window.clearTimeout(
+        timerRef.current,
+      );
+
       timerRef.current = null;
     }
 
-    if (faqTimerRef.current !== null) {
+    if (
+      faqTimerRef.current !==
+      null
+    ) {
       window.clearTimeout(
-        faqTimerRef.current
+        faqTimerRef.current,
       );
+
       faqTimerRef.current = null;
     }
 
@@ -587,7 +829,9 @@ export default function SearchBox({
     abortQuestNpcRef.current?.abort();
     abortFaqRef.current?.abort();
 
-    if (compactQuery.length < 2) {
+    if (
+      compactQuery.length < 2
+    ) {
       setOpen(false);
       setDocs([]);
       setQuestNpcs([]);
@@ -599,198 +843,239 @@ export default function SearchBox({
       return;
     }
 
-    timerRef.current = window.setTimeout(
-      () => {
-        const docsController =
-          new AbortController();
-        const questController =
-          new AbortController();
-        const faqController =
-          new AbortController();
+    timerRef.current =
+      window.setTimeout(
+        () => {
+          const docsController =
+            new AbortController();
 
-        abortDocsRef.current =
-          docsController;
-        abortQuestNpcRef.current =
-          questController;
-        abortFaqRef.current =
-          faqController;
+          const questController =
+            new AbortController();
 
-        setLoadingDocs(true);
-        setLoadingQuestNpcs(true);
-        setLoadingFaqs(true);
-        setOpen(true);
+          const faqController =
+            new AbortController();
 
-        void (async () => {
-          try {
-            const response = await fetch(
-              `/api/search?query=${encodeURIComponent(
-                trimmedQuery
-              )}&compact=${encodeURIComponent(
-                compactQuery
-              )}&limit=50`,
-              {
-                signal:
-                  docsController.signal,
-                cache: 'no-store',
-              }
-            );
+          abortDocsRef.current =
+            docsController;
 
-            if (!response.ok) {
-              throw new Error(
-                'search-failed'
-              );
-            }
+          abortQuestNpcRef.current =
+            questController;
 
-            const data =
-              (await response.json()) as DocResult[];
+          abortFaqRef.current =
+            faqController;
 
-            setDocs(
-              Array.isArray(data)
-                ? data
-                : []
-            );
+          setLoadingDocs(true);
+          setLoadingQuestNpcs(
+            true,
+          );
+          setLoadingFaqs(true);
+          setOpen(true);
+          setActiveDocIndex(-1);
 
-            setActiveDocIndex(
-              Array.isArray(data) &&
-                data.length > 0
-                ? 0
-                : -1
-            );
-          } catch (error) {
-            if (
-              !(
-                error instanceof DOMException &&
-                error.name === 'AbortError'
-              )
-            ) {
-              setDocs([]);
-              setActiveDocIndex(-1);
-            }
-          } finally {
-            if (
-              !docsController.signal.aborted
-            ) {
-              setLoadingDocs(false);
-            }
-          }
-        })();
-
-        void (async () => {
-          try {
-            const response = await fetch(
-              `/api/search/quest?query=${encodeURIComponent(
-                trimmedQuery
-              )}&limit=20`,
-              {
-                signal:
-                  questController.signal,
-                cache: 'no-store',
-              }
-            );
-
-            if (!response.ok) {
-              throw new Error(
-                'quest-search-failed'
-              );
-            }
-
-            const data =
-              (await response.json()) as QuestNpcResult[];
-
-            setQuestNpcs(
-              Array.isArray(data)
-                ? data
-                : []
-            );
-          } catch (error) {
-            if (
-              !(
-                error instanceof DOMException &&
-                error.name === 'AbortError'
-              )
-            ) {
-              setQuestNpcs([]);
-            }
-          } finally {
-            if (
-              !questController.signal.aborted
-            ) {
-              setLoadingQuestNpcs(false);
-            }
-          }
-        })();
-
-        faqTimerRef.current =
-          window.setTimeout(() => {
-            void (async () => {
-              try {
-                const url =
-                  `/api/faq?q=${encodeURIComponent(
-                    trimmedQuery
-                  )}` +
-                  `&compact=${encodeURIComponent(
-                    compactQuery
-                  )}` +
-                  '&limit=10&offset=0';
-
-                const response =
-                  await fetch(url, {
+          void (async () => {
+            try {
+              const response =
+                await fetch(
+                  `/api/search?query=${encodeURIComponent(
+                    trimmedQuery,
+                  )}&compact=${encodeURIComponent(
+                    compactQuery,
+                  )}&limit=50`,
+                  {
                     signal:
-                      faqController.signal,
-                    cache: 'no-store',
-                  });
-
-                const data =
-                  response.ok
-                    ? ((await response.json()) as {
-                        items?: FaqItem[];
-                      })
-                    : { items: [] };
-
-                setFaqs(
-                  Array.isArray(
-                    data.items
-                  )
-                    ? data.items
-                    : []
+                      docsController
+                        .signal,
+                    cache:
+                      'no-store',
+                  },
                 );
-              } catch (error) {
-                if (
-                  !(
-                    error instanceof
-                      DOMException &&
-                    error.name ===
-                      'AbortError'
-                  )
-                ) {
-                  setFaqs([]);
-                }
-              } finally {
-                if (
-                  !faqController.signal
-                    .aborted
-                ) {
-                  setLoadingFaqs(false);
-                }
+
+              if (!response.ok) {
+                throw new Error(
+                  'search-failed',
+                );
               }
-            })();
-          }, 180);
-      },
-      200
-    );
+
+              const data =
+                (await response.json()) as DocResult[];
+
+              setDocs(
+                Array.isArray(data)
+                  ? data
+                  : [],
+              );
+
+              /*
+               * 검색 직후 첫 결과를 강제로 선택하지 않는다.
+               * 키보드 탐색은 -1에서 ArrowDown 시 첫 항목으로 이동한다.
+               */
+              setActiveDocIndex(-1);
+            } catch (error) {
+              if (
+                !(
+                  error instanceof
+                    DOMException &&
+                  error.name ===
+                    'AbortError'
+                )
+              ) {
+                setDocs([]);
+                setActiveDocIndex(
+                  -1,
+                );
+              }
+            } finally {
+              if (
+                !docsController
+                  .signal.aborted
+              ) {
+                setLoadingDocs(
+                  false,
+                );
+              }
+            }
+          })();
+
+          void (async () => {
+            try {
+              const response =
+                await fetch(
+                  `/api/search/quest?query=${encodeURIComponent(
+                    trimmedQuery,
+                  )}&limit=20`,
+                  {
+                    signal:
+                      questController
+                        .signal,
+                    cache:
+                      'no-store',
+                  },
+                );
+
+              if (!response.ok) {
+                throw new Error(
+                  'quest-search-failed',
+                );
+              }
+
+              const data =
+                (await response.json()) as QuestNpcResult[];
+
+              setQuestNpcs(
+                Array.isArray(data)
+                  ? data
+                  : [],
+              );
+            } catch (error) {
+              if (
+                !(
+                  error instanceof
+                    DOMException &&
+                  error.name ===
+                    'AbortError'
+                )
+              ) {
+                setQuestNpcs([]);
+              }
+            } finally {
+              if (
+                !questController
+                  .signal.aborted
+              ) {
+                setLoadingQuestNpcs(
+                  false,
+                );
+              }
+            }
+          })();
+
+          faqTimerRef.current =
+            window.setTimeout(
+              () => {
+                void (async () => {
+                  try {
+                    const url =
+                      `/api/faq?q=${encodeURIComponent(
+                        trimmedQuery,
+                      )}` +
+                      `&compact=${encodeURIComponent(
+                        compactQuery,
+                      )}` +
+                      '&limit=10&offset=0';
+
+                    const response =
+                      await fetch(
+                        url,
+                        {
+                          signal:
+                            faqController
+                              .signal,
+                          cache:
+                            'no-store',
+                        },
+                      );
+
+                    const data =
+                      response.ok
+                        ? ((await response.json()) as {
+                            items?: FaqItem[];
+                          })
+                        : {
+                            items: [],
+                          };
+
+                    setFaqs(
+                      Array.isArray(
+                        data.items,
+                      )
+                        ? data.items
+                        : [],
+                    );
+                  } catch (error) {
+                    if (
+                      !(
+                        error instanceof
+                          DOMException &&
+                        error.name ===
+                          'AbortError'
+                      )
+                    ) {
+                      setFaqs([]);
+                    }
+                  } finally {
+                    if (
+                      !faqController
+                        .signal
+                        .aborted
+                    ) {
+                      setLoadingFaqs(
+                        false,
+                      );
+                    }
+                  }
+                })();
+              },
+              180,
+            );
+        },
+        200,
+      );
 
     return () => {
-      if (timerRef.current !== null) {
+      if (
+        timerRef.current !== null
+      ) {
         window.clearTimeout(
-          timerRef.current
+          timerRef.current,
         );
       }
 
       if (
-        faqTimerRef.current !== null
+        faqTimerRef.current !==
+        null
       ) {
         window.clearTimeout(
-          faqTimerRef.current
+          faqTimerRef.current,
         );
       }
     };
@@ -802,17 +1087,20 @@ export default function SearchBox({
       abortQuestNpcRef.current?.abort();
       abortFaqRef.current?.abort();
 
-      if (timerRef.current !== null) {
+      if (
+        timerRef.current !== null
+      ) {
         window.clearTimeout(
-          timerRef.current
+          timerRef.current,
         );
       }
 
       if (
-        faqTimerRef.current !== null
+        faqTimerRef.current !==
+        null
       ) {
         window.clearTimeout(
-          faqTimerRef.current
+          faqTimerRef.current,
         );
       }
     };
@@ -820,26 +1108,25 @@ export default function SearchBox({
 
   useEffect(() => {
     const onDocumentMouseDown = (
-      event: MouseEvent
+      event: MouseEvent,
     ) => {
-      const root = wrapRef.current;
+      const root =
+        wrapRef.current;
 
       if (!root) {
         return;
       }
 
-      /*
-       * 결과 상세 모달이 열린 동안에는
-       * 모달 배경/닫기 클릭을 검색창 외부 클릭으로
-       * 처리하지 않는다.
-       */
-      if (faqView || resultModalOpen) {
+      if (
+        faqView ||
+        resultModalOpen
+      ) {
         return;
       }
 
       if (
         !root.contains(
-          event.target as Node
+          event.target as Node,
         )
       ) {
         setOpen(false);
@@ -849,72 +1136,78 @@ export default function SearchBox({
 
     document.addEventListener(
       'mousedown',
-      onDocumentMouseDown
+      onDocumentMouseDown,
     );
 
     return () => {
       document.removeEventListener(
         'mousedown',
-        onDocumentMouseDown
+        onDocumentMouseDown,
       );
     };
-  }, [faqView, resultModalOpen]);
+  }, [
+    faqView,
+    resultModalOpen,
+  ]);
 
   const renderDocumentTitle = (
-    result: DocResult
+    result: DocResult,
   ) => {
     if (
-      result.match_type === 'title'
+      result.match_type ===
+      'title'
     ) {
-      return <mark>{result.title}</mark>;
+      return (
+        <mark className="search-highlight">
+          {result.title}
+        </mark>
+      );
     }
 
     return highlight(
       result.title,
-      query
+      query,
     );
   };
 
   const renderSectionMeta = (
-    result: DocResult
+    result: DocResult,
   ) => {
-    const sectionHeading = String(
-      result.section_heading ?? ''
-    ).trim();
-    const breadcrumb = String(
-      result.category_breadcrumb ?? ''
-    ).trim();
+    const sectionHeading =
+      String(
+        result.section_heading ??
+          '',
+      ).trim();
+
+    const breadcrumb =
+      String(
+        result.category_breadcrumb ??
+          '',
+      ).trim();
 
     if (
-      result.match_type === 'content' &&
+      result.match_type ===
+        'content' &&
       sectionHeading
     ) {
       const highlighted =
         isSectionHeadingHighlighted(
           sectionHeading,
-          query
+          query,
         );
 
       return (
         <div
-          style={{
-            marginTop: 4,
-            fontSize: 12,
-            color: highlighted
-              ? 'var(--accent)'
-              : 'var(--muted-2)',
-            fontWeight: highlighted
-              ? 700
-              : 500,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
+          className={
+            highlighted
+              ? 'search-result-meta is-match'
+              : 'search-result-meta'
+          }
           title={sectionHeading}
         >
           {highlight(
             sectionHeading,
-            query
+            query,
           )}
         </div>
       );
@@ -926,67 +1219,65 @@ export default function SearchBox({
 
     return (
       <div
-        style={{
-          marginTop: 4,
-          fontSize: 12,
-          color: 'var(--muted-2)',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}
+        className="search-result-meta"
         title={breadcrumb}
       >
-        {highlight(breadcrumb, query)}
+        {highlight(
+          breadcrumb,
+          query,
+        )}
       </div>
     );
   };
 
-  const resetSearchState = () => {
-    setOpen(false);
-    setQuery('');
-    setDocs([]);
-    setQuestNpcs([]);
-    setFaqs([]);
-    setActiveDocIndex(-1);
-  };
+  const resetSearchState =
+    () => {
+      setOpen(false);
+      updateQuery('');
+      setDocs([]);
+      setQuestNpcs([]);
+      setFaqs([]);
+      setActiveDocIndex(-1);
+    };
 
   const goDocument = (
-    result: DocResult | null
+    result: DocResult | null,
   ) => {
     if (!result) {
       return;
     }
 
-    const nextHashDomId = String(
-      result.section_dom_id ?? ''
-    ).trim();
+    const nextHashDomId =
+      String(
+        result.section_dom_id ??
+          '',
+      ).trim();
 
-    /*
-     * 문서 결과를 실제로 선택한 시점에만 검색어 집계.
-     */
     commitCurrentSearch(
-      'document'
+      'document',
     );
 
     resetSearchState();
 
     const href =
       `/wiki?id=${encodeURIComponent(
-        result.id
+        result.id,
       )}` +
       `&path=${encodeURIComponent(
-        result.path
+        result.path,
       )}` +
       `&title=${encodeURIComponent(
-        result.title
+        result.title,
       )}` +
       (nextHashDomId
         ? `#${encodeURIComponent(
-            nextHashDomId
+            nextHashDomId,
           )}`
         : '');
 
-    markNextDocViewSource('search');
+    markNextDocViewSource(
+      'search',
+    );
 
     router.push(href, {
       scroll: false,
@@ -994,7 +1285,8 @@ export default function SearchBox({
 
     if (
       nextHashDomId &&
-      typeof window !== 'undefined'
+      typeof window !==
+        'undefined'
     ) {
       window.requestAnimationFrame(
         () => {
@@ -1003,166 +1295,178 @@ export default function SearchBox({
               'rdwiki:search-hash-nav',
               {
                 detail: {
-                  domId: nextHashDomId,
+                  domId:
+                    nextHashDomId,
                 },
-              }
-            )
+              },
+            ),
           );
-        }
+        },
       );
     }
   };
 
   const openQuestNpc = (
-    npc: QuestNpcResult | null
+    npc:
+      | QuestNpcResult
+      | null,
   ) => {
     if (!npc) {
       return;
     }
 
     /*
-     * 퀘스트 또는 NPC 검색 결과를 실제로 선택한 시점에
-     * 검색어를 집계한다. 같은 검색 세션에서는 최초 1회만 반영된다.
-     *
-     * 상세 모달을 닫았을 때 같은 결과를 다시 볼 수 있도록
-     * query/open/results를 초기화하지 않는다.
+     * 상위 NPC 모달을 닫았을 때 같은 검색 결과를 다시 볼 수 있게
+     * 검색어와 결과 목록은 유지한다.
      */
-    commitCurrentSearch(
-      'quest'
-    );
-
     setOpen(true);
     onQuestNpcClick?.(npc.id);
   };
 
-  const openFaq = async (
-    faq: FaqItem
-  ) => {
-    /*
-     * 검색 결과 상태를 유지하면서 최신 FAQ 상세를 가져온다.
-     * 실제 질문을 연 경우 source=search로 조회수를 별도 기록한다.
-     */
-    setOpen(true);
+  const openFaq =
+    async (
+      faq: FaqItem,
+    ) => {
+      setOpen(true);
 
-    /*
-     * FAQ 결과를 실제로 선택한 시점에만 검색어 집계.
-     * 같은 검색 세션의 두 번째 결과 선택부터는 집계하지 않는다.
-     */
-    commitCurrentSearch(
-      'faq'
-    );
+      commitCurrentSearch('faq');
 
-    void recordFaqView(
-      faq.id,
-      'search'
-    );
+      void recordFaqView(
+        faq.id,
+        'search',
+      );
 
-    try {
-      const response = await fetch(
-        `/api/faq/${encodeURIComponent(
-          faq.id
-        )}`,
-        {
-          cache: 'no-store',
+      try {
+        const response =
+          await fetch(
+            `/api/faq/${encodeURIComponent(
+              faq.id,
+            )}`,
+            {
+              cache: 'no-store',
+            },
+          );
+
+        if (!response.ok) {
+          throw new Error(
+            `faq-detail-failed:${response.status}`,
+          );
         }
-      );
 
-      if (!response.ok) {
-        throw new Error(
-          `faq-detail-failed:${response.status}`
+        const fresh =
+          (await response.json()) as FaqItem;
+
+        setFaqView(
+          fresh &&
+            Number(fresh.id) > 0
+            ? fresh
+            : faq,
         );
+      } catch (error) {
+        console.error(
+          '[SearchBox] FAQ 상세 조회 실패:',
+          error,
+        );
+
+        setFaqView(faq);
       }
+    };
 
-      const fresh =
-        (await response.json()) as FaqItem;
+  const clearSearch = () => {
+    resetSearchState();
 
-      setFaqView(
-        fresh &&
-          Number(fresh.id) > 0
-          ? fresh
-          : faq
-      );
-    } catch (error) {
-      console.error(
-        '[SearchBox] FAQ 상세 조회 실패:',
-        error
-      );
-
-      /*
-       * 상세 조회 실패 시에도 검색 결과에 포함된 내용으로
-       * 모달은 열어 사용성을 유지한다.
-       */
-      setFaqView(faq);
-    }
+    window.requestAnimationFrame(
+      () => {
+        inputRef.current?.focus();
+      },
+    );
   };
 
-  const onKeyDown: KeyboardEventHandler<HTMLInputElement> = (
-    event
-  ) => {
-    if (
-      !open ||
-      (!combinedCount &&
-        event.key !== 'Escape')
-    ) {
-      if (event.key === 'Escape') {
-        setOpen(false);
-        setActiveDocIndex(-1);
-      }
+  const onKeyDown:
+    KeyboardEventHandler<HTMLInputElement> =
+    (event) => {
+      if (
+        !open ||
+        (!combinedCount &&
+          event.key !==
+            'Escape')
+      ) {
+        if (
+          event.key === 'Escape'
+        ) {
+          setOpen(false);
+          setActiveDocIndex(-1);
+        }
 
-      return;
-    }
-
-    if (event.key === 'ArrowDown') {
-      event.preventDefault();
-
-      setActiveDocIndex((index) =>
-        combinedCount
-          ? (index + 1) %
-            combinedCount
-          : -1
-      );
-    } else if (
-      event.key === 'ArrowUp'
-    ) {
-      event.preventDefault();
-
-      setActiveDocIndex((index) =>
-        combinedCount
-          ? (index -
-              1 +
-              combinedCount) %
-            combinedCount
-          : -1
-      );
-    } else if (
-      event.key === 'Enter'
-    ) {
-      event.preventDefault();
-
-      const selected =
-        combinedDocItems[
-          activeDocIndex
-        ] ??
-        combinedDocItems[0] ??
-        null;
-
-      if (!selected) {
         return;
       }
 
-      if (selected.kind === 'doc') {
-        goDocument(selected.data);
-      } else {
-        openQuestNpc(selected.data);
+      if (
+        event.key ===
+        'ArrowDown'
+      ) {
+        event.preventDefault();
+
+        setActiveDocIndex(
+          (index) =>
+            combinedCount
+              ? (index + 1) %
+                combinedCount
+              : -1,
+        );
+      } else if (
+        event.key === 'ArrowUp'
+      ) {
+        event.preventDefault();
+
+        setActiveDocIndex(
+          (index) =>
+            combinedCount
+              ? index < 0
+                ? combinedCount -
+                  1
+                : (index -
+                    1 +
+                    combinedCount) %
+                  combinedCount
+              : -1,
+        );
+      } else if (
+        event.key === 'Enter'
+      ) {
+        event.preventDefault();
+
+        const selected =
+          combinedDocItems[
+            activeDocIndex
+          ] ??
+          combinedDocItems[0] ??
+          null;
+
+        if (!selected) {
+          return;
+        }
+
+        if (
+          selected.kind ===
+          'doc'
+        ) {
+          goDocument(
+            selected.data,
+          );
+        } else {
+          openQuestNpc(
+            selected.data,
+          );
+        }
+      } else if (
+        event.key === 'Escape'
+      ) {
+        event.preventDefault();
+        setOpen(false);
+        setActiveDocIndex(-1);
       }
-    } else if (
-      event.key === 'Escape'
-    ) {
-      event.preventDefault();
-      setOpen(false);
-      setActiveDocIndex(-1);
-    }
-  };
+    };
 
   const dropdownMaxHeight =
     'min(72vh, 560px)';
@@ -1177,34 +1481,23 @@ export default function SearchBox({
         aria-owns={listId}
         aria-haspopup="listbox"
         data-align={align}
-        style={{ width }}
+        style={{
+          width,
+        }}
       >
-        <svg
-          className="search-icon"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-        >
-          <path d="M21.53 20.47l-3.66-3.66C19.195 15.24 20 13.214 20 11c0-4.97-4.03-9-9-9s-9 4.03-9 9 4.03 9 9 9c2.215 0 4.24-.804 5.808-2.13l3.66 3.66c.147.146.34.22.53.22s.385-.073.53-.22c.295-.293.295-.767.002-1.06zM3.5 11c0-4.135 3.365-7.5 7.5-7.5s7.5 3.365 7.5 7.5-3.365 7.5-7.5 7.5-7.5-3.365-7.5-7.5z" />
-        </svg>
+        <SearchIcon />
 
         <input
-          type="search"
+          type="text"
           ref={inputRef}
           className="search-input"
           placeholder="Search"
           value={query}
-          onInput={(event) =>
+          onChange={(event) => {
             updateQuery(
-              (
-                event.target as HTMLInputElement
-              ).value
-            )
-          }
-          onChange={(event) =>
-            updateQuery(
-              event.target.value
-            )
-          }
+              event.target.value,
+            );
+          }}
           onFocus={() => {
             if (
               docs.length ||
@@ -1231,180 +1524,134 @@ export default function SearchBox({
           }
         />
 
-        {open && (
+        {query ? (
+          <button
+            type="button"
+            className="search-clear-button"
+            onMouseDown={(event) => {
+              event.preventDefault();
+            }}
+            onClick={clearSearch}
+            aria-label="검색어 지우기"
+            title="검색어 지우기"
+          >
+            <ClearIcon />
+          </button>
+        ) : null}
+
+        {open ? (
           <div
             className="wiki-search-dropdown"
             style={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              top: 58,
-              zIndex: 9999,
-              background:
-                'var(--surface-elevated)',
-              border:
-                '1px solid var(--border)',
-              borderRadius: 10,
-              boxShadow:
-                'var(--shadow-lg)',
-              padding: '10px 12px',
               maxHeight:
                 dropdownMaxHeight,
-              overflow: 'auto',
+            }}
+            onMouseLeave={() => {
+              setActiveDocIndex(-1);
             }}
           >
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns:
-                  '1fr 1fr',
-                gap: 12,
-                alignItems: 'start',
-                minHeight: 120,
-              }}
-            >
-              <div
-                style={{
-                  borderRight:
-                    '1px solid var(--border-soft)',
-                  paddingRight: 8,
-                }}
-              >
-                <div
-                  style={{
-                    fontWeight: 800,
-                    fontSize: 13,
-                    color: 'var(--muted)',
-                    marginBottom: 6,
-                  }}
-                >
+            <div className="search-result-grid">
+              <section className="search-result-column search-document-column">
+                <h3 className="search-result-heading">
                   문서
-                </div>
+                </h3>
 
                 {!loadingDocs &&
-                  !loadingQuestNpcs &&
-                  combinedDocItems.length ===
-                    0 && (
-                    <div
-                      style={{
-                        color:
-                          'var(--muted-2)',
-                        fontSize: 14,
-                        padding: '6px 4px',
-                      }}
-                    >
-                      결과가 없습니다.
-                    </div>
-                  )}
+                !loadingQuestNpcs &&
+                combinedDocItems.length ===
+                  0 ? (
+                  <div className="search-empty">
+                    결과가 없습니다.
+                  </div>
+                ) : null}
 
                 <ul
                   id={listId}
                   role="listbox"
-                  style={{
-                    listStyle: 'none',
-                    margin: 0,
-                    padding: 0,
-                    maxHeight: 420,
-                    overflowY: 'auto',
+                  className="search-result-list"
+                  onMouseLeave={() => {
+                    setActiveDocIndex(
+                      -1,
+                    );
                   }}
                 >
                   {combinedDocItems.map(
-                    (item, index) => {
+                    (
+                      item,
+                      index,
+                    ) => {
                       const selected =
                         index ===
                         activeDocIndex;
 
                       if (
-                        item.kind === 'doc'
+                        item.kind ===
+                        'doc'
                       ) {
                         const result =
                           item.data;
-                        const cleanTags = (
-                          result.tags ?? []
-                        )
-                          .map(normalizeTag)
-                          .filter(Boolean)
-                          .filter((tag) =>
-                            isTagMatched(
-                              tag,
-                              query
+
+                        const cleanTags =
+                          (
+                            result.tags ??
+                            []
+                          )
+                            .map(
+                              normalizeTag,
                             )
-                          );
+                            .filter(
+                              Boolean,
+                            )
+                            .filter(
+                              (tag) =>
+                                isTagMatched(
+                                  tag,
+                                  query,
+                                ),
+                            );
 
                         return (
                           <li
                             id={`${listId}-opt-doc-${result.id}`}
+                            key={`doc-${result.id}-${index}`}
                             role="option"
                             aria-selected={
                               selected
                             }
-                            key={`doc-${result.id}`}
-                            style={{
-                              display:
-                                'flex',
-                              alignItems:
-                                'flex-start',
-                              padding:
-                                '11px 12px',
-                              cursor:
-                                'pointer',
-                              borderBottom:
-                                index !==
-                                combinedDocItems.length -
-                                  1
-                                  ? '1px solid var(--border-soft)'
-                                  : undefined,
-                              background:
-                                selected
-                                  ? 'var(--accent-soft)'
-                                  : 'transparent',
-                              color:
-                                'var(--foreground)',
-                              fontSize: 15,
-                              lineHeight: 1.3,
-                              gap: 10,
-                              borderRadius: 8,
-                            }}
-                            onMouseEnter={() =>
+                            className={
+                              selected
+                                ? 'search-result-item is-active'
+                                : 'search-result-item'
+                            }
+                            onMouseEnter={() => {
                               setActiveDocIndex(
-                                index
-                              )
-                            }
-                            onClick={() =>
+                                index,
+                              );
+                            }}
+                            onClick={() => {
                               goDocument(
-                                result
-                              )
-                            }
+                                result,
+                              );
+                            }}
                           >
-                            <span
-                              style={{
-                                marginRight: 8,
-                                fontSize: 20,
-                              }}
-                            >
+                            <span className="search-result-icon">
                               {result.icon ? (
                                 isImageLike(
-                                  result.icon
+                                  result.icon,
                                 ) ? (
                                   <img
                                     src={
                                       isRemoteHttp(
-                                        result.icon
+                                        result.icon,
                                       )
                                         ? toProxyUrl(
-                                            result.icon
+                                            result.icon,
                                           )
                                         : result.icon
                                     }
                                     alt=""
                                     width={22}
                                     height={22}
-                                    style={{
-                                      width: 22,
-                                      height: 22,
-                                      objectFit:
-                                        'cover',
-                                    }}
                                     loading="lazy"
                                     decoding="async"
                                     draggable={
@@ -1415,615 +1662,304 @@ export default function SearchBox({
                                   result.icon
                                 )
                               ) : (
-                                ''
+                                '📄'
                               )}
                             </span>
 
-                            <div
-                              style={{
-                                minWidth: 0,
-                                flex: 1,
-                                display: 'flex',
-                                gap: 10,
-                                alignItems:
-                                  'flex-start',
-                              }}
-                            >
-                              <div
-                                style={{
-                                  minWidth: 0,
-                                  flex: 1,
-                                }}
-                              >
+                            <div className="search-result-content">
+                              <div className="search-result-main">
                                 <div
-                                  style={{
-                                    fontWeight: 700,
-                                    fontSize: 16,
-                                  }}
+                                  className="search-result-title"
+                                  title={
+                                    result.title
+                                  }
                                 >
                                   {renderDocumentTitle(
-                                    result
+                                    result,
                                   )}
                                 </div>
 
                                 {renderSectionMeta(
-                                  result
+                                  result,
                                 )}
                               </div>
 
                               {cleanTags.length >
-                                0 && (
-                                <div
-                                  style={{
-                                    flex: '0 0 auto',
-                                    display: 'flex',
-                                    flexWrap:
-                                      'wrap',
-                                    justifyContent:
-                                      'flex-end',
-                                    gap: 6,
-                                    maxWidth: 180,
-                                    marginTop: 2,
-                                  }}
-                                >
+                              0 ? (
+                                <div className="search-result-tags">
                                   {cleanTags.map(
                                     (
                                       tag,
-                                      tagIndex
+                                      tagIndex,
                                     ) => (
                                       <span
                                         key={`${tag}-${tagIndex}`}
-                                        style={{
-                                          fontSize: 12,
-                                          color:
-                                            'var(--tag-fg)',
-                                          background:
-                                            'var(--tag-bg)',
-                                          border:
-                                            '1px solid var(--tag-border)',
-                                          borderRadius: 999,
-                                          padding:
-                                            '2px 8px',
-                                          lineHeight: 1.4,
-                                          maxWidth: 180,
-                                          overflow:
-                                            'hidden',
-                                          textOverflow:
-                                            'ellipsis',
-                                          whiteSpace:
-                                            'nowrap',
-                                        }}
-                                        title={tag}
+                                        className="search-result-tag"
+                                        title={
+                                          tag
+                                        }
                                       >
                                         {highlight(
                                           tag,
-                                          query
+                                          query,
                                         )}
                                       </span>
-                                    )
+                                    ),
                                   )}
                                 </div>
-                              )}
+                              ) : null}
                             </div>
                           </li>
                         );
                       }
 
-                      const npc = item.data;
+                      const npc =
+                        item.data;
+
                       const villageName =
                         String(
                           npc.village_name ??
-                            ''
+                            '',
                         ).trim();
 
                       return (
                         <li
                           id={`${listId}-opt-quest-${npc.id}`}
+                          key={`quest-${npc.id}-${index}`}
                           role="option"
                           aria-selected={
                             selected
                           }
-                          key={`quest-${npc.id}`}
-                          style={{
-                            display: 'flex',
-                            alignItems:
-                              'flex-start',
-                            padding:
-                              '11px 12px',
-                            cursor: 'pointer',
-                            borderBottom:
-                              index !==
-                              combinedDocItems.length -
-                                1
-                                ? '1px solid var(--border-soft)'
-                                : undefined,
-                            background:
-                              selected
-                                ? 'var(--accent-soft)'
-                                : 'transparent',
-                            color:
-                              'var(--foreground)',
-                            fontSize: 15,
-                            lineHeight: 1.3,
-                            gap: 10,
-                            borderRadius: 8,
-                          }}
-                          onMouseEnter={() =>
+                          className={
+                            selected
+                              ? 'search-result-item is-active'
+                              : 'search-result-item'
+                          }
+                          onMouseEnter={() => {
                             setActiveDocIndex(
-                              index
-                            )
-                          }
-                          onClick={() =>
-                            openQuestNpc(npc)
-                          }
+                              index,
+                            );
+                          }}
+                          onClick={() => {
+                            openQuestNpc(
+                              npc,
+                            );
+                          }}
                         >
-                          <span
-                            style={{
-                              marginRight: 8,
-                              fontSize: 20,
-                            }}
-                          >
+                          <span className="search-result-icon">
                             {npc.icon ? (
                               isImageLike(
-                                npc.icon
+                                npc.icon,
                               ) ? (
                                 <img
                                   src={
                                     isRemoteHttp(
-                                      npc.icon
+                                      npc.icon,
                                     )
                                       ? toProxyUrl(
-                                          npc.icon
+                                          npc.icon,
                                         )
                                       : npc.icon
                                   }
                                   alt=""
                                   width={22}
                                   height={22}
-                                  style={{
-                                    width: 22,
-                                    height: 22,
-                                    objectFit:
-                                      'cover',
-                                  }}
                                   loading="lazy"
                                   decoding="async"
-                                  draggable={false}
+                                  draggable={
+                                    false
+                                  }
                                 />
                               ) : (
                                 npc.icon
                               )
                             ) : (
-                              ''
+                              '🧑'
                             )}
                           </span>
 
-                          <div
-                            style={{
-                              minWidth: 0,
-                              flex: 1,
-                              display: 'flex',
-                              gap: 10,
-                              alignItems:
-                                'flex-start',
-                            }}
-                          >
-                            <div
-                              style={{
-                                minWidth: 0,
-                                flex: 1,
-                              }}
-                            >
+                          <div className="search-result-content">
+                            <div className="search-result-main">
                               <div
-                                style={{
-                                  fontWeight: 700,
-                                  fontSize: 16,
-                                }}
+                                className="search-result-title"
+                                title={
+                                  npc.name
+                                }
                               >
                                 {highlight(
                                   npc.name,
-                                  query
+                                  query,
                                 )}
                               </div>
 
-                              <div
-                                style={{
-                                  marginTop: 4,
-                                  fontSize: 12,
-                                  color:
-                                    'var(--muted-2)',
-                                  overflow:
-                                    'hidden',
-                                  textOverflow:
-                                    'ellipsis',
-                                  whiteSpace:
-                                    'nowrap',
-                                }}
-                                title="퀘스트"
-                              >
+                              <div className="search-result-meta">
                                 퀘스트
                               </div>
                             </div>
 
-                            {villageName && (
-                              <div
-                                style={{
-                                  flex: '0 0 auto',
-                                  display: 'flex',
-                                  flexWrap:
-                                    'wrap',
-                                  justifyContent:
-                                    'flex-end',
-                                  gap: 6,
-                                  maxWidth: 180,
-                                  marginTop: 2,
-                                }}
-                              >
+                            {villageName ? (
+                              <div className="search-result-tags">
                                 <span
-                                  style={{
-                                    fontSize: 12,
-                                    color:
-                                      'var(--tag-fg)',
-                                    background:
-                                      'var(--tag-bg)',
-                                    border:
-                                      '1px solid var(--tag-border)',
-                                    borderRadius: 999,
-                                    padding:
-                                      '2px 8px',
-                                    lineHeight: 1.4,
-                                    maxWidth: 180,
-                                    overflow:
-                                      'hidden',
-                                    textOverflow:
-                                      'ellipsis',
-                                    whiteSpace:
-                                      'nowrap',
-                                  }}
+                                  className="search-result-tag"
                                   title={
                                     villageName
                                   }
                                 >
                                   {highlight(
                                     villageName,
-                                    query
+                                    query,
                                   )}
                                 </span>
                               </div>
-                            )}
+                            ) : null}
                           </div>
                         </li>
                       );
-                    }
+                    },
                   )}
                 </ul>
-              </div>
+              </section>
 
-              <div
-                style={{
-                  paddingLeft: 8,
-                }}
-              >
-                <div
-                  style={{
-                    fontWeight: 800,
-                    fontSize: 13,
-                    color: 'var(--muted)',
-                    marginBottom: 6,
-                  }}
-                >
+              <section className="search-result-column search-faq-column">
+                <h3 className="search-result-heading">
                   자주 묻는 질문
-                </div>
+                </h3>
 
                 {!loadingFaqs &&
-                  faqs.length === 0 && (
-                    <div
-                      style={{
-                        color:
-                          'var(--muted-2)',
-                        fontSize: 14,
-                        padding: '6px 4px',
-                      }}
-                    >
-                      결과가 없습니다.
-                    </div>
-                  )}
+                faqs.length === 0 ? (
+                  <div className="search-empty">
+                    결과가 없습니다.
+                  </div>
+                ) : null}
 
-                <ul
-                  style={{
-                    listStyle: 'none',
-                    margin: 0,
-                    padding: 0,
-                    maxHeight: 420,
-                    overflowY: 'auto',
-                  }}
-                >
+                <ul className="search-faq-list">
                   {faqs.map((faq) => (
                     <li
-                      key={`faq-${faq.id}`}
-                      style={{
-                        padding:
-                          '11px 12px',
-                        borderBottom:
-                          '1px solid var(--border-soft)',
-                        cursor: 'pointer',
-                        borderRadius: 8,
-                      }}
+                      key={faq.id}
+                      className="search-faq-item"
                       onClick={() => {
                         void openFaq(faq);
                       }}
                     >
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems:
-                            'center',
-                          gap: 8,
-                        }}
+                      <span
+                        className="search-faq-icon"
+                        aria-hidden="true"
                       >
-                        <span
-                          style={{
-                            display:
-                              'inline-flex',
-                            alignItems:
-                              'center',
-                            justifyContent:
-                              'center',
-                            width: 20,
-                            height: 20,
-                            borderRadius: 999,
-                            background:
-                              'var(--faq-q-bg)',
-                            color:
-                              'var(--faq-q-fg)',
-                            fontWeight: 900,
-                            fontSize: 12.5,
-                            flex: '0 0 20px',
-                          }}
-                          aria-hidden
-                        >
-                          Q
-                        </span>
+                        Q
+                      </span>
 
-                        <div
-                          style={{
-                            fontWeight: 700,
-                            fontSize: 15,
-                            minWidth: 0,
-                            color:
-                              'var(--foreground)',
-                          }}
-                        >
+                      <div className="search-faq-content">
+                        <div className="search-faq-title">
                           {highlight(
                             faq.title,
-                            query
+                            query,
                           )}
                         </div>
-                      </div>
 
-                      {faq.tags?.length >
-                        0 && (
-                        <div
-                          style={{
-                            color:
-                              'var(--tag-fg)',
-                            fontSize: 12,
-                            marginTop: 6,
-                            display: 'flex',
-                            flexWrap:
-                              'wrap',
-                            gap: 6,
-                          }}
-                        >
-                          {faq.tags.map(
-                            (
-                              tag,
-                              tagIndex
-                            ) => (
-                              <span
-                                key={
-                                  tag +
-                                  tagIndex
-                                }
-                              >
-                                {highlight(
-                                  tag,
-                                  query
-                                )}
-                              </span>
-                            )
-                          )}
-                        </div>
-                      )}
+                        {faq.tags?.length >
+                        0 ? (
+                          <div className="search-faq-tags">
+                            {faq.tags.map(
+                              (
+                                tag,
+                                tagIndex,
+                              ) => (
+                                <span
+                                  key={`${tag}-${tagIndex}`}
+                                >
+                                  {highlight(
+                                    tag,
+                                    query,
+                                  )}
+                                </span>
+                              ),
+                            )}
+                          </div>
+                        ) : null}
+                      </div>
                     </li>
                   ))}
                 </ul>
-              </div>
+              </section>
             </div>
           </div>
-        )}
+        ) : null}
       </div>
 
-      {faqView && (
+      {faqView ? (
         <div
-          onClick={() =>
-            setFaqView(null)
-          }
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'var(--overlay)',
-            display: 'grid',
-            placeItems: 'center',
-            padding: 16,
-            zIndex: 10000,
+          className="search-faq-modal-backdrop"
+          role="presentation"
+          onClick={() => {
+            setFaqView(null);
           }}
         >
-          <div
-            onClick={(event) =>
-              event.stopPropagation()
-            }
-            style={{
-              width:
-                'min(760px, 100%)',
-              background:
-                'var(--surface-elevated)',
-              border:
-                '1px solid var(--border)',
-              borderRadius: 16,
-              padding: 16,
-              boxShadow:
-                'var(--shadow-xl)',
-              color:
-                'var(--foreground)',
+          <article
+            className="search-faq-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="search-faq-modal-title"
+            onClick={(event) => {
+              event.stopPropagation();
             }}
           >
-            <div
-              style={{
-                display: 'flex',
-                justifyContent:
-                  'space-between',
-                alignItems: 'center',
-                gap: 10,
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                }}
+            <header className="search-faq-modal-header">
+              <span
+                className="search-faq-modal-icon"
+                aria-hidden="true"
               >
-                <span
-                  style={{
-                    display:
-                      'inline-flex',
-                    alignItems: 'center',
-                    justifyContent:
-                      'center',
-                    width: 22,
-                    height: 22,
-                    borderRadius: 999,
-                    background:
-                      'var(--faq-q-bg)',
-                    color:
-                      'var(--faq-q-fg)',
-                    fontWeight: 900,
-                    fontSize: 13.5,
-                    flex: '0 0 22px',
-                  }}
-                >
-                  Q
-                </span>
+                Q
+              </span>
 
-                <h3
-                  style={{
-                    margin: 0,
-                    color:
-                      'var(--foreground)',
-                  }}
-                >
-                  {faqView.title}
-                </h3>
-              </div>
+              <h3 id="search-faq-modal-title">
+                {faqView.title}
+              </h3>
 
               <button
                 type="button"
-                onClick={() =>
-                  setFaqView(null)
-                }
-                aria-label="close"
-                style={{
-                  width: 34,
-                  height: 34,
-                  display: 'grid',
-                  placeItems: 'center',
-                  background:
-                    'transparent',
-                  border: 0,
-                  cursor: 'pointer',
-                  color:
-                    'var(--danger-fg)',
+                className="search-faq-modal-close"
+                onClick={() => {
+                  setFaqView(null);
                 }}
+                aria-label="질문 닫기"
               >
                 ×
               </button>
-            </div>
+            </header>
 
-            <div
-              style={{
-                marginTop: 14,
-                border:
-                  '1px solid var(--faq-a-border)',
-                background:
-                  'var(--faq-a-bg)',
-                borderRadius: 12,
-                padding: 14,
-                display: 'flex',
-                alignItems:
-                  'flex-start',
-                gap: 10,
-              }}
-            >
+            <div className="search-faq-modal-answer">
               <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent:
-                    'center',
-                  width: 22,
-                  height: 22,
-                  borderRadius: 999,
-                  background:
-                    'var(--faq-a-badge-bg)',
-                  color:
-                    'var(--faq-a-badge-fg)',
-                  fontWeight: 900,
-                  fontSize: 13.5,
-                  flex: '0 0 22px',
-                }}
+                className="search-faq-modal-icon is-answer"
+                aria-hidden="true"
               >
                 A
               </span>
 
-              <div
-                style={{
-                  color:
-                    'var(--foreground)',
-                  whiteSpace: 'pre-wrap',
-                  lineHeight: 1.6,
-                }}
-              >
+              <p>
                 {faqView.content}
-              </div>
+              </p>
             </div>
 
-            {faqView.tags?.length > 0 && (
-              <div
-                style={{
-                  marginTop: 12,
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: 6,
-                  color:
-                    'var(--tag-fg)',
-                  fontSize: 12,
-                }}
-              >
+            {faqView.tags?.length >
+            0 ? (
+              <div className="search-faq-modal-tags">
                 {faqView.tags.map(
-                  (tag, index) => (
+                  (
+                    tag,
+                    index,
+                  ) => (
                     <span
                       key={`${tag}-${index}`}
                     >
                       #{tag}
                     </span>
-                  )
+                  ),
                 )}
               </div>
-            )}
-          </div>
+            ) : null}
+          </article>
         </div>
-      )}
+      ) : null}
     </>
   );
 }
