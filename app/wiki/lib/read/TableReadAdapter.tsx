@@ -10,7 +10,6 @@ import {
 import {
   tableElementBaseStyle,
 } from '@/components/wiki-render/table/tableLayout';
-
 import {
   flexJustifyFromAlign,
 } from '../readRendererUtils';
@@ -31,7 +30,6 @@ export function TableReadAdapter({
   const align = node.align || 'left';
   const justify =
     flexJustifyFromAlign(align);
-
   const widthPx =
     typeof node.maxWidth === 'number'
       ? node.maxWidth
@@ -41,13 +39,11 @@ export function TableReadAdapter({
           )
         ? Number(node.maxWidth)
         : undefined;
-
   const tableWidth = widthPx
     ? `${widthPx}px`
     : node.fullWidth
       ? '100%'
       : 'auto';
-
   const tableNode = (
     <table
       style={{
@@ -111,12 +107,10 @@ export function TableCellReadAdapter({
     1,
     Number(node.colspan) || 1,
   );
-
   const rowSpan = Math.max(
     1,
     Number(node.rowspan) || 1,
   );
-
   const customCellBg =
     typeof node.backgroundColor ===
       'string' &&
@@ -126,13 +120,9 @@ export function TableCellReadAdapter({
           node.bgColor.trim()
         ? node.bgColor
         : undefined;
-
-  const resolvedCellBg =
-    env?.isDarkMode
-      ? 'var(--surface-elevated)'
-      : customCellBg ||
-        'var(--surface-elevated)';
-
+  const resolvedCellBg = env?.isDarkMode
+    ? undefined
+    : customCellBg;
   const cellChildren =
     node.children?.map(
       (
@@ -160,14 +150,11 @@ export function TableCellReadAdapter({
       mode="read"
       colSpan={colSpan}
       rowSpan={rowSpan}
-      style={{
-        border:
-          '1px solid var(--border)',
-        padding: '6px 8px',
-        verticalAlign: 'top',
-        background: resolvedCellBg,
-        color: 'var(--foreground)',
-      }}
+      style={
+        resolvedCellBg
+          ? { background: resolvedCellBg }
+          : undefined
+      }
     >
       {cellChildren}
     </WikiTableCellRenderer>
