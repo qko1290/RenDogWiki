@@ -35,6 +35,12 @@
   justify-content: flex-start;
   box-sizing: border-box;
   color: var(--heading-text);
+  font-family:
+    'NanumSquareNeo',
+    Pretendard,
+    'Malgun Gothic',
+    system-ui,
+    sans-serif;
   text-align: left;
   scroll-margin-top: 96px;
 }
@@ -51,12 +57,14 @@
 
 /* Slate leaf가 가진 개별 크기보다 Heading 단계가 우선한다. */
 .wiki-document-heading [data-wiki-leaf='true'] {
+  font-family: inherit !important;
   font-size: inherit !important;
   font-weight: inherit;
   line-height: inherit;
 }
 
 .wiki-document-heading [data-wiki-leaf='true'] * {
+  font-family: inherit !important;
   font-size: inherit !important;
   line-height: inherit;
 }

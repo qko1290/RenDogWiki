@@ -89,6 +89,12 @@
   margin: 0 !important;
   overflow: hidden;
   color: var(--wiki-chrome-text, #18231b) !important;
+  font-family:
+    'NanumSquareNeo',
+    Pretendard,
+    'Malgun Gothic',
+    system-ui,
+    sans-serif !important;
   font-size: clamp(25px, 1.9vw, 29px) !important;
   font-weight: 850 !important;
   line-height: 1.18 !important;
