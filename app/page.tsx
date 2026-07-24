@@ -13,7 +13,6 @@
 import dynamic from 'next/dynamic';
 
 import '@wiki/css/wiki.css';
-import '@wiki/css/wikiShell.css';
 
 const WikiPageInner = dynamic(
   () =>
