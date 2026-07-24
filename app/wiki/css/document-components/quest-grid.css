@@ -977,8 +977,11 @@
     system-ui,
     sans-serif;
   font-size: 15px;
-  font-weight: 860;
+  font-weight: 900 !important;
   line-height: 19px;
+  text-shadow:
+    0 1px 0
+    rgba(255, 255, 255, 0.52);
   letter-spacing: -0.025em;
   text-align: center;
   text-overflow: clip;
@@ -1093,23 +1096,25 @@
     calc(
       100% - 12px
     );
-  height: 20px;
+  min-width: 34px;
+  height: 24px;
   align-items: center;
+  justify-content: center;
   box-sizing: border-box;
-  padding: 0 7px;
+  padding: 0 9px;
   overflow: hidden;
   color:
     color-mix(
       in srgb,
       var(
         --quest-tag-color
-      ) 84%,
+      ) 86%,
       #172019
     );
-  font-size: 9px;
-  font-weight: 780;
+  font-size: 11px;
+  font-weight: 850;
   line-height: 1;
-  letter-spacing: -0.005em;
+  letter-spacing: -0.01em;
   text-overflow: ellipsis;
   white-space: nowrap;
   background:
@@ -1117,7 +1122,7 @@
       in srgb,
       var(
         --quest-tag-color
-      ) 10%,
+      ) 11%,
       var(
         --quest-grid-panel
       )
@@ -1128,15 +1133,15 @@
       in srgb,
       var(
         --quest-tag-color
-      ) 25%,
+      ) 32%,
       var(
         --quest-grid-border
       )
     );
   border-radius: 999px;
   box-shadow:
-    0 2px 6px
-    rgba(31, 55, 36, 0.04);
+    0 3px 8px
+    rgba(31, 55, 36, 0.06);
 }
 
 .npc-tag-badge[
@@ -1546,9 +1551,11 @@
   .npc-tag-badge {
     top: 4px;
     right: 4px;
-    height: 18px;
-    padding: 0 5px;
-    font-size: 8px;
+    min-width: 30px;
+    height: 21px;
+    padding: 0 7px;
+    font-size: 10px;
+    font-weight: 850;
   }
 }
 
