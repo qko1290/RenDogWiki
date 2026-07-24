@@ -494,6 +494,7 @@ export default function HeadDetailModal({
 
               <span>
                 사진 속 주변 지형을 기준으로
+                <br />
                 좌표의 정확한 위치를 찾을 수 있습니다.
               </span>
             </div>

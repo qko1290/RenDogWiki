@@ -1,33 +1,34 @@
 // =============================================
-// File: app/page.tsx
-// 전체 교체용 코드
-// - Home 서버 데이터 병렬 조회
-// - 최근 업데이트 문서 전달
-// - 대표 카테고리 실제 링크 전달
-// - 인기 문서는 클라이언트에서 별도 API로 조회
+// File: app/wiki/page.tsx
+// 전체 코드
+//
+// - 위키 공통 구조 CSS를 먼저 로드
+// - 문서 화면 디자인 CSS를 그 다음에 로드
+// - 클라이언트 컴포넌트가 뜨기 전에 활성 색상이 확정되어
+//   보라색 선이 잠깐 보이는 현상을 방지
 // =============================================
 
-import HomePage from '@/components/home/HomePage';
-import {
-  getHomeCategoryLinks,
-  getRecentHomeDocuments,
-} from '@/components/home/homeData';
+'use client';
 
-export const dynamic = 'force-dynamic';
+import dynamic from 'next/dynamic';
 
-export default async function Home() {
-  const [
-    recentDocuments,
-    categoryLinks,
-  ] = await Promise.all([
-    getRecentHomeDocuments(5),
-    getHomeCategoryLinks(),
-  ]);
+import '@wiki/css/wiki.css';
+import '@wiki/css/wikiShell.css';
 
+const WikiPageInner = dynamic(
+  () =>
+    import(
+      '@/components/wiki/WikiPageInner'
+    ),
+  {
+    ssr: false,
+  },
+);
+
+export default function WikiPage() {
   return (
-    <HomePage
-      recentDocuments={recentDocuments}
-      categoryLinks={categoryLinks}
-    />
+    <div className="wiki-app wiki-shell-page">
+      <WikiPageInner user={null} />
+    </div>
   );
 }
