@@ -91,6 +91,15 @@ const MODE_WHITELIST = new Set(['RPG', '렌독런', '마인팜', '부엉이타�
 // ✅ 루트 대표 문서 ID 하드코딩
 const ROOT_FEATURED_DOC_ID = 73;
 
+function shouldHideDocChrome(
+  docId?: number | null,
+) {
+  return (
+    Number(docId) ===
+    ROOT_FEATURED_DOC_ID
+  );
+}
+
 function pathToStr(path: number[]) {
   return path.join('/');
 }
@@ -1261,24 +1270,44 @@ export default function WikiPageInner({ user }: Props) {
     const rootDoc = findRootDoc();
     if (!rootDoc) return;
 
-    setHideDocChrome(true);
+    const hideChrome =
+      shouldHideDocChrome(
+        rootDoc.id,
+      );
+
+    setHideDocChrome(
+      hideChrome,
+    );
     setSelectedDocId(rootDoc.id);
     setSelectedDocTitle(rootDoc.title ?? null);
     setSelectedDocPath([]); // 루트 경로는 []
     setSelectedCategoryPath(null);
 
-    await fetchDocById(rootDoc.id, { hideChrome: true, ignoreCurrentLocationHash: true });
+    await fetchDocById(rootDoc.id, {
+      hideChrome,
+      ignoreCurrentLocationHash: true,
+    });
   };
 
   // ✅ 특정 ID로 루트 문서 열기(로고/초기 로딩용)
   const openRootDocById = async (docId: number) => {
-    setHideDocChrome(true);
+    const hideChrome =
+      shouldHideDocChrome(
+        docId,
+      );
+
+    setHideDocChrome(
+      hideChrome,
+    );
     setSelectedCategoryPath(null);
     setSelectedDocPath([]); // 루트 경로 고정
     setSelectedDocId(docId);
     const inList = allDocuments.find(d => d.id === docId);
     setSelectedDocTitle(inList?.title ?? null); // 목록에 있으면 즉시 반영
-    await fetchDocById(docId, { hideChrome: true, ignoreCurrentLocationHash: true });
+    await fetchDocById(docId, {
+      hideChrome,
+      ignoreCurrentLocationHash: true,
+    });
   };
 
   // 카테고리 + 전체 문서 로드
@@ -1350,7 +1379,11 @@ export default function WikiPageInner({ user }: Props) {
         // 최초 뷰를 bootstrap 응답 하나로 바로 렌더
         // 단, URL로 특정 문서에 직접 들어온 경우에는 featured 선렌더 금지
         if (!hasExplicitInitialTarget && featured?.id) {
-          setHideDocChrome(true);
+          setHideDocChrome(
+            shouldHideDocChrome(
+              featured.id,
+            ),
+          );
           setSelectedDocId(featured.id);
           setSelectedDocTitle(featured.title ?? null);
           setSelectedDocPath([]);
@@ -1419,7 +1452,10 @@ export default function WikiPageInner({ user }: Props) {
         (fullPath !== null && fullPath.length === 0);
 
       void fetchDocById(idParam, {
-        hideChrome: isRoot,
+        hideChrome:
+          shouldHideDocChrome(
+            idParam,
+          ),
         history: 'replace',
         skipUrlSync: true,
         clearCategoryPath: true,
@@ -1604,6 +1640,10 @@ export default function WikiPageInner({ user }: Props) {
     options?: FetchDocOptions
   ) => {
     const isRoot = options?.forceRoot || categoryPath.length === 0;
+    const requestedHideChrome =
+      shouldHideDocChrome(
+        docId,
+      );
     const isPopNavigation = options?.isPopNavigation ?? popNavigationRef.current;
     const hasExplicitRequestedHeading =
       Object.prototype.hasOwnProperty.call(options ?? {}, 'requestedHash') &&
@@ -1628,7 +1668,9 @@ export default function WikiPageInner({ user }: Props) {
 
     if (options?.clearCategoryPath) setSelectedCategoryPath(null);
     setSelectedDocTitle(docTitle);
-    setHideDocChrome(isRoot);
+    setHideDocChrome(
+      requestedHideChrome,
+    );
     const deferVisibleState = !!options?.deferVisibleState;
     const presetPathSource = options?.presetPath;
 
@@ -1648,13 +1690,16 @@ export default function WikiPageInner({ user }: Props) {
         setSelectedDocId(docId);
         setSelectedDocPath(presetPath);
         setSelectedDocTitle(docTitle);
-        setHideDocChrome(isRoot);
+        setHideDocChrome(
+          requestedHideChrome,
+        );
       }
 
       setLoadingDoc(true);
 
       void fetchDocById(docId, {
-        hideChrome: isRoot,
+        hideChrome:
+          requestedHideChrome,
         history: options?.history,
         skipUrlSync: options?.skipUrlSync,
         clearCategoryPath: options?.clearCategoryPath,
@@ -1668,7 +1713,9 @@ export default function WikiPageInner({ user }: Props) {
 
     if (!deferVisibleState) {
       setSelectedDocTitle(docTitle);
-      setHideDocChrome(isRoot);
+      setHideDocChrome(
+        false,
+      );
     }
 
     // 루트 + id 미지정 → 목록에서 id 찾기
@@ -1689,7 +1736,10 @@ export default function WikiPageInner({ user }: Props) {
         setLoadingDoc(true);
 
         void fetchDocById(match.id, {
-          hideChrome: true,
+          hideChrome:
+            shouldHideDocChrome(
+              match.id,
+            ),
           history: options?.history,
           skipUrlSync: options?.skipUrlSync,
           clearCategoryPath: options?.clearCategoryPath,
@@ -1720,7 +1770,10 @@ export default function WikiPageInner({ user }: Props) {
       setLoadingDoc(true);
 
       void fetchDocById(doc.id, {
-        hideChrome: isRoot,
+        hideChrome:
+          shouldHideDocChrome(
+            doc.id,
+          ),
         history: options?.history,
         skipUrlSync: options?.skipUrlSync,
         clearCategoryPath: options?.clearCategoryPath,
@@ -1806,7 +1859,11 @@ export default function WikiPageInner({ user }: Props) {
         }
 
         setHideDocChrome(
-          !!options?.hideChrome || Number(data?.id) === ROOT_FEATURED_DOC_ID
+          shouldHideDocChrome(
+            Number(
+              data?.id,
+            ),
+          ),
         );
 
         ensureOpenForDocPath(nextPath);
@@ -1936,7 +1993,11 @@ export default function WikiPageInner({ user }: Props) {
       }
 
       setHideDocChrome(
-        !!options?.hideChrome || Number(data?.id) === ROOT_FEATURED_DOC_ID
+        shouldHideDocChrome(
+          Number(
+            data?.id,
+          ),
+        ),
       );
 
       ensureOpenForDocPath(nextPath);
