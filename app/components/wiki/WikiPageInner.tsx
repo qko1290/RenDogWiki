@@ -715,6 +715,11 @@ export default function WikiPageInner({ user }: Props) {
       return;
     }
 
+    /*
+     * heading이 없는 일반 문서 이동에서는 이전 문서에서 예약된
+     * heading 위치 보정도 즉시 종료한다.
+     */
+    clearStableHeadingScrollTimeouts();
     pendingTopScrollRef.current = true;
   };
 
@@ -953,8 +958,12 @@ export default function WikiPageInner({ user }: Props) {
     if (typeof window === 'undefined') return;
     if (!selectedDocId) return;
 
+    /*
+     * 현재 주소의 hash를 무조건 읽지 않고,
+     * 이번 이동에서 허용된 heading 대상만 사용한다.
+     */
     const baseTarget =
-      pendingScrollDomIdRef.current || normalizeHashToDomId(window.location.hash);
+      getActiveHeadingTarget();
 
     // heading 이동이 있으면 top 보정은 절대 사용하지 않음
     if (baseTarget) {
@@ -1652,10 +1661,14 @@ export default function WikiPageInner({ user }: Props) {
     if (Object.prototype.hasOwnProperty.call(options ?? {}, 'requestedHash')) {
       preparePendingScrollForOpen(options?.requestedHash ?? '', isPopNavigation, true);
     } else if (!isPopNavigation) {
+      /*
+       * heading이 명시되지 않은 새 문서 이동에서는
+       * 이전 문서 주소에 남은 hash를 이어받지 않는다.
+       */
       preparePendingScrollForOpen(
         '',
         false,
-        !options?.ignoreCurrentLocationHash,
+        false,
       );
     } else {
       pendingScrollDomIdRef.current = '';
@@ -1906,10 +1919,14 @@ export default function WikiPageInner({ user }: Props) {
     if (Object.prototype.hasOwnProperty.call(options ?? {}, 'requestedHash')) {
       preparePendingScrollForOpen(options?.requestedHash ?? '', isPopNavigation, true);
     } else if (!isPopNavigation) {
+      /*
+       * heading이 명시되지 않은 새 문서 이동에서는
+       * 이전 문서 주소에 남은 hash를 이어받지 않는다.
+       */
       preparePendingScrollForOpen(
         '',
         false,
-        !options?.ignoreCurrentLocationHash,
+        false,
       );
     } else {
       pendingScrollDomIdRef.current = '';
