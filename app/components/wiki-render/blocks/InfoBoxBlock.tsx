@@ -239,7 +239,7 @@ function findInfoBoxAlignmentPoint(
 
   while (
     current &&
-    visibleText.length < 128
+    visibleText.length < 160
   ) {
     const raw = current.data;
 
@@ -288,16 +288,16 @@ function findInfoBoxAlignmentPoint(
     match[0].indexOf(':');
 
   /*
-   * 정렬 기준은 콜론 뒤의 첫 공백까지다.
-   * 기존 문서에 공백이 여러 개 있어도 그 전체 폭을
-   * 새 기준으로 사용하지 않는다.
+   * 기존 문서에 콜론 뒤 공백이 여러 개 있어도
+   * 정렬 기준은 "콜론 + 공백 한 칸"까지만 사용한다.
    */
-  const endIndex =
+  const alignmentEndIndex =
     colonIndex + 2;
 
   return (
-    positions[endIndex - 1] ??
-    null
+    positions[
+      alignmentEndIndex - 1
+    ] ?? null
   );
 }
 
@@ -308,6 +308,25 @@ function measureInfoBoxHangingIndent(
     findInfoBoxAlignmentPoint(root);
 
   if (!point) return 0;
+
+  /*
+   * 이미 적용된 내어쓰기가 측정값에 다시 영향을 주지 않도록
+   * 측정하는 순간에만 들여쓰기를 0으로 되돌린다.
+   */
+  const propertyName =
+    '--info-box-hanging-indent';
+
+  const previousIndent =
+    root.style.getPropertyValue(
+      propertyName,
+    );
+
+  root.style.setProperty(
+    propertyName,
+    '0px',
+  );
+
+  void root.offsetWidth;
 
   const range =
     document.createRange();
@@ -330,8 +349,20 @@ function measureInfoBoxHangingIndent(
         rect.height > 0,
     );
 
+  range.detach();
+
+  if (previousIndent) {
+    root.style.setProperty(
+      propertyName,
+      previousIndent,
+    );
+  } else {
+    root.style.removeProperty(
+      propertyName,
+    );
+  }
+
   if (rects.length === 0) {
-    range.detach();
     return 0;
   }
 
@@ -357,15 +388,9 @@ function measureInfoBoxHangingIndent(
       ),
     );
 
-  range.detach();
-
   const measured =
     right - contentRect.left;
 
-  /*
-   * 비정상적으로 긴 라벨이 본문 폭 대부분을 차지하지 않도록
-   * 안전 범위 안에서만 적용한다.
-   */
   return Math.max(
     0,
     Math.min(
@@ -473,7 +498,7 @@ export default function InfoBoxBlock({
     const measure = () => {
       if (disposed) return;
 
-      const width =
+      const nextIndent =
         measureInfoBoxHangingIndent(
           content,
         );
@@ -481,10 +506,11 @@ export default function InfoBoxBlock({
       setHangingIndent(
         (previous) =>
           Math.abs(
-            previous - width,
+            previous -
+            nextIndent,
           ) < 0.5
             ? previous
-            : width,
+            : nextIndent,
       );
     };
 
@@ -529,8 +555,8 @@ export default function InfoBoxBlock({
     );
 
     /*
-     * 인라인 이미지가 늦게 로드되어 실제 너비가 바뀌는 경우도
-     * 다시 측정한다. load는 버블링하지 않으므로 캡처 단계 사용.
+     * 인라인 이미지는 늦게 로드될 수 있으므로
+     * 캡처 단계에서 load 이벤트를 받아 다시 측정한다.
      */
     content.addEventListener(
       'load',
