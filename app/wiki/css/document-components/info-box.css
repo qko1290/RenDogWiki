@@ -4,7 +4,6 @@
  * 담당 범위
  * - 정보박스 공통 디자인
  * - 정보/경고/위험/팁 및 색상형 정보박스
- * - `라벨 : 내용` 자동 내어쓰기
  *
  * 문서 최상단 제목과 링크 카드에는 적용하지 않는다.
  * ============================================= */
@@ -141,45 +140,6 @@
   letter-spacing: -0.008em;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-}
-
-/*
- * 첫 줄은 원래 위치에서 시작하고,
- * 두 번째 줄부터 `콜론 + 한 칸` 위치에 맞춘다.
- */
-.info-box__content--hanging {
-  padding-inline-start:
-    var(
-      --info-box-hanging-indent,
-      0px
-    );
-  text-indent:
-    calc(
-      -1 *
-      var(
-        --info-box-hanging-indent,
-        0px
-      )
-    );
-}
-
-
-/*
- * 내어쓰기의 text-indent가 inline-block 내부로 상속되면
- * 인라인 이미지의 첫 줄도 음수 방향으로 이동할 수 있다.
- * 이미지 래퍼에서 들여쓰기를 초기화해 원래 위치에 표시한다.
- */
-.info-box__content--hanging
-[data-wiki-inline='inline-image'] {
-  position: relative;
-  z-index: 1;
-  text-indent: 0;
-}
-
-.info-box__content--hanging
-[data-wiki-inline='inline-image']
-img {
-  text-indent: 0;
 }
 
 .info-box__controls {

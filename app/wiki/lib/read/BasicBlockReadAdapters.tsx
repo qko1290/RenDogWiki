@@ -2,19 +2,10 @@
 
 import React from 'react';
 import {
-  Node,
-  Text,
-} from 'slate';
-
-import {
   DividerBlock,
   InfoBoxBlock,
   ParagraphBlock,
 } from '@/components/wiki-render';
-import {
-  getInfoBoxAlignmentPrefix,
-  processInfoBoxLegacyIndentChunk,
-} from '@/components/wiki-render/blocks/InfoBoxBlock';
 import {
   resolveDividerStyle,
   resolveInfoBoxNoIcon,
@@ -90,68 +81,6 @@ export function DividerReadAdapter({
   );
 }
 
-function normalizeLegacyInfoBoxIndent(
-  node: any,
-) {
-  const plainText =
-    Node.string(node);
-
-  if (
-    !getInfoBoxAlignmentPrefix(
-      plainText,
-    )
-  ) {
-    return node;
-  }
-
-  let afterLineBreak = false;
-
-  const visit = (
-    value: any,
-  ): any => {
-    if (Text.isText(value)) {
-      const result =
-        processInfoBoxLegacyIndentChunk(
-          value.text,
-          afterLineBreak,
-        );
-
-      afterLineBreak =
-        result.afterLineBreak;
-
-      if (
-        result.text ===
-        value.text
-      ) {
-        return value;
-      }
-
-      return {
-        ...value,
-        text: result.text,
-      };
-    }
-
-    if (
-      Array.isArray(
-        value?.children,
-      )
-    ) {
-      return {
-        ...value,
-        children:
-          value.children.map(
-            visit,
-          ),
-      };
-    }
-
-    return value;
-  };
-
-  return visit(node);
-}
-
 type InfoBoxReadAdapterProps = {
   node: any;
   keyProp?: React.Key;
@@ -169,20 +98,15 @@ export function InfoBoxReadAdapter({
   env,
   renderNode,
 }: InfoBoxReadAdapterProps) {
-  const displayNode =
-    normalizeLegacyInfoBoxIndent(
-      node,
-    );
-
   const sourceChildren =
     env?.isMobile
       ? (
-          displayNode.children ??
+          node.children ??
           []
         ).map(
           normalizeInfoBoxNodeForMobile,
         )
-      : displayNode.children ?? [];
+      : node.children ?? [];
 
   const infoChildren =
     sourceChildren.map(
@@ -209,9 +133,6 @@ export function InfoBoxReadAdapter({
       }
       noIcon={
         resolveInfoBoxNoIcon(node)
-      }
-      plainText={
-        Node.string(displayNode)
       }
     >
       {infoChildren}
