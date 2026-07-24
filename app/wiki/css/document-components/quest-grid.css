@@ -968,23 +968,22 @@
       )
     );
   font-family:
-    var(
-      --wiki-round-font,
-      Pretendard
-    ),
+    'NanumSquareNeo',
+    'NanumSquareRound',
     Pretendard,
     'Malgun Gothic',
     system-ui,
-    sans-serif;
+    sans-serif !important;
   font-size: 15px;
   font-weight: 900 !important;
+  font-synthesis: none;
   line-height: 19px;
   text-shadow:
     0 1px 0
     rgba(255, 255, 255, 0.52);
   letter-spacing: -0.025em;
   text-align: center;
-  text-overflow: clip;
+  text-overflow: ellipsis;
   white-space: nowrap;
   word-break: keep-all;
   overflow-wrap: normal;
@@ -1065,20 +1064,44 @@
     );
 }
 
+.npc-grid-wrap
 .npc-name.is-long {
-  font-size: 13.5px;
+  font-size: 12.5px !important;
+  letter-spacing: -0.035em !important;
 }
 
+.npc-grid-wrap
 .npc-name.is-longer {
-  font-size: 12px;
+  font-size: 11px !important;
+  letter-spacing: -0.045em !important;
 }
 
+.npc-grid-wrap
 .npc-name.is-xlong {
-  font-size: 10.5px;
+  font-size: 9.5px !important;
+  letter-spacing: -0.055em !important;
 }
 
 .npc-card-open-indicator {
   display: none;
+}
+
+/*
+ * NpcGrid.tsx에 남아 있는 styled-jsx는 해시 속성이 붙어
+ * 일반 외부 CSS보다 선택자 우선순위가 높다.
+ * 이름 타이포그래피는 여기서 명시적으로 고정한다.
+ */
+.npc-grid-wrap
+.npc-name {
+  font-family:
+    'NanumSquareNeo',
+    'NanumSquareRound',
+    Pretendard,
+    'Malgun Gothic',
+    system-ui,
+    sans-serif !important;
+  font-weight: 900 !important;
+  font-synthesis: none;
 }
 
 /* ===== 태그 ===== */
@@ -1532,20 +1555,32 @@
     height: 46px;
   }
 
-  .npc-name,
-  .npc-name.is-long,
-  .npc-name.is-longer,
-  .npc-name.is-xlong {
+  .npc-name {
     width:
       calc(
         100% - 8px
       );
     min-height: 26px;
     padding: 4px 5px 3px;
-    font-size: 11.5px;
+    font-size: 11.5px !important;
     line-height: 17px;
     white-space: nowrap;
     border-radius: 7px;
+  }
+
+  .npc-grid-wrap
+  .npc-name.is-long {
+    font-size: 10.5px !important;
+  }
+
+  .npc-grid-wrap
+  .npc-name.is-longer {
+    font-size: 9.5px !important;
+  }
+
+  .npc-grid-wrap
+  .npc-name.is-xlong {
+    font-size: 8.5px !important;
   }
 
   .npc-tag-badge {
