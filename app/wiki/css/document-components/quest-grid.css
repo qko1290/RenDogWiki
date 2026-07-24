@@ -1,0 +1,1055 @@
+/* =============================================
+ * File:
+ * app/wiki/css/document-components/quest-grid.css
+ *
+ * 전체 코드
+ *
+ * 담당 범위
+ * - 퀘스트 목록 그리드
+ * - 퀘스트 카드
+ * - 퀘스트 태그
+ * - 퀘스트 목록 페이지 이동
+ * ============================================= */
+
+.npc-grid-wrap[
+  data-wiki-grid='quest'
+] {
+  --quest-grid-text:
+    var(
+      --wiki-chrome-text,
+      var(--foreground)
+    );
+  --quest-grid-muted:
+    var(
+      --wiki-chrome-muted,
+      var(--muted)
+    );
+  --quest-grid-panel:
+    var(
+      --wiki-chrome-panel,
+      var(--surface-elevated)
+    );
+  --quest-grid-panel-soft:
+    var(
+      --wiki-chrome-panel-soft,
+      var(--surface-soft)
+    );
+  --quest-grid-border:
+    var(
+      --wiki-chrome-border,
+      var(--border)
+    );
+  --quest-grid-accent:
+    var(
+      --wiki-chrome-accent,
+      #4d9b5c
+    );
+  --quest-grid-accent-strong:
+    var(
+      --wiki-chrome-accent-strong,
+      #327b42
+    );
+  --quest-grid-hover:
+    var(
+      --wiki-chrome-hover,
+      #f0f8ed
+    );
+  --quest-grid-active:
+    var(
+      --wiki-chrome-active,
+      #e9f5e4
+    );
+
+  width: 100%;
+  container-type: inline-size;
+  box-sizing: border-box;
+}
+
+/* ===== 그리드 ===== */
+
+.npc-grid {
+  display: grid;
+  width: 100%;
+  grid-template-columns:
+    repeat(
+      7,
+      minmax(0, 1fr)
+    );
+  align-items: stretch;
+  justify-content: start;
+  gap:
+    clamp(
+      16px,
+      2.1vw,
+      28px
+    );
+  box-sizing: border-box;
+  margin: 18px 0 20px;
+  padding: 3px;
+}
+
+/* ===== 카드 ===== */
+
+.npc-card {
+  position: relative;
+  isolation: isolate;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  aspect-ratio: 1 / 1.08;
+  box-sizing: border-box;
+  padding: 0;
+  overflow: hidden;
+  color:
+    var(
+      --quest-grid-text
+    );
+  font-family: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  background:
+    radial-gradient(
+      circle at 82% 12%,
+      rgba(95, 174, 103, 0.08),
+      transparent 34%
+    ),
+    linear-gradient(
+      155deg,
+      color-mix(
+        in srgb,
+        var(
+          --quest-grid-panel
+        ) 98%,
+        white
+      ),
+      color-mix(
+        in srgb,
+        var(
+          --quest-grid-panel-soft
+        ) 52%,
+        var(
+          --quest-grid-panel
+        )
+      )
+    );
+  border:
+    1px solid
+    var(
+      --quest-grid-border
+    );
+  border-radius: 15px;
+  box-shadow:
+    0 1px 2px
+    rgba(31, 55, 36, 0.035),
+    0 8px 18px
+    rgba(31, 55, 36, 0.055);
+  appearance: none;
+  -webkit-tap-highlight-color:
+    transparent;
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease,
+    background-color 0.16s ease;
+}
+
+.npc-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border:
+    1px solid
+    rgba(255, 255, 255, 0.38);
+  border-radius: inherit;
+  opacity: 0.68;
+}
+
+.npc-card::after {
+  content: '';
+  position: absolute;
+  right: -28px;
+  bottom: -34px;
+  z-index: 0;
+  width: 86px;
+  height: 86px;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      circle,
+      color-mix(
+        in srgb,
+        var(
+          --quest-grid-accent
+        ) 10%,
+        transparent
+      ),
+      transparent 70%
+    );
+  opacity: 0.72;
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+}
+
+.npc-card:hover {
+  border-color:
+    color-mix(
+      in srgb,
+      var(
+        --quest-grid-accent
+      ) 36%,
+      var(
+        --quest-grid-border
+      )
+    );
+  box-shadow:
+    0 3px 8px
+    rgba(31, 55, 36, 0.055),
+    0 14px 28px
+    rgba(31, 55, 36, 0.095);
+  transform:
+    translateY(-2px);
+}
+
+.npc-card:hover::after {
+  opacity: 1;
+  transform:
+    scale(1.08);
+}
+
+.npc-card:focus-visible {
+  outline:
+    3px solid
+    color-mix(
+      in srgb,
+      var(
+        --quest-grid-accent
+      ) 23%,
+      transparent
+    );
+  outline-offset: 3px;
+}
+
+.npc-card.is-selected,
+.npc-card[
+  data-selected='true'
+] {
+  background:
+    radial-gradient(
+      circle at 82% 12%,
+      rgba(95, 174, 103, 0.13),
+      transparent 36%
+    ),
+    linear-gradient(
+      155deg,
+      color-mix(
+        in srgb,
+        var(
+          --quest-grid-active
+        ) 56%,
+        var(
+          --quest-grid-panel
+        )
+      ),
+      var(
+        --quest-grid-panel
+      )
+    );
+  border-color:
+    color-mix(
+      in srgb,
+      var(
+        --quest-grid-accent
+      ) 54%,
+      var(
+        --quest-grid-border
+      )
+    );
+  box-shadow:
+    0 0 0 2px
+    color-mix(
+      in srgb,
+      var(
+        --quest-grid-accent
+      ) 10%,
+      transparent
+    ),
+    0 12px 26px
+    rgba(31, 55, 36, 0.09);
+}
+
+/* ===== 카드 내부 ===== */
+
+.npc-card-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding:
+    clamp(
+      10px,
+      1.1vw,
+      14px
+    )
+    clamp(
+      7px,
+      0.8vw,
+      10px
+    )
+    9px;
+}
+
+.npc-card[
+  data-has-tag='true'
+]
+.npc-card-inner {
+  padding-top:
+    clamp(
+      22px,
+      2.3vw,
+      29px
+    );
+}
+
+.npc-icon-wrap {
+  display: grid;
+  width:
+    min(
+      72px,
+      62%
+    );
+  aspect-ratio: 1;
+  flex: 0 0 auto;
+  place-items: center;
+  margin-bottom:
+    clamp(
+      7px,
+      0.8vw,
+      10px
+    );
+}
+
+.npc-icon-surface {
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  box-sizing: border-box;
+  overflow: hidden;
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(
+        in srgb,
+        var(
+          --quest-grid-active
+        ) 54%,
+        var(
+          --quest-grid-panel
+        )
+      ),
+      color-mix(
+        in srgb,
+        var(
+          --quest-grid-hover
+        ) 44%,
+        var(
+          --quest-grid-panel
+        )
+      )
+    );
+  border:
+    1px solid
+    color-mix(
+      in srgb,
+      var(
+        --quest-grid-accent
+      ) 10%,
+      var(
+        --quest-grid-border
+      )
+    );
+  border-radius: 13px;
+  box-shadow:
+    inset 0 1px 0
+    rgba(255, 255, 255, 0.48);
+  transition:
+    border-color 0.16s ease,
+    transform 0.16s ease;
+}
+
+.npc-card:hover
+.npc-icon-surface {
+  border-color:
+    color-mix(
+      in srgb,
+      var(
+        --quest-grid-accent
+      ) 25%,
+      var(
+        --quest-grid-border
+      )
+    );
+  transform:
+    translateY(-1px);
+}
+
+.npc-icon-img {
+  display: block;
+  width: 78%;
+  height: 78%;
+  object-fit: contain;
+  image-rendering: auto;
+  filter:
+    drop-shadow(
+      0 4px 6px
+      rgba(28, 45, 31, 0.12)
+    );
+  transition:
+    transform 0.16s ease;
+}
+
+.npc-card:hover
+.npc-icon-img {
+  transform:
+    scale(1.035);
+}
+
+.npc-emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size:
+    clamp(
+      29px,
+      3.4vw,
+      47px
+    );
+  line-height: 1;
+}
+
+/* ===== 이름 ===== */
+
+.npc-name {
+  display: -webkit-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 2.7em;
+  overflow: hidden;
+  color:
+    var(
+      --quest-grid-text
+    );
+  font-family:
+    var(
+      --wiki-round-font,
+      Pretendard
+    ),
+    Pretendard,
+    'Malgun Gothic',
+    system-ui,
+    sans-serif;
+  font-size:
+    clamp(
+      14px,
+      1.25vw,
+      18px
+    );
+  font-weight: 790;
+  line-height: 1.34;
+  letter-spacing: -0.018em;
+  text-align: center;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.npc-name.is-long {
+  font-size:
+    clamp(
+      13px,
+      1.13vw,
+      16px
+    );
+}
+
+.npc-name.is-longer {
+  font-size:
+    clamp(
+      12px,
+      1vw,
+      15px
+    );
+}
+
+.npc-name.is-xlong {
+  font-size:
+    clamp(
+      11px,
+      0.91vw,
+      14px
+    );
+}
+
+.npc-card-open-indicator {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  margin-top: 5px;
+  color:
+    var(
+      --quest-grid-muted
+    );
+  font-size: 10px;
+  font-weight: 680;
+  line-height: 1;
+  opacity: 0;
+  transform:
+    translateY(2px);
+  transition:
+    color 0.16s ease,
+    opacity 0.16s ease,
+    transform 0.16s ease;
+}
+
+.npc-card-open-indicator svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+}
+
+.npc-card:hover
+.npc-card-open-indicator,
+.npc-card.is-selected
+.npc-card-open-indicator {
+  color:
+    var(
+      --quest-grid-accent-strong
+    );
+  opacity: 1;
+  transform:
+    translateY(0);
+}
+
+/* ===== 태그 ===== */
+
+.npc-tag-badge {
+  --quest-tag-color:
+    #64748b;
+
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  display: inline-flex;
+  max-width:
+    calc(
+      100% - 16px
+    );
+  height: 22px;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 0 8px;
+  overflow: hidden;
+  color:
+    color-mix(
+      in srgb,
+      var(
+        --quest-tag-color
+      ) 84%,
+      #172019
+    );
+  font-size: 10px;
+  font-weight: 780;
+  line-height: 1;
+  letter-spacing: -0.005em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background:
+    color-mix(
+      in srgb,
+      var(
+        --quest-tag-color
+      ) 10%,
+      var(
+        --quest-grid-panel
+      )
+    );
+  border:
+    1px solid
+    color-mix(
+      in srgb,
+      var(
+        --quest-tag-color
+      ) 28%,
+      var(
+        --quest-grid-border
+      )
+    );
+  border-radius: 999px;
+  box-shadow:
+    0 2px 7px
+    rgba(31, 55, 36, 0.045);
+}
+
+.npc-tag-badge[
+  data-quest-tag='추천'
+] {
+  --quest-tag-color:
+    #16a34a;
+}
+
+.npc-tag-badge[
+  data-quest-tag='필수'
+] {
+  --quest-tag-color:
+    #ca8a04;
+}
+
+.npc-tag-badge[
+  data-quest-tag='완정'
+] {
+  --quest-tag-color:
+    #2563eb;
+}
+
+.npc-tag-badge[
+  data-quest-tag='타임어택'
+] {
+  --quest-tag-color:
+    #ea580c;
+}
+
+.npc-tag-badge[
+  data-quest-tag='기사단'
+] {
+  --quest-tag-color:
+    #7c3aed;
+}
+
+.npc-tag-badge[
+  data-quest-tag='극난퀘'
+],
+.npc-tag-badge[
+  data-quest-tag='보스'
+] {
+  --quest-tag-color:
+    #dc2626;
+}
+
+.npc-tag-badge[
+  data-quest-tag='혼의 시련'
+],
+.npc-tag-badge[
+  data-quest-tag='6차'
+] {
+  --quest-tag-color:
+    #0284c7;
+}
+
+/* ===== 빈 목록 ===== */
+
+.npc-grid-empty {
+  display: flex;
+  min-height: 180px;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  box-sizing: border-box;
+  margin: 18px 0;
+  color:
+    var(
+      --quest-grid-muted
+    );
+  font-size: 14px;
+  font-weight: 650;
+  background:
+    color-mix(
+      in srgb,
+      var(
+        --quest-grid-panel-soft
+      ) 64%,
+      transparent
+    );
+  border:
+    1px dashed
+    var(
+      --quest-grid-border
+    );
+  border-radius: 15px;
+}
+
+.npc-grid-empty__icon {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  color:
+    var(
+      --quest-grid-accent
+    );
+}
+
+.npc-grid-empty__icon svg {
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+
+/* ===== 페이지 이동 ===== */
+
+.npc-pager-wrap {
+  display: flex;
+  justify-content: center;
+  margin: 13px 0 0;
+}
+
+.npc-pager {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 5px;
+  color:
+    var(
+      --quest-grid-text
+    );
+  background:
+    color-mix(
+      in srgb,
+      var(
+        --quest-grid-panel
+      ) 96%,
+      transparent
+    );
+  border:
+    1px solid
+    var(
+      --quest-grid-border
+    );
+  border-radius: 999px;
+  box-shadow:
+    0 6px 16px
+    rgba(31, 55, 36, 0.055);
+}
+
+.npc-pg-btn {
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  place-items: center;
+  color:
+    var(
+      --quest-grid-muted
+    );
+  cursor: pointer;
+  background:
+    transparent;
+  border: 0;
+  border-radius: 999px;
+  transition:
+    color 0.14s ease,
+    background-color 0.14s ease;
+}
+
+.npc-pg-btn svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+}
+
+.npc-pg-btn:hover:not(
+  :disabled
+) {
+  color:
+    var(
+      --quest-grid-accent-strong
+    );
+  background:
+    var(
+      --quest-grid-hover
+    );
+}
+
+.npc-pg-btn:focus-visible {
+  outline:
+    3px solid
+    color-mix(
+      in srgb,
+      var(
+        --quest-grid-accent
+      ) 20%,
+      transparent
+    );
+  outline-offset: 1px;
+}
+
+.npc-pg-btn:disabled {
+  color:
+    color-mix(
+      in srgb,
+      var(
+        --quest-grid-muted
+      ) 48%,
+      transparent
+    );
+  cursor: default;
+}
+
+.npc-pg-text {
+  display: inline-flex;
+  min-width: 66px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color:
+    var(
+      --quest-grid-muted
+    );
+  font-size: 12px;
+  font-weight: 680;
+  line-height: 1;
+  font-variant-numeric:
+    tabular-nums;
+}
+
+.npc-pg-text strong {
+  color:
+    var(
+      --quest-grid-accent-strong
+    );
+  font-size: 14px;
+  font-weight: 820;
+}
+
+/* ===== 다크 모드 ===== */
+
+:root[
+  data-theme='dark'
+]
+.npc-card,
+.dark
+.npc-card {
+  background:
+    radial-gradient(
+      circle at 82% 12%,
+      rgba(95, 174, 103, 0.09),
+      transparent 36%
+    ),
+    linear-gradient(
+      155deg,
+      color-mix(
+        in srgb,
+        var(
+          --quest-grid-panel
+        ) 94%,
+        black
+      ),
+      color-mix(
+        in srgb,
+        var(
+          --quest-grid-panel-soft
+        ) 42%,
+        var(
+          --quest-grid-panel
+        )
+      )
+    );
+  box-shadow:
+    0 1px 2px
+    rgba(0, 0, 0, 0.13),
+    0 9px 20px
+    rgba(0, 0, 0, 0.13);
+}
+
+:root[
+  data-theme='dark'
+]
+.npc-card::before,
+.dark
+.npc-card::before {
+  border-color:
+    rgba(255, 255, 255, 0.035);
+}
+
+:root[
+  data-theme='dark'
+]
+.npc-icon-surface,
+.dark
+.npc-icon-surface {
+  box-shadow:
+    inset 0 1px 0
+    rgba(255, 255, 255, 0.035);
+}
+
+/* ===== 반응형 ===== */
+
+@container (
+  max-width: 1040px
+) {
+  .npc-grid {
+    gap: 17px;
+  }
+
+  .npc-card {
+    border-radius: 13px;
+  }
+}
+
+@container (
+  max-width: 860px
+) {
+  .npc-grid {
+    gap: 13px;
+  }
+
+  .npc-name {
+    font-size: 13px;
+  }
+
+  .npc-name.is-long,
+  .npc-name.is-longer,
+  .npc-name.is-xlong {
+    font-size: 11px;
+  }
+
+  .npc-card-open-indicator {
+    display: none;
+  }
+}
+
+@media (
+  max-width: 768px
+) {
+  .npc-grid {
+    grid-template-columns:
+      repeat(
+        3,
+        minmax(0, 1fr)
+      );
+    gap: 11px;
+    width:
+      calc(
+        100% - 12px
+      );
+    margin:
+      12px auto 0;
+    padding: 0;
+  }
+
+  .npc-card {
+    aspect-ratio:
+      1 / 1.06;
+    border-radius: 12px;
+  }
+
+  .npc-card-inner {
+    padding:
+      9px
+      6px
+      7px;
+  }
+
+  .npc-card[
+    data-has-tag='true'
+  ]
+  .npc-card-inner {
+    padding-top: 24px;
+  }
+
+  .npc-icon-wrap {
+    width:
+      min(
+        54px,
+        58%
+      );
+    margin-bottom: 5px;
+  }
+
+  .npc-icon-surface {
+    border-radius: 10px;
+  }
+
+  .npc-name,
+  .npc-name.is-long,
+  .npc-name.is-longer,
+  .npc-name.is-xlong {
+    min-height: 2.55em;
+    font-size: 12px;
+    line-height: 1.28;
+  }
+
+  .npc-tag-badge {
+    top: 5px;
+    right: 5px;
+    height: 19px;
+    padding: 0 6px;
+    font-size: 9px;
+  }
+
+  .npc-pager-wrap {
+    margin-top: 11px;
+  }
+
+  .npc-pager {
+    min-height: 36px;
+    padding: 4px;
+  }
+
+  .npc-pg-btn {
+    width: 30px;
+    height: 30px;
+  }
+}
+
+@media (
+  max-width: 390px
+) {
+  .npc-grid {
+    gap: 8px;
+    width: 100%;
+  }
+
+  .npc-card-inner {
+    padding-right: 4px;
+    padding-left: 4px;
+  }
+
+  .npc-name,
+  .npc-name.is-long,
+  .npc-name.is-longer,
+  .npc-name.is-xlong {
+    font-size: 11px;
+  }
+}
+
+/* ===== 모션 감소 ===== */
+
+@media (
+  prefers-reduced-motion:
+    reduce
+) {
+  .npc-card,
+  .npc-card::after,
+  .npc-icon-surface,
+  .npc-icon-img,
+  .npc-card-open-indicator,
+  .npc-pg-btn {
+    transition: none;
+  }
+}
