@@ -1,0 +1,876 @@
+/* =============================================
+ * File:
+ * app/wiki/css/document-components/weapon-card.css
+ *
+ * 전체 코드
+ *
+ * 담당 범위
+ * - 무기 카드 외곽 프레임
+ * - 우주·성운 배경과 오오라 애니메이션
+ * - 무기 이미지, 능력치, 영상 버튼
+ * - 에디터/읽기 화면 공통 디자인
+ *
+ * 기존 WeaponCardRenderer의 데이터와 동작은 건드리지 않고
+ * data-wiki-* 속성을 기준으로 디자인만 덮어쓴다.
+ * ============================================= */
+
+[data-wiki-card-wrap^='weapon-'] {
+  position: relative !important;
+  isolation: isolate;
+  margin-top: 20px !important;
+  margin-bottom: 24px !important;
+  perspective: 900px;
+}
+
+/* ===== 외곽 우주 프레임 ===== */
+
+[data-wiki-card-wrap^='weapon-'] > div {
+  position: relative !important;
+  isolation: isolate;
+  padding: 1px !important;
+  overflow: visible !important;
+  background:
+    linear-gradient(
+      132deg,
+      rgba(103, 232, 249, 0.78) 0%,
+      rgba(99, 102, 241, 0.86) 24%,
+      rgba(168, 85, 247, 0.92) 50%,
+      rgba(236, 72, 153, 0.74) 72%,
+      rgba(34, 211, 238, 0.74) 100%
+    ) border-box !important;
+  border: 0 !important;
+  border-radius: 20px !important;
+  box-shadow:
+    0 18px 42px rgba(21, 18, 58, 0.26),
+    0 8px 20px rgba(49, 46, 129, 0.18),
+    0 0 30px rgba(99, 102, 241, 0.18) !important;
+  transform:
+    translateZ(0);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+[data-wiki-card-wrap^='weapon-'] > div::before {
+  content: '';
+  position: absolute;
+  inset: -12px;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      circle at 18% 28%,
+      rgba(34, 211, 238, 0.34),
+      transparent 42%
+    ),
+    radial-gradient(
+      circle at 78% 24%,
+      rgba(168, 85, 247, 0.34),
+      transparent 44%
+    ),
+    radial-gradient(
+      circle at 55% 86%,
+      rgba(236, 72, 153, 0.24),
+      transparent 48%
+    );
+  border-radius: 28px;
+  filter: blur(15px);
+  opacity: 0.68;
+  transform:
+    translate3d(0, 0, 0)
+    scale(0.97);
+  animation:
+    rdwikiWeaponOuterAura
+    8s ease-in-out infinite alternate;
+  will-change:
+    opacity,
+    transform;
+}
+
+[data-wiki-card-wrap^='weapon-'] > div::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  z-index: 4;
+  pointer-events: none;
+  border:
+    1px solid
+    rgba(255, 255, 255, 0.34);
+  border-radius: 20px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -1px 0 rgba(111, 141, 255, 0.12);
+  opacity: 0.72;
+}
+
+[data-wiki-card-wrap^='weapon-']:hover > div {
+  box-shadow:
+    0 22px 50px rgba(20, 17, 56, 0.31),
+    0 10px 24px rgba(49, 46, 129, 0.22),
+    0 0 38px rgba(99, 102, 241, 0.24) !important;
+  transform:
+    translateY(-2px)
+    translateZ(0);
+}
+
+/* ===== 카드 본체 ===== */
+
+[data-wiki-card^='weapon-'] {
+  position: relative !important;
+  isolation: isolate;
+  padding-top: 0 !important;
+  overflow: hidden !important;
+  background:
+    radial-gradient(
+      circle at 18% 12%,
+      rgba(56, 189, 248, 0.18),
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 84% 18%,
+      rgba(168, 85, 247, 0.22),
+      transparent 38%
+    ),
+    radial-gradient(
+      circle at 52% 90%,
+      rgba(219, 39, 119, 0.14),
+      transparent 44%
+    ),
+    linear-gradient(
+      165deg,
+      #080b1f 0%,
+      #0b1029 36%,
+      #11113a 68%,
+      #080b1d 100%
+    ) !important;
+  border-radius: 19px !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -18px 40px rgba(0, 0, 0, 0.2) !important;
+  color: #eef2ff;
+}
+
+[data-wiki-card^='weapon-']::before {
+  content: '';
+  position: absolute;
+  inset: -34% -46%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    conic-gradient(
+      from 12deg at 50% 50%,
+      transparent 0deg,
+      rgba(34, 211, 238, 0.13) 52deg,
+      transparent 106deg,
+      rgba(139, 92, 246, 0.17) 158deg,
+      transparent 220deg,
+      rgba(236, 72, 153, 0.11) 286deg,
+      transparent 360deg
+    );
+  filter: blur(22px);
+  opacity: 0.86;
+  transform:
+    translate3d(-3%, -1%, 0)
+    rotate(0deg)
+    scale(1.04);
+  animation:
+    rdwikiWeaponNebulaTurn
+    24s linear infinite;
+  will-change: transform;
+}
+
+[data-wiki-card^='weapon-']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(
+      circle at 14% 18%,
+      rgba(255, 255, 255, 0.88) 0 0.7px,
+      transparent 1px
+    ),
+    radial-gradient(
+      circle at 74% 22%,
+      rgba(165, 243, 252, 0.75) 0 0.8px,
+      transparent 1.15px
+    ),
+    radial-gradient(
+      circle at 34% 52%,
+      rgba(221, 214, 254, 0.72) 0 0.65px,
+      transparent 1px
+    ),
+    radial-gradient(
+      circle at 83% 66%,
+      rgba(255, 255, 255, 0.64) 0 0.75px,
+      transparent 1.05px
+    ),
+    radial-gradient(
+      circle at 21% 82%,
+      rgba(125, 211, 252, 0.62) 0 0.8px,
+      transparent 1.15px
+    );
+  background-size:
+    76px 92px,
+    112px 104px,
+    96px 126px,
+    138px 116px,
+    124px 142px;
+  mix-blend-mode: screen;
+  opacity: 0.62;
+  transform:
+    translate3d(0, 0, 0);
+  animation:
+    rdwikiWeaponStarsDrift
+    18s linear infinite alternate;
+  will-change: transform;
+}
+
+[data-wiki-card^='weapon-'] > div {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+/* ===== 무기 종류 바 ===== */
+
+[data-wiki-part='weapon-type-bar'] {
+  position: relative !important;
+  z-index: 2;
+  padding:
+    8px 12px !important;
+  overflow: hidden;
+  color: #f8fafc !important;
+  font-size: 14px !important;
+  font-weight: 820 !important;
+  line-height: 1.2 !important;
+  letter-spacing: 0.12em !important;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(6, 12, 33, 0.96) 0%,
+      rgba(36, 35, 91, 0.94) 26%,
+      rgba(76, 43, 131, 0.93) 52%,
+      rgba(25, 52, 103, 0.94) 78%,
+      rgba(6, 12, 33, 0.96) 100%
+    ) !important;
+  border-bottom:
+    1px solid
+    rgba(164, 180, 255, 0.2) !important;
+  text-shadow:
+    0 0 14px rgba(165, 180, 252, 0.62),
+    0 1px 2px rgba(0, 0, 0, 0.75) !important;
+}
+
+[data-wiki-part='weapon-type-bar']::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -72%;
+  width: 58%;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      110deg,
+      transparent,
+      rgba(255, 255, 255, 0.08) 30%,
+      rgba(165, 243, 252, 0.42) 50%,
+      rgba(255, 255, 255, 0.08) 70%,
+      transparent
+    );
+  transform: skewX(-18deg);
+  animation:
+    rdwikiWeaponHeaderShimmer
+    7s ease-in-out infinite;
+}
+
+[data-wiki-part='weapon-type-bar']::after {
+  content: '';
+  position: absolute;
+  right: 14px;
+  bottom: 3px;
+  left: 14px;
+  height: 1px;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(103, 232, 249, 0.45),
+      rgba(196, 181, 253, 0.48),
+      transparent
+    );
+  opacity: 0.68;
+}
+
+/* ===== 무기 이름 ===== */
+
+[data-wiki-part='weapon-name'] {
+  position: relative !important;
+  z-index: 2;
+  padding:
+    12px 14px 11px !important;
+  color: #f5f3ff !important;
+  font-size: 18px !important;
+  font-weight: 820 !important;
+  line-height: 1.25 !important;
+  letter-spacing: -0.022em !important;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(5, 9, 25, 0.92),
+      rgba(11, 14, 39, 0.82)
+    ) !important;
+  border-bottom:
+    1px solid
+    rgba(134, 151, 214, 0.18) !important;
+  text-shadow:
+    0 0 16px rgba(129, 140, 248, 0.34),
+    0 1px 2px rgba(0, 0, 0, 0.8) !important;
+  transition:
+    color 0.16s ease,
+    background-color 0.16s ease;
+}
+
+[data-wiki-card='weapon-edit']
+[data-wiki-part='weapon-name']:hover {
+  color: #ffffff !important;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(18, 24, 60, 0.95),
+      rgba(25, 22, 67, 0.88)
+    ) !important;
+}
+
+/* ===== 무기 이미지 우주 무대 ===== */
+
+[data-wiki-part='weapon-image'] {
+  position: relative !important;
+  isolation: isolate;
+  height: 150px !important;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      ellipse at 50% 48%,
+      rgba(129, 140, 248, 0.26) 0%,
+      rgba(76, 29, 149, 0.1) 30%,
+      transparent 61%
+    ),
+    radial-gradient(
+      circle at 18% 22%,
+      rgba(34, 211, 238, 0.22),
+      transparent 35%
+    ),
+    radial-gradient(
+      circle at 83% 18%,
+      rgba(217, 70, 239, 0.2),
+      transparent 38%
+    ),
+    radial-gradient(
+      circle at 62% 92%,
+      rgba(59, 130, 246, 0.18),
+      transparent 46%
+    ),
+    linear-gradient(
+      160deg,
+      #050819 0%,
+      #0b0d2b 42%,
+      #130d35 72%,
+      #050718 100%
+    ) !important;
+  border-bottom:
+    1px solid
+    rgba(129, 140, 248, 0.16);
+}
+
+[data-wiki-part='weapon-image']::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 0;
+  width: 180px;
+  height: 88px;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse,
+      rgba(103, 232, 249, 0.24) 0%,
+      rgba(139, 92, 246, 0.16) 35%,
+      rgba(236, 72, 153, 0.06) 58%,
+      transparent 74%
+    );
+  border:
+    1px solid
+    rgba(165, 180, 252, 0.08);
+  border-radius: 50%;
+  filter: blur(2px);
+  opacity: 0.9;
+  transform:
+    translate(-50%, -42%)
+    rotate(-5deg)
+    scale(0.96);
+  animation:
+    rdwikiWeaponImageAura
+    6s ease-in-out infinite alternate;
+  will-change:
+    opacity,
+    transform;
+}
+
+[data-wiki-part='weapon-image']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      circle at 22% 30%,
+      rgba(255, 255, 255, 0.88) 0 1px,
+      transparent 1.5px
+    ),
+    radial-gradient(
+      circle at 76% 24%,
+      rgba(165, 243, 252, 0.74) 0 0.9px,
+      transparent 1.4px
+    ),
+    radial-gradient(
+      circle at 66% 74%,
+      rgba(221, 214, 254, 0.78) 0 1px,
+      transparent 1.6px
+    ),
+    radial-gradient(
+      circle at 28% 78%,
+      rgba(147, 197, 253, 0.68) 0 0.8px,
+      transparent 1.3px
+    );
+  background-size:
+    94px 82px,
+    118px 96px,
+    130px 112px,
+    108px 128px;
+  opacity: 0.64;
+  animation:
+    rdwikiWeaponImageStars
+    10s linear infinite alternate;
+}
+
+[data-wiki-part='weapon-image'] img {
+  position: relative !important;
+  z-index: 2 !important;
+  max-width: 84% !important;
+  max-height: 84% !important;
+  filter:
+    drop-shadow(
+      0 15px 18px
+      rgba(0, 0, 0, 0.62)
+    )
+    drop-shadow(
+      0 0 11px
+      rgba(129, 140, 248, 0.32)
+    )
+    drop-shadow(
+      0 0 4px
+      rgba(103, 232, 249, 0.24)
+    ) !important;
+  transform:
+    translateZ(0);
+  animation:
+    rdwikiWeaponFloat
+    5.8s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* ===== 능력치 영역 ===== */
+
+[data-wiki-part='weapon-stats'] {
+  position: relative !important;
+  z-index: 2;
+  gap: 7px !important;
+  padding:
+    10px 10px 9px !important;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(6, 9, 25, 0.76),
+      rgba(11, 12, 31, 0.9)
+    ) !important;
+  border-top:
+    1px solid
+    rgba(255, 255, 255, 0.025);
+}
+
+[data-wiki-part='weapon-stat-row'] {
+  min-height: 31px;
+  padding:
+    7px 9px !important;
+  color: #e8edff !important;
+  background:
+    linear-gradient(
+      105deg,
+      rgba(255, 255, 255, 0.055),
+      rgba(129, 140, 248, 0.075),
+      rgba(34, 211, 238, 0.035)
+    ) !important;
+  border:
+    1px solid
+    rgba(143, 157, 217, 0.15) !important;
+  border-radius: 9px !important;
+  box-shadow:
+    inset 0 1px 0
+    rgba(255, 255, 255, 0.045),
+    0 3px 10px
+    rgba(0, 0, 0, 0.08) !important;
+  transition:
+    border-color 0.16s ease,
+    background-color 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease;
+}
+
+[data-wiki-part='weapon-stat-row'] > span:first-child {
+  color:
+    rgba(203, 213, 245, 0.75) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+}
+
+[data-wiki-part='weapon-stat-row'] > span:last-child {
+  color: #f8faff !important;
+  font-size: 13px !important;
+  font-weight: 780 !important;
+  text-shadow:
+    0 0 10px
+    rgba(165, 180, 252, 0.22);
+}
+
+[data-wiki-card='weapon-edit']
+[data-wiki-part='weapon-stat-row']:hover {
+  border-color:
+    rgba(129, 140, 248, 0.34) !important;
+  background:
+    linear-gradient(
+      105deg,
+      rgba(255, 255, 255, 0.08),
+      rgba(139, 92, 246, 0.13),
+      rgba(34, 211, 238, 0.06)
+    ) !important;
+  box-shadow:
+    inset 0 1px 0
+    rgba(255, 255, 255, 0.065),
+    0 5px 13px
+    rgba(0, 0, 0, 0.12),
+    0 0 16px
+    rgba(99, 102, 241, 0.08) !important;
+  transform:
+    translateY(-1px);
+}
+
+/* ===== 영상 영역 ===== */
+
+[data-wiki-part='weapon-video-actions'] {
+  position: relative !important;
+  z-index: 2;
+  padding:
+    8px 10px 11px !important;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(10, 12, 33, 0.92),
+      rgba(5, 8, 22, 0.97)
+    );
+  border-top:
+    1px solid
+    rgba(129, 140, 248, 0.12);
+}
+
+[data-wiki-part='weapon-video-button'] {
+  position: relative;
+  min-height: 34px;
+  overflow: hidden;
+  color: #f8fafc !important;
+  font-weight: 760 !important;
+  letter-spacing: -0.01em;
+  background:
+    linear-gradient(
+      105deg,
+      #2563eb 0%,
+      #6366f1 31%,
+      #8b5cf6 56%,
+      #0ea5e9 82%,
+      #2563eb 100%
+    ) !important;
+  background-size:
+    220% 100% !important;
+  border:
+    1px solid
+    rgba(191, 219, 254, 0.2) !important;
+  box-shadow:
+    0 9px 24px
+    rgba(67, 56, 202, 0.26),
+    inset 0 1px 0
+    rgba(255, 255, 255, 0.2) !important;
+  text-shadow:
+    0 1px 2px
+    rgba(0, 0, 0, 0.42);
+  animation:
+    rdwikiWeaponButtonFlow
+    8s ease-in-out infinite;
+  transition:
+    filter 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease;
+}
+
+[data-wiki-part='weapon-video-button']:not(:disabled):hover {
+  filter:
+    brightness(1.1)
+    saturate(1.06);
+  box-shadow:
+    0 11px 28px
+    rgba(67, 56, 202, 0.32),
+    0 0 20px
+    rgba(56, 189, 248, 0.12),
+    inset 0 1px 0
+    rgba(255, 255, 255, 0.24) !important;
+  transform:
+    translateY(-1px);
+}
+
+[data-wiki-part='weapon-video-button']:disabled {
+  color:
+    rgba(203, 213, 225, 0.5) !important;
+  background:
+    rgba(30, 34, 56, 0.72) !important;
+  border-color:
+    rgba(148, 163, 184, 0.12) !important;
+  box-shadow:
+    inset 0 1px 0
+    rgba(255, 255, 255, 0.025) !important;
+  animation: none;
+}
+
+[data-wiki-part='weapon-video-actions']
+> button:not(
+  [data-wiki-part='weapon-video-button']
+) {
+  color:
+    rgba(226, 232, 240, 0.82) !important;
+  background:
+    rgba(9, 12, 31, 0.9) !important;
+  border:
+    1px solid
+    rgba(129, 140, 248, 0.2) !important;
+  box-shadow:
+    inset 0 1px 0
+    rgba(255, 255, 255, 0.035);
+}
+
+/* ===== 강화 단계 / 에디터 보조 버튼 ===== */
+
+[data-wiki-part='weapon-level-selector'] {
+  filter:
+    drop-shadow(
+      0 10px 18px
+      rgba(17, 24, 39, 0.16)
+    );
+}
+
+[data-wiki-card-wrap='weapon-edit'] > button {
+  color:
+    rgba(226, 232, 240, 0.72) !important;
+  background:
+    rgba(7, 10, 28, 0.92) !important;
+  border:
+    1px solid
+    rgba(129, 140, 248, 0.22) !important;
+  box-shadow:
+    0 6px 14px
+    rgba(15, 23, 42, 0.12);
+}
+
+/* ===== 키프레임 ===== */
+
+@keyframes rdwikiWeaponOuterAura {
+  0% {
+    opacity: 0.52;
+    transform:
+      translate3d(-2px, 1px, 0)
+      scale(0.965);
+  }
+
+  50% {
+    opacity: 0.78;
+  }
+
+  100% {
+    opacity: 0.62;
+    transform:
+      translate3d(2px, -2px, 0)
+      scale(1.025);
+  }
+}
+
+@keyframes rdwikiWeaponNebulaTurn {
+  from {
+    transform:
+      translate3d(-3%, -1%, 0)
+      rotate(0deg)
+      scale(1.04);
+  }
+
+  to {
+    transform:
+      translate3d(3%, 1%, 0)
+      rotate(360deg)
+      scale(1.08);
+  }
+}
+
+@keyframes rdwikiWeaponStarsDrift {
+  from {
+    transform:
+      translate3d(-4px, -3px, 0);
+  }
+
+  to {
+    transform:
+      translate3d(5px, 4px, 0);
+  }
+}
+
+@keyframes rdwikiWeaponHeaderShimmer {
+  0%,
+  16% {
+    left: -72%;
+    opacity: 0;
+  }
+
+  28% {
+    opacity: 0.72;
+  }
+
+  48% {
+    left: 118%;
+    opacity: 0;
+  }
+
+  100% {
+    left: 118%;
+    opacity: 0;
+  }
+}
+
+@keyframes rdwikiWeaponImageAura {
+  from {
+    opacity: 0.68;
+    transform:
+      translate(-50%, -42%)
+      rotate(-7deg)
+      scale(0.92);
+  }
+
+  to {
+    opacity: 1;
+    transform:
+      translate(-50%, -46%)
+      rotate(5deg)
+      scale(1.09);
+  }
+}
+
+@keyframes rdwikiWeaponImageStars {
+  from {
+    background-position:
+      0 0,
+      0 0,
+      0 0,
+      0 0;
+  }
+
+  to {
+    background-position:
+      8px 5px,
+      -6px 8px,
+      7px -5px,
+      -8px -6px;
+  }
+}
+
+@keyframes rdwikiWeaponFloat {
+  0%,
+  100% {
+    transform:
+      translate3d(0, 1px, 0);
+  }
+
+  50% {
+    transform:
+      translate3d(0, -4px, 0);
+  }
+}
+
+@keyframes rdwikiWeaponButtonFlow {
+  0%,
+  100% {
+    background-position:
+      0% 50%;
+  }
+
+  50% {
+    background-position:
+      100% 50%;
+  }
+}
+
+/* ===== 모바일 ===== */
+
+@media (max-width: 768px) {
+  [data-wiki-card-wrap^='weapon-'] {
+    margin-top: 16px !important;
+    margin-bottom: 20px !important;
+  }
+
+  [data-wiki-card-wrap^='weapon-'] > div {
+    box-shadow:
+      0 14px 32px
+      rgba(21, 18, 58, 0.24),
+      0 6px 16px
+      rgba(49, 46, 129, 0.15),
+      0 0 22px
+      rgba(99, 102, 241, 0.14) !important;
+  }
+
+  [data-wiki-part='weapon-image'] {
+    height: 138px !important;
+  }
+
+  [data-wiki-part='weapon-image'] img {
+    max-width: 82% !important;
+    max-height: 82% !important;
+  }
+}
+
+/* ===== 모션 감소 설정 ===== */
+
+@media (prefers-reduced-motion: reduce) {
+  [data-wiki-card-wrap^='weapon-'] > div,
+  [data-wiki-part='weapon-stat-row'],
+  [data-wiki-part='weapon-video-button'] {
+    transition: none;
+  }
+
+  [data-wiki-card-wrap^='weapon-'] > div::before,
+  [data-wiki-card^='weapon-']::before,
+  [data-wiki-card^='weapon-']::after,
+  [data-wiki-part='weapon-type-bar']::before,
+  [data-wiki-part='weapon-image']::before,
+  [data-wiki-part='weapon-image']::after,
+  [data-wiki-part='weapon-image'] img,
+  [data-wiki-part='weapon-video-button'] {
+    animation: none;
+  }
+}
