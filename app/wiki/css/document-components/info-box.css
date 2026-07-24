@@ -124,32 +124,11 @@
 }
 
 .info-box__icon {
-  display: inline-flex;
-  flex: 0 0 28px;
-  width: 28px;
-  height: 28px;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  margin-top: 1px;
-  color: var(--info-box-accent);
-  background: var(--info-box-icon-background);
-  border:
-    1px solid
-    color-mix(
-      in srgb,
-      var(--info-box-accent) 16%,
-      transparent
-    );
-  border-radius: 9px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
-}
-
-.info-box__icon svg {
   display: block;
-  width: 17px;
-  height: 17px;
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
 }
 
 .info-box__content {
@@ -182,6 +161,25 @@
         0px
       )
     );
+}
+
+
+/*
+ * 내어쓰기의 text-indent가 inline-block 내부로 상속되면
+ * 인라인 이미지의 첫 줄도 음수 방향으로 이동할 수 있다.
+ * 이미지 래퍼에서 들여쓰기를 초기화해 원래 위치에 표시한다.
+ */
+.info-box__content--hanging
+[data-wiki-inline='inline-image'] {
+  position: relative;
+  z-index: 1;
+  text-indent: 0;
+}
+
+.info-box__content--hanging
+[data-wiki-inline='inline-image']
+img {
+  text-indent: 0;
 }
 
 .info-box__indent-measure {
@@ -264,18 +262,6 @@
   .info-box::before {
     top: 10px;
     bottom: 10px;
-  }
-
-  .info-box__icon {
-    flex-basis: 25px;
-    width: 25px;
-    height: 25px;
-    border-radius: 8px;
-  }
-
-  .info-box__icon svg {
-    width: 15px;
-    height: 15px;
   }
 
   .info-box__content {

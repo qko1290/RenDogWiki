@@ -207,111 +207,46 @@ export function processInfoBoxLegacyIndentChunk(
   };
 }
 
-function InfoBoxIcon({
-  type,
-}: {
-  type: string;
-}) {
-  if (type === 'warning') {
-    return (
-      <svg
-        viewBox="0 0 24 24"
-        aria-hidden
-        focusable="false"
-      >
-        <path
-          d="M12 4.1 21 20H3L12 4.1Z"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M12 9v5.2M12 17.3h.01"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-      </svg>
-    );
-  }
+type InfoBoxIconPreset = {
+  accent: string;
+  mask: string;
+};
 
-  if (type === 'danger') {
-    return (
-      <svg
-        viewBox="0 0 24 24"
-        aria-hidden
-        focusable="false"
-      >
-        <path
-          d="M12 4.1 21 20H3L12 4.1Z"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M12 9v5.2M12 17.3h.01"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-      </svg>
-    );
-  }
+type InfoBoxContentStyle =
+  React.CSSProperties & {
+    '--info-box-hanging-indent': string;
+  };
 
-  if (type === 'tip') {
-    return (
-      <svg
-        viewBox="0 0 24 24"
-        aria-hidden
-        focusable="false"
-      >
-        <path
-          d="m7.3 12.2 3 3 6.5-6.5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <circle
-          cx="12"
-          cy="12"
-          r="8.2"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.7"
-        />
-      </svg>
-    );
-  }
+function getInfoBoxIconPreset(
+  type: string,
+): InfoBoxIconPreset | null {
+  const presets: Record<
+    string,
+    InfoBoxIconPreset
+  > = {
+    info: {
+      accent: '#3b82f6',
+      mask:
+        'https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-info.svg?v=2&token=a463935e93',
+    },
+    warning: {
+      accent: '#f59e0b',
+      mask:
+        'https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-exclamation.svg?v=2&token=a463935e93',
+    },
+    danger: {
+      accent: '#ef4444',
+      mask:
+        'https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/triangle-exclamation.svg?v=2&token=a463935e93',
+    },
+    tip: {
+      accent: '#10b981',
+      mask:
+        'https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-exclamation.svg?v=2&token=a463935e93',
+    },
+  };
 
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden
-      focusable="false"
-    >
-      <circle
-        cx="12"
-        cy="12"
-        r="8.2"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.7"
-      />
-      <path
-        d="M12 10.7v5M12 7.6h.01"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
+  return presets[type] ?? null;
 }
 
 export default function InfoBoxBlock({
@@ -327,9 +262,13 @@ export default function InfoBoxBlock({
   const type = normalizeInfoBoxType(tone);
   const role = getInfoBoxRole(type);
 
+  const iconPreset =
+    getInfoBoxIconPreset(type);
+
   const showIcon =
     !noIcon &&
-    infoBoxTypeHasIcon(type);
+    infoBoxTypeHasIcon(type) &&
+    Boolean(iconPreset);
 
   const controls =
     mode === 'edit'
@@ -414,14 +353,14 @@ export default function InfoBoxBlock({
     ...restAttributes
   } = attributes ?? {};
 
-  const contentStyle =
+  const contentStyle:
+    InfoBoxContentStyle | undefined =
     alignmentPrefix &&
     hangingIndent > 0
-      ? ({
+      ? {
           '--info-box-hanging-indent':
             `${hangingIndent}px`,
-        } as React.CSSProperties &
-          Record<string, string>)
+        }
       : undefined;
 
   return (
@@ -450,15 +389,33 @@ export default function InfoBoxBlock({
         .join(' ')}
       style={attributeStyle}
     >
-      {showIcon ? (
+      {showIcon && iconPreset ? (
         <span
           className="info-box__icon"
           aria-hidden
           contentEditable={false}
           suppressContentEditableWarning
-        >
-          <InfoBoxIcon type={type} />
-        </span>
+          style={{
+            backgroundColor:
+              iconPreset.accent,
+            WebkitMaskImage:
+              `url(${iconPreset.mask})`,
+            maskImage:
+              `url(${iconPreset.mask})`,
+            WebkitMaskRepeat:
+              'no-repeat',
+            maskRepeat:
+              'no-repeat',
+            WebkitMaskPosition:
+              'center',
+            maskPosition:
+              'center',
+            WebkitMaskSize:
+              'contain',
+            maskSize:
+              'contain',
+          }}
+        />
       ) : null}
 
       <div
