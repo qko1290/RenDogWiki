@@ -1,33 +1,33 @@
 // =============================================
-// File: app/wiki/page.tsx
+// File: app/page.tsx
 // 전체 코드
 //
-// - 위키 공통 구조 CSS를 먼저 로드
-// - 문서 화면 디자인 CSS를 그 다음에 로드
-// - 클라이언트 컴포넌트가 뜨기 전에 활성 색상이 확정되어
-//   보라색 선이 잠깐 보이는 현상을 방지
+// - 루트 경로(/)에서 RDWIKI Home 페이지 렌더
+// - 최근 업데이트 문서와 대표 카테고리 링크 병렬 조회
+// - 인기 문서는 HomePage에서 별도 API로 조회
 // =============================================
 
-'use client';
+import HomePage from '@/components/home/HomePage';
+import {
+  getHomeCategoryLinks,
+  getRecentHomeDocuments,
+} from '@/components/home/homeData';
 
-import dynamic from 'next/dynamic';
+export const dynamic = 'force-dynamic';
 
-import '@wiki/css/wiki.css';
+export default async function Home() {
+  const [
+    recentDocuments,
+    categoryLinks,
+  ] = await Promise.all([
+    getRecentHomeDocuments(5),
+    getHomeCategoryLinks(),
+  ]);
 
-const WikiPageInner = dynamic(
-  () =>
-    import(
-      '@/components/wiki/WikiPageInner'
-    ),
-  {
-    ssr: false,
-  },
-);
-
-export default function WikiPage() {
   return (
-    <div className="wiki-app wiki-shell-page">
-      <WikiPageInner user={null} />
-    </div>
+    <HomePage
+      recentDocuments={recentDocuments}
+      categoryLinks={categoryLinks}
+    />
   );
 }
