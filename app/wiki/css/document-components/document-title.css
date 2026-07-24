@@ -1,215 +1,127 @@
 /* =============================================
- * File:
- * app/wiki/css/document-components/document-title.css
- *
+ * File: app/wiki/css/document-components/document-title.css
  * 전체 코드
  *
- * 담당 범위
+ * 담당 범위:
  * - 문서 최상단 제목 영역
- * - 문서 제목 아이콘
- * - 마지막 수정 시각 툴팁
- * - 링크 복사 / 즐겨찾기 버튼
+ * - 문서 제목 텍스트
+ * - 문서 제목 이미지/이모지 아이콘
  *
  * 본문 Heading과 오른쪽 목차에는 적용하지 않는다.
  * ============================================= */
 
-/* ---------------------------------------------
- * 1. 문서 제목 카드
- * --------------------------------------------- */
-
-.wiki-shell-page
-.wiki-doc-title-wrap {
+/* ===== 문서 최상단 제목 영역 ===== */
+.wiki-app .wiki-content-title.wiki-content-title-row {
   position: relative;
   isolation: isolate;
   display: flex;
-  flex: 1 1 auto;
-  min-width: 0;
-  align-items: center;
-  justify-content: flex-start;
-  box-sizing: border-box;
-  margin:
-    2px
-    0
-    26px;
-  padding:
-    18px
-    20px
-    18px
-    24px;
-  overflow: visible;
-  border:
-    1px solid
-    var(
-      --wiki-shell-border,
-      rgba(92, 139, 97, 0.18)
-    );
-  border-radius: 18px;
-  background:
-    radial-gradient(
-      circle at 8% 20%,
-      rgba(156, 211, 144, 0.18),
-      transparent 34%
-    ),
-    linear-gradient(
-      135deg,
-      rgba(252, 254, 250, 0.98),
-      rgba(241, 249, 238, 0.96)
-    );
-  box-shadow:
-    0 12px 30px
-    rgba(30, 58, 35, 0.07);
-}
-
-.wiki-shell-page
-.wiki-doc-title-wrap::before {
-  content: '';
-  position: absolute;
-  top: 17px;
-  bottom: 17px;
-  left: -1px;
-  width: 5px;
-  border-radius:
-    0
-    999px
-    999px
-    0;
-  background:
-    linear-gradient(
-      180deg,
-      #79bd74,
-      var(
-        --wiki-shell-accent,
-        #53a763
-      )
-    );
-  box-shadow:
-    0 0 0 1px
-    rgba(255, 255, 255, 0.58);
-}
-
-.wiki-shell-page
-.wiki-doc-title-wrap::after {
-  content: '';
-  position: absolute;
-  right: 20px;
-  bottom: -1px;
-  left: 24px;
-  height: 2px;
-  border-radius: 999px;
-  background:
-    linear-gradient(
-      90deg,
-      var(
-        --wiki-shell-accent,
-        #53a763
-      ),
-      rgba(83, 167, 99, 0.18)
-      36%,
-      transparent
-      78%
-    );
-  pointer-events: none;
-}
-
-/* ---------------------------------------------
- * 2. 제목 행과 문서명
- * --------------------------------------------- */
-
-.wiki-shell-page
-.wiki-content-title-row.wiki-content-title {
-  position: relative;
-  z-index: 1;
-  display: flex;
   width: 100%;
   min-width: 0;
+  min-height: 88px;
   align-items: center;
   gap: 14px;
   box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  color:
-    var(
-      --wiki-shell-text,
-      #17221a
+  margin: 0 0 30px;
+  padding: 15px 18px 16px 22px;
+  overflow: visible;
+  color: var(--foreground);
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--accent-soft) 74%, transparent),
+      color-mix(in srgb, var(--surface-elevated) 96%, transparent) 42%,
+      var(--surface-elevated) 100%
     );
-  font-size:
-    clamp(
-      30px,
-      2.35vw,
-      36px
-    );
-  font-weight: 850;
-  line-height: 1.18;
-  letter-spacing: -0.038em;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
+  border-radius: 16px;
+  box-shadow:
+    0 1px 2px rgba(33, 61, 38, 0.04),
+    0 10px 24px rgba(33, 61, 38, 0.055);
 }
 
-.wiki-shell-page
-.wiki-doc-title-tooltip-anchor {
-  position: relative;
-  display: inline-flex;
+/* 홈 화면 카드와 같은 초록 포인트 */
+.wiki-app .wiki-content-title.wiki-content-title-row::before {
+  content: '';
+  position: absolute;
+  top: 15px;
+  bottom: 15px;
+  left: -1px;
+  width: 5px;
+  border-radius: 0 999px 999px 0;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 72%, white),
+    var(--accent)
+  );
+}
+
+/* 제목 영역 아래의 은은한 강조선 */
+.wiki-app .wiki-content-title.wiki-content-title-row::after {
+  content: '';
+  position: absolute;
+  right: 18px;
+  bottom: -1px;
+  left: 22px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--accent),
+    color-mix(in srgb, var(--accent) 20%, transparent) 34%,
+    transparent 78%
+  );
+  pointer-events: none;
+}
+
+/* ===== 문서 제목 텍스트 ===== */
+.wiki-app .wiki-content-title-row .wiki-title-color {
+  display: block;
   flex: 1 1 auto;
   min-width: 0;
-  align-items: center;
-  color: inherit;
-  cursor: help;
-}
-
-.wiki-shell-page
-.wiki-doc-title-tooltip-anchor:focus {
-  outline: none;
-}
-
-.wiki-shell-page
-.wiki-title-color {
-  display: block;
-  min-width: 0;
+  margin: 0;
   overflow: hidden;
-  color:
-    var(
-      --wiki-shell-text,
-      #17221a
-    );
-  font: inherit;
-  line-height: inherit;
+  color: var(--foreground);
+  font-size: clamp(30px, 2.25vw, 36px);
+  font-weight: 850;
+  line-height: 1.2;
+  letter-spacing: -0.038em;
   text-overflow: ellipsis;
-  text-shadow:
-    0 1px 0
-    rgba(255, 255, 255, 0.68);
+  text-shadow: 0 1px 0 color-mix(in srgb, var(--surface-elevated) 82%, transparent);
   white-space: nowrap;
 }
 
-/* ---------------------------------------------
- * 3. 문서 제목 아이콘
- *
- * 기존 이미지 아이콘 24px → 44px
- * 기존 이모지 아이콘 28px → 50px
- * 각각 약 1.8배로 확대한다.
- * --------------------------------------------- */
-
-.wiki-shell-page
-.wiki-doc-icon-img {
-  display: block;
-  flex: 0 0 44px;
-  width: 44px;
-  height: 44px;
-  max-width: 44px;
-  margin: 0;
-  object-fit: contain;
-  image-rendering: pixelated;
-  filter:
-    drop-shadow(
-      0 4px 5px
-      rgba(39, 82, 45, 0.1)
-    )
-    drop-shadow(
-      0 9px 13px
-      rgba(39, 82, 45, 0.07)
-    );
-  transform-origin: center;
+/*
+ * JSX에서 제목 텍스트를 감싸는 요소가 추가로 있어도
+ * 최상단 제목의 타이포그래피를 그대로 상속한다.
+ */
+.wiki-app .wiki-content-title-row .wiki-title-color > * {
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
 }
 
-.wiki-shell-page
-.wiki-doc-icon-emoji {
+/* ===== 문서 제목 이미지 아이콘 =====
+ * 기존 32px × 1.8 = 57.6px → 58px
+ */
+.wiki-app .wiki-content-title-row .wiki-doc-icon-img {
+  display: block;
+  flex: 0 0 58px;
+  width: 58px;
+  height: 58px;
+  max-width: 58px;
+  margin: 0;
+  object-fit: contain;
+  vertical-align: middle;
+  filter:
+    drop-shadow(0 4px 5px rgba(35, 82, 43, 0.1))
+    drop-shadow(0 10px 15px rgba(35, 82, 43, 0.07)) !important;
+}
+
+/* ===== 문서 제목 이모지 아이콘 =====
+ * 기존 28px × 1.8 = 50.4px → 50px
+ */
+.wiki-app .wiki-content-title-row .wiki-doc-icon-emoji {
   display: inline-flex;
   flex: 0 0 auto;
   min-width: 50px;
@@ -219,423 +131,92 @@
   justify-content: center;
   font-size: 50px;
   line-height: 1;
-  filter:
-    drop-shadow(
-      0 5px 8px
-      rgba(39, 82, 45, 0.11)
-    );
+  vertical-align: middle;
+  filter: drop-shadow(0 5px 8px rgba(35, 82, 43, 0.11));
 }
 
-/* ---------------------------------------------
- * 4. 마지막 수정 시각 툴팁
- * --------------------------------------------- */
+/*
+ * 제목 옆 기존 기능 버튼은 구조와 동작을 건드리지 않는다.
+ * 카드 안에서 세로 중앙에 정렬되도록 직접 자식만 보정한다.
+ */
+.wiki-app .wiki-content-title.wiki-content-title-row > button,
+.wiki-app .wiki-content-title.wiki-content-title-row > [role='button'] {
+  flex: 0 0 auto;
+  align-self: center;
+}
 
-.wiki-shell-page
-.wiki-doc-updated-tooltip {
-  position: absolute;
-  bottom:
-    calc(
-      100% + 12px
-    );
-  left: 50%;
-  z-index: 40;
-  max-width:
-    min(
-      320px,
-      78vw
-    );
-  padding:
-    8px
-    11px;
-  visibility: hidden;
-  border:
-    1px solid
-    rgba(255, 255, 255, 0.09);
-  border-radius: 11px;
+/* ===== 다크 모드 ===== */
+:root[data-theme='dark']
+  .wiki-app
+  .wiki-content-title.wiki-content-title-row,
+.dark
+  .wiki-app
+  .wiki-content-title.wiki-content-title-row {
   background:
-    rgba(24, 39, 28, 0.96);
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--accent-soft) 52%, transparent),
+      color-mix(in srgb, var(--surface-elevated) 96%, transparent) 44%,
+      var(--surface-elevated) 100%
+    );
+  border-color: color-mix(in srgb, var(--accent) 25%, var(--border));
   box-shadow:
-    0 12px 26px
-    rgba(22, 46, 27, 0.2);
-  color: #ffffff;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.3;
-  letter-spacing: -0.01em;
-  opacity: 0;
-  pointer-events: none;
-  transform:
-    translate(
-      -50%,
-      6px
-    );
-  transition:
-    opacity 0.15s ease,
-    transform 0.15s ease,
-    visibility 0.15s ease;
-  white-space: nowrap;
+    0 1px 2px rgba(0, 0, 0, 0.14),
+    0 12px 28px rgba(0, 0, 0, 0.16);
 }
 
-.wiki-shell-page
-.wiki-doc-updated-tooltip::after {
-  content: '';
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  border-width:
-    6px
-    6px
-    0;
-  border-style: solid;
-  border-color:
-    rgba(24, 39, 28, 0.96)
-    transparent
-    transparent;
-  transform:
-    translateX(-50%);
-}
-
-.wiki-shell-page
-.wiki-doc-title-tooltip-anchor:hover
-.wiki-doc-updated-tooltip,
-.wiki-shell-page
-.wiki-doc-title-tooltip-anchor:focus-visible
-.wiki-doc-updated-tooltip {
-  visibility: visible;
-  opacity: 1;
-  transform:
-    translate(
-      -50%,
-      0
-    );
-}
-
-/* ---------------------------------------------
- * 5. 링크 복사 / 즐겨찾기 버튼
- * --------------------------------------------- */
-
-.wiki-shell-page
-.wiki-doc-title-action-btn {
-  position: relative;
-  display: inline-grid;
-  flex: 0 0 34px;
-  width: 34px;
-  height: 34px;
-  margin: 0;
-  padding: 0;
-  place-items: center;
-  border:
-    1px solid
-    transparent;
-  border-radius: 11px;
-  background: transparent;
-  color:
-    var(
-      --wiki-shell-muted,
-      #68766b
-    );
-  box-shadow: none;
-  font-size: 0;
-  line-height: 1;
-  opacity: 0;
-  pointer-events: none;
-  cursor: pointer;
-  transform:
-    translateY(1px);
-  transition:
-    border-color 0.15s ease,
-    background-color 0.15s ease,
-    box-shadow 0.15s ease,
-    color 0.15s ease,
-    opacity 0.15s ease,
-    transform 0.15s ease;
-}
-
-.wiki-shell-page
-.wiki-doc-title-action-btn::before {
-  content: '';
-  display: block;
-  width: 17px;
-  height: 17px;
-  background:
-    currentColor;
-}
-
-.wiki-shell-page
-.wiki-doc-title-wrap:hover
-.wiki-doc-title-action-btn,
-.wiki-shell-page
-.wiki-doc-title-wrap:focus-within
-.wiki-doc-title-action-btn {
-  opacity: 0.78;
-  pointer-events: auto;
-  transform:
-    translateY(0);
-}
-
-.wiki-shell-page
-.wiki-doc-title-action-btn:hover {
-  border-color:
-    var(
-      --wiki-shell-border,
-      rgba(92, 139, 97, 0.18)
-    );
-  background:
-    rgba(255, 255, 255, 0.76);
-  box-shadow:
-    0 7px 15px
-    rgba(41, 78, 47, 0.09);
-  color:
-    var(
-      --wiki-shell-accent-strong,
-      #337d43
-    );
-  opacity: 1;
-  transform:
-    translateY(-1px);
-}
-
-.wiki-shell-page
-.wiki-doc-title-action-btn:active {
-  box-shadow: none;
-  transform:
-    translateY(0);
-}
-
-.wiki-shell-page
-.wiki-doc-title-action-btn:focus-visible {
-  border-color:
-    var(
-      --wiki-shell-accent,
-      #53a763
-    );
-  outline:
-    3px solid
-    rgba(83, 167, 99, 0.17);
-  outline-offset: 1px;
-  opacity: 1;
-  pointer-events: auto;
-}
-
-/* 링크 아이콘 */
-
-.wiki-shell-page
-.wiki-doc-link-btn::before {
-  -webkit-mask:
-    url(
-      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M10.59 13.41a2 2 0 0 0 2.82 0l3.18-3.18a2 2 0 1 0-2.82-2.82l-1.18 1.18-1.42-1.42 1.18-1.18a4 4 0 0 1 5.66 5.66l-3.18 3.18a4 4 0 0 1-5.66 0l-.58-.58 1.42-1.42.58.58Zm2.82-2.82-2.82 2.82-1.42-1.42 2.82-2.82 1.42 1.42Zm-2.58-1.42.58.58-1.42 1.42-.58-.58a2 2 0 0 0-2.82 0l-3.18 3.18a2 2 0 1 0 2.82 2.82l1.18-1.18 1.42 1.42-1.18 1.18a4 4 0 0 1-5.66-5.66l3.18-3.18a4 4 0 0 1 5.66 0Z'/%3E%3C/svg%3E"
-    )
-    center /
-    contain
-    no-repeat;
-  mask:
-    url(
-      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M10.59 13.41a2 2 0 0 0 2.82 0l3.18-3.18a2 2 0 1 0-2.82-2.82l-1.18 1.18-1.42-1.42 1.18-1.18a4 4 0 0 1 5.66 5.66l-3.18 3.18a4 4 0 0 1-5.66 0l-.58-.58 1.42-1.42.58.58Zm2.82-2.82-2.82 2.82-1.42-1.42 2.82-2.82 1.42 1.42Zm-2.58-1.42.58.58-1.42 1.42-.58-.58a2 2 0 0 0-2.82 0l-3.18 3.18a2 2 0 1 0 2.82 2.82l1.18-1.18 1.42 1.42-1.18 1.18a4 4 0 0 1-5.66-5.66l3.18-3.18a4 4 0 0 1 5.66 0Z'/%3E%3C/svg%3E"
-    )
-    center /
-    contain
-    no-repeat;
-}
-
-.wiki-shell-page
-.wiki-doc-link-btn--copied {
-  border-color:
-    rgba(83, 167, 99, 0.24);
-  background:
-    rgba(232, 245, 228, 0.92);
-  color:
-    var(
-      --wiki-shell-accent-strong,
-      #337d43
-    );
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.wiki-shell-page
-.wiki-doc-link-btn--copied::before {
-  -webkit-mask:
-    url(
-      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='m9.55 18-5.7-5.7 1.4-1.4 4.3 4.3 9.2-9.2 1.4 1.4L9.55 18Z'/%3E%3C/svg%3E"
-    )
-    center /
-    contain
-    no-repeat;
-  mask:
-    url(
-      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='m9.55 18-5.7-5.7 1.4-1.4 4.3 4.3 9.2-9.2 1.4 1.4L9.55 18Z'/%3E%3C/svg%3E"
-    )
-    center /
-    contain
-    no-repeat;
-}
-
-/* 즐겨찾기 아이콘 */
-
-.wiki-shell-page
-.wiki-doc-favorite-btn::before {
-  -webkit-mask:
-    url(
-      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='m12 17.27-5.18 3.14 1.37-5.89-4.57-3.96 6.03-.52L12 4.5l2.35 5.54 6.03.52-4.57 3.96 1.37 5.89L12 17.27Zm0-2.34 2.83 1.72-.75-3.22 2.5-2.17-3.3-.28L12 7.95l-1.28 3.03-3.3.28 2.5 2.17-.75 3.22L12 14.93Z'/%3E%3C/svg%3E"
-    )
-    center /
-    contain
-    no-repeat;
-  mask:
-    url(
-      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='m12 17.27-5.18 3.14 1.37-5.89-4.57-3.96 6.03-.52L12 4.5l2.35 5.54 6.03.52-4.57 3.96 1.37 5.89L12 17.27Zm0-2.34 2.83 1.72-.75-3.22 2.5-2.17-3.3-.28L12 7.95l-1.28 3.03-3.3.28 2.5 2.17-.75 3.22L12 14.93Z'/%3E%3C/svg%3E"
-    )
-    center /
-    contain
-    no-repeat;
-}
-
-.wiki-shell-page
-.wiki-doc-favorite-btn:hover {
-  border-color:
-    rgba(217, 160, 50, 0.22);
-  background:
-    rgba(255, 248, 229, 0.9);
-  color: #b77916;
-}
-
-.wiki-shell-page
-.wiki-doc-favorite-btn--active {
-  border-color:
-    rgba(217, 160, 50, 0.26);
-  background:
-    rgba(255, 246, 218, 0.94);
-  color: #c1841d;
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.wiki-shell-page
-.wiki-doc-favorite-btn--active::before {
-  -webkit-mask:
-    url(
-      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='m12 17.27-5.18 3.14 1.37-5.89-4.57-3.96 6.03-.52L12 4.5l2.35 5.54 6.03.52-4.57 3.96 1.37 5.89L12 17.27Z'/%3E%3C/svg%3E"
-    )
-    center /
-    contain
-    no-repeat;
-  mask:
-    url(
-      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='m12 17.27-5.18 3.14 1.37-5.89-4.57-3.96 6.03-.52L12 4.5l2.35 5.54 6.03.52-4.57 3.96 1.37 5.89L12 17.27Z'/%3E%3C/svg%3E"
-    )
-    center /
-    contain
-    no-repeat;
-}
-
-/* ---------------------------------------------
- * 6. 모바일
- * --------------------------------------------- */
-
-@media (
-  max-width: 768px
-) {
-  .wiki-shell-page
-  .wiki-doc-title-wrap {
-    margin-bottom: 20px;
-    padding:
-      14px
-      14px
-      14px
-      18px;
-    border-radius: 15px;
+/* ===== 태블릿 / 모바일 ===== */
+@media (max-width: 768px) {
+  .wiki-app .wiki-content-title.wiki-content-title-row {
+    min-height: 76px;
+    gap: 10px;
+    margin-bottom: 22px;
+    padding: 12px 13px 13px 17px;
+    border-radius: 14px;
   }
 
-  .wiki-shell-page
-  .wiki-doc-title-wrap::before {
-    top: 14px;
-    bottom: 14px;
+  .wiki-app .wiki-content-title.wiki-content-title-row::before {
+    top: 12px;
+    bottom: 12px;
     width: 4px;
   }
 
-  .wiki-shell-page
-  .wiki-doc-title-wrap::after {
-    right: 14px;
-    left: 18px;
+  .wiki-app .wiki-content-title.wiki-content-title-row::after {
+    right: 13px;
+    left: 17px;
   }
 
-  .wiki-shell-page
-  .wiki-content-title-row.wiki-content-title {
-    gap: 10px;
-    font-size:
-      clamp(
-        24px,
-        7.2vw,
-        29px
-      );
+  /*
+   * 기존 wiki.css 모바일 규칙이 !important를 사용하므로
+   * 문서 제목 전용 규칙에서도 같은 우선순위로 명확히 덮어쓴다.
+   */
+  .wiki-app .wiki-content-title-row .wiki-title-color {
+    font-size: clamp(24px, 7vw, 29px) !important;
+    line-height: 1.24 !important;
     letter-spacing: -0.032em;
   }
 
-  .wiki-shell-page
-  .wiki-doc-icon-img {
-    flex-basis: 40px;
-    width: 40px;
-    height: 40px;
-    max-width: 40px;
+  .wiki-app .wiki-content-title-row .wiki-doc-icon-img {
+    flex-basis: 50px;
+    width: 50px;
+    height: 50px;
+    max-width: 50px;
   }
 
-  .wiki-shell-page
-  .wiki-doc-icon-emoji {
+  .wiki-app .wiki-content-title-row .wiki-doc-icon-emoji {
     min-width: 44px;
     height: 44px;
     font-size: 44px;
   }
-
-  .wiki-shell-page
-  .wiki-doc-title-action-btn {
-    flex-basis: 32px;
-    width: 32px;
-    height: 32px;
-    border-color:
-      rgba(92, 139, 97, 0.12);
-    background:
-      rgba(255, 255, 255, 0.52);
-    opacity: 0.76;
-    pointer-events: auto;
-    transform: none;
-  }
-
-  .wiki-shell-page
-  .wiki-doc-title-action-btn::before {
-    width: 16px;
-    height: 16px;
-  }
 }
 
-@media (
-  max-width: 480px
-) {
-  .wiki-shell-page
-  .wiki-content-title-row.wiki-content-title {
+@media (max-width: 480px) {
+  .wiki-app .wiki-content-title.wiki-content-title-row {
     gap: 8px;
-  }
-
-  .wiki-shell-page
-  .wiki-doc-title-wrap {
     padding-right: 11px;
   }
 
-  .wiki-shell-page
-  .wiki-doc-title-action-btn {
-    flex-basis: 30px;
-    width: 30px;
-    height: 30px;
-    border-radius: 10px;
-  }
-}
-
-@media (
-  prefers-reduced-motion: reduce
-) {
-  .wiki-shell-page
-  .wiki-doc-updated-tooltip,
-  .wiki-shell-page
-  .wiki-doc-title-action-btn {
-    transition: none;
+  .wiki-app .wiki-content-title-row .wiki-title-color {
+    font-size: clamp(22px, 7.5vw, 27px) !important;
   }
 }
