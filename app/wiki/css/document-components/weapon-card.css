@@ -344,33 +344,6 @@
     9s ease-in-out infinite;
 }
 
-.weapon-card__type-bar::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: -72%;
-  width: 54%;
-  pointer-events: none;
-  background:
-    linear-gradient(
-      110deg,
-      transparent,
-      rgba(255, 255, 255, 0.07) 30%,
-      color-mix(
-        in srgb,
-        var(--weapon-spark) 44%,
-        transparent
-      ) 50%,
-      rgba(255, 255, 255, 0.07) 70%,
-      transparent
-    );
-  transform: skewX(-18deg);
-  animation:
-    weaponHeaderShimmer
-    7s ease-in-out infinite;
-}
-
 .weapon-card__type-bar > span {
   position: relative;
   z-index: 1;
@@ -621,44 +594,54 @@
 /* ===== 정보 행 ===== */
 
 .weapon-card__stats {
+  position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   gap: 0;
-  margin: 4px 10px 10px;
-  padding: 0 12px;
+  margin: 4px 10px 11px;
+  padding: 3px 13px;
   overflow: hidden;
   background:
     linear-gradient(
       145deg,
-      rgba(255, 255, 255, 0.052),
       color-mix(
         in srgb,
-        var(--weapon-primary) 6%,
-        transparent
+        var(--weapon-base-0) 88%,
+        #101827
+      ),
+      color-mix(
+        in srgb,
+        var(--weapon-base-1) 58%,
+        #070b14
       )
     );
   border:
     1px solid
     color-mix(
       in srgb,
-      var(--weapon-secondary) 16%,
-      transparent
+      var(--weapon-secondary) 25%,
+      rgba(255, 255, 255, 0.08)
     );
   border-radius: 14px;
   box-shadow:
     inset 0 1px 0
-    rgba(255, 255, 255, 0.035);
+    rgba(255, 255, 255, 0.055),
+    0 7px 18px
+    rgba(0, 0, 0, 0.13);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
 }
 
 .weapon-card__stat-row {
   display: flex;
   width: 100%;
-  min-height: 44px;
+  min-height: 47px;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 10px 4px;
-  color: #eef2ff;
+  gap: 14px;
+  padding: 11px 5px;
+  color: #f8fafc;
   font-family: inherit;
   cursor: default;
   background: transparent;
@@ -667,15 +650,13 @@
     1px solid
     color-mix(
       in srgb,
-      var(--weapon-secondary) 12%,
-      transparent
+      var(--weapon-secondary) 22%,
+      rgba(255, 255, 255, 0.08)
     );
   border-radius: 0;
   box-shadow: none;
   transition:
-    border-color 0.15s ease,
-    background-color 0.15s ease,
-    transform 0.15s ease;
+    background-color 0.15s ease;
 }
 
 .weapon-card__stat-row:last-child {
@@ -687,48 +668,53 @@
 }
 
 .weapon-card__stat-row--editable:hover {
-  border-color:
-    color-mix(
-      in srgb,
-      var(--weapon-secondary) 12%,
-      transparent
-    );
   background:
     linear-gradient(
       90deg,
       color-mix(
         in srgb,
-        var(--weapon-primary) 8%,
+        var(--weapon-primary) 13%,
         transparent
       ),
-      transparent
+      color-mix(
+        in srgb,
+        var(--weapon-accent) 5%,
+        transparent
+      )
     );
-  transform: none;
 }
 
 .weapon-card__stat-label {
   min-width: 0;
   color:
-    rgba(203, 213, 225, 0.72);
-  font-size: 13px;
-  font-weight: 650;
+    rgba(226, 232, 240, 0.84);
+  font-size: 14px;
+  font-weight: 720;
+  line-height: 1.25;
+  letter-spacing: -0.012em;
   text-align: left;
+  text-shadow:
+    0 1px 2px
+    rgba(0, 0, 0, 0.42);
 }
 
 .weapon-card__stat-value {
   min-width: 0;
-  color: #f8fafc;
-  font-size: 15px;
-  font-weight: 850;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 860;
   line-height: 1.15;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.005em;
   text-align: right;
+  white-space: nowrap;
   text-shadow:
-    0 0 10px
+    0 1px 2px
+    rgba(0, 0, 0, 0.66),
+    0 0 8px
     color-mix(
       in srgb,
-      var(--weapon-accent) 20%,
+      var(--weapon-accent) 12%,
       transparent
     );
 }
@@ -1581,28 +1567,6 @@
   }
 }
 
-@keyframes weaponHeaderShimmer {
-  0%,
-  16% {
-    left: -72%;
-    opacity: 0;
-  }
-
-  28% {
-    opacity: 0.72;
-  }
-
-  48% {
-    left: 118%;
-    opacity: 0;
-  }
-
-  100% {
-    left: 118%;
-    opacity: 0;
-  }
-}
-
 @keyframes weaponImageAura {
   from {
     opacity: 0.66;
@@ -1860,7 +1824,6 @@
   .weapon-card::before,
   .weapon-card__cosmic-field,
   .weapon-card__type-bar,
-  .weapon-card__type-bar::before,
   .weapon-card__image::before,
   .weapon-card__image::after,
   .weapon-card__image-aura,
