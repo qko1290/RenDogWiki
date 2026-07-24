@@ -685,6 +685,35 @@
   pointer-events: none;
 }
 
+/* =============================================
+ * 홈 화면 제목 전용 글꼴
+ *
+ * 적용 대상
+ * - Hero RDWIKI
+ * - 처음 오셨나요?
+ * - 컨텐츠 / 시스템 / 퀘스트 / 법전
+ * - 자주 묻는 질문 / 최근 업데이트된 문서 / 인기 문서
+ * - 추천 탐색
+ * - 무기 / 레이드 / 도감
+ *
+ * 일반 설명문과 목록 본문에는 적용하지 않는다.
+ * ============================================= */
+
+.heroTitle,
+.newcomerContent h2,
+.categoryBody strong,
+.cardHeading h2,
+.sectionHeading h2,
+.recommendBody strong {
+  font-family:
+    'NanumSquareNeo',
+    Pretendard,
+    'Malgun Gothic',
+    system-ui,
+    sans-serif;
+  font-synthesis: none;
+}
+
 .heroContent {
   position: relative;
   z-index: 2;
