@@ -19,11 +19,7 @@
   display: inline;
   margin: 0;
   padding: 0;
-  color:
-    var(
-      --wiki-chrome-accent-strong,
-      #327b42
-    ) !important;
+  color: var(--accent) !important;
   font-weight: 700;
   text-decoration: none !important;
   background: none !important;
@@ -35,9 +31,10 @@
 
 .wiki-internal-preview-trigger:hover {
   color:
-    var(
-      --wiki-chrome-accent,
-      #4d9b5c
+    color-mix(
+      in srgb,
+      var(--accent) 82%,
+      var(--foreground)
     ) !important;
   background: none !important;
   box-shadow: none !important;
@@ -47,7 +44,11 @@
 .wiki-internal-preview-trigger:focus-visible {
   outline:
     2px solid
-    rgba(77, 155, 92, 0.22);
+    color-mix(
+      in srgb,
+      var(--accent) 28%,
+      transparent
+    );
   outline-offset: 2px;
   background: none !important;
   text-decoration: none !important;
