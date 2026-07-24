@@ -65,7 +65,7 @@ const categoryCards: ReadonlyArray<{
     key: 'content',
     title: '컨텐츠',
     description:
-      '던전, 보스, 도감 등\n다양한 컨텐츠들의 정보를 확인하세요',
+      '던전, 보스 등 다양한 컨텐츠들의 정보를 확인하세요',
     iconSrc: '/images/home/icons/content.png',
     tone: 'green',
   },
@@ -73,7 +73,7 @@ const categoryCards: ReadonlyArray<{
     key: 'system',
     title: '시스템',
     description:
-      '강화, 거래, 명령어 등\n서버의 주요 시스템을 알아보세요',
+      '거래, 명령어 등 서버의 주요 시스템을 알아보세요',
     iconSrc: '/images/home/icons/system.png',
     tone: 'mint',
   },
@@ -81,7 +81,7 @@ const categoryCards: ReadonlyArray<{
     key: 'price',
     title: '퀘스트',
     description:
-      '서버의 주요 퀘스트와\n진행에 필요한 정보를 확인하세요',
+      '주요 퀘스트와 진행에 필요한 정보를 확인하세요',
     iconSrc: '/images/home/icons/quest.png',
     tone: 'blue',
     href:
