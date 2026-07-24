@@ -639,7 +639,7 @@
   min-height: 47px;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: 10px;
   padding: 11px 5px;
   color: #f8fafc;
   font-family: inherit;
@@ -685,7 +685,9 @@
 }
 
 .weapon-card__stat-label {
-  min-width: 0;
+  flex: 0 0 auto;
+  min-width: max-content;
+  max-width: none;
   color:
     rgba(226, 232, 240, 0.84);
   font-size: 14px;
@@ -693,13 +695,28 @@
   line-height: 1.25;
   letter-spacing: -0.012em;
   text-align: left;
+  white-space: nowrap;
+  word-break: keep-all;
+  overflow-wrap: normal;
   text-shadow:
     0 1px 2px
     rgba(0, 0, 0, 0.42);
 }
 
-.weapon-card__stat-value {
+.weapon-card__stat-value-wrap {
+  display: flex;
+  flex: 1 1 0;
   min-width: 0;
+  max-width: 100%;
+  justify-content: flex-end;
+  overflow: hidden;
+}
+
+.weapon-card__stat-value {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   color: #ffffff;
   font-size: 16px;
   font-weight: 860;
@@ -707,6 +724,7 @@
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.005em;
   text-align: right;
+  text-overflow: ellipsis;
   white-space: nowrap;
   text-shadow:
     0 1px 2px
@@ -719,6 +737,21 @@
     );
 }
 
+.weapon-card__stat-value[
+  data-truncated='true'
+] {
+  cursor: help;
+  text-decoration:
+    underline
+    dotted
+    color-mix(
+      in srgb,
+      currentColor 34%,
+      transparent
+    );
+  text-underline-offset: 3px;
+}
+
 .weapon-card__stats-empty {
   padding: 12px 4px;
   color:
@@ -728,6 +761,176 @@
   background: transparent;
   border: 0;
   border-radius: 0;
+}
+
+
+/* ===== 길게 잘린 능력치 말풍선 ===== */
+
+.weapon-stat-tooltip {
+  --weapon-tooltip-accent:
+    #818cf8;
+
+  position: fixed;
+  z-index: 10020;
+  width: max-content;
+  min-width: 190px;
+  max-width:
+    min(
+      360px,
+      calc(
+        100vw - 24px
+      )
+    );
+  box-sizing: border-box;
+  padding: 11px 13px 12px;
+  color: #f8fafc;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(10, 14, 27, 0.98),
+      rgba(18, 20, 38, 0.98)
+    );
+  border:
+    1px solid
+    color-mix(
+      in srgb,
+      var(
+        --weapon-tooltip-accent
+      ) 38%,
+      rgba(255, 255, 255, 0.11)
+    );
+  border-radius: 12px;
+  box-shadow:
+    0 14px 34px
+    rgba(2, 6, 23, 0.34),
+    0 0 20px
+    color-mix(
+      in srgb,
+      var(
+        --weapon-tooltip-accent
+      ) 11%,
+      transparent
+    ),
+    inset 0 1px 0
+    rgba(255, 255, 255, 0.055);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform:
+    translateY(4px)
+    scale(0.985);
+  transition:
+    opacity 0.13s ease,
+    visibility 0.13s ease,
+    transform 0.13s ease;
+}
+
+.weapon-stat-tooltip[
+  data-visible='true'
+] {
+  opacity: 1;
+  visibility: visible;
+  transform:
+    translateY(0)
+    scale(1);
+}
+
+.weapon-stat-tooltip__label {
+  display: block;
+  margin-bottom: 5px;
+  color:
+    color-mix(
+      in srgb,
+      var(
+        --weapon-tooltip-accent
+      ) 72%,
+      white
+    );
+  font-size: 11px;
+  font-weight: 760;
+  line-height: 1.3;
+  letter-spacing: -0.005em;
+}
+
+.weapon-stat-tooltip__value {
+  display: block;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 780;
+  line-height: 1.5;
+  font-variant-numeric:
+    tabular-nums;
+  letter-spacing: 0.002em;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.weapon-stat-tooltip__arrow {
+  position: absolute;
+  left:
+    var(
+      --weapon-tooltip-arrow-left,
+      24px
+    );
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+  background:
+    rgba(15, 17, 32, 0.99);
+  transform:
+    translateX(-50%)
+    rotate(45deg);
+}
+
+.weapon-stat-tooltip[
+  data-placement='top'
+]
+.weapon-stat-tooltip__arrow {
+  bottom: -6px;
+  border-right:
+    1px solid
+    color-mix(
+      in srgb,
+      var(
+        --weapon-tooltip-accent
+      ) 28%,
+      rgba(255, 255, 255, 0.1)
+    );
+  border-bottom:
+    1px solid
+    color-mix(
+      in srgb,
+      var(
+        --weapon-tooltip-accent
+      ) 28%,
+      rgba(255, 255, 255, 0.1)
+    );
+}
+
+.weapon-stat-tooltip[
+  data-placement='bottom'
+]
+.weapon-stat-tooltip__arrow {
+  top: -6px;
+  border-top:
+    1px solid
+    color-mix(
+      in srgb,
+      var(
+        --weapon-tooltip-accent
+      ) 28%,
+      rgba(255, 255, 255, 0.1)
+    );
+  border-left:
+    1px solid
+    color-mix(
+      in srgb,
+      var(
+        --weapon-tooltip-accent
+      ) 28%,
+      rgba(255, 255, 255, 0.1)
+    );
 }
 
 /* ===== 영상 및 보조 버튼 ===== */
@@ -1815,7 +2018,8 @@
   .weapon-card__name--editable,
   .weapon-card__stat-row,
   .weapon-card__video-button,
-  .weapon-level-selector__option {
+  .weapon-level-selector__option,
+  .weapon-stat-tooltip {
     transition: none;
   }
 
