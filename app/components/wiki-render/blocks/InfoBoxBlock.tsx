@@ -1,265 +1,498 @@
+'use client';
+
 import React from 'react';
+
+import '../../../wiki/css/document-components/info-box.css';
+
 import type { WikiRenderMode } from '../types';
 
 type InfoBoxBlockProps = {
   mode: WikiRenderMode;
   tone?: string | null;
   noIcon?: boolean;
+  plainText?: string | null;
   attributes?: React.HTMLAttributes<HTMLDivElement>;
   children?: React.ReactNode;
   editControls?: React.ReactNode;
   readControls?: React.ReactNode;
 };
 
-function normalizeInfoBoxType(raw: string | null | undefined) {
-  const v = String(raw || 'info').toLowerCase().trim();
+export type InfoBoxLegacyIndentRange = {
+  start: number;
+  end: number;
+};
 
-  if (v === 'note') return 'info';
-  if (v === 'warn') return 'warning';
-  if (v === 'error') return 'danger';
-  if (v === 'success') return 'tip';
+export type InfoBoxLegacyIndentChunkResult = {
+  text: string;
+  afterLineBreak: boolean;
+  removals: InfoBoxLegacyIndentRange[];
+};
 
-  if (v === 'white' || v === '하양' || v === '흰색') return 'white';
-  if (v === 'yellow' || v === '노랑' || v === '노란') return 'yellow';
+const LEGACY_INDENT_CHARACTER = /[ \t\u00a0\u3000]/;
+const LEGACY_SPECIAL_INDENT_CHARACTER = /[\t\u00a0\u3000]/;
+
+function normalizeInfoBoxType(
+  raw: string | null | undefined,
+) {
+  const value = String(raw || 'info')
+    .toLowerCase()
+    .trim();
+
+  if (value === 'note') return 'info';
+  if (value === 'warn') return 'warning';
+  if (value === 'error') return 'danger';
+  if (value === 'success') return 'tip';
 
   if (
-    v === 'lime' ||
-    v === 'green' ||
-    v === 'lightgreen' ||
-    v === 'mint' ||
-    v === '연두'
+    value === 'white' ||
+    value === '하양' ||
+    value === '흰색'
+  ) {
+    return 'white';
+  }
+
+  if (
+    value === 'yellow' ||
+    value === '노랑' ||
+    value === '노란'
+  ) {
+    return 'yellow';
+  }
+
+  if (
+    value === 'lime' ||
+    value === 'green' ||
+    value === 'lightgreen' ||
+    value === 'mint' ||
+    value === '연두'
   ) {
     return 'lime';
   }
 
-  if (v === 'pink' || v === 'lightpink' || v === 'rose' || v === '연분홍') {
+  if (
+    value === 'pink' ||
+    value === 'lightpink' ||
+    value === 'rose' ||
+    value === '연분홍'
+  ) {
     return 'pink';
   }
 
-  if (v === 'red' || v === 'crimson' || v === '빨강' || v === '빨간') {
+  if (
+    value === 'red' ||
+    value === 'crimson' ||
+    value === '빨강' ||
+    value === '빨간'
+  ) {
     return 'red';
   }
 
-  return v || 'info';
+  return value || 'info';
 }
 
-function getInfoboxPreset(
-  rawTone?: string | null,
-  forceNoIcon?: boolean
-): {
-  container: React.CSSProperties;
-  icon: (React.CSSProperties & Record<string, any>) | null;
-  role: 'note' | 'alert';
-  showIcon: boolean;
-  type: string;
-} {
-  const type = normalizeInfoBoxType(rawTone);
+function getInfoBoxRole(
+  type: string,
+): 'note' | 'alert' {
+  return type === 'danger' || type === 'red'
+    ? 'alert'
+    : 'note';
+}
 
-  const baseContainer: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: 12,
-    padding: '12px 14px',
-    borderRadius: 12,
-    color: 'var(--foreground)',
-    boxShadow: 'var(--shadow-sm)',
-  };
+function infoBoxTypeHasIcon(type: string) {
+  return (
+    type === 'info' ||
+    type === 'warning' ||
+    type === 'danger' ||
+    type === 'tip'
+  );
+}
 
-  const map: Record<
-    string,
-    {
-      bg: string;
-      bd: string;
-      accent: string;
-      mask?: string;
-      role: 'note' | 'alert';
-      noIcon?: boolean;
-    }
-  > = {
-    info: {
-      bg: 'rgba(59,130,246,0.12)',
-      bd: 'rgba(96,165,250,0.28)',
-      accent: '#3b82f6',
-      mask:
-        'https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-info.svg?v=2&token=a463935e93',
-      role: 'note',
-    },
-    warning: {
-      bg: 'rgba(245,158,11,0.12)',
-      bd: 'rgba(251,191,36,0.30)',
-      accent: '#f59e0b',
-      mask:
-        'https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-exclamation.svg?v=2&token=a463935e93',
-      role: 'note',
-    },
-    danger: {
-      bg: 'rgba(239,68,68,0.12)',
-      bd: 'rgba(248,113,113,0.28)',
-      accent: '#ef4444',
-      mask:
-        'https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/triangle-exclamation.svg?v=2&token=a463935e93',
-      role: 'alert',
-    },
-    tip: {
-      bg: 'rgba(16,185,129,0.12)',
-      bd: 'rgba(52,211,153,0.28)',
-      accent: '#10b981',
-      mask:
-        'https://ka-p.fontawesome.com/releases/v6.6.0/svgs/regular/circle-exclamation.svg?v=2&token=a463935e93',
-      role: 'note',
-    },
+/**
+ * 첫 줄이 `라벨 : 내용` 형태일 때
+ * 콜론 다음 한 칸까지를 들여쓰기 기준으로 반환한다.
+ */
+export function getInfoBoxAlignmentPrefix(
+  rawText: string | null | undefined,
+) {
+  const text = String(rawText ?? '')
+    .replace(/\u200b/g, '');
 
-    white: {
-      bg: 'var(--surface-elevated)',
-      bd: 'var(--border)',
-      accent: 'var(--muted-2)',
-      role: 'note',
-      noIcon: true,
-    },
-    yellow: {
-      bg: 'rgba(250,204,21,0.14)',
-      bd: 'rgba(250,204,21,0.32)',
-      accent: '#ca8a04',
-      role: 'note',
-      noIcon: true,
-    },
-    green: {
-      bg: 'rgba(34,197,94,0.14)',
-      bd: 'rgba(74,222,128,0.28)',
-      accent: '#16a34a',
-      role: 'note',
-      noIcon: true,
-    },
-    lime: {
-      bg: 'rgba(34,197,94,0.14)',
-      bd: 'rgba(74,222,128,0.28)',
-      accent: '#16a34a',
-      role: 'note',
-      noIcon: true,
-    },
-    pink: {
-      bg: 'rgba(236,72,153,0.12)',
-      bd: 'rgba(244,114,182,0.28)',
-      accent: '#db2777',
-      role: 'note',
-      noIcon: true,
-    },
-    red: {
-      bg: 'rgba(239,68,68,0.12)',
-      bd: 'rgba(248,113,113,0.28)',
-      accent: '#dc2626',
-      role: 'alert',
-      noIcon: true,
-    },
-  };
+  const firstLine =
+    text.split(/\r?\n/, 1)[0] ?? '';
 
-  const sel = map[type] ?? map.info;
-  const noIcon = forceNoIcon || sel.noIcon;
+  const match = firstLine.match(
+    /^([^\n:]{1,24}:[ \t\u00a0\u3000]+)/,
+  );
 
-  const container: React.CSSProperties = {
-    ...baseContainer,
-    background: sel.bg,
-    border: `1px solid ${sel.bd}`,
-    ...(noIcon ? { gap: 0 } : null),
-  };
+  if (!match) return null;
 
-  const showIcon = !noIcon && !!sel.mask;
+  return match[1].replace(
+    /[ \t\u00a0\u3000]+$/,
+    ' ',
+  );
+}
 
-  const icon: (React.CSSProperties & Record<string, any>) | null = showIcon
-    ? {
-        flex: '0 0 auto',
-        width: 18,
-        height: 18,
-        marginTop: 2,
-        backgroundColor: sel.accent,
-        WebkitMaskImage: `url(${sel.mask})`,
-        maskImage: `url(${sel.mask})`,
-        WebkitMaskRepeat: 'no-repeat',
-        maskRepeat: 'no-repeat',
-        WebkitMaskPosition: 'center',
-        maskPosition: 'center',
-        WebkitMaskSize: 'contain',
-        maskSize: 'contain',
+/**
+ * Shift+Enter 뒤에 기존 수동 정렬용으로 넣었던 공백을 찾는다.
+ *
+ * 일반 공백 2칸 이상, 탭, NBSP, 전각 공백만 제거 대상으로 삼아
+ * 의도적으로 넣은 한 칸 공백은 유지한다.
+ */
+export function processInfoBoxLegacyIndentChunk(
+  source: string,
+  startsAfterLineBreak = false,
+): InfoBoxLegacyIndentChunkResult {
+  let index = 0;
+  let afterLineBreak = startsAfterLineBreak;
+  let output = '';
+
+  const removals: InfoBoxLegacyIndentRange[] = [];
+
+  while (index < source.length) {
+    if (afterLineBreak) {
+      let indentEnd = index;
+
+      while (
+        indentEnd < source.length &&
+        LEGACY_INDENT_CHARACTER.test(
+          source[indentEnd],
+        )
+      ) {
+        indentEnd += 1;
       }
-    : null;
+
+      const indent = source.slice(
+        index,
+        indentEnd,
+      );
+
+      const shouldRemove =
+        indent.length >= 2 ||
+        LEGACY_SPECIAL_INDENT_CHARACTER.test(
+          indent,
+        );
+
+      if (shouldRemove) {
+        removals.push({
+          start: index,
+          end: indentEnd,
+        });
+
+        index = indentEnd;
+
+        if (index >= source.length) {
+          return {
+            text: output,
+            afterLineBreak: true,
+            removals,
+          };
+        }
+      }
+
+      afterLineBreak = false;
+    }
+
+    const character = source[index];
+
+    output += character;
+    index += 1;
+
+    afterLineBreak = character === '\n';
+  }
 
   return {
-    container,
-    icon,
-    role: sel.role,
-    showIcon,
-    type,
+    text: output,
+    afterLineBreak,
+    removals,
   };
+}
+
+function InfoBoxIcon({
+  type,
+}: {
+  type: string;
+}) {
+  if (type === 'warning') {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        aria-hidden
+        focusable="false"
+      >
+        <path
+          d="M12 4.1 21 20H3L12 4.1Z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M12 9v5.2M12 17.3h.01"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+
+  if (type === 'danger') {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        aria-hidden
+        focusable="false"
+      >
+        <path
+          d="M12 4.1 21 20H3L12 4.1Z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M12 9v5.2M12 17.3h.01"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+
+  if (type === 'tip') {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        aria-hidden
+        focusable="false"
+      >
+        <path
+          d="m7.3 12.2 3 3 6.5-6.5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <circle
+          cx="12"
+          cy="12"
+          r="8.2"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+        />
+      </svg>
+    );
+  }
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden
+      focusable="false"
+    >
+      <circle
+        cx="12"
+        cy="12"
+        r="8.2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
+      <path
+        d="M12 10.7v5M12 7.6h.01"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
 }
 
 export default function InfoBoxBlock({
   mode,
   tone,
   noIcon,
+  plainText,
   attributes,
   children,
   editControls,
   readControls,
 }: InfoBoxBlockProps) {
-  const { container, icon, role, showIcon, type } = getInfoboxPreset(
-    tone,
-    noIcon
-  );
+  const type = normalizeInfoBoxType(tone);
+  const role = getInfoBoxRole(type);
 
-  const controls = mode === 'edit' ? editControls : readControls;
+  const showIcon =
+    !noIcon &&
+    infoBoxTypeHasIcon(type);
+
+  const controls =
+    mode === 'edit'
+      ? editControls
+      : readControls;
+
+  const alignmentPrefix =
+    React.useMemo(
+      () =>
+        getInfoBoxAlignmentPrefix(
+          plainText,
+        ),
+      [plainText],
+    );
+
+  const measureRef =
+    React.useRef<HTMLSpanElement | null>(
+      null,
+    );
+
+  const [
+    hangingIndent,
+    setHangingIndent,
+  ] = React.useState(0);
+
+  React.useLayoutEffect(() => {
+    if (
+      !alignmentPrefix ||
+      !measureRef.current
+    ) {
+      setHangingIndent(0);
+      return;
+    }
+
+    let disposed = false;
+
+    const measure = () => {
+      if (
+        disposed ||
+        !measureRef.current
+      ) {
+        return;
+      }
+
+      const width =
+        measureRef.current
+          .getBoundingClientRect()
+          .width;
+
+      setHangingIndent(
+        Math.min(
+          Math.ceil(width),
+          220,
+        ),
+      );
+    };
+
+    measure();
+
+    const resizeObserver =
+      typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(measure)
+        : null;
+
+    resizeObserver?.observe(
+      measureRef.current,
+    );
+
+    void document.fonts?.ready
+      ?.then(measure)
+      .catch(() => undefined);
+
+    return () => {
+      disposed = true;
+      resizeObserver?.disconnect();
+    };
+  }, [alignmentPrefix]);
+
+  const {
+    className: attributeClassName,
+    style: attributeStyle,
+    ...restAttributes
+  } = attributes ?? {};
+
+  const contentStyle =
+    alignmentPrefix &&
+    hangingIndent > 0
+      ? ({
+          '--info-box-hanging-indent':
+            `${hangingIndent}px`,
+        } as React.CSSProperties &
+          Record<string, string>)
+      : undefined;
 
   return (
     <div
-      {...attributes}
+      {...restAttributes}
       role={role}
+      data-info-box-tone={type}
+      data-info-box-mode={mode}
+      data-info-box-aligned={
+        alignmentPrefix
+          ? 'true'
+          : 'false'
+      }
       className={[
         'info-box',
-        `info-${type}`,
-        attributes?.className || '',
+        `info-box--${type}`,
+        showIcon
+          ? 'info-box--with-icon'
+          : 'info-box--without-icon',
+        mode === 'edit'
+          ? 'info-box--edit'
+          : 'info-box--read',
+        attributeClassName || '',
       ]
         .filter(Boolean)
         .join(' ')}
-      style={{
-        margin: '10px 0',
-        ...container,
-        ...(attributes?.style || {}),
-      }}
+      style={attributeStyle}
     >
-      {showIcon && icon ? (
+      {showIcon ? (
         <span
+          className="info-box__icon"
           aria-hidden
           contentEditable={false}
           suppressContentEditableWarning
-          style={icon}
-        />
+        >
+          <InfoBoxIcon type={type} />
+        </span>
       ) : null}
 
       <div
-        style={{
-          flex: 1,
-          minWidth: 0,
-          whiteSpace: 'pre-wrap',
-
-          /**
-           * 원본 WikiReadRenderer에서는 infoChildren 내부의 bold leaf가
-           * <strong>으로 살아 들어가야 했다.
-           * 현재 공통화 구조에서는 정보박스 내부 bold 시각 결과가 약해져서,
-           * 원본 표시와 맞추기 위해 정보박스 본문 기본 weight를 복구한다.
-           */
-          fontWeight: 700,
-        }}
+        className={[
+          'info-box__content',
+          alignmentPrefix &&
+          hangingIndent > 0
+            ? 'info-box__content--hanging'
+            : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        style={contentStyle}
       >
         {children}
       </div>
 
-      {controls ? (
-        <div
+      {alignmentPrefix ? (
+        <span
+          ref={measureRef}
+          className="info-box__indent-measure"
+          aria-hidden
           contentEditable={false}
           suppressContentEditableWarning
-          style={{
-            flex: '0 0 auto',
-            marginLeft: 8,
-          }}
+        >
+          {alignmentPrefix}
+        </span>
+      ) : null}
+
+      {controls ? (
+        <div
+          className="info-box__controls"
+          contentEditable={false}
+          suppressContentEditableWarning
         >
           {controls}
         </div>
