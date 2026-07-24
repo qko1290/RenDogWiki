@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 
 import {
   getEnabledWeaponStats,
@@ -521,14 +522,372 @@ function WeaponLevelSelector({
   );
 }
 
+type WeaponStatTooltipPosition = {
+  left: number;
+  top: number;
+  arrowLeft: number;
+  placement: 'top' | 'bottom';
+};
+
+type WeaponStatTooltipStyle =
+  React.CSSProperties & {
+    '--weapon-tooltip-arrow-left': string;
+    '--weapon-tooltip-accent': string;
+  };
+
+function WeaponStatValue({
+  label,
+  value,
+  unit,
+  tooltipAccent,
+}: {
+  label: string;
+  value: string;
+  unit: string;
+  tooltipAccent: string;
+}) {
+  const triggerRef =
+    React.useRef<HTMLSpanElement | null>(
+      null,
+    );
+
+  const tooltipRef =
+    React.useRef<HTMLDivElement | null>(
+      null,
+    );
+
+  const [
+    portalReady,
+    setPortalReady,
+  ] = React.useState(false);
+
+  const [
+    isOverflowing,
+    setIsOverflowing,
+  ] = React.useState(false);
+
+  const [
+    open,
+    setOpen,
+  ] = React.useState(false);
+
+  const [
+    measured,
+    setMeasured,
+  ] = React.useState(false);
+
+  const [
+    position,
+    setPosition,
+  ] =
+    React.useState<WeaponStatTooltipPosition>({
+      left: 0,
+      top: 0,
+      arrowLeft: 24,
+      placement: 'top',
+    });
+
+  const fullValue = [
+    value || '-',
+    unit,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const measureOverflow =
+    React.useCallback(() => {
+      const element =
+        triggerRef.current;
+
+      if (!element) return;
+
+      const overflowed =
+        element.scrollWidth >
+        element.clientWidth + 1;
+
+      setIsOverflowing(
+        overflowed,
+      );
+
+      if (!overflowed) {
+        setOpen(false);
+      }
+    }, []);
+
+  React.useEffect(() => {
+    setPortalReady(true);
+  }, []);
+
+  React.useLayoutEffect(() => {
+    measureOverflow();
+
+    const element =
+      triggerRef.current;
+
+    if (!element) return;
+
+    const observer =
+      typeof ResizeObserver !==
+      'undefined'
+        ? new ResizeObserver(
+            measureOverflow,
+          )
+        : null;
+
+    observer?.observe(element);
+
+    window.addEventListener(
+      'resize',
+      measureOverflow,
+    );
+
+    void document.fonts?.ready
+      ?.then(measureOverflow)
+      .catch(() => undefined);
+
+    return () => {
+      observer?.disconnect();
+
+      window.removeEventListener(
+        'resize',
+        measureOverflow,
+      );
+    };
+  }, [
+    fullValue,
+    measureOverflow,
+  ]);
+
+  const updateTooltipPosition =
+    React.useCallback(() => {
+      if (
+        typeof window ===
+        'undefined'
+      ) {
+        return;
+      }
+
+      if (
+        !triggerRef.current ||
+        !tooltipRef.current
+      ) {
+        return;
+      }
+
+      const triggerRect =
+        triggerRef.current
+          .getBoundingClientRect();
+
+      const tooltipRect =
+        tooltipRef.current
+          .getBoundingClientRect();
+
+      const sidePadding = 12;
+      const gap = 10;
+
+      let left =
+        triggerRect.right -
+        tooltipRect.width;
+
+      left = Math.max(
+        sidePadding,
+        Math.min(
+          left,
+          window.innerWidth -
+            sidePadding -
+            tooltipRect.width,
+        ),
+      );
+
+      let placement:
+        | 'top'
+        | 'bottom' =
+        'top';
+
+      let top =
+        triggerRect.top -
+        gap -
+        tooltipRect.height;
+
+      if (top < sidePadding) {
+        placement = 'bottom';
+        top =
+          triggerRect.bottom +
+          gap;
+      }
+
+      const triggerCenter =
+        triggerRect.left +
+        triggerRect.width / 2;
+
+      const arrowLeft =
+        Math.max(
+          18,
+          Math.min(
+            triggerCenter - left,
+            tooltipRect.width - 18,
+          ),
+        );
+
+      setPosition({
+        left,
+        top,
+        arrowLeft,
+        placement,
+      });
+
+      setMeasured(true);
+    }, []);
+
+  React.useLayoutEffect(() => {
+    if (
+      !portalReady ||
+      !open ||
+      !isOverflowing
+    ) {
+      return;
+    }
+
+    let animationFrame = 0;
+
+    const schedule = () => {
+      cancelAnimationFrame(
+        animationFrame,
+      );
+
+      animationFrame =
+        requestAnimationFrame(
+          updateTooltipPosition,
+        );
+    };
+
+    schedule();
+
+    window.addEventListener(
+      'resize',
+      schedule,
+    );
+
+    window.addEventListener(
+      'scroll',
+      schedule,
+      true,
+    );
+
+    return () => {
+      cancelAnimationFrame(
+        animationFrame,
+      );
+
+      window.removeEventListener(
+        'resize',
+        schedule,
+      );
+
+      window.removeEventListener(
+        'scroll',
+        schedule,
+        true,
+      );
+    };
+  }, [
+    portalReady,
+    open,
+    isOverflowing,
+    updateTooltipPosition,
+  ]);
+
+  const tooltipStyle:
+    WeaponStatTooltipStyle = {
+      left: position.left,
+      top: position.top,
+      '--weapon-tooltip-arrow-left':
+        `${position.arrowLeft}px`,
+      '--weapon-tooltip-accent':
+        tooltipAccent,
+    };
+
+  const tooltip =
+    portalReady &&
+    open &&
+    isOverflowing
+      ? createPortal(
+          <div
+            ref={tooltipRef}
+            role="tooltip"
+            aria-hidden={
+              !measured
+            }
+            data-visible={
+              measured
+                ? 'true'
+                : 'false'
+            }
+            data-placement={
+              position.placement
+            }
+            className="weapon-stat-tooltip"
+            style={tooltipStyle}
+          >
+            <span className="weapon-stat-tooltip__label">
+              {label}
+            </span>
+
+            <strong className="weapon-stat-tooltip__value">
+              {fullValue}
+            </strong>
+
+            <span
+              className="weapon-stat-tooltip__arrow"
+              aria-hidden
+            />
+          </div>,
+          document.body,
+        )
+      : null;
+
+  return (
+    <>
+      <span className="weapon-card__stat-value-wrap">
+        <span
+          ref={triggerRef}
+          data-truncated={
+            isOverflowing
+              ? 'true'
+              : 'false'
+          }
+          className="weapon-card__stat-value"
+          onMouseEnter={() => {
+            if (!isOverflowing) {
+              return;
+            }
+
+            setMeasured(false);
+            setOpen(true);
+          }}
+          onMouseLeave={() => {
+            setOpen(false);
+          }}
+        >
+          {fullValue}
+        </span>
+      </span>
+
+      {tooltip}
+    </>
+  );
+}
+
 function WeaponStatRow({
   stat,
   selectedLevelIndex,
+  tooltipAccent,
   onClick,
 }: {
   stat: WeaponStatLike;
   selectedLevelIndex:
     number | null;
+  tooltipAccent: string;
   onClick?: (
     stat: WeaponStatLike,
     event: React.MouseEvent,
@@ -541,6 +900,13 @@ function WeaponStatRow({
     stat,
     selectedLevelIndex,
   );
+
+  const label =
+    String(
+      stat.label ??
+      '정보',
+    ).trim() ||
+    '정보';
 
   return (
     <button
@@ -574,15 +940,17 @@ function WeaponStatRow({
       }
     >
       <span className="weapon-card__stat-label">
-        {stat.label}
+        {label}
       </span>
 
-      <span className="weapon-card__stat-value">
-        {value || '-'}
-        {unit
-          ? ` ${unit}`
-          : ''}
-      </span>
+      <WeaponStatValue
+        label={label}
+        value={value || '-'}
+        unit={unit}
+        tooltipAccent={
+          tooltipAccent
+        }
+      />
     </button>
   );
 }
@@ -907,6 +1275,10 @@ export default function WeaponCardRenderer({
                       stat={stat}
                       selectedLevelIndex={
                         selectedLevelIndex
+                      }
+                      tooltipAccent={
+                        meta.headerBg ||
+                        visualTheme.accent
                       }
                       onClick={
                         onStatClick
