@@ -18,7 +18,7 @@
   position: relative;
   display: inline;
   margin: 0;
-  padding: 0 1px 1px;
+  padding: 0;
   color:
     var(
       --wiki-chrome-accent-strong,
@@ -26,46 +26,31 @@
     ) !important;
   font-weight: 700;
   text-decoration: none !important;
-  background:
-    linear-gradient(
-      180deg,
-      transparent 66%,
-      rgba(92, 170, 105, 0.16) 66%
-    );
-  border-radius: 3px;
+  background: none !important;
+  border-radius: 2px;
   cursor: pointer;
-  box-decoration-break: clone;
-  -webkit-box-decoration-break: clone;
   transition:
-    color 0.14s ease,
-    background-color 0.14s ease,
-    box-shadow 0.14s ease;
+    color 0.14s ease;
 }
 
 .wiki-internal-preview-trigger:hover {
   color:
     var(
-      --wiki-chrome-accent-strong,
-      #2b713a
+      --wiki-chrome-accent,
+      #4d9b5c
     ) !important;
-  background:
-    linear-gradient(
-      180deg,
-      rgba(237, 248, 234, 0.72) 0%,
-      rgba(225, 243, 222, 0.92) 100%
-    );
-  box-shadow:
-    0 0 0 3px
-    rgba(87, 164, 99, 0.09);
+  background: none !important;
+  box-shadow: none !important;
+  text-decoration: none !important;
 }
 
 .wiki-internal-preview-trigger:focus-visible {
   outline:
-    3px solid
-    rgba(77, 155, 92, 0.17);
+    2px solid
+    rgba(77, 155, 92, 0.22);
   outline-offset: 2px;
-  background:
-    rgba(233, 246, 229, 0.9);
+  background: none !important;
+  text-decoration: none !important;
 }
 
 /* ===== 미리보기 패널 ===== */
@@ -155,21 +140,6 @@
   opacity: 1;
   visibility: visible;
   transform: translateY(0);
-}
-
-.wiki-internal-preview-top-line {
-  position: absolute;
-  top: -1px;
-  left: 17px;
-  width: 72px;
-  height: 3px;
-  border-radius: 0 0 999px 999px;
-  background:
-    linear-gradient(
-      90deg,
-      var(--internal-preview-accent),
-      rgba(77, 155, 92, 0.2)
-    );
 }
 
 .wiki-internal-preview-arrow {
@@ -365,32 +335,6 @@
     );
 }
 
-.wiki-internal-preview-footer {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
-  margin-top: 12px;
-  padding-top: 9px;
-  color:
-    var(
-      --internal-preview-accent-strong
-    );
-  font-size: 11px;
-  font-weight: 750;
-  line-height: 1;
-  border-top:
-    1px solid
-    rgba(99, 139, 102, 0.13);
-}
-
-.wiki-internal-preview-footer svg {
-  display: block;
-  width: 16px;
-  height: 16px;
-}
-
 /* ===== 로딩 / 오류 ===== */
 
 .wiki-internal-preview-status {
@@ -545,14 +489,6 @@
     display: none;
   }
 
-  .wiki-internal-preview-trigger {
-    background:
-      linear-gradient(
-        180deg,
-        transparent 69%,
-        rgba(92, 170, 105, 0.14) 69%
-      );
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

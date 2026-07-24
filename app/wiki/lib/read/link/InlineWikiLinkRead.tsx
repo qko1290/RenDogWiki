@@ -198,24 +198,6 @@ function PreviewContent({
         </div>
       ) : null}
 
-      <div className="wiki-internal-preview-footer">
-        <span>내부 문서로 이동</span>
-
-        <svg
-          viewBox="0 0 20 20"
-          aria-hidden
-          focusable="false"
-        >
-          <path
-            d="M6.75 10h6.5M10.75 6.5 14.25 10l-3.5 3.5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.7"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </div>
     </div>
   );
 }
@@ -611,11 +593,6 @@ export default function InlineWikiLinkRead({
           className="wiki-internal-preview"
           style={tooltipStyle}
         >
-          <span
-            className="wiki-internal-preview-top-line"
-            aria-hidden
-          />
-
           {tooltipContent}
 
           <span
