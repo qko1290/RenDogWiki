@@ -12,26 +12,213 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 
 import SmartImage from '@/components/common/SmartImage';
+import InlineLinkRenderer from '@/components/wiki-render/link/InlineLinkRenderer';
+import {
+  normalizeToAppHref,
+} from '@/components/wiki-render/link/linkUtils';
+
 import { cdn, withVersion } from '@lib/cdn';
 
-import InlineLinkRenderer from '@/components/wiki-render/link/InlineLinkRenderer';
-
-import type {
-  InlineWikiLinkReadProps,
-  WikiLinkPreviewData,
-} from './types';
+import '../../../css/document-components/internal-link-preview.css';
 
 import {
   FOOTNOTE_HOVER_EVENT,
 } from '../readInteractionEvents';
-
+import type {
+  InlineWikiLinkReadProps,
+  WikiLinkPreviewData,
+} from './types';
 import {
   getWikiLinkPreviewData,
 } from './wikiLinkPreviewService';
 
-import {
-  normalizeToAppHref,
-} from '@/components/wiki-render/link/linkUtils';
+type PreviewState = 'idle' | 'loading' | 'ready' | 'error';
+
+type TooltipPosition = {
+  left: number;
+  top: number;
+  arrowLeft: number;
+};
+
+function looksLikeImageIcon(icon: string) {
+  const value = String(icon ?? '').trim();
+
+  if (!value) return false;
+
+  return (
+    value.startsWith('http://') ||
+    value.startsWith('https://') ||
+    value.startsWith('/api/') ||
+    value.startsWith('/uploads/') ||
+    value.startsWith('/images/') ||
+    value.startsWith('/_next/') ||
+    /\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(value)
+  );
+}
+
+function PreviewDocumentIcon({
+  icon,
+}: {
+  icon: string | null;
+}) {
+  const safeIcon = String(icon ?? '').trim();
+
+  if (!safeIcon) {
+    return (
+      <svg
+        className="wiki-internal-preview-default-icon"
+        viewBox="0 0 24 24"
+        aria-hidden
+        focusable="false"
+      >
+        <path
+          d="M6.75 3.75h7.1L18 7.9v12.35H6.75V3.75Z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M13.5 3.9v4.35h4.35M9.25 12h6.2M9.25 15.25h4.65"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+
+  if (looksLikeImageIcon(safeIcon)) {
+    return (
+      <SmartImage
+        src={withVersion(cdn(safeIcon))}
+        alt=""
+        width={28}
+        height={28}
+        className="wiki-internal-preview-icon-image"
+      />
+    );
+  }
+
+  return (
+    <span className="wiki-internal-preview-icon-text">
+      {safeIcon}
+    </span>
+  );
+}
+
+function PreviewStatus({
+  state,
+}: {
+  state: Exclude<PreviewState, 'idle' | 'ready'>;
+}) {
+  if (state === 'error') {
+    return (
+      <div className="wiki-internal-preview-status wiki-internal-preview-status--error">
+        <span
+          className="wiki-internal-preview-status-icon"
+          aria-hidden
+        >
+          !
+        </span>
+
+        <span>
+          <strong>문서 정보를 불러오지 못했습니다.</strong>
+          <small>링크에 다시 마우스를 올리면 재시도합니다.</small>
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="wiki-internal-preview-status wiki-internal-preview-status--loading">
+      <span
+        className="wiki-internal-preview-spinner"
+        aria-hidden
+      />
+
+      <span>
+        <strong>문서 정보를 불러오는 중</strong>
+        <small>잠시만 기다려 주세요.</small>
+      </span>
+    </div>
+  );
+}
+
+function PreviewContent({
+  preview,
+}: {
+  preview: WikiLinkPreviewData;
+}) {
+  const visibleTags = preview.tags.slice(0, 3);
+  const hiddenTagCount = Math.max(
+    preview.tags.length - visibleTags.length,
+    0,
+  );
+
+  return (
+    <div className="wiki-internal-preview-content">
+      <div className="wiki-internal-preview-main">
+        <span className="wiki-internal-preview-icon">
+          <PreviewDocumentIcon icon={preview.icon} />
+        </span>
+
+        <span className="wiki-internal-preview-text">
+          <span
+            className="wiki-internal-preview-category"
+            title={preview.categoryLabel}
+          >
+            {preview.categoryLabel || 'RenDog Wiki'}
+          </span>
+
+          <strong className="wiki-internal-preview-title">
+            {preview.title}
+          </strong>
+        </span>
+      </div>
+
+      {visibleTags.length > 0 ? (
+        <div className="wiki-internal-preview-tags">
+          {visibleTags.map((tag, index) => (
+            <span
+              key={`${tag}-${index}`}
+              className="wiki-internal-preview-tag"
+            >
+              #{tag.replace(/^#+/, '')}
+            </span>
+          ))}
+
+          {hiddenTagCount > 0 ? (
+            <span className="wiki-internal-preview-tag-count">
+              +{hiddenTagCount}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="wiki-internal-preview-footer">
+        <span>내부 문서로 이동</span>
+
+        <svg
+          viewBox="0 0 20 20"
+          aria-hidden
+          focusable="false"
+        >
+          <path
+            d="M6.75 10h6.5M10.75 6.5 14.25 10l-3.5 3.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </div>
+    </div>
+  );
+}
 
 export default function InlineWikiLinkRead({
   href,
@@ -54,21 +241,28 @@ export default function InlineWikiLinkRead({
   const [portalReady, setPortalReady] = useState(false);
   const [open, setOpen] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
-  const [preview, setPreview] = useState<WikiLinkPreviewData | null>(null);
-  const [previewState, setPreviewState] = useState<
-    'idle' | 'loading' | 'ready' | 'error'
-  >('idle');
-  const [tooltipPos, setTooltipPos] = useState({
-    left: 0,
-    top: 0,
-    arrowLeft: 24,
-  });
+  const [preview, setPreview] =
+    useState<WikiLinkPreviewData | null>(null);
+  const [previewState, setPreviewState] =
+    useState<PreviewState>('idle');
+  const [tooltipPos, setTooltipPos] =
+    useState<TooltipPosition>({
+      left: 0,
+      top: 0,
+      arrowLeft: 24,
+    });
   const [tooltipMeasured, setTooltipMeasured] = useState(false);
 
-  const normalizedHref = useMemo(() => normalizeToAppHref(href), [href]);
+  const normalizedHref = useMemo(
+    () => normalizeToAppHref(href),
+    [href],
+  );
 
   const clearPreviewTimeout = useCallback(() => {
-    if (previewTimeoutRef.current != null && typeof window !== 'undefined') {
+    if (
+      previewTimeoutRef.current != null &&
+      typeof window !== 'undefined'
+    ) {
       window.clearTimeout(previewTimeoutRef.current);
       previewTimeoutRef.current = null;
     }
@@ -90,18 +284,33 @@ export default function InlineWikiLinkRead({
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const mq = window.matchMedia('(max-width: 768px)');
-    const apply = () => setIsMobileViewport(mq.matches);
+    const mediaQuery = window.matchMedia('(max-width: 768px)');
 
-    apply();
+    const applyViewportState = () => {
+      setIsMobileViewport(mediaQuery.matches);
+    };
 
-    if (typeof mq.addEventListener === 'function') {
-      mq.addEventListener('change', apply);
-      return () => mq.removeEventListener('change', apply);
+    applyViewportState();
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener(
+        'change',
+        applyViewportState,
+      );
+
+      return () => {
+        mediaQuery.removeEventListener(
+          'change',
+          applyViewportState,
+        );
+      };
     }
 
-    mq.addListener(apply);
-    return () => mq.removeListener(apply);
+    mediaQuery.addListener(applyViewportState);
+
+    return () => {
+      mediaQuery.removeListener(applyViewportState);
+    };
   }, []);
 
   useEffect(() => {
@@ -112,10 +321,16 @@ export default function InlineWikiLinkRead({
       setOpen(false);
     };
 
-    window.addEventListener(FOOTNOTE_HOVER_EVENT, handleFootnoteHover);
+    window.addEventListener(
+      FOOTNOTE_HOVER_EVENT,
+      handleFootnoteHover,
+    );
 
     return () => {
-      window.removeEventListener(FOOTNOTE_HOVER_EVENT, handleFootnoteHover);
+      window.removeEventListener(
+        FOOTNOTE_HOVER_EVENT,
+        handleFootnoteHover,
+      );
     };
   }, [clearPreviewTimeout]);
 
@@ -133,7 +348,7 @@ export default function InlineWikiLinkRead({
     if (previewState === 'ready' && preview) return;
     if (previewState === 'loading') return;
 
-    const reqSeq = ++previewReqSeqRef.current;
+    const requestSequence = ++previewReqSeqRef.current;
 
     setPreviewState('loading');
     clearPreviewTimeout();
@@ -141,7 +356,11 @@ export default function InlineWikiLinkRead({
     if (typeof window !== 'undefined') {
       previewTimeoutRef.current = window.setTimeout(() => {
         if (!mountedRef.current) return;
-        if (previewReqSeqRef.current !== reqSeq) return;
+        if (
+          previewReqSeqRef.current !== requestSequence
+        ) {
+          return;
+        }
 
         setPreviewState('error');
       }, 6000);
@@ -150,7 +369,11 @@ export default function InlineWikiLinkRead({
     getWikiLinkPreviewData(normalizedHref)
       .then((data) => {
         if (!mountedRef.current) return;
-        if (previewReqSeqRef.current !== reqSeq) return;
+        if (
+          previewReqSeqRef.current !== requestSequence
+        ) {
+          return;
+        }
 
         clearPreviewTimeout();
 
@@ -165,7 +388,11 @@ export default function InlineWikiLinkRead({
       })
       .catch(() => {
         if (!mountedRef.current) return;
-        if (previewReqSeqRef.current !== reqSeq) return;
+        if (
+          previewReqSeqRef.current !== requestSequence
+        ) {
+          return;
+        }
 
         clearPreviewTimeout();
         setPreview(null);
@@ -184,31 +411,62 @@ export default function InlineWikiLinkRead({
     if (previewState === 'ready' && preview) return;
 
     beginPreviewLoad();
-  }, [beginPreviewLoad, isMobileViewport, open, preview, previewState]);
+  }, [
+    beginPreviewLoad,
+    isMobileViewport,
+    open,
+    preview,
+    previewState,
+  ]);
 
   const updateTooltipPosition = useCallback(() => {
     if (typeof window === 'undefined') return;
     if (!rootRef.current || !tooltipRef.current) return;
 
-    const triggerRect = rootRef.current.getBoundingClientRect();
-    const tooltipRect = tooltipRef.current.getBoundingClientRect();
+    const triggerRect =
+      rootRef.current.getBoundingClientRect();
+    const tooltipRect =
+      tooltipRef.current.getBoundingClientRect();
 
     const sidePadding = 12;
     const gap = 10;
 
     let left =
-      triggerRect.left + triggerRect.width / 2 - tooltipRect.width / 2;
+      triggerRect.left +
+      triggerRect.width / 2 -
+      tooltipRect.width / 2;
+
     left = Math.max(
       sidePadding,
-      Math.min(left, window.innerWidth - sidePadding - tooltipRect.width),
+      Math.min(
+        left,
+        window.innerWidth -
+          sidePadding -
+          tooltipRect.width,
+      ),
     );
 
-    let top = triggerRect.top - gap - tooltipRect.height;
+    let top =
+      triggerRect.top -
+      gap -
+      tooltipRect.height;
+
     top = Math.max(12, top);
 
-    const triggerCenterX = triggerRect.left + triggerRect.width / 2;
-    let arrowLeft = triggerCenterX - left;
-    arrowLeft = Math.max(16, Math.min(arrowLeft, tooltipRect.width - 16));
+    const triggerCenterX =
+      triggerRect.left +
+      triggerRect.width / 2;
+
+    let arrowLeft =
+      triggerCenterX - left;
+
+    arrowLeft = Math.max(
+      18,
+      Math.min(
+        arrowLeft,
+        tooltipRect.width - 18,
+      ),
+    );
 
     setTooltipPos({
       left,
@@ -219,28 +477,47 @@ export default function InlineWikiLinkRead({
   }, []);
 
   useLayoutEffect(() => {
-    if (!portalReady || !open || isMobileViewport || previewState === 'error') {
+    if (
+      !portalReady ||
+      !open ||
+      isMobileViewport
+    ) {
       return;
     }
 
-    let raf = 0;
+    let animationFrame = 0;
 
-    const schedule = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
+    const schedulePositionUpdate = () => {
+      cancelAnimationFrame(animationFrame);
+
+      animationFrame = requestAnimationFrame(() => {
         updateTooltipPosition();
       });
     };
 
-    schedule();
+    schedulePositionUpdate();
 
-    window.addEventListener('resize', schedule);
-    window.addEventListener('scroll', schedule, true);
+    window.addEventListener(
+      'resize',
+      schedulePositionUpdate,
+    );
+    window.addEventListener(
+      'scroll',
+      schedulePositionUpdate,
+      true,
+    );
 
     return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener('resize', schedule);
-      window.removeEventListener('scroll', schedule, true);
+      cancelAnimationFrame(animationFrame);
+      window.removeEventListener(
+        'resize',
+        schedulePositionUpdate,
+      );
+      window.removeEventListener(
+        'scroll',
+        schedulePositionUpdate,
+        true,
+      );
     };
   }, [
     isMobileViewport,
@@ -250,14 +527,14 @@ export default function InlineWikiLinkRead({
     updateTooltipPosition,
   ]);
 
-  const handleClick = (event: React.MouseEvent) => {
-    const anyEvent = event as any;
-
+  const handleClick = (
+    event: React.MouseEvent<HTMLAnchorElement>,
+  ) => {
     if (
-      anyEvent.metaKey ||
-      anyEvent.ctrlKey ||
-      anyEvent.shiftKey ||
-      anyEvent.altKey
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
     ) {
       return;
     }
@@ -292,148 +569,31 @@ export default function InlineWikiLinkRead({
     setOpen(true);
   };
 
-  const showTooltip = portalReady && !isMobileViewport && open;
-  const tooltipVisible = showTooltip && tooltipMeasured;
+  const showTooltip =
+    portalReady &&
+    !isMobileViewport &&
+    open;
+
+  const tooltipVisible =
+    showTooltip &&
+    tooltipMeasured;
 
   const tooltipContent =
     previewState === 'error' ? (
-      <div
-        style={{
-          fontSize: 12,
-          fontWeight: 700,
-          color: 'var(--muted)',
-          lineHeight: 1.45,
-        }}
-      >
-        문서 정보를 불러오지 못했습니다.
-        <br />
-        다시 올리면 재시도합니다.
-      </div>
-    ) : previewState === 'loading' || !preview ? (
-      <div
-        style={{
-          fontSize: 12,
-          fontWeight: 700,
-          color: 'var(--muted)',
-          lineHeight: 1.35,
-        }}
-      >
-        문서 정보를 불러오는 중...
-      </div>
+      <PreviewStatus state="error" />
+    ) : previewState === 'loading' ||
+      !preview ? (
+      <PreviewStatus state="loading" />
     ) : (
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: 12,
-          minWidth: 0,
-        }}
-      >
-        <div
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 12,
-            background: 'var(--accent-soft)',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flex: '0 0 auto',
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
-          }}
-        >
-          {preview.icon ? (
-            preview.icon.startsWith('http') ? (
-              <SmartImage
-                src={withVersion(cdn(preview.icon))}
-                alt="doc icon"
-                width={22}
-                height={22}
-                style={{
-                  width: 22,
-                  height: 22,
-                  objectFit: 'contain',
-                  display: 'block',
-                }}
-              />
-            ) : (
-              <span style={{ fontSize: 20, lineHeight: 1 }}>
-                {preview.icon}
-              </span>
-            )
-          ) : (
-            <span style={{ fontSize: 18, lineHeight: 1 }} aria-hidden>
-              📄
-            </span>
-          )}
-        </div>
-
-        <div style={{ flex: '1 1 auto', minWidth: 0 }}>
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              color: 'var(--muted)',
-              lineHeight: 1.35,
-              letterSpacing: '0.02em',
-              marginBottom: 5,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-            title={preview.categoryLabel}
-          >
-            {preview.categoryLabel}
-          </div>
-
-          <div
-            style={{
-              fontSize: 14,
-              fontWeight: 800,
-              color: 'var(--foreground)',
-              lineHeight: 1.4,
-              letterSpacing: '-0.1px',
-              wordBreak: 'keep-all',
-              overflowWrap: 'break-word',
-            }}
-          >
-            {preview.title}
-          </div>
-
-          {preview.tags.length > 0 ? (
-            <div
-              style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: 6,
-                marginTop: 9,
-              }}
-            >
-              {preview.tags.map((tag, index) => (
-                <span
-                  key={`${tag}-${index}`}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    padding: '4px 8px',
-                    borderRadius: 999,
-                    background: 'rgba(124, 58, 237, 0.10)',
-                    border: '1px solid rgba(124, 58, 237, 0.18)',
-                    color: 'var(--accent)',
-                    fontSize: 11,
-                    fontWeight: 700,
-                    lineHeight: 1,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  #{tag.replace(/^#+/, '')}
-                </span>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      </div>
+      <PreviewContent preview={preview} />
     );
+
+  const tooltipStyle = {
+    left: tooltipPos.left,
+    top: tooltipPos.top,
+    '--wiki-internal-preview-arrow-left':
+      `${tooltipPos.arrowLeft}px`,
+  } as React.CSSProperties;
 
   const desktopTooltip = showTooltip
     ? createPortal(
@@ -441,50 +601,26 @@ export default function InlineWikiLinkRead({
           ref={tooltipRef}
           id={tooltipIdRef.current}
           role="tooltip"
-          aria-hidden={!open}
-          style={{
-            pointerEvents: 'none',
-            position: 'fixed',
-            left: tooltipPos.left,
-            top: tooltipPos.top,
-            transform: tooltipVisible ? 'translateY(0)' : 'translateY(6px)',
-            opacity: tooltipVisible ? 1 : 0,
-            visibility: tooltipVisible ? 'visible' : 'hidden',
-            zIndex: 9998,
-            width: 'max-content',
-            minWidth: 240,
-            maxWidth: 360,
-            padding: '12px 13px',
-            borderRadius: 14,
-            border: '1px solid var(--border)',
-            background: 'var(--surface-elevated)',
-            color: 'var(--foreground)',
-            boxShadow: 'var(--shadow-lg)',
-            transition:
-              'opacity 0.16s ease, transform 0.16s ease, visibility 0.16s ease',
-          }}
+          aria-hidden={!tooltipVisible}
+          data-visible={
+            tooltipVisible
+              ? 'true'
+              : 'false'
+          }
+          data-state={previewState}
+          className="wiki-internal-preview"
+          style={tooltipStyle}
         >
+          <span
+            className="wiki-internal-preview-top-line"
+            aria-hidden
+          />
+
           {tooltipContent}
 
           <span
+            className="wiki-internal-preview-arrow"
             aria-hidden
-            style={{
-              position: 'absolute',
-              left: tooltipPos.arrowLeft,
-              bottom: -7,
-              width: 12,
-              height: 12,
-              transform: tooltipVisible
-                ? 'translateX(-50%) rotate(45deg)'
-                : 'translateX(-50%) translateY(-2px) rotate(45deg)',
-              opacity: tooltipVisible ? 1 : 0,
-              visibility: tooltipVisible ? 'visible' : 'hidden',
-              background: 'var(--surface-elevated)',
-              borderRight: '1px solid var(--border)',
-              borderBottom: '1px solid var(--border)',
-              transition:
-                'opacity 0.16s ease, transform 0.16s ease, visibility 0.16s ease',
-            }}
           />
         </div>,
         document.body,
@@ -497,18 +633,17 @@ export default function InlineWikiLinkRead({
         anchorRef={rootRef}
         mode="read"
         href={normalizedHref}
+        className="wiki-internal-preview-trigger"
         onClick={handleClick}
         onMouseEnter={handlePreviewOpen}
         onMouseLeave={() => setOpen(false)}
         onFocus={handlePreviewOpen}
         onBlur={() => setOpen(false)}
         ariaDescribedBy={
-          showTooltip ? tooltipIdRef.current : undefined
+          showTooltip
+            ? tooltipIdRef.current
+            : undefined
         }
-        style={{
-          color: 'var(--accent)',
-          textDecoration: 'none',
-        }}
       >
         {children}
       </InlineLinkRenderer>
