@@ -139,35 +139,6 @@
     transform 0.15s ease;
 }
 
-.price-table-card::before {
-  content: '';
-  position: absolute;
-  top: -1px;
-  left: 16px;
-  width: 46px;
-  height: 3px;
-  border-radius:
-    0
-    0
-    999px
-    999px;
-  background:
-    linear-gradient(
-      90deg,
-      var(
-        --price-table-card-accent
-      ),
-      color-mix(
-        in srgb,
-        var(
-          --price-table-card-accent
-        ) 18%,
-        transparent
-      )
-    );
-  opacity: 0.72;
-}
-
 .price-table-card--read:hover,
 .price-table-card--hovered,
 .price-table-card--edit:focus-within {
