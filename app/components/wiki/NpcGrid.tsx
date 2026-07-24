@@ -49,6 +49,7 @@ type Props = {
   ) => void;
   pageSize?: number;
   showPager?: boolean;
+  villageName?: string | null;
 };
 
 const DESKTOP_PAGE_SIZE =
@@ -59,6 +60,167 @@ const MOBILE_PAGE_SIZE =
 
 const MOBILE_QUERY =
   "(max-width: 768px)";
+
+type VillageTheme =
+  | "slime"
+  | "desert"
+  | "frost"
+  | "under"
+  | "seloterain"
+  | "atlantis"
+  | "cretora"
+  | "hell"
+  | "finalis"
+  | "default";
+
+function normalizeVillageName(
+  value?: string | null,
+) {
+  return String(value ?? "")
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(
+      /[\s_\-·ㆍ.,()[\]{}]+/g,
+      "",
+    );
+}
+
+function resolveVillageTheme(
+  value?: string | null,
+): VillageTheme {
+  const village =
+    normalizeVillageName(value);
+
+  if (!village) {
+    return "default";
+  }
+
+  if (
+    village.includes(
+      "슬라임빌리지",
+    ) ||
+    village === "슬라임"
+  ) {
+    return "slime";
+  }
+
+  if (
+    village.includes(
+      "데저트빌리지",
+    ) ||
+    village.includes("데저트") ||
+    village.includes("사막")
+  ) {
+    return "desert";
+  }
+
+  if (
+    village.includes(
+      "프로스트타운",
+    ) ||
+    village.includes("프로스트") ||
+    village.includes("설원")
+  ) {
+    return "frost";
+  }
+
+  if (
+    village.includes(
+      "언더빌리지",
+    ) ||
+    village.includes("언더") ||
+    village.includes("지하")
+  ) {
+    return "under";
+  }
+
+  if (
+    village.includes(
+      "셀로테레인",
+    ) ||
+    village.includes(
+      "셀로테라인",
+    )
+  ) {
+    return "seloterain";
+  }
+
+  if (
+    village.includes(
+      "아틀란티스",
+    )
+  ) {
+    return "atlantis";
+  }
+
+  if (
+    village.includes(
+      "크레토라",
+    )
+  ) {
+    return "cretora";
+  }
+
+  if (
+    village.includes(
+      "헬스토니아",
+    ) ||
+    village.includes("헬스토니아")
+  ) {
+    return "hell";
+  }
+
+  if (
+    village.includes(
+      "피날리스",
+    ) ||
+    village.includes("공허")
+  ) {
+    return "finalis";
+  }
+
+  return "default";
+}
+
+function readVillageNameFromPage() {
+  if (
+    typeof window ===
+    "undefined"
+  ) {
+    return "";
+  }
+
+  const search =
+    new URLSearchParams(
+      window.location.search,
+    );
+
+  const titleParam =
+    search.get("title");
+
+  if (titleParam) {
+    try {
+      return decodeURIComponent(
+        titleParam,
+      ).replace(/_/g, " ");
+    } catch {
+      return titleParam.replace(
+        /_/g,
+        " ",
+      );
+    }
+  }
+
+  const titleElement =
+    document.querySelector(
+      ".wiki-content-title",
+    );
+
+  return String(
+    titleElement?.textContent ??
+      "",
+  ).trim();
+}
 
 function isImageUrl(
   value?: string | null,
@@ -243,6 +405,7 @@ export default function NpcGrid({
   onPageChange,
   pageSize,
   showPager = false,
+  villageName,
 }: Props) {
   const [
     innerPage,
@@ -253,6 +416,47 @@ export default function NpcGrid({
     isMobile,
     setIsMobile,
   ] = useState(false);
+
+  const [
+    detectedVillageName,
+    setDetectedVillageName,
+  ] = useState(
+    villageName ?? "",
+  );
+
+  useEffect(() => {
+    if (villageName) {
+      setDetectedVillageName(
+        villageName,
+      );
+      return;
+    }
+
+    /*
+     * 현재 구조에서는 NpcGrid 호출부에 마을명이 직접 전달되지
+     * 않는 경우가 있으므로 문서 URL 제목을 안전한 fallback으로 쓴다.
+     * npcs가 바뀔 때 다시 읽어 마을 문서 전환에도 대응한다.
+     */
+    setDetectedVillageName(
+      readVillageNameFromPage(),
+    );
+  }, [
+    npcs,
+    villageName,
+  ]);
+
+  const villageTheme =
+    useMemo(
+      () =>
+        resolveVillageTheme(
+          villageName ??
+            detectedVillageName,
+        ),
+      [
+        detectedVillageName,
+        villageName,
+      ],
+    );
 
   useEffect(() => {
     if (
@@ -418,6 +622,13 @@ export default function NpcGrid({
     <div
       className="npc-grid-wrap"
       data-wiki-grid="quest"
+      data-village-theme={
+        villageTheme
+      }
+      data-village-name={
+        villageName ??
+        detectedVillageName
+      }
     >
       {visibleNpcs.length >
       0 ? (
