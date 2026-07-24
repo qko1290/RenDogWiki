@@ -121,7 +121,7 @@ export function getInfoBoxAlignmentPrefix(
     text.split(/\r?\n/, 1)[0] ?? '';
 
   const match = firstLine.match(
-    /^([^\n:]{1,24}:[ \t\u00a0\u3000]+)/,
+    /^([^\n:]{1,64}:[ \t\u00a0\u3000]+)/,
   );
 
   if (!match) return null;
@@ -217,6 +217,167 @@ type InfoBoxContentStyle =
     '--info-box-hanging-indent': string;
   };
 
+type InfoBoxAlignmentPoint = {
+  node: Text;
+  offset: number;
+};
+
+function findInfoBoxAlignmentPoint(
+  root: HTMLElement,
+): InfoBoxAlignmentPoint | null {
+  const walker =
+    document.createTreeWalker(
+      root,
+      NodeFilter.SHOW_TEXT,
+    );
+
+  const visibleText: string[] = [];
+  const positions: InfoBoxAlignmentPoint[] = [];
+
+  let current =
+    walker.nextNode() as Text | null;
+
+  while (
+    current &&
+    visibleText.length < 128
+  ) {
+    const raw = current.data;
+
+    for (
+      let offset = 0;
+      offset < raw.length;
+      offset += 1
+    ) {
+      const character = raw[offset];
+
+      if (
+        character === '\u200b' ||
+        character === '\r'
+      ) {
+        continue;
+      }
+
+      if (character === '\n') {
+        current = null;
+        break;
+      }
+
+      visibleText.push(character);
+      positions.push({
+        node: current,
+        offset: offset + 1,
+      });
+    }
+
+    if (!current) break;
+
+    current =
+      walker.nextNode() as Text | null;
+  }
+
+  const firstLine =
+    visibleText.join('');
+
+  const match = firstLine.match(
+    /^[^:\n]{1,64}:[ \t\u00a0\u3000]+/,
+  );
+
+  if (!match) return null;
+
+  const colonIndex =
+    match[0].indexOf(':');
+
+  /*
+   * 정렬 기준은 콜론 뒤의 첫 공백까지다.
+   * 기존 문서에 공백이 여러 개 있어도 그 전체 폭을
+   * 새 기준으로 사용하지 않는다.
+   */
+  const endIndex =
+    colonIndex + 2;
+
+  return (
+    positions[endIndex - 1] ??
+    null
+  );
+}
+
+function measureInfoBoxHangingIndent(
+  root: HTMLElement,
+) {
+  const point =
+    findInfoBoxAlignmentPoint(root);
+
+  if (!point) return 0;
+
+  const range =
+    document.createRange();
+
+  range.setStart(root, 0);
+  range.setEnd(
+    point.node,
+    point.offset,
+  );
+
+  const contentRect =
+    root.getBoundingClientRect();
+
+  const rects =
+    Array.from(
+      range.getClientRects(),
+    ).filter(
+      (rect) =>
+        rect.width > 0 &&
+        rect.height > 0,
+    );
+
+  if (rects.length === 0) {
+    range.detach();
+    return 0;
+  }
+
+  const firstLineTop =
+    Math.min(
+      ...rects.map(
+        (rect) => rect.top,
+      ),
+    );
+
+  const firstLineRects =
+    rects.filter(
+      (rect) =>
+        Math.abs(
+          rect.top - firstLineTop,
+        ) <= 3,
+    );
+
+  const right =
+    Math.max(
+      ...firstLineRects.map(
+        (rect) => rect.right,
+      ),
+    );
+
+  range.detach();
+
+  const measured =
+    right - contentRect.left;
+
+  /*
+   * 비정상적으로 긴 라벨이 본문 폭 대부분을 차지하지 않도록
+   * 안전 범위 안에서만 적용한다.
+   */
+  return Math.max(
+    0,
+    Math.min(
+      Math.ceil(measured),
+      Math.floor(
+        contentRect.width * 0.72,
+      ),
+      360,
+    ),
+  );
+}
+
 function getInfoBoxIconPreset(
   type: string,
 ): InfoBoxIconPreset | null {
@@ -284,8 +445,8 @@ export default function InfoBoxBlock({
       [plainText],
     );
 
-  const measureRef =
-    React.useRef<HTMLSpanElement | null>(
+  const contentRef =
+    React.useRef<HTMLDivElement | null>(
       null,
     );
 
@@ -295,57 +456,123 @@ export default function InfoBoxBlock({
   ] = React.useState(0);
 
   React.useLayoutEffect(() => {
+    const content =
+      contentRef.current;
+
     if (
       !alignmentPrefix ||
-      !measureRef.current
+      !content
     ) {
       setHangingIndent(0);
       return;
     }
 
     let disposed = false;
+    let animationFrame = 0;
 
     const measure = () => {
-      if (
-        disposed ||
-        !measureRef.current
-      ) {
-        return;
-      }
+      if (disposed) return;
 
       const width =
-        measureRef.current
-          .getBoundingClientRect()
-          .width;
+        measureInfoBoxHangingIndent(
+          content,
+        );
 
       setHangingIndent(
-        Math.min(
-          Math.ceil(width),
-          220,
-        ),
+        (previous) =>
+          Math.abs(
+            previous - width,
+          ) < 0.5
+            ? previous
+            : width,
       );
     };
 
-    measure();
+    const scheduleMeasure = () => {
+      cancelAnimationFrame(
+        animationFrame,
+      );
+
+      animationFrame =
+        requestAnimationFrame(
+          measure,
+        );
+    };
+
+    scheduleMeasure();
 
     const resizeObserver =
-      typeof ResizeObserver !== 'undefined'
-        ? new ResizeObserver(measure)
+      typeof ResizeObserver !==
+      'undefined'
+        ? new ResizeObserver(
+            scheduleMeasure,
+          )
         : null;
 
-    resizeObserver?.observe(
-      measureRef.current,
+    resizeObserver?.observe(content);
+
+    const mutationObserver =
+      typeof MutationObserver !==
+      'undefined'
+        ? new MutationObserver(
+            scheduleMeasure,
+          )
+        : null;
+
+    mutationObserver?.observe(
+      content,
+      {
+        childList: true,
+        characterData: true,
+        subtree: true,
+      },
+    );
+
+    /*
+     * 인라인 이미지가 늦게 로드되어 실제 너비가 바뀌는 경우도
+     * 다시 측정한다. load는 버블링하지 않으므로 캡처 단계 사용.
+     */
+    content.addEventListener(
+      'load',
+      scheduleMeasure,
+      true,
+    );
+
+    window.addEventListener(
+      'resize',
+      scheduleMeasure,
     );
 
     void document.fonts?.ready
-      ?.then(measure)
+      ?.then(scheduleMeasure)
       .catch(() => undefined);
 
     return () => {
       disposed = true;
+
+      cancelAnimationFrame(
+        animationFrame,
+      );
+
       resizeObserver?.disconnect();
+      mutationObserver?.disconnect();
+
+      content.removeEventListener(
+        'load',
+        scheduleMeasure,
+        true,
+      );
+
+      window.removeEventListener(
+        'resize',
+        scheduleMeasure,
+      );
     };
-  }, [alignmentPrefix]);
+  }, [
+    alignmentPrefix,
+    mode,
+    plainText,
+  ]);
 
   const {
     className: attributeClassName,
@@ -419,6 +646,7 @@ export default function InfoBoxBlock({
       ) : null}
 
       <div
+        ref={contentRef}
         className={[
           'info-box__content',
           alignmentPrefix &&
@@ -432,18 +660,6 @@ export default function InfoBoxBlock({
       >
         {children}
       </div>
-
-      {alignmentPrefix ? (
-        <span
-          ref={measureRef}
-          className="info-box__indent-measure"
-          aria-hidden
-          contentEditable={false}
-          suppressContentEditableWarning
-        >
-          {alignmentPrefix}
-        </span>
-      ) : null}
 
       {controls ? (
         <div

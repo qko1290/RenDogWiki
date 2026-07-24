@@ -165,35 +165,13 @@
 
 
 /*
- * 내어쓰기의 text-indent가 inline-block 내부로 상속되면
- * 인라인 이미지의 첫 줄도 음수 방향으로 이동할 수 있다.
- * 이미지 래퍼에서 들여쓰기를 초기화해 원래 위치에 표시한다.
+ * Range 측정에는 인라인 이미지의 실제 렌더링 폭도 포함된다.
+ * 이미지는 첫 줄 흐름 안에 그대로 두고 별도의 음수 이동을 주지 않는다.
  */
 .info-box__content--hanging
 [data-wiki-inline='inline-image'] {
   position: relative;
   z-index: 1;
-  text-indent: 0;
-}
-
-.info-box__content--hanging
-[data-wiki-inline='inline-image']
-img {
-  text-indent: 0;
-}
-
-.info-box__indent-measure {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: -1;
-  visibility: hidden;
-  font: inherit;
-  font-weight: 700;
-  line-height: inherit;
-  letter-spacing: -0.008em;
-  white-space: pre;
-  pointer-events: none;
 }
 
 .info-box__controls {
