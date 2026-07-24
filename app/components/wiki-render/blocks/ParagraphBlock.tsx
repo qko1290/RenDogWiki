@@ -300,10 +300,12 @@ export default function ParagraphBlock({
         : undefined,
     fontSize:
       `${paragraphFontPx}px`,
+    fontFamily:
+      "'NanumSquareNeo', Pretendard, 'Malgun Gothic', system-ui, sans-serif",
 
     /*
-     * 기존 본문은 별도의 굵기 없이 기본 400으로 렌더링됐다.
-     * 일반 문단은 700으로 올려 가독성을 강화하고,
+     * 읽기 화면의 일반 본문에 NanumSquareNeo를 적용한다.
+     * 일반 문단은 700으로 유지하고,
      * 모바일 표 셀은 공간을 고려해 600으로 제한한다.
      *
      * strong 요소는 브라우저의 bolder 규칙으로
