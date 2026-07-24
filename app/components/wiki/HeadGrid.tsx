@@ -2,7 +2,9 @@
 
 import React, {
   useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -196,6 +198,163 @@ function isImageSource(
   );
 }
 
+function HeadCoordinate({
+  value,
+}: {
+  value: string;
+}) {
+  const coordinateRef =
+    useRef<HTMLSpanElement | null>(
+      null,
+    );
+
+  const [
+    fittedFontSize,
+    setFittedFontSize,
+  ] = useState<number | null>(
+    null,
+  );
+
+  useLayoutEffect(() => {
+    const element =
+      coordinateRef.current;
+
+    if (!element) {
+      return;
+    }
+
+    let animationFrame = 0;
+
+    const fitCoordinate = () => {
+      cancelAnimationFrame(
+        animationFrame,
+      );
+
+      animationFrame =
+        requestAnimationFrame(() => {
+          const target =
+            coordinateRef.current;
+
+          if (!target) {
+            return;
+          }
+
+          /*
+           * 먼저 CSS 기본 크기로 되돌린 뒤 실제 너비를 측정한다.
+           * 넉넉한 좌표는 12px을 유지하고,
+           * 카드 폭을 넘는 좌표만 필요한 만큼 축소한다.
+           */
+          target.style.fontSize = "";
+
+          const computed =
+            window.getComputedStyle(
+              target,
+            );
+
+          const baseFontSize =
+            Number.parseFloat(
+              computed.fontSize,
+            ) || 12;
+
+          const availableWidth =
+            target.clientWidth;
+
+          const requiredWidth =
+            target.scrollWidth;
+
+          if (
+            availableWidth <= 0 ||
+            requiredWidth <=
+              availableWidth + 0.5
+          ) {
+            setFittedFontSize(
+              null,
+            );
+            return;
+          }
+
+          const ratio =
+            availableWidth /
+            requiredWidth;
+
+          const nextSize =
+            Math.max(
+              10,
+              Math.floor(
+                baseFontSize *
+                  ratio *
+                  100,
+              ) / 100,
+            );
+
+          setFittedFontSize(
+            nextSize,
+          );
+        });
+    };
+
+    fitCoordinate();
+
+    const resizeObserver =
+      typeof ResizeObserver !==
+      "undefined"
+        ? new ResizeObserver(
+            fitCoordinate,
+          )
+        : null;
+
+    resizeObserver?.observe(
+      element,
+    );
+
+    if (element.parentElement) {
+      resizeObserver?.observe(
+        element.parentElement,
+      );
+    }
+
+    window.addEventListener(
+      "resize",
+      fitCoordinate,
+    );
+
+    void document.fonts?.ready
+      ?.then(fitCoordinate)
+      .catch(() => undefined);
+
+    return () => {
+      cancelAnimationFrame(
+        animationFrame,
+      );
+
+      resizeObserver?.disconnect();
+
+      window.removeEventListener(
+        "resize",
+        fitCoordinate,
+      );
+    };
+  }, [value]);
+
+  return (
+    <span
+      ref={coordinateRef}
+      className="head-card__coordinate"
+      style={
+        fittedFontSize
+          ? {
+              fontSize:
+                `${fittedFontSize}px`,
+            }
+          : undefined
+      }
+      title={value}
+    >
+      {value}
+    </span>
+  );
+}
+
 function HeadCard({
   head,
   selected,
@@ -281,33 +440,9 @@ function HeadCard({
         </span>
       </span>
 
-      <span className="head-card__coordinate">
-        <svg
-          viewBox="0 0 18 18"
-          aria-hidden
-          focusable="false"
-        >
-          <path
-            d="M9 15.2s4-4.2 4-7.6a4 4 0 1 0-8 0c0 3.4 4 7.6 4 7.6Z"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.45"
-            strokeLinejoin="round"
-          />
-          <circle
-            cx="9"
-            cy="7.5"
-            r="1.45"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.35"
-          />
-        </svg>
-
-        <span>
-          {coordinateText}
-        </span>
-      </span>
+      <HeadCoordinate
+        value={coordinateText}
+      />
     </button>
   );
 }

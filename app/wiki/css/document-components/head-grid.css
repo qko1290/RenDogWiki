@@ -591,22 +591,22 @@
 .head-card__coordinate {
   position: relative;
   z-index: 1;
-  display: flex;
-  width: 100%;
+  display: block;
+  width:
+    calc(
+      100% - 2px
+    );
   min-width: 0;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
   box-sizing: border-box;
   margin-top: 6px;
-  padding: 3px 4px;
-  overflow: hidden;
+  padding: 3px 0;
+  overflow: visible;
   color:
     color-mix(
       in srgb,
       var(
         --head-village-ink
-      ) 50%,
+      ) 58%,
       var(
         --head-grid-muted
       )
@@ -620,30 +620,14 @@
     'Liberation Mono',
     'Courier New',
     monospace;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 760;
   line-height: 1.2;
   font-variant-numeric:
     tabular-nums;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.065em;
+  text-align: center;
   white-space: nowrap;
-}
-
-.head-card__coordinate svg {
-  display: block;
-  width: 13px;
-  height: 13px;
-  flex: 0 0 13px;
-  color:
-    var(
-      --head-village-border
-    );
-}
-
-.head-card__coordinate > span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* ===== 빈 목록 ===== */
@@ -1251,13 +1235,12 @@
   }
 
   .head-card__coordinate {
+    width: 100%;
     margin-top: 4px;
-    font-size: 9px;
-    letter-spacing: -0.055em;
-  }
-
-  .head-card__coordinate svg {
-    display: none;
+    padding-right: 0;
+    padding-left: 0;
+    font-size: 10.5px;
+    letter-spacing: -0.075em;
   }
 }
 
@@ -1273,7 +1256,8 @@
   }
 
   .head-card__coordinate {
-    font-size: 8.5px;
+    font-size: 10px;
+    letter-spacing: -0.08em;
   }
 }
 
