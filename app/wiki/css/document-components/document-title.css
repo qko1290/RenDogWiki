@@ -64,10 +64,10 @@
   .wiki-content-title.wiki-content-title-row::after {
   content: '';
   position: absolute;
-  right: auto;
+  right: 10%;
   bottom: -1px;
-  left: 18px;
-  width: 58px;
+  left: 10%;
+  width: auto;
   height: 3px;
   border-radius: 999px;
   background:
@@ -237,8 +237,9 @@
 
   :is(#rdwiki-page, #wiki-scroll-root)
     .wiki-content-title.wiki-content-title-row::after {
-    left: 14px;
-    width: 46px;
+    right: 10%;
+    left: 10%;
+    width: auto;
   }
 
   :is(#rdwiki-page, #wiki-scroll-root)
