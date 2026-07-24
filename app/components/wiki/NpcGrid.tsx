@@ -278,6 +278,168 @@ function getNameClass(
   return "";
 }
 
+function QuestName({
+  name,
+  sizeClass,
+}: {
+  name: string;
+  sizeClass: string;
+}) {
+  const ref =
+    React.useRef<HTMLSpanElement | null>(
+      null,
+    );
+
+  const [
+    fittedFontSize,
+    setFittedFontSize,
+  ] = React.useState<number | null>(
+    null,
+  );
+
+  React.useLayoutEffect(() => {
+    const element =
+      ref.current;
+
+    if (!element) return;
+
+    let animationFrame = 0;
+
+    const fit = () => {
+      cancelAnimationFrame(
+        animationFrame,
+      );
+
+      animationFrame =
+        requestAnimationFrame(() => {
+          const target =
+            ref.current;
+
+          if (!target) return;
+
+          /*
+           * 이전 측정에서 적용한 인라인 크기를 잠시 제거한 뒤,
+           * CSS가 정한 기본 크기를 기준으로 다시 계산한다.
+           */
+          target.style.fontSize = "";
+
+          const computed =
+            window.getComputedStyle(
+              target,
+            );
+
+          const baseFontSize =
+            Number.parseFloat(
+              computed.fontSize,
+            ) || 15;
+
+          const availableWidth =
+            target.clientWidth;
+
+          const requiredWidth =
+            target.scrollWidth;
+
+          if (
+            requiredWidth <=
+              availableWidth + 0.5 ||
+            availableWidth <= 0
+          ) {
+            setFittedFontSize(
+              null,
+            );
+            return;
+          }
+
+          const ratio =
+            availableWidth /
+            requiredWidth;
+
+          const nextSize =
+            Math.max(
+              10,
+              Math.floor(
+                baseFontSize *
+                  ratio *
+                  100,
+              ) / 100,
+            );
+
+          setFittedFontSize(
+            nextSize,
+          );
+        });
+    };
+
+    fit();
+
+    const resizeObserver =
+      typeof ResizeObserver !==
+      "undefined"
+        ? new ResizeObserver(
+            fit,
+          )
+        : null;
+
+    resizeObserver?.observe(
+      element,
+    );
+
+    if (element.parentElement) {
+      resizeObserver?.observe(
+        element.parentElement,
+      );
+    }
+
+    window.addEventListener(
+      "resize",
+      fit,
+    );
+
+    void document.fonts?.ready
+      ?.then(fit)
+      .catch(() => undefined);
+
+    return () => {
+      cancelAnimationFrame(
+        animationFrame,
+      );
+
+      resizeObserver?.disconnect();
+
+      window.removeEventListener(
+        "resize",
+        fit,
+      );
+    };
+  }, [
+    name,
+    sizeClass,
+  ]);
+
+  return (
+    <span
+      ref={ref}
+      className={[
+        "npc-name",
+        sizeClass,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      style={
+        fittedFontSize
+          ? {
+              fontSize:
+                `${fittedFontSize}px`,
+            }
+          : undefined
+      }
+      title={name}
+    >
+      {name}
+    </span>
+  );
+}
+
 function QuestCard({
   npc,
   selected,
@@ -364,14 +526,12 @@ function QuestCard({
           </span>
         </span>
 
-        <span
-          className={[
-            "npc-name",
-            nameClass,
-          ].join("")}
-        >
-          {npc.name}
-        </span>
+        <QuestName
+          name={npc.name}
+          sizeClass={
+            nameClass.trim()
+          }
+        />
 
         <span
           className="npc-card-open-indicator"
