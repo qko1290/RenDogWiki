@@ -698,29 +698,45 @@ export default function WikiPageInner({ user }: Props) {
     isPopNavigation = false,
     respectLocationHash = true,
   ) => {
+    /*
+     * 새 이동 의도가 들어오면 이전 문서의 heading 보정 예약을
+     * 가장 먼저 폐기한다. 이전 heading 타이머가 새 문서 렌더 뒤에
+     * 다시 스크롤을 움직이는 것을 막는다.
+     */
+    clearStableHeadingScrollTimeouts();
     headingCorrectionInterruptedRef.current = false;
-    respectLocationHashRef.current = respectLocationHash;
 
-    const normalizedHash = normalizeHashToDomId(hashLike);
-    pendingScrollDomIdRef.current = normalizedHash;
+    const normalizedHash =
+      normalizeHashToDomId(
+        hashLike,
+      );
+
+    pendingScrollDomIdRef.current =
+      normalizedHash;
 
     if (normalizedHash) {
-      pendingTopScrollRef.current = false;
-      clearStableHeadingScrollTimeouts();
-      return;
-    }
-
-    if (isPopNavigation) {
-      pendingTopScrollRef.current = false;
+      respectLocationHashRef.current =
+        true;
+      pendingTopScrollRef.current =
+        false;
       return;
     }
 
     /*
-     * heading이 없는 일반 문서 이동에서는 이전 문서에서 예약된
-     * heading 위치 보정도 즉시 종료한다.
+     * heading이 없는 문서 이동에서는 현재 주소에 남아 있는
+     * 이전 문서 hash를 절대로 새 문서의 이동 대상으로 사용하지 않는다.
      */
-    clearStableHeadingScrollTimeouts();
-    pendingTopScrollRef.current = true;
+    respectLocationHashRef.current =
+      respectLocationHash;
+
+    if (isPopNavigation) {
+      pendingTopScrollRef.current =
+        false;
+      return;
+    }
+
+    pendingTopScrollRef.current =
+      true;
   };
 
   useEffect(() => {
@@ -790,7 +806,15 @@ export default function WikiPageInner({ user }: Props) {
 
     headingCorrectionInterruptedRef.current = false;
 
-    const delays = [0, 60, 140, 260, 420];
+    const delays = [
+      0,
+      60,
+      140,
+      260,
+      420,
+      700,
+      1050,
+    ];
     for (const delay of delays) {
       const id = window.setTimeout(() => {
         if (headingCorrectionInterruptedRef.current) return;
@@ -957,28 +981,27 @@ export default function WikiPageInner({ user }: Props) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!selectedDocId) return;
+    if (loadingDoc || docContent === null) return;
 
     /*
-     * 현재 주소의 hash를 무조건 읽지 않고,
-     * 이번 이동에서 허용된 heading 대상만 사용한다.
+     * window.location.hash를 직접 읽지 않는다.
+     * 이번 이동에서 허용된 heading만 대상으로 사용해야,
+     * 이전 문서 주소에 남은 hash가 새 문서에 침투하지 않는다.
      */
     const baseTarget =
       getActiveHeadingTarget();
 
-    // heading 이동이 있으면 top 보정은 절대 사용하지 않음
-    if (baseTarget) {
-      pendingTopScrollRef.current = false;
-      clearStableHeadingScrollTimeouts();
-    }
-
+    /*
+     * 이 effect는 heading 이동만 처리한다.
+     * heading이 없는 새 문서의 맨 위 이동은 hold가 풀린 뒤 실행되는
+     * 아래쪽 문서 스크롤 effect에서 처리한다.
+     */
     if (!baseTarget) {
-      if (pendingTopScrollRef.current && !hasPendingHeadingNavigation()) {
-        clearStableHeadingScrollTimeouts();
-        scheduleTopScrollCorrection();
-        pendingTopScrollRef.current = false;
-      }
       return;
     }
+
+    pendingTopScrollRef.current = false;
+    clearStableHeadingScrollTimeouts();
 
     let cancelled = false;
     const timerIds: number[] = [];
@@ -1021,7 +1044,13 @@ export default function WikiPageInner({ user }: Props) {
       cancelled = true;
       for (const id of timerIds) window.clearTimeout(id);
     };
-  }, [selectedDocId, docContent, tableOfContents.length, hashScrollSignal]);
+  }, [
+    selectedDocId,
+    docContent,
+    tableOfContents.length,
+    hashScrollSignal,
+    loadingDoc,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -1653,27 +1682,36 @@ export default function WikiPageInner({ user }: Props) {
       shouldHideDocChrome(
         docId,
       );
-    const isPopNavigation = options?.isPopNavigation ?? popNavigationRef.current;
-    const hasExplicitRequestedHeading =
-      Object.prototype.hasOwnProperty.call(options ?? {}, 'requestedHash') &&
-      !!normalizeHashToDomId(options?.requestedHash ?? '');
+    const isPopNavigation =
+      options?.isPopNavigation ??
+      popNavigationRef.current;
 
-    if (Object.prototype.hasOwnProperty.call(options ?? {}, 'requestedHash')) {
-      preparePendingScrollForOpen(options?.requestedHash ?? '', isPopNavigation, true);
-    } else if (!isPopNavigation) {
-      /*
-       * heading이 명시되지 않은 새 문서 이동에서는
-       * 이전 문서 주소에 남은 hash를 이어받지 않는다.
-       */
-      preparePendingScrollForOpen(
-        '',
-        false,
-        false,
+    /*
+     * requestedHash 속성의 존재 여부가 아니라 실제 문자열 값을 본다.
+     * requestedHash: undefined가 전달되는 내부 호출을
+     * heading 이동으로 오인하지 않도록 한다.
+     */
+    const requestedHash =
+      typeof options?.requestedHash ===
+      'string'
+        ? options.requestedHash
+        : '';
+
+    const requestedHeading =
+      normalizeHashToDomId(
+        requestedHash,
       );
-    } else {
-      pendingScrollDomIdRef.current = '';
-      pendingTopScrollRef.current = false;
-    }
+
+    const hasExplicitRequestedHeading =
+      Boolean(
+        requestedHeading,
+      );
+
+    preparePendingScrollForOpen(
+      requestedHash,
+      isPopNavigation,
+      hasExplicitRequestedHeading,
+    );
 
     if (!hasExplicitRequestedHeading) {
       resetTopScrollImmediatelyIfNeeded();
@@ -1717,7 +1755,7 @@ export default function WikiPageInner({ user }: Props) {
         skipUrlSync: options?.skipUrlSync,
         clearCategoryPath: options?.clearCategoryPath,
         presetPath,
-        requestedHash: options?.requestedHash,
+        requestedHash,
         isPopNavigation,
         ignoreCurrentLocationHash: options?.ignoreCurrentLocationHash,
       });
@@ -1757,7 +1795,7 @@ export default function WikiPageInner({ user }: Props) {
           skipUrlSync: options?.skipUrlSync,
           clearCategoryPath: options?.clearCategoryPath,
           presetPath: [],
-          requestedHash: options?.requestedHash,
+          requestedHash,
           isPopNavigation,
           ignoreCurrentLocationHash: options?.ignoreCurrentLocationHash,
         });
@@ -1791,7 +1829,7 @@ export default function WikiPageInner({ user }: Props) {
         skipUrlSync: options?.skipUrlSync,
         clearCategoryPath: options?.clearCategoryPath,
         presetPath: isRoot ? [] : [...categoryPath],
-        requestedHash: options?.requestedHash,
+        requestedHash,
         isPopNavigation,
         ignoreCurrentLocationHash: options?.ignoreCurrentLocationHash,
       });
@@ -1911,27 +1949,36 @@ export default function WikiPageInner({ user }: Props) {
     docId: number,
     options?: FetchDocOptions
   ) => {
-    const isPopNavigation = options?.isPopNavigation ?? popNavigationRef.current;
-    const hasExplicitRequestedHeading =
-      Object.prototype.hasOwnProperty.call(options ?? {}, 'requestedHash') &&
-      !!normalizeHashToDomId(options?.requestedHash ?? '');
+    const isPopNavigation =
+      options?.isPopNavigation ??
+      popNavigationRef.current;
 
-    if (Object.prototype.hasOwnProperty.call(options ?? {}, 'requestedHash')) {
-      preparePendingScrollForOpen(options?.requestedHash ?? '', isPopNavigation, true);
-    } else if (!isPopNavigation) {
-      /*
-       * heading이 명시되지 않은 새 문서 이동에서는
-       * 이전 문서 주소에 남은 hash를 이어받지 않는다.
-       */
-      preparePendingScrollForOpen(
-        '',
-        false,
-        false,
+    /*
+     * requestedHash 속성의 존재 여부가 아니라 실제 문자열 값을 본다.
+     * requestedHash: undefined가 전달되는 내부 호출을
+     * heading 이동으로 오인하지 않도록 한다.
+     */
+    const requestedHash =
+      typeof options?.requestedHash ===
+      'string'
+        ? options.requestedHash
+        : '';
+
+    const requestedHeading =
+      normalizeHashToDomId(
+        requestedHash,
       );
-    } else {
-      pendingScrollDomIdRef.current = '';
-      pendingTopScrollRef.current = false;
-    }
+
+    const hasExplicitRequestedHeading =
+      Boolean(
+        requestedHeading,
+      );
+
+    preparePendingScrollForOpen(
+      requestedHash,
+      isPopNavigation,
+      hasExplicitRequestedHeading,
+    );
 
     if (!hasExplicitRequestedHeading) {
       resetTopScrollImmediatelyIfNeeded();
@@ -2065,13 +2112,24 @@ export default function WikiPageInner({ user }: Props) {
 
     setLoadingDoc(true);
 
-    preparePendingScrollForOpen(url.hash, false);
+    const requestedHash =
+      url.hash || '';
+
+    preparePendingScrollForOpen(
+      requestedHash,
+      false,
+      Boolean(
+        normalizeHashToDomId(
+          requestedHash,
+        ),
+      ),
+    );
 
     if (path === '0') {
       fetchDoc([], title, undefined, {
         clearCategoryPath: true,
         forceRoot: true,
-        requestedHash: url.hash,
+        requestedHash,
         isPopNavigation: false,
       });
       return;
@@ -2090,7 +2148,7 @@ export default function WikiPageInner({ user }: Props) {
 
     fetchDoc(fullPath, title, undefined, {
       clearCategoryPath: true,
-      requestedHash: url.hash,
+      requestedHash,
       isPopNavigation: false,
     });
   };
