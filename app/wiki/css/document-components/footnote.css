@@ -191,34 +191,7 @@
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 7px;
-  margin-bottom: 8px;
-}
-
-.wiki-footnote-tooltip-type {
-  display: inline-flex;
-  height: 20px;
-  align-items: center;
-  box-sizing: border-box;
-  padding: 0 7px;
-  color:
-    color-mix(
-      in srgb,
-      var(--footnote-accent) 82%,
-      var(--footnote-text)
-    );
-  font-size: 10px;
-  font-weight: 800;
-  line-height: 1;
-  background: var(--footnote-active);
-  border:
-    1px solid
-    color-mix(
-      in srgb,
-      var(--footnote-accent) 16%,
-      var(--footnote-border)
-    );
-  border-radius: 999px;
+  margin-bottom: 7px;
 }
 
 .wiki-footnote-tooltip-label {
@@ -393,35 +366,6 @@
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 8px;
-}
-
-.wiki-footnote-modal-type {
-  display: inline-flex;
-  height: 22px;
-  align-items: center;
-  box-sizing: border-box;
-  padding: 0 8px;
-  color:
-    var(
-      --wiki-chrome-accent-strong,
-      #327b42
-    );
-  font-size: 10px;
-  font-weight: 800;
-  line-height: 1;
-  background:
-    var(
-      --wiki-chrome-active,
-      #e9f5e4
-    );
-  border:
-    1px solid
-    var(
-      --wiki-chrome-border,
-      var(--border)
-    );
-  border-radius: 999px;
 }
 
 .wiki-footnote-modal-title strong {

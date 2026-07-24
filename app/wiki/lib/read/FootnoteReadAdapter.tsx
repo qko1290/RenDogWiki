@@ -408,10 +408,6 @@ export default function FootnoteReadAdapter({
             style={desktopTooltipStyle}
           >
             <div className="wiki-footnote-tooltip-head">
-              <span className="wiki-footnote-tooltip-type">
-                각주
-              </span>
-
               <strong className="wiki-footnote-tooltip-label">
                 [{label}]
               </strong>
@@ -453,10 +449,6 @@ export default function FootnoteReadAdapter({
             >
               <div className="wiki-footnote-modal-head">
                 <div className="wiki-footnote-modal-title">
-                  <span className="wiki-footnote-modal-type">
-                    각주
-                  </span>
-
                   <strong>
                     [{label}]
                   </strong>
