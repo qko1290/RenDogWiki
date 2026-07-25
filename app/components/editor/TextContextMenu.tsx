@@ -418,9 +418,13 @@ export default function TextContextMenu({ editor }: Props) {
       const dividerElement = targetElement?.closest<HTMLElement>(
         '.wiki-divider-edit',
       );
+      const infoBoxElement = targetElement?.closest<HTMLElement>(
+        '[data-info-box-mode="edit"]',
+      );
 
       if (
         dividerElement ||
+        infoBoxElement ||
         linkBlockElement ||
         (linkElement &&
           isSelectionInsideSlateElement(editor, safeSelection, linkElement)) ||

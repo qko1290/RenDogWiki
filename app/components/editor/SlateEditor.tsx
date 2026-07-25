@@ -31,6 +31,7 @@ import HeadingContextMenu from './HeadingContextMenu';
 import LinkContextMenu from './LinkContextMenu';
 import LinkBlockContextMenu from './LinkBlockContextMenu';
 import DividerContextMenu from './DividerContextMenu';
+import InfoBoxContextMenu from './InfoBoxContextMenu';
 import type { WikiRefKind } from './render/types';
 import { toProxyUrl } from '@lib/cdn';
 import { getDragRect } from './helpers/tableDrag';
@@ -1561,6 +1562,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
         />
       )}
       
+      <InfoBoxContextMenu editor={editor} />
       <DividerContextMenu editor={editor} />
       <LinkBlockContextMenu editor={editor} />
       <TableContextMenu editor={editor} />

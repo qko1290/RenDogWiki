@@ -839,7 +839,7 @@
   background: var(--editor-danger-soft);
 }
 
-/* ===== 링크 / 구분선 우클릭 메뉴 ===== */
+/* ===== 링크 / 구분선 / 정보박스 우클릭 메뉴 ===== */
 
 .wiki-divider-edit {
   position: relative;
@@ -855,7 +855,9 @@
 }
 
 .editor-link-context-menu,
-.editor-divider-context-menu {
+.editor-divider-context-menu,
+.editor-info-box-context-menu,
+.editor-info-box-context-submenu {
   position: fixed;
   z-index: 100002;
   width: 224px;
@@ -869,13 +871,27 @@
   box-shadow: var(--editor-shadow);
 }
 
-.editor-link-context-divider {
+.editor-info-box-context-menu,
+.editor-info-box-context-submenu {
+  z-index: 100003;
+}
+
+.editor-info-box-context-submenu {
+  width: 168px;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+}
+
+.editor-link-context-divider,
+.editor-info-box-context-divider {
   margin: 5px 4px;
   border-top: 1px solid var(--editor-border);
 }
 
 .editor-link-context-item,
-.editor-divider-context-item {
+.editor-divider-context-item,
+.editor-info-box-context-item,
+.editor-info-box-context-type {
   width: 100%;
   min-height: 34px;
   padding: 7px 9px;
@@ -894,21 +910,49 @@
 .editor-link-context-item:hover,
 .editor-link-context-item:focus-visible,
 .editor-divider-context-item:hover,
-.editor-divider-context-item:focus-visible {
+.editor-divider-context-item:focus-visible,
+.editor-info-box-context-item:hover,
+.editor-info-box-context-item:focus-visible,
+.editor-info-box-context-type:hover,
+.editor-info-box-context-type:focus-visible {
   background: var(--editor-accent-softer);
   outline: none;
 }
 
 .editor-link-context-item.is-danger,
-.editor-divider-context-item.is-danger {
+.editor-divider-context-item.is-danger,
+.editor-info-box-context-item.is-danger {
   color: var(--editor-danger);
 }
 
 .editor-link-context-item.is-danger:hover,
 .editor-link-context-item.is-danger:focus-visible,
 .editor-divider-context-item.is-danger:hover,
-.editor-divider-context-item.is-danger:focus-visible {
+.editor-divider-context-item.is-danger:focus-visible,
+.editor-info-box-context-item.is-danger:hover,
+.editor-info-box-context-item.is-danger:focus-visible {
   background: var(--editor-danger-soft);
+}
+
+.editor-info-box-context-item,
+.editor-info-box-context-type {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.editor-info-box-context-arrow {
+  color: var(--editor-muted);
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.editor-info-box-context-type.is-active {
+  color: var(--editor-accent-strong);
+  font-weight: 750;
+  background: var(--editor-accent-soft);
 }
 
 /* ===== 공통 모달을 에디터 톤에 맞춤 ===== */
