@@ -238,27 +238,13 @@
   background:
     linear-gradient(
       135deg,
-      color-mix(
-        in srgb,
-        var(--wiki-chrome-panel) 96%,
-        #15372f
-      ) 0%,
-      color-mix(
-        in srgb,
-        var(--wiki-chrome-panel-soft) 96%,
-        #123044
-      ) 100%
+      var(--wiki-chrome-panel, rgba(15, 27, 43, 0.92)) 0%,
+      var(--wiki-chrome-panel-soft, rgba(18, 33, 47, 0.9)) 100%
     ) !important;
-  border-color:
-    color-mix(
-      in srgb,
-      var(--wiki-chrome-border) 86%,
-      var(--wiki-chrome-accent) 14%
-    ) !important;
+  border-color: rgba(128, 202, 143, 0.1) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.025),
-    0 2px 7px rgba(0, 0, 0, 0.15),
-    0 12px 28px rgba(0, 0, 0, 0.22) !important;
+    0 2px 6px rgba(0, 0, 0, 0.07),
+    0 10px 24px rgba(0, 0, 0, 0.12) !important;
 }
 
 :root[data-theme='dark']
@@ -278,12 +264,8 @@
   background:
     linear-gradient(
       90deg,
-      var(--wiki-chrome-accent),
-      color-mix(
-        in srgb,
-        var(--wiki-chrome-accent) 14%,
-        transparent
-      )
+      rgba(115, 190, 130, 0.72),
+      rgba(115, 190, 130, 0.1)
     ) !important;
 }
 
@@ -298,26 +280,11 @@
   background:
     linear-gradient(
       145deg,
-      color-mix(
-        in srgb,
-        var(--wiki-chrome-active) 72%,
-        var(--wiki-chrome-panel)
-      ),
-      color-mix(
-        in srgb,
-        var(--wiki-chrome-hover) 48%,
-        var(--wiki-chrome-panel-soft)
-      )
+      var(--wiki-chrome-active, rgba(61, 111, 70, 0.24)),
+      var(--wiki-chrome-hover, rgba(35, 64, 45, 0.28))
     ) !important;
-  border-color:
-    color-mix(
-      in srgb,
-      var(--wiki-chrome-border) 82%,
-      var(--wiki-chrome-accent) 18%
-    ) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 4px 10px rgba(0, 0, 0, 0.18) !important;
+  border-color: rgba(128, 202, 143, 0.1) !important;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12) !important;
 }
 
 :root[data-theme='dark']
