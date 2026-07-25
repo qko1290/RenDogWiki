@@ -316,6 +316,7 @@ export default function LinkCardRenderer({
     <div
       {...restAttributes}
       data-wiki-block="link-block"
+      data-wiki-mode={mode}
       data-wiki-link-kind={isWikiLink ? 'internal' : 'external'}
       className={[
         'wiki-link-card-renderer',

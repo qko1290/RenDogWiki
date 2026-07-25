@@ -27,6 +27,10 @@ type LinkInputModalProps = {
 
 // http/https 만 허용하는 간단한 검사(브라우저의 type="url"과 병행)
 const isHttpUrl = (s: string) => /^https?:\/\//i.test(s.trim());
+const isEditableLinkUrl = (s: string) => {
+  const value = s.trim();
+  return isHttpUrl(value) || /^\/wiki(?:[/?#]|$)/i.test(value);
+};
 
 export default function LinkInputModal({
   open,
@@ -59,7 +63,11 @@ export default function LinkInputModal({
   const isEditMode = mode === 'edit';
 
   // URL 유효성
-  const valid1 = urls[0].trim() ? isHttpUrl(urls[0]) : false;
+  const valid1 = urls[0].trim()
+    ? isEditMode
+      ? isEditableLinkUrl(urls[0])
+      : isHttpUrl(urls[0])
+    : false;
   const valid2 = dualMode ? (urls[1].trim() ? isHttpUrl(urls[1]) : false) : true;
 
   const canSubmit =
@@ -69,7 +77,11 @@ export default function LinkInputModal({
   const handleSubmit = () => {
     if (!canSubmit) {
       setErrors({
-        first: !valid1 ? 'http(s)로 시작하는 올바른 URL을 입력하세요.' : undefined,
+        first: !valid1
+          ? isEditMode
+            ? 'http(s) 주소 또는 /wiki 내부 주소를 입력하세요.'
+            : 'http(s)로 시작하는 올바른 URL을 입력하세요.'
+          : undefined,
         second: dualMode && !valid2 ? 'http(s)로 시작하는 올바른 URL을 입력하세요.' : undefined,
       });
       return;

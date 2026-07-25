@@ -406,6 +406,9 @@ export default function TextContextMenu({ editor }: Props) {
       }
 
       const safeSelection = cloneRange(Editor.unhangRange(editor, selection));
+      const linkBlockElement = targetElement?.closest<HTMLElement>(
+        '[data-wiki-block="link-block"][data-wiki-mode="edit"]',
+      );
       const linkElement = targetElement?.closest<HTMLElement>(
         '[data-wiki-inline="link"][data-wiki-mode="edit"]',
       );
@@ -414,6 +417,7 @@ export default function TextContextMenu({ editor }: Props) {
       );
 
       if (
+        linkBlockElement ||
         (linkElement &&
           isSelectionInsideSlateElement(editor, safeSelection, linkElement)) ||
         (headingElement &&

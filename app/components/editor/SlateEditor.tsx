@@ -29,6 +29,7 @@ import TableContextMenu from './TableContextMenu';
 import TextContextMenu from './TextContextMenu';
 import HeadingContextMenu from './HeadingContextMenu';
 import LinkContextMenu from './LinkContextMenu';
+import LinkBlockContextMenu from './LinkBlockContextMenu';
 import type { WikiRefKind } from './render/types';
 import { toProxyUrl } from '@lib/cdn';
 import { getDragRect } from './helpers/tableDrag';
@@ -1539,6 +1540,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
         />
       )}
       
+      <LinkBlockContextMenu editor={editor} />
       <TableContextMenu editor={editor} />
       <TextContextMenu editor={editor} />
       <HeadingContextMenu editor={editor} />

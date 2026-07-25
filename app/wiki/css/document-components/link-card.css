@@ -12,6 +12,12 @@
   max-width: calc(50% - 6px);
 }
 
+.wiki-link-card-renderer-in-row:only-child {
+  flex-basis: 100%;
+  width: 100%;
+  max-width: 100%;
+}
+
 .wiki-link-card-renderer-anchor,
 .wiki-link-card-renderer-edit-area,
 .wiki-link-card-anchor {
