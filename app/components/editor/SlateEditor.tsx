@@ -27,6 +27,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faImage } from '@fortawesome/free-solid-svg-icons';
 import TableContextMenu from './TableContextMenu';
 import TextContextMenu from './TextContextMenu';
+import HeadingContextMenu from './HeadingContextMenu';
 import type { WikiRefKind } from './render/types';
 import { toProxyUrl } from '@lib/cdn';
 import { getDragRect } from './helpers/tableDrag';
@@ -1500,6 +1501,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       
       <TableContextMenu editor={editor} />
       <TextContextMenu editor={editor} />
+      <HeadingContextMenu editor={editor} />
     </>
   );
 }

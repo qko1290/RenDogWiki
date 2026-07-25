@@ -374,6 +374,15 @@ export default function TextContextMenu({ editor }: Props) {
         return;
       }
 
+      if (
+        targetElement?.closest(
+          '[data-rdwiki-heading="true"][data-wiki-mode="edit"]',
+        )
+      ) {
+        setMenu(null);
+        return;
+      }
+
       const { selection } = editor;
       if (
         !selection ||

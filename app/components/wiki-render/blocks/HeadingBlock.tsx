@@ -86,6 +86,7 @@ function HeadingIcon({
     event: React.MouseEvent<HTMLSpanElement>,
   ) => {
     if (!canEditIcon || !onIconClick) return;
+    if (event.button !== 0) return;
 
     event.preventDefault();
     event.stopPropagation();
