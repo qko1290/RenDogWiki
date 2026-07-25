@@ -83,8 +83,8 @@ const VOID_BLOCK_TYPES = new Set([
   'qna-embed',
 ]);
 
-// weapon-card / price-table-card 내부에서 Enter 눌렀을 때
-// 블럭이 복사되지 않고, 블럭 뒤에 새 paragraph 를 만들도록 하는 플러그인
+// 특수 카드 내부에서 Enter를 눌렀을 때 블럭이 복제되지 않고,
+// 블럭 또는 카드 행 뒤에 새 paragraph를 만들도록 하는 플러그인
 function withWeaponBlocks(editor: Editor): Editor {
   const e = editor;
   const { insertBreak } = e;
@@ -97,22 +97,42 @@ function withWeaponBlocks(editor: Editor): Editor {
       return insertBreak();
     }
 
-    // 커서가 weapon-card / price-table-card 안에 있는지 확인
+    // 커서가 줄바꿈으로 분리되면 안 되는 카드 안에 있는지 확인
     const [match] = Editor.nodes(e, {
       match: (n) =>
         SlateElement.isElement(n) &&
         ((n as any).type === 'weapon-card' ||
           (n as any).type === 'price-table-card' ||
-          (n as any).type === 'quest-embed' ||   // ✅
-          (n as any).type === 'npc-embed' ||     // ✅
-          (n as any).type === 'qna-embed'),
+          (n as any).type === 'quest-embed' ||
+          (n as any).type === 'npc-embed' ||
+          (n as any).type === 'qna-embed' ||
+          (n as any).type === 'link-block'),
     });
 
     if (match) {
-      const [, path] = match;
+      const [matchedNode, path] = match;
+      let containerPath = path;
 
-      // 카드 바로 뒤 위치
-      const insertPath = Path.next(path);
+      // 두 링크 카드가 link-block-row 안에 있으면 카드 사이가 아니라
+      // 행 전체의 다음 위치에 일반 문단을 만든다.
+      if ((matchedNode as any).type === 'link-block' && path.length > 1) {
+        const parentPath = Path.parent(path);
+
+        try {
+          const parentNode = Node.get(e, parentPath);
+
+          if (
+            SlateElement.isElement(parentNode) &&
+            (parentNode as any).type === 'link-block-row'
+          ) {
+            containerPath = parentPath;
+          }
+        } catch {
+          // 부모 경로를 확인할 수 없으면 현재 카드 뒤에 삽입한다.
+        }
+      }
+
+      const insertPath = Path.next(containerPath);
 
       // 새 paragraph 블럭 하나 삽입
       const paragraph: Node = {
