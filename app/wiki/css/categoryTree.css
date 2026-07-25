@@ -11,7 +11,6 @@
  * - 하위 카테고리와 문서
  * - 활성/hover 상태
  * - 라이트/다크 모드
- * - 문서 선택 시 가로 흔들림 방지
  *
  * CategoryTree.tsx의 구조와 동작은 변경하지 않는다.
  * ============================================= */
@@ -94,18 +93,26 @@
     );
   box-shadow:
     var(--category-home-shadow);
-  overflow-x: hidden;
-  overflow-y: scroll;
-  scrollbar-gutter: stable;
   scrollbar-width: thin;
   scrollbar-color:
     rgba(79, 143, 88, 0.28)
     transparent;
 }
 
+/*
+ * 데스크톱 카테고리 패널의 스크롤 기능은 유지하되,
+ * 문서 영역과 나란히 보이던 별도 스크롤바만 숨긴다.
+ */
+.wiki-sidebar .wiki-nav-scroll {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 .wiki-sidebar
 .wiki-nav-scroll::-webkit-scrollbar {
-  width: 7px;
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .wiki-sidebar
@@ -174,7 +181,8 @@
     border-color 0.16s ease,
     background-color 0.16s ease,
     box-shadow 0.16s ease,
-    color 0.16s ease;
+    color 0.16s ease,
+    transform 0.16s ease;
 }
 
 .wiki-sidebar
@@ -191,6 +199,8 @@
     var(
       --category-home-accent-strong
     ) !important;
+  transform:
+    translateY(-1px);
 }
 
 .wiki-sidebar
@@ -265,8 +275,6 @@
 .wiki-category-main {
   display: flex;
   align-items: center;
-  flex: 1 1 auto;
-  width: 0;
   min-width: 0;
 }
 
@@ -290,7 +298,9 @@
   border-radius: 12px;
   background:
     var(--category-home-icon-bg);
-  box-shadow: none;
+  box-shadow:
+    inset 0 1px 0
+    rgba(255, 255, 255, 0.82);
 }
 
 .wiki-sidebar
@@ -340,7 +350,7 @@
     30px;
   width: 30px;
   height: 30px;
-  margin-left: auto;
+  margin-left: 6px;
   border:
     1px solid transparent;
   border-radius: 10px;
@@ -493,11 +503,12 @@
   color:
     #303b33 !important;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 650;
   transition:
     border-color 0.15s ease,
     background-color 0.15s ease,
-    color 0.15s ease;
+    color 0.15s ease,
+    transform 0.15s ease;
 }
 
 .wiki-sidebar
@@ -510,6 +521,8 @@
     var(
       --category-home-accent-strong
     ) !important;
+  transform:
+    translateX(2px);
 }
 
 .wiki-sidebar
@@ -527,7 +540,7 @@
     var(
       --category-home-accent-strong
     ) !important;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .wiki-sidebar
@@ -641,7 +654,9 @@
     var(
       --category-home-icon-bg
     );
-  box-shadow: none;
+  box-shadow:
+    inset 0 1px 0
+    rgba(255, 255, 255, 0.035);
 }
 
 :root[data-theme='dark']
@@ -690,21 +705,6 @@
 .wiki-cat-icon-token {
   background:
     rgba(34, 62, 42, 0.4);
-}
-
-:root[data-theme='dark']
-.wiki-sidebar
-.wiki-nav-item:hover
-.wiki-category-arrow {
-  border-color:
-    rgba(135, 205, 148, 0.23);
-  background:
-    rgba(52, 91, 61, 0.56);
-  box-shadow: none;
-  color:
-    var(
-      --category-home-accent-strong
-    );
 }
 
 :root[data-theme='dark']
