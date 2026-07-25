@@ -841,6 +841,19 @@
 
 /* ===== 링크 / 구분선 우클릭 메뉴 ===== */
 
+.wiki-divider-edit {
+  position: relative;
+  cursor: context-menu;
+}
+
+.wiki-divider-edit::before {
+  content: '';
+  position: absolute;
+  inset: -14px 0;
+  background: transparent;
+  cursor: context-menu;
+}
+
 .editor-link-context-menu,
 .editor-divider-context-menu {
   position: fixed;
