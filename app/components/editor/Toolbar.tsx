@@ -42,6 +42,7 @@ import { insertTable } from './helpers/insertTable';
 
 type ToolbarProps = {
   selectionRef: React.MutableRefObject<Range | null>;
+  openInlineImageModalRef: React.MutableRefObject<(() => void) | null>;
 };
 
 const FONT_SIZES = ['11px', '13px', '15px', '16px', '19px', '24px', '28px', '30px', '34px', '38px'];
@@ -125,7 +126,10 @@ const insertVideoNode = (editor: any, url: string) => {
   } catch {}
 };
 
-export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
+export const Toolbar: React.FC<ToolbarProps> = ({
+  selectionRef,
+  openInlineImageModalRef,
+}) => {
   const editor = useSlate();
 
   // ===== 상태 =====
@@ -157,6 +161,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({ selectionRef }) => {
 
   const [tablePickerOpen, setTablePickerOpen] = useState(false);
   const tableBtnRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    openInlineImageModalRef.current = () => setInlineImgModalOpen(true);
+
+    return () => {
+      openInlineImageModalRef.current = null;
+    };
+  }, [openInlineImageModalRef]);
 
   // ===== 유틸: 모두 닫기 =====
   const closeAllDropdowns = () => {
