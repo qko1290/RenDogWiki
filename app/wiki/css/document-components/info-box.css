@@ -198,6 +198,80 @@
     0 7px 18px rgba(0, 0, 0, 0.11);
 }
 
+:root[data-theme='dark']
+.info-box--info,
+.dark
+.info-box--info {
+  --info-box-accent: #76ace6;
+  --info-box-border: rgba(118, 172, 230, 0.28);
+  --info-box-background: rgba(24, 55, 82, 0.72);
+}
+
+:root[data-theme='dark']
+.info-box--warning,
+.dark
+.info-box--warning {
+  --info-box-accent: #dfaa52;
+  --info-box-border: rgba(223, 170, 82, 0.3);
+  --info-box-background: rgba(73, 55, 23, 0.7);
+}
+
+:root[data-theme='dark']
+.info-box--danger,
+:root[data-theme='dark']
+.info-box--red,
+.dark
+.info-box--danger,
+.dark
+.info-box--red {
+  --info-box-accent: #e17b7b;
+  --info-box-border: rgba(225, 123, 123, 0.28);
+  --info-box-background: rgba(74, 32, 39, 0.7);
+}
+
+:root[data-theme='dark']
+.info-box--tip,
+:root[data-theme='dark']
+.info-box--lime,
+.dark
+.info-box--tip,
+.dark
+.info-box--lime {
+  --info-box-accent: #7bc98a;
+  --info-box-border: rgba(123, 201, 138, 0.28);
+  --info-box-background: rgba(28, 65, 42, 0.7);
+}
+
+:root[data-theme='dark']
+.info-box--white,
+.dark
+.info-box--white {
+  --info-box-accent:
+    var(--wiki-chrome-muted, #9dafb3);
+  --info-box-border:
+    var(--wiki-chrome-border, var(--border));
+  --info-box-background:
+    var(--wiki-chrome-panel, var(--surface-elevated));
+}
+
+:root[data-theme='dark']
+.info-box--yellow,
+.dark
+.info-box--yellow {
+  --info-box-accent: #d8b653;
+  --info-box-border: rgba(216, 182, 83, 0.28);
+  --info-box-background: rgba(69, 59, 24, 0.7);
+}
+
+:root[data-theme='dark']
+.info-box--pink,
+.dark
+.info-box--pink {
+  --info-box-accent: #dc8aac;
+  --info-box-border: rgba(220, 138, 172, 0.27);
+  --info-box-background: rgba(72, 35, 55, 0.7);
+}
+
 @media (max-width: 768px) {
   .info-box {
     gap: 9px;

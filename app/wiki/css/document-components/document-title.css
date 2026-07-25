@@ -230,6 +230,100 @@
   outline-offset: 1px;
 }
 
+/* ===== 다크 모드 ===== */
+:root[data-theme='dark']
+  :is(#rdwiki-page, #wiki-scroll-root)
+  .wiki-content-title.wiki-content-title-row {
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(
+        in srgb,
+        var(--wiki-chrome-panel) 96%,
+        #15372f
+      ) 0%,
+      color-mix(
+        in srgb,
+        var(--wiki-chrome-panel-soft) 96%,
+        #123044
+      ) 100%
+    ) !important;
+  border-color:
+    color-mix(
+      in srgb,
+      var(--wiki-chrome-border) 86%,
+      var(--wiki-chrome-accent) 14%
+    ) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.025),
+    0 2px 7px rgba(0, 0, 0, 0.15),
+    0 12px 28px rgba(0, 0, 0, 0.22) !important;
+}
+
+:root[data-theme='dark']
+  :is(#rdwiki-page, #wiki-scroll-root)
+  .wiki-content-title.wiki-content-title-row::after {
+  background:
+    linear-gradient(
+      90deg,
+      var(--wiki-chrome-accent),
+      color-mix(
+        in srgb,
+        var(--wiki-chrome-accent) 14%,
+        transparent
+      )
+    ) !important;
+}
+
+:root[data-theme='dark']
+  :is(#rdwiki-page, #wiki-scroll-root)
+  .wiki-content-title-row
+  .wiki-doc-icon-img,
+:root[data-theme='dark']
+  :is(#rdwiki-page, #wiki-scroll-root)
+  .wiki-content-title-row
+  .wiki-doc-icon-emoji {
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(
+        in srgb,
+        var(--wiki-chrome-active) 72%,
+        var(--wiki-chrome-panel)
+      ),
+      color-mix(
+        in srgb,
+        var(--wiki-chrome-hover) 48%,
+        var(--wiki-chrome-panel-soft)
+      )
+    ) !important;
+  border-color:
+    color-mix(
+      in srgb,
+      var(--wiki-chrome-border) 82%,
+      var(--wiki-chrome-accent) 18%
+    ) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 4px 10px rgba(0, 0, 0, 0.18) !important;
+}
+
+:root[data-theme='dark']
+  :is(#rdwiki-page, #wiki-scroll-root)
+  .wiki-content-title.wiki-content-title-row
+  > button:focus-visible,
+:root[data-theme='dark']
+  :is(#rdwiki-page, #wiki-scroll-root)
+  .wiki-content-title.wiki-content-title-row
+  > [role='button']:focus-visible {
+  outline-color:
+    color-mix(
+      in srgb,
+      var(--wiki-chrome-accent) 28%,
+      transparent
+    ) !important;
+}
+
 /* ===== 모바일 ===== */
 @media (max-width: 768px) {
   :is(#rdwiki-page, #wiki-scroll-root)

@@ -1461,6 +1461,106 @@
     );
 }
 
+:root[
+  data-theme='dark'
+]
+.npc-name,
+.dark
+.npc-name {
+  color:
+    color-mix(
+      in srgb,
+      var(
+        --quest-village-border
+      ) 24%,
+      var(
+        --quest-grid-text
+      )
+    );
+  text-shadow:
+    0 1px 1px
+    rgba(0, 0, 0, 0.38);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(
+        in srgb,
+        var(
+          --quest-village-border
+        ) 10%,
+        var(
+          --quest-grid-panel
+        )
+      ),
+      color-mix(
+        in srgb,
+        var(
+          --quest-village-border
+        ) 5%,
+        color-mix(
+          in srgb,
+          var(
+            --quest-grid-panel
+          ) 94%,
+          black
+        )
+      )
+    );
+  border-color:
+    color-mix(
+      in srgb,
+      var(
+        --quest-village-border
+      ) 31%,
+      var(
+        --quest-grid-border
+      )
+    );
+  box-shadow:
+    inset 0 1px 0
+    rgba(255, 255, 255, 0.045),
+    0 2px 7px
+    rgba(0, 0, 0, 0.2);
+}
+
+:root[
+  data-theme='dark'
+]
+.npc-card:hover
+.npc-name,
+:root[
+  data-theme='dark'
+]
+.npc-card.is-selected
+.npc-name,
+.dark
+.npc-card:hover
+.npc-name,
+.dark
+.npc-card.is-selected
+.npc-name {
+  color:
+    color-mix(
+      in srgb,
+      var(
+        --quest-village-border
+      ) 38%,
+      var(
+        --quest-grid-text
+      )
+    );
+  border-color:
+    color-mix(
+      in srgb,
+      var(
+        --quest-village-border
+      ) 48%,
+      var(
+        --quest-grid-border
+      )
+    );
+}
+
 /* ===== 반응형 ===== */
 
 @media (

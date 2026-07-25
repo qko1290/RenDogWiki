@@ -1321,8 +1321,70 @@ h3 {
       )
     ) !important;
   box-shadow:
+    inset 0 1px 0
+    rgba(255, 255, 255, 0.02),
     0 8px 19px
     rgba(0, 0, 0, 0.17) !important;
+}
+
+:is(
+  :root[data-theme='dark'],
+  body[data-theme='dark'],
+  html.dark,
+  body.dark
+)
+.wiki-content-body
+.faq-list-card
+.faq-row::after {
+  border-color:
+    color-mix(
+      in srgb,
+      var(
+        --faq-accent
+      ) 13%,
+      transparent
+    );
+}
+
+:is(
+  :root[data-theme='dark'],
+  body[data-theme='dark'],
+  html.dark,
+  body.dark
+)
+.wiki-content-body
+.faq-list-card
+.faq-row:hover {
+  background:
+    radial-gradient(
+      circle at 0% 50%,
+      rgba(77, 155, 92, 0.18),
+      transparent 40%
+    ),
+    color-mix(
+      in srgb,
+      var(
+        --faq-hover
+      ) 44%,
+      var(
+        --surface-elevated
+      )
+    ) !important;
+  border-color:
+    color-mix(
+      in srgb,
+      var(
+        --faq-accent
+      ) 38%,
+      var(
+        --border
+      )
+    ) !important;
+  box-shadow:
+    inset 0 1px 0
+    rgba(255, 255, 255, 0.025),
+    0 11px 23px
+    rgba(0, 0, 0, 0.22) !important;
 }
 
 :is(
