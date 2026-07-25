@@ -1956,6 +1956,13 @@ export default function SearchBox({
               className="search-faq-modal-backdrop"
               role="presentation"
               onMouseDown={(event) => {
+                /*
+                 * 백드롭 클릭은 FAQ 모달만 닫는다.
+                 * 이벤트가 document의 검색창 외부 클릭 감지까지 전달되면
+                 * 유지 중인 검색 결과도 함께 닫히므로 여기서 전파를 막는다.
+                 */
+                event.stopPropagation();
+
                 if (
                   event.target ===
                   event.currentTarget
