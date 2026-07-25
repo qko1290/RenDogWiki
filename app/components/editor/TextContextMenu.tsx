@@ -112,6 +112,38 @@ function isSelectionInsideSlateElement(
   }
 }
 
+function isSlateElementIncludedInSelection(
+  editor: Editor,
+  selection: BaseRange,
+  element: HTMLElement,
+) {
+  try {
+    const node =
+      ReactEditor.toSlateNode(
+        editor,
+        element,
+      );
+    if (!SlateElement.isElement(node)) {
+      return false;
+    }
+
+    const path =
+      ReactEditor.findPath(
+        editor,
+        node,
+      );
+    const point =
+      Editor.start(editor, path);
+
+    return SlateRange.includes(
+      selection,
+      point,
+    );
+  } catch {
+    return false;
+  }
+}
+
 function getCaretPointAt(
   documentRef: Document,
   x: number,
@@ -395,17 +427,40 @@ export default function TextContextMenu({ editor }: Props) {
       }
 
       const { selection } = editor;
+      const inlineImageElement =
+        targetElement?.closest<HTMLElement>(
+          '[data-wiki-inline="inline-image"][data-wiki-mode="edit"]',
+        );
       if (
         !selection ||
         !SlateRange.isExpanded(selection) ||
-        !ReactEditor.hasEditableTarget(editor, event.target) ||
-        !isContextPointInsideDomSelection(event)
+        (!ReactEditor.hasEditableTarget(
+          editor,
+          event.target,
+        ) &&
+          !inlineImageElement)
       ) {
         setMenu(null);
         return;
       }
 
       const safeSelection = cloneRange(Editor.unhangRange(editor, selection));
+      const inlineImageIsSelected =
+        !!inlineImageElement &&
+        isSlateElementIncludedInSelection(
+          editor,
+          safeSelection,
+          inlineImageElement,
+        );
+
+      if (
+        !isContextPointInsideDomSelection(event) &&
+        !inlineImageIsSelected
+      ) {
+        setMenu(null);
+        return;
+      }
+
       const linkBlockElement = targetElement?.closest<HTMLElement>(
         '[data-wiki-block="link-block"][data-wiki-mode="edit"]',
       );

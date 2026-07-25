@@ -7,9 +7,99 @@
 // 사용처: 에디터 툴바/컨텍스트 메뉴의 "이미지" 삽입 액션
 // =============================================
 
-import { Editor, Transforms, Range, Element as SlateElement, Path } from 'slate';
+import {
+  Editor,
+  Transforms,
+  Range,
+  Element as SlateElement,
+  Path,
+  type PathRef,
+} from 'slate';
 import { ReactEditor } from 'slate-react';
 import type { ImageElement, ParagraphElement } from '@/types/slate';
+
+const DEFAULT_IMAGE_WIDTH = 650;
+
+function updateHeightFromNaturalRatio(
+  editor: Editor,
+  url: string,
+  imagePathRef: PathRef,
+) {
+  if (
+    typeof window === 'undefined' ||
+    !url.trim()
+  ) {
+    imagePathRef.unref();
+    return;
+  }
+
+  const probe = new window.Image();
+
+  const release = () => {
+    probe.onload = null;
+    probe.onerror = null;
+    imagePathRef.unref();
+  };
+
+  probe.onload = () => {
+    const naturalWidth =
+      probe.naturalWidth;
+    const naturalHeight =
+      probe.naturalHeight;
+    const imagePath =
+      imagePathRef.current;
+
+    if (
+      !imagePath ||
+      naturalWidth <= 0 ||
+      naturalHeight <= 0
+    ) {
+      release();
+      return;
+    }
+
+    try {
+      const node =
+        Editor.node(
+          editor,
+          imagePath,
+        )[0] as ImageElement;
+
+      if (
+        node.type !== 'image' ||
+        node.width !==
+          DEFAULT_IMAGE_WIDTH ||
+        typeof node.height ===
+          'number'
+      ) {
+        release();
+        return;
+      }
+
+      const height = Math.max(
+        1,
+        Math.round(
+          DEFAULT_IMAGE_WIDTH *
+            (naturalHeight /
+              naturalWidth),
+        ),
+      );
+
+      Transforms.setNodes(
+        editor,
+        { height },
+        { at: imagePath },
+      );
+    } catch {
+      // 이미지가 삭제되거나 경로가 바뀐 경우는 조용히 종료한다.
+    } finally {
+      release();
+    }
+  };
+
+  probe.onerror = release;
+  probe.src = url;
+}
 
 /**
  * insertImage
@@ -21,6 +111,7 @@ export function insertImage(editor: Editor, url: string) {
   const imageNode: ImageElement = {
     type: 'image',
     url,
+    width: DEFAULT_IMAGE_WIDTH,
     children: [{ text: '' }],
   };
 
@@ -39,6 +130,11 @@ export function insertImage(editor: Editor, url: string) {
     const first = iter.next();
     if (!first.done) {
       const [, imagePath] = first.value;
+      const imagePathRef =
+        Editor.pathRef(
+          editor,
+          imagePath,
+        );
       const nextPath = Path.next(imagePath);
 
       const paragraphNode: ParagraphElement = {
@@ -55,6 +151,12 @@ export function insertImage(editor: Editor, url: string) {
 
       // React 환경에서 포커스 명확히 부여
       ReactEditor.focus(editor as any);
+
+      updateHeightFromNaturalRatio(
+        editor,
+        url,
+        imagePathRef,
+      );
     }
   }
 }
