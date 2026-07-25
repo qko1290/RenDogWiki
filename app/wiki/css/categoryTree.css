@@ -101,18 +101,28 @@
 
 /*
  * 데스크톱 카테고리 패널의 스크롤 기능은 유지하되,
- * 문서 영역과 나란히 보이던 별도 스크롤바만 숨긴다.
+ * 바깥 사이드바와 내부 트리의 스크롤바만 숨긴다.
+ *
+ * 실제 화면에서는 .wiki-nav-scroll이 아니라
+ * .wiki-sidebar가 스크롤 컨테이너가 될 수 있으므로
+ * 두 요소를 함께 처리한다.
  */
+.wiki-sidebar,
 .wiki-sidebar .wiki-nav-scroll {
   -ms-overflow-style: none;
-  scrollbar-width: none;
+  scrollbar-width: none !important;
 }
 
+.wiki-sidebar {
+  scrollbar-gutter: auto !important;
+}
+
+.wiki-sidebar::-webkit-scrollbar,
 .wiki-sidebar
 .wiki-nav-scroll::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 .wiki-sidebar
