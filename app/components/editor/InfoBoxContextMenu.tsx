@@ -5,6 +5,7 @@
  * 에디터 정보박스 컨텍스트 메뉴
  * - 정보박스 블록 전체를 Slate 속성과 내부 서식까지 포함해 복사
  * - 정보박스 내용은 유지한 채 종류와 아이콘 속성 변경
+ * - 정보박스 바로 다음 위치에 빈 일반 문단 생성
  * - 우클릭한 정보박스 블록 하나 삭제
  */
 
@@ -58,7 +59,7 @@ const INFO_BOX_TYPES: Array<{
 ];
 
 const MENU_WIDTH = 224;
-const MENU_HEIGHT = 132;
+const MENU_HEIGHT = 166;
 const TYPE_MENU_WIDTH = 168;
 const TYPE_MENU_HEIGHT = 284;
 const TYPE_MENU_GAP = 6;
@@ -712,6 +713,61 @@ export default function InfoBoxContextMenu({
     }
   };
 
+  const insertParagraphAfterInfoBox =
+    () => {
+      if (
+        !menu ||
+        !hasPath(menu.path)
+      ) {
+        setMenu(null);
+        setTypeMenuOpen(false);
+        return;
+      }
+
+      const targetPath = clonePath(
+        menu.path,
+      );
+
+      try {
+        const node = SlateNode.get(
+          editor,
+          targetPath,
+        );
+
+        if (!isInfoBoxElement(node)) {
+          return;
+        }
+
+        const insertPath =
+          Path.next(targetPath);
+
+        Transforms.insertNodes(
+          editor,
+          {
+            type: 'paragraph',
+            children: [{ text: '' }],
+          } as any,
+          { at: insertPath },
+        );
+        Transforms.select(
+          editor,
+          Editor.start(
+            editor,
+            insertPath,
+          ),
+        );
+        ReactEditor.focus(editor);
+      } catch (error) {
+        console.error(
+          '정보박스 다음 빈 문단 생성 실패',
+          error,
+        );
+      } finally {
+        setMenu(null);
+        setTypeMenuOpen(false);
+      }
+    };
+
   const deleteInfoBox = () => {
     if (
       !menu ||
@@ -841,6 +897,14 @@ export default function InfoBoxContextMenu({
           >
             ›
           </span>
+        </InfoBoxMenuItem>
+
+        <InfoBoxMenuItem
+          onClick={
+            insertParagraphAfterInfoBox
+          }
+        >
+          박스 다음에 빈 문단 생성
         </InfoBoxMenuItem>
 
         <div className="editor-info-box-context-divider" />
