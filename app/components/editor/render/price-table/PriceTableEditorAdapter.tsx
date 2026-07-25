@@ -127,27 +127,7 @@ export default function PriceTableEditorAdapter({
         event.stopPropagation();
         removeBlock();
       }}
-      style={{
-        background:
-          'var(--surface-elevated)',
-        color: '#d34b4b',
-        border:
-          '1.2px solid #e6b7b7',
-        borderRadius: '50%',
-        width: 26,
-        height: 26,
-        fontWeight: 900,
-        fontSize: 16,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        boxShadow:
-          'var(--shadow-sm)',
-        cursor: 'pointer',
-        transition:
-          'background .13s',
-        padding: 0,
-      }}
+      className="wiki-editor-floating-action wiki-editor-floating-action--small wiki-editor-floating-action--danger"
     >
       ×
     </button>

@@ -221,20 +221,13 @@ export default function TableContextMenu({ editor }: Props) {
   return (
     <div
       ref={boxRef}
+      className="editor-table-context-menu"
       style={{
         position: 'fixed',
         top: xy.y,
         left: xy.x,
         transform: 'translateY(-6px)',
-        background: '#fff',
-        border: '1px solid #e5e7eb',
-        borderRadius: 6,
-        boxShadow: '0 6px 18px rgba(0,0,0,.12)',
-        padding: 4,
         zIndex: 99999,
-        minWidth: 160,
-        maxWidth: 240,
-        fontSize: 13,
       }}
       role="menu"
       aria-label="표 메뉴"
@@ -320,14 +313,7 @@ export default function TableContextMenu({ editor }: Props) {
 }
 
 function MenuDivider() {
-  return (
-    <div
-      style={{
-        margin: '4px 4px',
-        borderTop: '1px solid #e5e7eb',
-      }}
-    />
-  );
+  return <div className="editor-table-context-divider" />;
 }
 
 function MenuItem({
@@ -341,28 +327,16 @@ function MenuItem({
   danger?: boolean;
   active?: boolean;
 }) {
-  const baseColor = danger ? '#e11d48' : active ? '#2563eb' : '#111827';
-
   return (
     <button
       type="button"
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
-      style={{
-        width: '100%',
-        textAlign: 'left',
-        padding: '6px 8px',
-        borderRadius: 6,
-        background: 'transparent',
-        border: 'none',
-        cursor: 'pointer',
-        color: baseColor,
-        fontWeight: active ? 600 : 400,
-        fontSize: 13,
-        lineHeight: 1.2,
-      }}
-      onMouseEnter={(e) => (e.currentTarget.style.background = '#f3f4f6')}
-      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+      className={[
+        'editor-table-context-item',
+        danger ? 'is-danger' : '',
+        active ? 'is-active' : '',
+      ].filter(Boolean).join(' ')}
       role="menuitem"
     >
       {children}

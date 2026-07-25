@@ -112,8 +112,13 @@ export default function LinkInputModal({
           className="rd-btn"
           style={{
             height: 36, minWidth: 72, borderRadius: 999,
-            background: !dualMode ? '#2563eb' : '#f3f4f6',
-            color: !dualMode ? '#fff' : '#475569',
+            background: !dualMode
+              ? 'var(--editor-accent)'
+              : 'var(--editor-panel-soft)',
+            color: !dualMode ? '#fff' : 'var(--editor-muted)',
+            border: !dualMode
+              ? '1px solid var(--editor-accent)'
+              : '1px solid var(--editor-border)',
             fontWeight: 800,
           }}
           aria-pressed={!dualMode}
@@ -125,14 +130,19 @@ export default function LinkInputModal({
           className="rd-btn"
           style={{
             height: 36, minWidth: 72, borderRadius: 999,
-            background: dualMode ? '#2563eb' : '#f3f4f6',
-            color: dualMode ? '#fff' : '#475569',
+            background: dualMode
+              ? 'var(--editor-accent)'
+              : 'var(--editor-panel-soft)',
+            color: dualMode ? '#fff' : 'var(--editor-muted)',
+            border: dualMode
+              ? '1px solid var(--editor-accent)'
+              : '1px solid var(--editor-border)',
             fontWeight: 800,
           }}
           aria-pressed={dualMode}
           aria-label="링크 2개 모드"
         >2개</button>
-        <div style={{ marginLeft: 'auto', color: '#6b7280', fontSize: 13 }}>
+        <div style={{ marginLeft: 'auto', color: 'var(--editor-muted)', fontSize: 13 }}>
           1개는 큰 카드, 2개는 두 칸 카드로 삽입됩니다.
         </div>
       </div>

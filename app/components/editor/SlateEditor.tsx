@@ -1322,11 +1322,10 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
             {/* 문서 아이콘 */}
             <div className="meta-field">
               <label className="meta-label">문서 아이콘</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div className="meta-icon-row">
                 <input
                   type="text"
-                  className="meta-input"
-                  style={{ flex: 1 }}
+                  className="meta-input meta-icon-input"
                   maxLength={100}
                   placeholder=""
                   value={doc.icon}
@@ -1335,8 +1334,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
                 <button
                   type="button"
                   onClick={() => setIconModalOpen(true)}
-                  className="editor-toolbar-btn-plain"
-                  style={{ padding: '6px 10px', borderRadius: 10 }}
+                  className="editor-toolbar-btn-plain meta-icon-action"
                   title="이미지 선택"
                 >
                   <FontAwesomeIcon icon={faImage} />
@@ -1346,7 +1344,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
                   isImageUrl(doc.icon) ? (
                     iconImgError ? (
                       // 이미지 로딩 실패 시: 텍스트로 fallback (깨진 아이콘 방지)
-                      <span style={{ fontSize: 34, lineHeight: 1 }}>🖼️</span>
+                      <span className="meta-icon-fallback">🖼️</span>
                     ) : (
                       <img
                         src={getIconSrc(doc.icon)}
@@ -1357,18 +1355,11 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
                         decoding="async"
                         draggable={false}
                         onError={() => setIconImgError(true)}
-                        style={{
-                          width: 36,
-                          height: 36,
-                          objectFit: 'cover',
-                          borderRadius: 8,
-                          background: 'transparent',
-                          border: '1px solid #e5e7eb',
-                        }}
+                        className="meta-icon-preview"
                       />
                     )
                   ) : (
-                    <span style={{ fontSize: 34, lineHeight: 1 }}>{doc.icon}</span>
+                    <span className="meta-icon-emoji">{doc.icon}</span>
                   )
                 )}
 
@@ -1385,8 +1376,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
                   <button
                     type="button"
                     onClick={() => setDoc(prev => ({ ...prev, icon: '' }))}
-                    className="editor-toolbar-btn-plain"
-                    style={{ padding: '6px 8px', borderRadius: 10 }}
+                    className="editor-toolbar-btn-plain meta-icon-action"
                     title="아이콘 삭제"
                   >
                     ×
@@ -1398,27 +1388,12 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
             {/* 저장 */}
             <button className="meta-save" onClick={handleSave}>저장</button>
 
-            <div
-              style={{
-                marginTop: 14,
-                padding: '10px 12px',
-                borderRadius: 14,
-                border: '1px solid #e5e7eb',
-                background: '#ffffff',
-              }}
-            >
-              <div
-                style={{
-                  marginBottom: 8,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: '#6b7280',
-                }}
-              >
+            <div className="meta-drafts">
+              <div className="meta-drafts-title">
                 자동 임시 저장
               </div>
 
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div className="meta-drafts-list">
                 {[1, 2, 3].map((slotNumber) => {
                   const slot = draftSlots.find((item) => item.slot === slotNumber);
                   const enabled = !!slot;
@@ -1430,18 +1405,10 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
                       onClick={() => handleRestoreDraftSlot(slotNumber)}
                       disabled={!enabled}
                       title={slot ? formatDraftSavedAt(slot.savedAt) : ''}
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 10,
-                        border: enabled ? '1px solid #86efac' : '1px solid #e5e7eb',
-                        background: enabled ? '#ecfdf5' : '#f9fafb',
-                        color: enabled ? '#047857' : '#cbd5e1',
-                        fontSize: 14,
-                        fontWeight: 800,
-                        cursor: enabled ? 'pointer' : 'default',
-                        transition: 'background 0.15s ease, border-color 0.15s ease, color 0.15s ease',
-                      }}
+                      className={[
+                        'meta-draft-slot',
+                        enabled ? 'is-active' : '',
+                      ].filter(Boolean).join(' ')}
                     >
                       {slotNumber}
                     </button>

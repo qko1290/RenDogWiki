@@ -118,14 +118,21 @@ export default function PriceTableEditModal({ open, item, onClose, onSave }: Pro
         </>
       }
     >
-      <div style={{ fontSize: 13, color: '#64748b', marginBottom: 12 }}>
+      <div style={{ fontSize: 13, color: 'var(--editor-muted)', marginBottom: 12 }}>
         형식은 카드의 아이템(mode)에 따라 자동으로 결정됩니다. (예: 각성=봉인~MAX, 초월=거가/거불)
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', rowGap: 12, columnGap: 12 }}>
         {stages.map((label, i) => (
           <React.Fragment key={`${label}-${i}`}>
-            <div style={{ display: 'flex', alignItems: 'center', color: '#1f2937', fontWeight: 900 }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                color: 'var(--editor-text)',
+                fontWeight: 900,
+              }}
+            >
               {label}
             </div>
             <input

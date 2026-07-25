@@ -197,10 +197,10 @@ const DropdownButton = ({
             top: 'calc(100% + 6px)',
             left: 0,
             minWidth: menuWidth,
-            background: '#fff',
-            border: '1px solid #e5e7eb',
+            background: 'var(--editor-panel-elevated)',
+            border: '1px solid var(--editor-border)',
             borderRadius: 10,
-            boxShadow: '0 8px 28px rgba(0,0,0,.12)',
+            boxShadow: 'var(--editor-shadow)',
             padding: 6,
             zIndex: 1000,
           }}
@@ -214,7 +214,9 @@ const DropdownButton = ({
               onMouseDown={() => handleSelect(itemLabel)}
               onKeyDown={onItemKeyDown}
               style={{ padding: '8px 12px', borderRadius: 8, cursor: 'pointer' }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = '#f3f4f6')}
+              onMouseEnter={(e) => (
+                e.currentTarget.style.background = 'var(--editor-accent-softer)'
+              )}
               onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >
               {itemLabel}
@@ -238,10 +240,10 @@ const DropdownButton = ({
             left: fixedPos.left,
             transform: fixedPos.alignRight ? 'translateX(-100%)' : undefined,
             minWidth: menuWidth,
-            background: '#fff',
-            border: '1px solid #e5e7eb',
+            background: 'var(--editor-panel-elevated)',
+            border: '1px solid var(--editor-border)',
             borderRadius: 10,
-            boxShadow: '0 8px 28px rgba(0,0,0,.12)',
+            boxShadow: 'var(--editor-shadow)',
             padding: 6,
             zIndex: 10000,
           }}
@@ -255,7 +257,9 @@ const DropdownButton = ({
               onMouseDown={() => handleSelect(itemLabel)}
               onKeyDown={onItemKeyDown}
               style={{ padding: '8px 12px', borderRadius: 8, cursor: 'pointer' }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = '#f3f4f6')}
+              onMouseEnter={(e) => (
+                e.currentTarget.style.background = 'var(--editor-accent-softer)'
+              )}
               onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >
               {itemLabel}

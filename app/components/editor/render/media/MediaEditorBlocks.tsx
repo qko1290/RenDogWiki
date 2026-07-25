@@ -42,7 +42,7 @@ type BlockComponentProps<E = any> = {
 
 function EditIcon({
   size = 18,
-  color = '#2a90ff',
+  color = 'currentColor',
 }) {
   return (
     <svg
@@ -67,24 +67,6 @@ function EditIcon({
     </svg>
   );
 }
-
-const editButtonStyle: React.CSSProperties = {
-  position: 'absolute',
-  top: 8,
-  right: 8,
-  background: '#fff',
-  border: '1.5px solid #2a90ff',
-  borderRadius: '50%',
-  boxShadow: '0 1px 5px #0001',
-  width: 32,
-  height: 32,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  cursor: 'pointer',
-  zIndex: 1,
-  padding: 0,
-};
 
 export function ImageBlock({
   attributes,
@@ -208,7 +190,7 @@ export function ImageBlock({
             <button
               type="button"
               onMouseDown={openSizeModal}
-              style={editButtonStyle}
+              className="wiki-editor-floating-action"
               tabIndex={-1}
               title="이미지 크기 편집"
               contentEditable={false}
@@ -310,7 +292,7 @@ export function VideoBlock({
             <button
               type="button"
               onMouseDown={openSizeModal}
-              style={editButtonStyle}
+              className="wiki-editor-floating-action"
               tabIndex={-1}
               title="영상 크기 편집"
               contentEditable={false}
