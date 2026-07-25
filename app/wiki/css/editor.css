@@ -839,9 +839,10 @@
   background: var(--editor-danger-soft);
 }
 
-/* ===== 링크 우클릭 메뉴 ===== */
+/* ===== 링크 / 구분선 우클릭 메뉴 ===== */
 
-.editor-link-context-menu {
+.editor-link-context-menu,
+.editor-divider-context-menu {
   position: fixed;
   z-index: 100002;
   width: 224px;
@@ -860,7 +861,8 @@
   border-top: 1px solid var(--editor-border);
 }
 
-.editor-link-context-item {
+.editor-link-context-item,
+.editor-divider-context-item {
   width: 100%;
   min-height: 34px;
   padding: 7px 9px;
@@ -877,17 +879,22 @@
 }
 
 .editor-link-context-item:hover,
-.editor-link-context-item:focus-visible {
+.editor-link-context-item:focus-visible,
+.editor-divider-context-item:hover,
+.editor-divider-context-item:focus-visible {
   background: var(--editor-accent-softer);
   outline: none;
 }
 
-.editor-link-context-item.is-danger {
+.editor-link-context-item.is-danger,
+.editor-divider-context-item.is-danger {
   color: var(--editor-danger);
 }
 
 .editor-link-context-item.is-danger:hover,
-.editor-link-context-item.is-danger:focus-visible {
+.editor-link-context-item.is-danger:focus-visible,
+.editor-divider-context-item.is-danger:hover,
+.editor-divider-context-item.is-danger:focus-visible {
   background: var(--editor-danger-soft);
 }
 
