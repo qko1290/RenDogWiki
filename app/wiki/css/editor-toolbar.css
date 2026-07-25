@@ -5,13 +5,13 @@
 
 .editor-toolbar {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   width: 100%;
   box-sizing: border-box;
   margin: 0;
-  padding: 7px;
+  padding: 6px;
   color: var(--editor-text);
   background:
     color-mix(in srgb, var(--editor-panel) 96%, transparent);
@@ -23,6 +23,7 @@
 
 .editor-toolbar > * {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
 }
 
@@ -31,9 +32,9 @@
 .editor-toolbar-btn-plain,
 .editor-dropdown > button {
   display: inline-grid;
-  min-width: 38px;
-  height: 38px;
-  padding: 0 10px;
+  min-width: 34px;
+  height: 36px;
+  padding: 0 8px;
   place-items: center;
   color: var(--editor-muted);
   font-size: 15.5px;
@@ -47,6 +48,97 @@
     background-color 0.14s ease,
     border-color 0.14s ease,
     transform 0.08s ease;
+}
+
+.editor-toolbar-action-icon {
+  display: inline-grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  color: currentColor;
+  font-family:
+    "Segoe UI Symbol",
+    "Arial Unicode MS",
+    sans-serif;
+  font-size: 18px;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.editor-toolbar-action-icon--wiki-reference {
+  width: 22px;
+  font-family:
+    "NanumSquareNeo",
+    "Pretendard",
+    sans-serif;
+  font-size: 13px;
+  letter-spacing: -1px;
+}
+
+/*
+ * Toolbar.tsx의 기존 기능과 이벤트는 그대로 두고,
+ * title을 기준으로 의미가 불분명했던 단독 버튼 아이콘만 교체한다.
+ */
+.editor-toolbar button:is(
+  [title*="각주"],
+  [title*="퀘스트"][title*="NPC"],
+  [title*="퀘스트"][title*="FAQ"],
+  [title*="퀘스트"][title*="QNA"],
+  [title*="퀘스트"][title*="할당"],
+  [title*="무기"]
+) {
+  font-size: 0;
+}
+
+.editor-toolbar button:is(
+  [title*="각주"],
+  [title*="퀘스트"][title*="NPC"],
+  [title*="퀘스트"][title*="FAQ"],
+  [title*="퀘스트"][title*="QNA"],
+  [title*="퀘스트"][title*="할당"],
+  [title*="무기"]
+) > * {
+  display: none;
+}
+
+.editor-toolbar button[title*="각주"]::before {
+  content: "¹";
+  font-family:
+    "Segoe UI Symbol",
+    "Arial Unicode MS",
+    sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.editor-toolbar button:is(
+  [title*="퀘스트"][title*="NPC"],
+  [title*="퀘스트"][title*="FAQ"],
+  [title*="퀘스트"][title*="QNA"],
+  [title*="퀘스트"][title*="할당"]
+)::before {
+  content: "Q+";
+  font-family:
+    "NanumSquareNeo",
+    "Pretendard",
+    sans-serif;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+
+.editor-toolbar button[title*="무기"]::before {
+  content: "⚔";
+  font-family:
+    "Segoe UI Symbol",
+    "Arial Unicode MS",
+    sans-serif;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .mark-button:hover,
@@ -213,8 +305,8 @@ hr.divider-dotted {
 
 @media (max-width: 760px) {
   .editor-toolbar {
-    gap: 3px;
-    padding: 6px;
+    gap: 1px;
+    padding: 5px;
     border-radius: 14px;
   }
 
@@ -222,9 +314,9 @@ hr.divider-dotted {
   .editor-toolbar-btn,
   .editor-toolbar-btn-plain,
   .editor-dropdown > button {
-    min-width: 36px;
-    height: 36px;
-    padding: 0 8px;
+    min-width: 32px;
+    height: 34px;
+    padding: 0 7px;
   }
 }
 
