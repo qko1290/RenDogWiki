@@ -183,7 +183,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
   // ────────────────────────────────────────────────────────────
 
   const withCustomInline = (editor: Editor) => {
-    const { isInline, isVoid } = editor;
+    const { insertText, isInline, isVoid } = editor;
 
     editor.isInline = el =>
       el.type === 'link' ||
@@ -200,6 +200,45 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
       VOID_BLOCK_TYPES.has((el as any).type)
         ? true
         : isVoid(el);
+
+    editor.insertText = text => {
+      const { selection } = editor;
+
+      if (selection && Range.isCollapsed(selection)) {
+        const linkEntry = Editor.above(editor, {
+          at: selection,
+          match: node =>
+            SlateElement.isElement(node) &&
+            (node as any).type === 'link',
+        });
+
+        if (linkEntry) {
+          const [, linkPath] = linkEntry;
+          const linkEnd = Editor.end(editor, linkPath);
+
+          if (Point.equals(selection.anchor, linkEnd)) {
+            const pointAfterLink = Editor.after(editor, linkPath);
+
+            if (pointAfterLink) {
+              Transforms.select(editor, pointAfterLink);
+            } else {
+              const textPath = Path.next(linkPath);
+              Transforms.insertNodes(
+                editor,
+                { text: '' },
+                { at: textPath },
+              );
+              Transforms.select(editor, {
+                path: textPath,
+                offset: 0,
+              });
+            }
+          }
+        }
+      }
+
+      insertText(text);
+    };
 
     return editor;
   };

@@ -14,11 +14,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Editor,
+  Element as SlateElement,
+  Path,
   Range as SlateRange,
   Text,
   Transforms,
   type BaseRange,
-  type Path,
 } from 'slate';
 import { ReactEditor } from 'slate-react';
 
@@ -90,6 +91,25 @@ function getEventElement(target: EventTarget | null): Element | null {
   if (target instanceof Element) return target;
   if (target instanceof Node) return target.parentElement;
   return null;
+}
+
+function isSelectionInsideSlateElement(
+  editor: Editor,
+  selection: BaseRange,
+  element: HTMLElement,
+) {
+  try {
+    const node = ReactEditor.toSlateNode(editor, element);
+    if (!SlateElement.isElement(node)) return false;
+
+    const path = ReactEditor.findPath(editor, node);
+    return (
+      Path.isAncestor(path, selection.anchor.path) &&
+      Path.isAncestor(path, selection.focus.path)
+    );
+  } catch {
+    return false;
+  }
 }
 
 function getCaretPointAt(
@@ -374,24 +394,6 @@ export default function TextContextMenu({ editor }: Props) {
         return;
       }
 
-      if (
-        targetElement?.closest(
-          '[data-rdwiki-heading="true"][data-wiki-mode="edit"]',
-        )
-      ) {
-        setMenu(null);
-        return;
-      }
-
-      if (
-        targetElement?.closest(
-          '[data-wiki-inline="link"][data-wiki-mode="edit"]',
-        )
-      ) {
-        setMenu(null);
-        return;
-      }
-
       const { selection } = editor;
       if (
         !selection ||
@@ -404,6 +406,23 @@ export default function TextContextMenu({ editor }: Props) {
       }
 
       const safeSelection = cloneRange(Editor.unhangRange(editor, selection));
+      const linkElement = targetElement?.closest<HTMLElement>(
+        '[data-wiki-inline="link"][data-wiki-mode="edit"]',
+      );
+      const headingElement = targetElement?.closest<HTMLElement>(
+        '[data-rdwiki-heading="true"][data-wiki-mode="edit"]',
+      );
+
+      if (
+        (linkElement &&
+          isSelectionInsideSlateElement(editor, safeSelection, linkElement)) ||
+        (headingElement &&
+          isSelectionInsideSlateElement(editor, safeSelection, headingElement))
+      ) {
+        setMenu(null);
+        return;
+      }
+
       const leaves = getSelectedTextLeaves(editor, safeSelection);
       if (leaves.length === 0) {
         setMenu(null);
@@ -412,6 +431,7 @@ export default function TextContextMenu({ editor }: Props) {
 
       event.preventDefault();
       event.stopPropagation();
+      event.stopImmediatePropagation();
 
       const position = resolveMenuPosition(event.clientX, event.clientY);
       setMenu({
