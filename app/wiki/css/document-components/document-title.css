@@ -234,6 +234,7 @@
 :root[data-theme='dark']
   :is(#rdwiki-page, #wiki-scroll-root)
   .wiki-content-title.wiki-content-title-row {
+  color: #edf5ef !important;
   background:
     linear-gradient(
       135deg,
@@ -258,6 +259,17 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.025),
     0 2px 7px rgba(0, 0, 0, 0.15),
     0 12px 28px rgba(0, 0, 0, 0.22) !important;
+}
+
+:root[data-theme='dark']
+  :is(#rdwiki-page, #wiki-scroll-root)
+  .wiki-content-title-row
+  .wiki-doc-title-tooltip-anchor,
+:root[data-theme='dark']
+  :is(#rdwiki-page, #wiki-scroll-root)
+  .wiki-content-title-row
+  .wiki-title-color {
+  color: #edf5ef !important;
 }
 
 :root[data-theme='dark']
