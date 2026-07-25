@@ -7,6 +7,7 @@
  * - 기존 이미지 선택 모달로 헤딩 이미지 교체
  * - 헤딩 안의 텍스트 서식만 제거
  * - 헤딩 블록 전체를 Slate 속성과 함께 복사
+ * - 헤딩 블록 전체 삭제
  */
 
 'use client';
@@ -16,10 +17,10 @@ import {
   Editor,
   Element as SlateElement,
   Node as SlateNode,
+  Path,
   Text,
   Transforms,
   type BaseRange,
-  type Path,
 } from 'slate';
 import { ReactEditor } from 'slate-react';
 
@@ -68,7 +69,7 @@ const TEXT_MARKS = [
 ];
 
 const MENU_WIDTH = 224;
-const MENU_HEIGHT = 208;
+const MENU_HEIGHT = 248;
 const VIEWPORT_GAP = 8;
 
 function isHeadingType(value: unknown): value is HeadingType {
@@ -398,6 +399,50 @@ export default function HeadingContextMenu({ editor }: Props) {
     }
   };
 
+  const deleteHeading = () => {
+    if (!menu || !hasPath(menu.path)) {
+      setMenu(null);
+      return;
+    }
+
+    const targetPath = clonePath(menu.path);
+
+    try {
+      Editor.withoutNormalizing(editor, () => {
+        Transforms.removeNodes(editor, { at: targetPath });
+
+        if (editor.children.length === 0) {
+          Transforms.insertNodes(
+            editor,
+            {
+              type: 'paragraph',
+              children: [{ text: '' }],
+            } as any,
+            { at: [0] },
+          );
+        }
+      });
+
+      const nextPath = hasPath(targetPath)
+        ? targetPath
+        : null;
+      const previousPath =
+        targetPath[targetPath.length - 1] > 0
+          ? Path.previous(targetPath)
+          : null;
+      const focusPath =
+        nextPath ??
+        (previousPath && hasPath(previousPath) ? previousPath : []);
+
+      Transforms.select(editor, Editor.start(editor, focusPath));
+      ReactEditor.focus(editor);
+    } catch (error) {
+      console.error('헤딩 삭제 실패', error);
+    } finally {
+      setMenu(null);
+    }
+  };
+
   return (
     <>
       {menu && (
@@ -454,6 +499,12 @@ export default function HeadingContextMenu({ editor }: Props) {
 
           <HeadingMenuItem onClick={() => void copyHeading()}>
             헤딩 복사
+          </HeadingMenuItem>
+
+          <div className="editor-heading-context-divider" />
+
+          <HeadingMenuItem onClick={deleteHeading} danger>
+            헤딩 삭제
           </HeadingMenuItem>
         </div>
       )}
