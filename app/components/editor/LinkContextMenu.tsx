@@ -1,13 +1,12 @@
 // =============================================
-// File: app/components/editor/HeadingContextMenu.tsx
+// File: app/components/editor/LinkContextMenu.tsx
 // =============================================
 /**
- * 에디터 헤딩 컨텍스트 메뉴
- * - 헤딩 단계를 H1/H2/H3으로 변경
- * - 기존 이미지 선택 모달로 헤딩 이미지 교체
- * - 헤딩 안의 텍스트 서식만 제거
- * - 헤딩 블록 전체를 Slate 속성과 함께 복사
- * - 헤딩 블록 전체 삭제
+ * 에디터 인라인 링크 컨텍스트 메뉴
+ * - 링크 주소 수정
+ * - 링크 속성만 제거하고 텍스트 유지
+ * - 링크 요소 전체를 Slate 속성과 함께 복사
+ * - 링크 텍스트를 포함한 요소 전체 삭제
  */
 
 'use client';
@@ -18,65 +17,41 @@ import {
   Element as SlateElement,
   Node as SlateNode,
   Path,
-  Text,
   Transforms,
   type BaseRange,
+  type Point,
 } from 'slate';
 import { ReactEditor } from 'slate-react';
 
-import ImageSelectModal from '@/components/image/ImageSelectModal';
+import LinkInputModal from './LinkInputModal';
+import type { LinkElement } from '@/types/slate';
 
 type Props = {
   editor: Editor & ReactEditor;
 };
 
-type HeadingType =
-  | 'heading-one'
-  | 'heading-two'
-  | 'heading-three';
-
 type MenuState = {
   x: number;
   y: number;
   path: Path;
-  type: HeadingType;
+  url: string;
   selection: BaseRange | null;
 };
 
-type ImageTarget = {
+type EditTarget = {
   path: Path;
+  url: string;
   selection: BaseRange | null;
 };
-
-const HEADING_TYPES: Array<{
-  label: string;
-  value: HeadingType;
-}> = [
-  { label: 'H1', value: 'heading-one' },
-  { label: 'H2', value: 'heading-two' },
-  { label: 'H3', value: 'heading-three' },
-];
-
-const TEXT_MARKS = [
-  'bold',
-  'italic',
-  'underline',
-  'strikethrough',
-  'color',
-  'backgroundColor',
-  'fontSize',
-  'fontFamily',
-];
 
 const MENU_WIDTH = 224;
-const MENU_HEIGHT = 248;
+const MENU_HEIGHT = 164;
 const VIEWPORT_GAP = 8;
 
-function isHeadingType(value: unknown): value is HeadingType {
+function isLinkElement(node: unknown): node is LinkElement {
   return (
-    value === 'heading-one' ||
-    value === 'heading-two' ||
-    value === 'heading-three'
+    SlateElement.isElement(node) &&
+    (node as { type?: unknown }).type === 'link'
   );
 }
 
@@ -148,7 +123,7 @@ async function writeFormattedData(data: DataTransfer) {
       try {
         event.clipboardData.setData(type, value);
       } catch {
-        // 사용자 정의 MIME을 거부하는 브라우저에서도 HTML/텍스트 복사는 유지한다.
+        // 브라우저가 사용자 정의 MIME을 거부해도 HTML과 일반 텍스트는 유지한다.
       }
     }
 
@@ -186,9 +161,9 @@ async function writeFormattedData(data: DataTransfer) {
   throw new Error('formatted clipboard copy failed');
 }
 
-export default function HeadingContextMenu({ editor }: Props) {
+export default function LinkContextMenu({ editor }: Props) {
   const [menu, setMenu] = useState<MenuState | null>(null);
-  const [imageTarget, setImageTarget] = useState<ImageTarget | null>(null);
+  const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const hasPath = useCallback(
@@ -207,15 +182,16 @@ export default function HeadingContextMenu({ editor }: Props) {
       try {
         if (!selection) {
           Transforms.deselect(editor);
-          return;
+          return false;
         }
 
-        if (!ReactEditor.hasRange(editor, selection)) return;
+        if (!ReactEditor.hasRange(editor, selection)) return false;
 
         Transforms.select(editor, selection);
         ReactEditor.focus(editor);
+        return true;
       } catch {
-        // 메뉴 동작 중 문서 구조가 바뀌어 기존 selection이 사라진 경우는 무시한다.
+        return false;
       }
     },
     [editor],
@@ -231,38 +207,23 @@ export default function HeadingContextMenu({ editor }: Props) {
         menuRef.current.contains(targetElement)
       ) {
         event.preventDefault();
+        event.stopImmediatePropagation();
         return;
       }
 
-      if (
-        targetElement?.closest(
-          '[data-wiki-inline="link"][data-wiki-mode="edit"]',
-        )
-      ) {
-        setMenu(null);
-        return;
-      }
-
-      const headingElement = targetElement?.closest<HTMLElement>(
-        '[data-rdwiki-heading="true"][data-wiki-mode="edit"]',
+      const linkElement = targetElement?.closest<HTMLElement>(
+        '[data-wiki-inline="link"][data-wiki-mode="edit"]',
       );
-      const editable = headingElement?.closest('.editor-slate-content');
+      const editable = linkElement?.closest('.editor-slate-content');
 
-      if (!headingElement || !editable) {
+      if (!linkElement || !editable) {
         setMenu(null);
         return;
       }
 
       try {
-        const node = ReactEditor.toSlateNode(editor, headingElement);
-        const nodeType = SlateElement.isElement(node)
-          ? (node as { type?: unknown }).type
-          : null;
-
-        if (
-          !SlateElement.isElement(node) ||
-          !isHeadingType(nodeType)
-        ) {
+        const node = ReactEditor.toSlateNode(editor, linkElement);
+        if (!isLinkElement(node)) {
           setMenu(null);
           return;
         }
@@ -272,11 +233,12 @@ export default function HeadingContextMenu({ editor }: Props) {
 
         event.preventDefault();
         event.stopPropagation();
+        event.stopImmediatePropagation();
 
         setMenu({
           ...position,
           path: clonePath(path),
-          type: nodeType,
+          url: String(node.url ?? ''),
           selection: cloneRange(editor.selection),
         });
       } catch {
@@ -323,59 +285,50 @@ export default function HeadingContextMenu({ editor }: Props) {
     };
   }, [menu]);
 
-  const changeHeadingType = (type: HeadingType) => {
+  const openEditModal = () => {
     if (!menu || !hasPath(menu.path)) {
       setMenu(null);
       return;
     }
 
-    try {
-      Transforms.setNodes(
-        editor,
-        { type } as any,
-        { at: menu.path },
-      );
-      restoreSelection(menu.selection);
-    } catch (error) {
-      console.error('헤딩 단계 변경 실패', error);
-    } finally {
-      setMenu(null);
-    }
-  };
-
-  const openImageModal = () => {
-    if (!menu || !hasPath(menu.path)) {
-      setMenu(null);
-      return;
-    }
-
-    setImageTarget({
+    setEditTarget({
       path: clonePath(menu.path),
+      url: menu.url,
       selection: cloneRange(menu.selection),
     });
     setMenu(null);
   };
 
-  const clearFormatting = () => {
+  const removeLinkAssignment = () => {
     if (!menu || !hasPath(menu.path)) {
       setMenu(null);
       return;
     }
 
+    const selectionRef =
+      menu.selection && ReactEditor.hasRange(editor, menu.selection)
+        ? Editor.rangeRef(editor, menu.selection, { affinity: 'forward' })
+        : null;
+
     try {
-      Transforms.unsetNodes(editor, TEXT_MARKS, {
+      Transforms.unwrapNodes(editor, {
         at: menu.path,
-        match: Text.isText,
+        match: isLinkElement,
       });
-      restoreSelection(menu.selection);
+
+      const nextSelection = selectionRef?.unref() ?? null;
+      if (!restoreSelection(nextSelection)) {
+        ReactEditor.focus(editor);
+      }
     } catch (error) {
-      console.error('헤딩 텍스트 속성 제거 실패', error);
+      selectionRef?.unref();
+      console.error('링크 해제 실패', error);
     } finally {
       setMenu(null);
     }
   };
 
-  const copyHeading = async () => {
+  const copyLink = async () => {
     if (!menu || !hasPath(menu.path)) {
       setMenu(null);
       return;
@@ -385,10 +338,7 @@ export default function HeadingContextMenu({ editor }: Props) {
 
     try {
       const node = SlateNode.get(editor, menu.path);
-      if (
-        !SlateElement.isElement(node) ||
-        !isHeadingType((node as { type?: unknown }).type)
-      ) {
+      if (!isLinkElement(node)) {
         setMenu(null);
         return;
       }
@@ -400,53 +350,52 @@ export default function HeadingContextMenu({ editor }: Props) {
       ReactEditor.setFragmentData(editor, data, 'copy');
       await writeFormattedData(data);
     } catch (error) {
-      console.error('헤딩 복사 실패', error);
-      alert('헤딩 복사에 실패했습니다.');
+      console.error('링크 복사 실패', error);
+      alert('링크 복사에 실패했습니다.');
     } finally {
       restoreSelection(previousSelection);
       setMenu(null);
     }
   };
 
-  const deleteHeading = () => {
+  const deleteLink = () => {
     if (!menu || !hasPath(menu.path)) {
       setMenu(null);
       return;
     }
 
-    const targetPath = clonePath(menu.path);
+    const parentPath = Path.parent(menu.path);
+    let beforeRef: ReturnType<typeof Editor.pointRef> | null = null;
+    let afterRef: ReturnType<typeof Editor.pointRef> | null = null;
 
     try {
-      Editor.withoutNormalizing(editor, () => {
-        Transforms.removeNodes(editor, { at: targetPath });
+      const before = Editor.before(editor, menu.path);
+      const after = Editor.after(editor, menu.path);
 
-        if (editor.children.length === 0) {
-          Transforms.insertNodes(
-            editor,
-            {
-              type: 'paragraph',
-              children: [{ text: '' }],
-            } as any,
-            { at: [0] },
-          );
-        }
-      });
-
-      const nextPath = hasPath(targetPath)
-        ? targetPath
+      beforeRef = before
+        ? Editor.pointRef(editor, before, { affinity: 'backward' })
         : null;
-      const previousPath =
-        targetPath[targetPath.length - 1] > 0
-          ? Path.previous(targetPath)
-          : null;
-      const focusPath =
-        nextPath ??
-        (previousPath && hasPath(previousPath) ? previousPath : []);
+      afterRef = after
+        ? Editor.pointRef(editor, after, { affinity: 'forward' })
+        : null;
 
-      Transforms.select(editor, Editor.start(editor, focusPath));
+      Transforms.removeNodes(editor, { at: menu.path });
+
+      const afterPoint = afterRef?.unref() ?? null;
+      const beforePoint = beforeRef?.unref() ?? null;
+      const focusPoint = afterPoint ?? beforePoint;
+
+      if (focusPoint && Editor.hasPath(editor, focusPoint.path)) {
+        Transforms.select(editor, focusPoint as Point);
+      } else if (Editor.hasPath(editor, parentPath)) {
+        Transforms.select(editor, Editor.start(editor, parentPath));
+      }
+
       ReactEditor.focus(editor);
     } catch (error) {
-      console.error('헤딩 삭제 실패', error);
+      beforeRef?.unref();
+      afterRef?.unref();
+      console.error('링크 삭제 실패', error);
     } finally {
       setMenu(null);
     }
@@ -457,85 +406,59 @@ export default function HeadingContextMenu({ editor }: Props) {
       {menu && (
         <div
           ref={menuRef}
-          className="editor-heading-context-menu"
+          className="editor-link-context-menu"
           style={{
             top: menu.y,
             left: menu.x,
           }}
           role="menu"
-          aria-label="헤딩 메뉴"
+          aria-label="링크 메뉴"
           onContextMenu={event => event.preventDefault()}
         >
-          <div className="editor-heading-context-label">
-            제목 단계
-          </div>
+          <LinkMenuItem onClick={openEditModal}>
+            링크 수정
+          </LinkMenuItem>
 
-          <div
-            className="editor-heading-context-levels"
-            role="group"
-            aria-label="제목 단계 변경"
-          >
-            {HEADING_TYPES.map(option => (
-              <button
-                key={option.value}
-                type="button"
-                className={[
-                  'editor-heading-context-level',
-                  menu.type === option.value ? 'is-active' : '',
-                ].filter(Boolean).join(' ')}
-                onMouseDown={event => event.preventDefault()}
-                onClick={() => changeHeadingType(option.value)}
-                role="menuitemradio"
-                aria-checked={menu.type === option.value}
-                title={`${option.label}으로 변경`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          <LinkMenuItem onClick={removeLinkAssignment}>
+            링크 해제
+          </LinkMenuItem>
 
-          <div className="editor-heading-context-divider" />
+          <div className="editor-link-context-divider" />
 
-          <HeadingMenuItem onClick={openImageModal}>
-            이미지 변경
-          </HeadingMenuItem>
+          <LinkMenuItem onClick={() => void copyLink()}>
+            링크 복사
+          </LinkMenuItem>
 
-          <HeadingMenuItem onClick={clearFormatting} danger>
-            서식 제거
-          </HeadingMenuItem>
-
-          <div className="editor-heading-context-divider" />
-
-          <HeadingMenuItem onClick={() => void copyHeading()}>
-            헤딩 복사
-          </HeadingMenuItem>
-
-          <div className="editor-heading-context-divider" />
-
-          <HeadingMenuItem onClick={deleteHeading} danger>
-            헤딩 삭제
-          </HeadingMenuItem>
+          <LinkMenuItem onClick={deleteLink} danger>
+            링크 삭제
+          </LinkMenuItem>
         </div>
       )}
 
-      <ImageSelectModal
-        open={!!imageTarget}
+      <LinkInputModal
+        open={!!editTarget}
+        mode="edit"
+        defaultValue={editTarget ? [editTarget.url] : []}
         onClose={() => {
-          const selection = imageTarget?.selection ?? null;
-          setImageTarget(null);
+          const selection = editTarget?.selection ?? null;
+          setEditTarget(null);
           requestAnimationFrame(() => restoreSelection(selection));
         }}
-        onSelectImage={(url) => {
-          if (imageTarget && hasPath(imageTarget.path)) {
-            try {
-              Transforms.setNodes(
-                editor,
-                { icon: url } as any,
-                { at: imageTarget.path },
-              );
-            } catch (error) {
-              console.error('헤딩 이미지 변경 실패', error);
-            }
+        onSubmit={(items) => {
+          const url = String(items[0]?.url ?? '').trim();
+          if (!editTarget || !url || !hasPath(editTarget.path)) return;
+
+          try {
+            const node = SlateNode.get(editor, editTarget.path);
+            if (!isLinkElement(node)) return;
+
+            Transforms.setNodes(
+              editor,
+              { url } as Partial<LinkElement>,
+              { at: editTarget.path },
+            );
+          } catch (error) {
+            console.error('링크 수정 실패', error);
           }
         }}
       />
@@ -543,7 +466,7 @@ export default function HeadingContextMenu({ editor }: Props) {
   );
 }
 
-function HeadingMenuItem({
+function LinkMenuItem({
   children,
   onClick,
   danger = false,
@@ -556,7 +479,7 @@ function HeadingMenuItem({
     <button
       type="button"
       className={[
-        'editor-heading-context-item',
+        'editor-link-context-item',
         danger ? 'is-danger' : '',
       ].filter(Boolean).join(' ')}
       onMouseDown={event => event.preventDefault()}

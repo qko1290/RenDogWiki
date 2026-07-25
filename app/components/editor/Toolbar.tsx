@@ -12,7 +12,11 @@ import MarkButton from './MarkButton';
 import DropdownButton from './DropdownButton';
 import InfoBoxDropdown from './InfoBoxDropdown';
 
-import { insertLink, insertLinkBlock, unwrapLink, isLinkActive } from './helpers/insertLink';
+import {
+  insertLink,
+  insertLinkBlock,
+  selectionIntersectsInlineLink,
+} from './helpers/insertLink';
 import { insertHeading } from './helpers/insertHeading';
 import { insertDivider } from './helpers/insertDivider';
 import { toggleMark } from './helpers/toggleMark';
@@ -161,6 +165,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
   const [tablePickerOpen, setTablePickerOpen] = useState(false);
   const tableBtnRef = useRef<HTMLButtonElement | null>(null);
+  const linkSelectionBlocked = selectionIntersectsInlineLink(
+    editor,
+    editor.selection,
+  );
 
   useEffect(() => {
     openInlineImageModalRef.current = () => setInlineImgModalOpen(true);
@@ -404,12 +412,18 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       {/* 🔗 링크 (내부/외부 전부 여기서 처리) */}
       <button
         className="editor-toolbar-btn"
+        disabled={linkSelectionBlocked}
         onMouseDown={(e) => {
           e.preventDefault();
+          if (linkSelectionBlocked) return;
           selectionRef.current = editor.selection ?? null;
           setLinkModalOpen(true);
         }}
-        title="링크"
+        title={
+          linkSelectionBlocked
+            ? '기존 링크와 겹친 선택에는 새 링크를 적용할 수 없습니다.'
+            : '링크'
+        }
       >
         <FontAwesomeIcon icon={faLink} />
       </button>
@@ -426,16 +440,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             try { Transforms.select(editor, selectionRef.current); } catch {}
           }
 
-          if (isLinkActive(editor)) {
-            Transforms.unwrapNodes(editor, {
-              match: n => SlateElement.isElement(n) && (n as any).type === 'link',
-            });
-          }
-
           const hasSelection = !!editor.selection && !Range.isCollapsed(editor.selection);
 
           // 드래그된 텍스트가 있으면 인라인 링크로
           if (hasSelection) {
+            if (selectionIntersectsInlineLink(editor, editor.selection)) return;
+
             const url = (items[0]?.url || '').trim();
             if (url) insertLink(editor, url);
             return;
