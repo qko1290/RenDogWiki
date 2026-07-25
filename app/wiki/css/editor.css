@@ -655,6 +655,97 @@
   color: var(--editor-danger);
 }
 
+/* ===== 텍스트 선택 우클릭 메뉴 ===== */
+
+.editor-text-context-menu {
+  position: fixed;
+  z-index: 100000;
+  width: 276px;
+  box-sizing: border-box;
+  padding: 6px;
+  color: var(--editor-text);
+  font-size: 13px;
+  background: var(--editor-panel-elevated);
+  border: 1px solid var(--editor-border);
+  border-radius: 12px;
+  box-shadow: var(--editor-shadow);
+}
+
+.editor-text-context-divider {
+  margin: 5px 4px;
+  border-top: 1px solid var(--editor-border);
+}
+
+.editor-text-context-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 9px;
+  color: var(--editor-text);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.editor-text-context-item:not(:disabled):hover,
+.editor-text-context-item:not(:disabled):focus-visible {
+  background: var(--editor-accent-softer);
+  outline: none;
+}
+
+.editor-text-context-item:disabled {
+  color: var(--editor-muted-soft);
+  cursor: not-allowed;
+}
+
+.editor-text-context-item.is-danger {
+  color: var(--editor-danger);
+}
+
+.editor-text-context-item.is-danger:not(:disabled):hover,
+.editor-text-context-item.is-danger:not(:disabled):focus-visible {
+  background: var(--editor-danger-soft);
+}
+
+.editor-text-context-color-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 82px;
+  color: var(--editor-muted);
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.editor-text-context-item:disabled .editor-text-context-color-value {
+  color: var(--editor-muted-soft);
+}
+
+.editor-text-context-swatch {
+  flex: 0 0 auto;
+  width: 13px;
+  height: 13px;
+  box-sizing: border-box;
+  border: 1px solid var(--editor-border-strong);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--editor-panel-elevated);
+}
+
+.editor-text-context-swatch.is-background {
+  border-radius: 4px;
+}
+
 /* ===== 공통 모달을 에디터 톤에 맞춤 ===== */
 
 .rd-card {
