@@ -69,6 +69,8 @@ export default function SlateEditor() {
 
   // selection 보존용 ref (툴바 드롭다운에서 사용)
   const selectionRef = useRef<Range | null>(null);
+  // 인라인 이미지 선택 모달 단축키 연결용 ref
+  const openInlineImageModalRef = useRef<(() => void) | null>(null);
 
   // 본문 값, heading 아이콘 모달 상태
   const [value, setValue] = useState<Descendant[]>([
@@ -144,6 +146,11 @@ export default function SlateEditor() {
     if (isHotkey('mod+i', event)) { event.preventDefault(); toggleMark('italic'); }
     if (isHotkey('mod+u', event)) { event.preventDefault(); toggleMark('underline'); }
     if (isHotkey('mod+shift+x', event)) { event.preventDefault(); toggleMark('strikethrough'); }
+    if (isHotkey('mod+shift+e', event)) {
+      event.preventDefault();
+      openInlineImageModalRef.current?.();
+      return;
+    }
 
     // heading 블록에서 Backspace(맨 앞) → 해당 블록을 paragraph로 변환
     if (event.key === 'Backspace') {
@@ -194,7 +201,10 @@ export default function SlateEditor() {
     <div style={{ display: 'flex' }}>
       <div style={{ flex: 1 }}>
         <Slate editor={editor} value={value} onChange={setValue}>
-          <Toolbar selectionRef={selectionRef} />
+          <Toolbar
+            selectionRef={selectionRef}
+            openInlineImageModalRef={openInlineImageModalRef}
+          />
           <Editable
             renderLeaf={renderLeaf}
             renderElement={renderElement}
