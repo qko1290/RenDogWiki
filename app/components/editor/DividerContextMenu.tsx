@@ -74,12 +74,6 @@ function resolveMenuPosition(x: number, y: number) {
   };
 }
 
-function getEventElement(target: EventTarget | null): Element | null {
-  if (target instanceof Element) return target;
-  if (target instanceof Node) return target.parentElement;
-  return null;
-}
-
 function isDividerElement(node: SlateNode) {
   return (
     SlateElement.isElement(node) &&
@@ -185,46 +179,41 @@ export default function DividerContextMenu({ editor }: Props) {
   );
 
   useEffect(() => {
-    const onContextMenu = (event: MouseEvent) => {
-      const targetElement = getEventElement(event.target);
+    const onOpen = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{
+          x?: unknown;
+          y?: unknown;
+          path?: unknown;
+        }>
+      ).detail;
 
       if (
-        menuRef.current &&
-        targetElement &&
-        menuRef.current.contains(targetElement)
+        typeof detail?.x !== 'number' ||
+        typeof detail?.y !== 'number' ||
+        !Array.isArray(detail?.path)
       ) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
         return;
       }
 
-      const dividerElement = targetElement?.closest<HTMLElement>(
-        '.wiki-divider-edit',
-      );
-      const editable = dividerElement?.closest('.editor-slate-content');
-
-      if (!dividerElement || !editable) {
-        setMenu(null);
-        return;
-      }
+      const path = detail.path as Path;
 
       try {
-        const node = ReactEditor.toSlateNode(editor, dividerElement);
+        if (!Editor.hasPath(editor, path)) {
+          setMenu(null);
+          return;
+        }
 
+        const node = SlateNode.get(editor, path);
         if (!isDividerElement(node)) {
           setMenu(null);
           return;
         }
 
-        const path = ReactEditor.findPath(editor, node);
         const position = resolveMenuPosition(
-          event.clientX,
-          event.clientY,
+          detail.x,
+          detail.y,
         );
-
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation();
 
         setMenu({
           ...position,
@@ -236,9 +225,9 @@ export default function DividerContextMenu({ editor }: Props) {
       }
     };
 
-    document.addEventListener('contextmenu', onContextMenu, true);
+    window.addEventListener('editor:divider-menu', onOpen);
     return () => {
-      document.removeEventListener('contextmenu', onContextMenu, true);
+      window.removeEventListener('editor:divider-menu', onOpen);
     };
   }, [editor]);
 
@@ -246,7 +235,12 @@ export default function DividerContextMenu({ editor }: Props) {
     if (!menu) return;
 
     const closeOnPointerDown = (event: MouseEvent) => {
-      const targetElement = getEventElement(event.target);
+      const targetElement =
+        event.target instanceof Element
+          ? event.target
+          : event.target instanceof Node
+            ? event.target.parentElement
+            : null;
       if (
         menuRef.current &&
         targetElement &&

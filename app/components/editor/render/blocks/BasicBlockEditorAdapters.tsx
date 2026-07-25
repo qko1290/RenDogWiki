@@ -4,6 +4,10 @@ import React from 'react';
 import type {
   RenderElementProps,
 } from 'slate-react';
+import {
+  ReactEditor,
+  useSlateStatic,
+} from 'slate-react';
 
 import {
   DividerBlock,
@@ -27,6 +31,35 @@ export function DividerEditorAdapter({
   children,
   element,
 }: EditorBlockAdapterProps) {
+  const editor = useSlateStatic();
+
+  const handleContextMenu = (
+    event: React.MouseEvent<HTMLDivElement>,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    event.nativeEvent.stopImmediatePropagation();
+
+    try {
+      const path = ReactEditor.findPath(
+        editor as ReactEditor,
+        element,
+      );
+
+      window.dispatchEvent(
+        new CustomEvent('editor:divider-menu', {
+          detail: {
+            x: event.clientX,
+            y: event.clientY,
+            path: [...path],
+          },
+        }),
+      );
+    } catch (error) {
+      console.error('구분선 메뉴 경로 확인 실패', error);
+    }
+  };
+
   return (
     <DividerBlock
       mode="edit"
@@ -34,7 +67,10 @@ export function DividerEditorAdapter({
         resolveDividerStyle(element)
       }
       attributes={
-        attributes as any
+        {
+          ...attributes,
+          onContextMenu: handleContextMenu,
+        } as any
       }
     >
       {children}

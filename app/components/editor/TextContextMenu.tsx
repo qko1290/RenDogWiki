@@ -415,8 +415,12 @@ export default function TextContextMenu({ editor }: Props) {
       const headingElement = targetElement?.closest<HTMLElement>(
         '[data-rdwiki-heading="true"][data-wiki-mode="edit"]',
       );
+      const dividerElement = targetElement?.closest<HTMLElement>(
+        '.wiki-divider-edit',
+      );
 
       if (
+        dividerElement ||
         linkBlockElement ||
         (linkElement &&
           isSelectionInsideSlateElement(editor, safeSelection, linkElement)) ||
