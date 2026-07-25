@@ -120,9 +120,7 @@
     0 30px 80px
     rgba(27, 42, 30, 0.24),
     0 10px 30px
-    rgba(27, 42, 30, 0.13),
-    inset 0 1px 0
-    rgba(255, 255, 255, 0.65);
+    rgba(27, 42, 30, 0.13);
   font-family:
     'NanumSquareNeo',
     'NanumSquareRound',
@@ -138,16 +136,7 @@
 }
 
 .npc-modal-main.npc-detail-modal::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  display: block;
-  pointer-events: none;
-  border:
-    1px solid
-    rgba(255, 255, 255, 0.34);
-  border-radius: inherit;
+  display: none;
 }
 
 /* ===== 좌측 사진 영역 ===== */
@@ -269,9 +258,7 @@
   border-radius: 15px;
   box-shadow:
     0 10px 26px
-    rgba(39, 72, 42, 0.09),
-    inset 0 1px 0
-    rgba(255, 255, 255, 0.62);
+    rgba(39, 72, 42, 0.09);
   backdrop-filter:
     blur(8px);
   -webkit-backdrop-filter:
@@ -288,15 +275,11 @@
   box-sizing: border-box;
   overflow: hidden;
   background:
-    linear-gradient(
-      145deg,
-      color-mix(
-        in srgb,
-        var(
-          --quest-modal-active
-        ) 80%,
-        white
-      ),
+    color-mix(
+      in srgb,
+      var(
+        --quest-modal-active
+      ) 68%,
       var(
         --quest-modal-panel
       )
@@ -318,8 +301,8 @@
 .npc-detail-modal
 .npc-modal-icon {
   display: block;
-  width: 48px;
-  height: 48px;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   background: transparent;
   border: 0;
@@ -420,9 +403,7 @@
     0 18px 38px
     rgba(33, 58, 36, 0.12),
     0 4px 12px
-    rgba(33, 58, 36, 0.06),
-    inset 0 1px 0
-    rgba(255, 255, 255, 0.52);
+    rgba(33, 58, 36, 0.06);
 }
 
 .npc-detail-modal
@@ -1467,9 +1448,9 @@
   .npc-detail-modal
   .npc-modal-icon {
     width:
-      38px !important;
+      100% !important;
     height:
-      38px !important;
+      100% !important;
   }
 
   .npc-detail-modal

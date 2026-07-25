@@ -290,9 +290,7 @@
   border-radius: 12px;
   background:
     var(--category-home-icon-bg);
-  box-shadow:
-    inset 0 1px 0
-    rgba(255, 255, 255, 0.82);
+  box-shadow: none;
 }
 
 .wiki-sidebar
@@ -643,9 +641,7 @@
     var(
       --category-home-icon-bg
     );
-  box-shadow:
-    inset 0 1px 0
-    rgba(255, 255, 255, 0.035);
+  box-shadow: none;
 }
 
 :root[data-theme='dark']
@@ -704,9 +700,7 @@
     rgba(135, 205, 148, 0.23);
   background:
     rgba(52, 91, 61, 0.56);
-  box-shadow:
-    inset 0 1px 0
-    rgba(255, 255, 255, 0.035);
+  box-shadow: none;
   color:
     var(
       --category-home-accent-strong

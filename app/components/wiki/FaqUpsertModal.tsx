@@ -214,23 +214,20 @@ export default function FaqUpsertModal({ open, mode, initial, onClose, onSaved }
           color: #fff; font-weight: 800; letter-spacing: .2px;
           background: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%);
           box-shadow:
-            0 10px 22px rgba(37, 99, 235, 0.25),
-            inset 0 1px 0 rgba(255,255,255,.28);
+            0 10px 22px rgba(37, 99, 235, 0.25);
           transition: transform .12s ease, box-shadow .2s ease, filter .2s ease;
           cursor: pointer;
         }
         .upsert-save:hover{
           transform: translateY(-1px);
           box-shadow:
-            0 14px 28px rgba(37, 99, 235, 0.32),
-            inset 0 1px 0 rgba(255,255,255,.35);
+            0 14px 28px rgba(37, 99, 235, 0.32);
           filter: saturate(1.05);
         }
         .upsert-save:active{
           transform: translateY(0);
           box-shadow:
-            0 8px 18px rgba(37, 99, 235, 0.22),
-            inset 0 1px 0 rgba(255,255,255,.25);
+            0 8px 18px rgba(37, 99, 235, 0.22);
         }
         .upsert-save:disabled{
           cursor: default;

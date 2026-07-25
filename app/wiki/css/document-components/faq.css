@@ -387,8 +387,6 @@
     );
   border-radius: 10px !important;
   box-shadow:
-    inset 0 1px 0
-    rgba(255, 255, 255, 0.64),
     0 3px 9px
     rgba(45, 103, 55, 0.08);
   transform: none !important;
@@ -956,9 +954,7 @@ input::placeholder {
     0 30px 80px
     rgba(21, 36, 24, 0.27),
     0 10px 30px
-    rgba(21, 36, 24, 0.14),
-    inset 0 1px 0
-    rgba(255, 255, 255, 0.66) !important;
+    rgba(21, 36, 24, 0.14) !important;
   animation:
     faq-modal-enter
     0.18s ease-out;
@@ -966,14 +962,7 @@ input::placeholder {
 
 .faq-modal-backdrop
 .faq-modal::before {
-  content: '';
-  position: absolute;
-  inset: 3px;
-  pointer-events: none;
-  border:
-    1px solid
-    rgba(255, 255, 255, 0.38);
-  border-radius: 17px;
+  display: none;
 }
 
 .faq-modal-backdrop
@@ -1321,8 +1310,6 @@ h3 {
       )
     ) !important;
   box-shadow:
-    inset 0 1px 0
-    rgba(255, 255, 255, 0.02),
     0 8px 19px
     rgba(0, 0, 0, 0.17) !important;
 }
@@ -1381,8 +1368,6 @@ h3 {
       )
     ) !important;
   box-shadow:
-    inset 0 1px 0
-    rgba(255, 255, 255, 0.025),
     0 11px 23px
     rgba(0, 0, 0, 0.22) !important;
 }

@@ -441,8 +441,6 @@
     var(
       --quest-village-border-soft
     ),
-    inset 0 1px 0
-    rgba(255, 255, 255, 0.62),
     0 4px 10px
     var(
       --quest-village-glow
@@ -454,22 +452,7 @@
 }
 
 .npc-icon-surface::before {
-  content: '';
-  position: absolute;
-  inset: 3px;
-  z-index: 0;
-  pointer-events: none;
-  border:
-    1px solid
-    color-mix(
-      in srgb,
-      var(
-        --quest-village-border
-      ) 35%,
-      transparent
-    );
-  border-radius: 9px;
-  opacity: 0.72;
+  display: none;
 }
 
 .npc-icon-surface::after {
@@ -504,15 +487,15 @@
       var(
         --quest-village-border
       ) 86%,
-      white
+      var(
+        --quest-grid-border
+      )
     );
   box-shadow:
     0 0 0 1px
     var(
       --quest-village-border-soft
     ),
-    inset 0 1px 0
-    rgba(255, 255, 255, 0.7),
     0 6px 14px
     var(
       --quest-village-glow
@@ -1022,8 +1005,6 @@
     );
   border-radius: 8px;
   box-shadow:
-    inset 0 1px 0
-    rgba(255, 255, 255, 0.5),
     0 2px 6px
     color-mix(
       in srgb,
@@ -1517,8 +1498,6 @@
       )
     );
   box-shadow:
-    inset 0 1px 0
-    rgba(255, 255, 255, 0.045),
     0 2px 7px
     rgba(0, 0, 0, 0.2);
 }
