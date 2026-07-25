@@ -1310,6 +1310,50 @@
     );
 }
 
+:is(
+  :root[data-theme="dark"],
+  body[data-theme="dark"],
+  html.dark,
+  body.dark
+)
+.head-detail-modal
+.head-detail-modal__guide {
+  color:
+    #cbd8cf;
+  background:
+    color-mix(
+      in srgb,
+      #0f1711 88%,
+      var(
+        --head-modal-border
+      )
+    );
+  border-color:
+    color-mix(
+      in srgb,
+      var(
+        --head-modal-border
+      ) 30%,
+      var(
+        --border
+      )
+    );
+}
+
+:is(
+  :root[data-theme="dark"],
+  body[data-theme="dark"],
+  html.dark,
+  body.dark
+)
+.head-detail-modal
+.head-detail-modal__guide-icon {
+  color:
+    var(
+      --head-modal-border
+    );
+}
+
 /* ===== 모바일 ===== */
 
 @media (
