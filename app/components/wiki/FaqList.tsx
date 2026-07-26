@@ -565,7 +565,7 @@ export default function FaqList({
         const data =
           await response.json();
 
-        const rows = Array.isArray(
+        const rows: unknown[] = Array.isArray(
           data?.items,
         )
           ? data.items
