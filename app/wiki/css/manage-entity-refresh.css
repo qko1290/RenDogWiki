@@ -1,0 +1,1469 @@
+/* =============================================
+   File: app/wiki/css/manage-entity-refresh.css
+   전체 코드 - 새 파일
+
+   적용 대상:
+   - /manage/quest
+   - /manage/npc
+   - /manage/head
+
+   기존 기능 클래스는 유지하고 시각 디자인만 덮어쓴다.
+   ============================================= */
+
+body[data-manage-entity] {
+  --entity-accent: #54a95e;
+  --entity-accent-strong: #347f43;
+  --entity-accent-soft: #edf8eb;
+  --entity-mint: #e7f5e8;
+  --entity-cream: #fbfdf8;
+  --entity-panel: rgba(255, 255, 255, 0.94);
+  --entity-panel-soft: #f7fbf5;
+  --entity-border: #dce9da;
+  --entity-border-strong: #c6ddc3;
+  --entity-text: #17231a;
+  --entity-muted: #748177;
+  --entity-danger: #dc4545;
+  --entity-danger-soft: #fff1f1;
+  --entity-shadow:
+    0 18px 44px rgba(41, 75, 45, 0.08),
+    0 3px 10px rgba(41, 75, 45, 0.04);
+  --entity-shadow-soft:
+    0 8px 22px rgba(41, 75, 45, 0.065);
+
+  background:
+    radial-gradient(
+      circle at 0 0,
+      rgba(203, 236, 197, 0.35),
+      transparent 30%
+    ),
+    linear-gradient(
+      180deg,
+      #fbfdf9,
+      #f5faf4
+    );
+}
+
+body[data-manage-entity='quest'] {
+  --entity-accent: #55aa5d;
+  --entity-accent-strong: #347d40;
+}
+
+body[data-manage-entity='npc'] {
+  --entity-accent: #4da777;
+  --entity-accent-strong: #2f7d58;
+  --entity-accent-soft: #eaf8f0;
+  --entity-mint: #e3f5ec;
+}
+
+body[data-manage-entity='head'] {
+  --entity-accent: #4c9fa0;
+  --entity-accent-strong: #2d7577;
+  --entity-accent-soft: #eaf7f5;
+  --entity-mint: #e2f3f1;
+}
+
+/* ===== 전체 3단 관리 레이아웃 ===== */
+
+body[data-manage-entity] .mgr-container {
+  display: grid !important;
+  grid-template-columns:
+    minmax(220px, 0.78fr)
+    minmax(285px, 0.96fr)
+    minmax(460px, 2.1fr) !important;
+  gap: 16px !important;
+  width: 100% !important;
+  height: calc(100dvh - 70px) !important;
+  min-height: 620px;
+  box-sizing: border-box;
+  padding: 18px !important;
+  overflow: hidden !important;
+  color: var(--entity-text);
+  background: transparent !important;
+}
+
+body[data-manage-entity] :is(
+  .mgr-sidebar,
+  .mgr-list-area,
+  .mgr-detail-area
+) {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 18px !important;
+  overflow: auto;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.98),
+      rgba(251, 253, 249, 0.95)
+    ) !important;
+  border:
+    1px solid
+    var(--entity-border) !important;
+  border-radius: 20px !important;
+  box-shadow:
+    var(--entity-shadow) !important;
+  scrollbar-width: thin;
+  scrollbar-color:
+    color-mix(
+      in srgb,
+      var(--entity-accent) 42%,
+      transparent
+    )
+    transparent;
+}
+
+body[data-manage-entity] :is(
+  .mgr-sidebar,
+  .mgr-list-area,
+  .mgr-detail-area
+)::before {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  content: '';
+  background:
+    radial-gradient(
+      circle at 100% 0,
+      color-mix(
+        in srgb,
+        var(--entity-mint) 56%,
+        transparent
+      ),
+      transparent 34%
+    );
+  border-radius: inherit;
+}
+
+body[data-manage-entity] :is(
+  .mgr-sidebar,
+  .mgr-list-area,
+  .mgr-detail-area
+) > * {
+  position: relative;
+  z-index: 1;
+}
+
+body[data-manage-entity] :is(
+  .mgr-sidebar,
+  .mgr-list-area,
+  .mgr-detail-area
+)::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+body[data-manage-entity] :is(
+  .mgr-sidebar,
+  .mgr-list-area,
+  .mgr-detail-area
+)::-webkit-scrollbar-thumb {
+  background:
+    color-mix(
+      in srgb,
+      var(--entity-accent) 36%,
+      transparent
+    );
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+body[data-manage-entity] :is(
+  .mgr-sidebar,
+  .mgr-list-area,
+  .mgr-detail-area
+)::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ===== 영역 제목 ===== */
+
+body[data-manage-entity] :is(
+  .mgr-section-header,
+  .section-header,
+  .mgr-detail-header,
+  .mgr-list-header,
+  .mgr-sidebar-header
+) {
+  display: flex;
+  min-height: 54px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  box-sizing: border-box;
+  margin: -2px 0 14px !important;
+  padding: 0 2px 14px !important;
+  border-bottom:
+    1px solid
+    var(--entity-border) !important;
+}
+
+body[data-manage-entity] :is(
+  .mgr-section-title,
+  .section-title,
+  .mgr-title,
+  .mgr-detail-title
+) {
+  margin: 0;
+  color: var(--entity-text) !important;
+  font-family:
+    'NanumSquareNeo',
+    'NanumSquareRound',
+    system-ui,
+    sans-serif;
+  font-size: 20px !important;
+  font-weight: 850 !important;
+  line-height: 1.2;
+  letter-spacing: -0.035em;
+}
+
+body[data-manage-entity] .mgr-detail-area h1,
+body[data-manage-entity] .mgr-detail-area h2,
+body[data-manage-entity] .mgr-detail-area h3 {
+  color: var(--entity-text);
+  font-family:
+    'NanumSquareNeo',
+    'NanumSquareRound',
+    system-ui,
+    sans-serif;
+  letter-spacing: -0.035em;
+}
+
+/* ===== 마을/목록 ===== */
+
+body[data-manage-entity] .npc-village-list,
+body[data-manage-entity] .mgr-list {
+  display: flex !important;
+  flex-direction: column;
+  gap: 7px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+body[data-manage-entity] :is(
+  .npc-village-item,
+  .mgr-list-item
+) {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+  margin: 0 !important;
+  padding: 9px 10px !important;
+  color: var(--entity-text) !important;
+  cursor: pointer;
+  background:
+    rgba(255, 255, 255, 0.7) !important;
+  border:
+    1px solid
+    transparent !important;
+  border-radius: 13px !important;
+  box-shadow: none !important;
+  transition:
+    transform 0.15s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+body[data-manage-entity] :is(
+  .npc-village-item,
+  .mgr-list-item
+):hover {
+  transform: translateY(-1px);
+  background:
+    color-mix(
+      in srgb,
+      var(--entity-accent-soft) 74%,
+      white
+    ) !important;
+  border-color:
+    var(--entity-border-strong) !important;
+  box-shadow:
+    0 7px 16px
+    rgba(44, 91, 49, 0.07) !important;
+}
+
+body[data-manage-entity] :is(
+  .npc-village-item.active,
+  .npc-village-item.selected,
+  .npc-village-item.is-selected,
+  .mgr-list-item.active,
+  .mgr-list-item.selected,
+  .mgr-list-item.is-selected,
+  .mgr-list-item[aria-selected='true']
+) {
+  color:
+    var(--entity-accent-strong) !important;
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(
+        in srgb,
+        var(--entity-accent-soft) 88%,
+        white
+      ),
+      white
+    ) !important;
+  border-color:
+    color-mix(
+      in srgb,
+      var(--entity-accent) 46%,
+      var(--entity-border)
+    ) !important;
+  box-shadow:
+    inset 4px 0 0
+    var(--entity-accent),
+    0 8px 18px
+    rgba(44, 91, 49, 0.08) !important;
+}
+
+body[data-manage-entity] .npc-village-icon,
+body[data-manage-entity] .mgr-icon-cell {
+  display: grid;
+  width: 34px !important;
+  height: 34px !important;
+  flex: 0 0 34px;
+  place-items: center;
+  overflow: hidden;
+  background:
+    var(--entity-panel-soft);
+  border:
+    1px solid
+    var(--entity-border);
+  border-radius: 10px !important;
+}
+
+body[data-manage-entity] :is(
+  .npc-village-icon,
+  .mgr-icon-cell
+) img {
+  width: 24px !important;
+  height: 24px !important;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+body[data-manage-entity] .mgr-order {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  place-items: center;
+  color: var(--entity-muted);
+  font-size: 11px;
+  font-weight: 800;
+  background: var(--entity-panel-soft);
+  border:
+    1px solid
+    var(--entity-border);
+  border-radius: 8px;
+}
+
+body[data-manage-entity] :is(
+  .mgr-name,
+  .npc-village-name
+) {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: inherit !important;
+  font-size: 14px !important;
+  font-weight: 760 !important;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body[data-manage-entity] .mgr-village-menu-btn {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  place-items: center;
+  color: var(--entity-muted);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 9px;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+body[data-manage-entity] .mgr-village-menu-btn:hover {
+  color: var(--entity-accent-strong);
+  background: var(--entity-accent-soft);
+}
+
+/* ===== 추가/상단 액션 버튼 ===== */
+
+body[data-manage-entity] .mgr-add-btn {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  box-sizing: border-box;
+  margin-top: 12px !important;
+  padding: 0 14px !important;
+  color: white !important;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(
+        in srgb,
+        var(--entity-accent) 90%,
+        white
+      ),
+      var(--entity-accent)
+    ) !important;
+  border:
+    1px solid
+    color-mix(
+      in srgb,
+      var(--entity-accent-strong) 44%,
+      var(--entity-accent)
+    ) !important;
+  border-radius: 12px !important;
+  box-shadow:
+    0 8px 18px
+    color-mix(
+      in srgb,
+      var(--entity-accent) 22%,
+      transparent
+    ) !important;
+  transition:
+    transform 0.15s ease,
+    filter 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+body[data-manage-entity] .mgr-add-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.03);
+  box-shadow:
+    0 11px 22px
+    color-mix(
+      in srgb,
+      var(--entity-accent) 28%,
+      transparent
+    ) !important;
+}
+
+body[data-manage-entity] :is(
+  .toolbar-seg,
+  .seg-group
+) {
+  display: inline-flex;
+  align-items: stretch;
+  overflow: hidden;
+  background: white;
+  border:
+    1px solid
+    var(--entity-border);
+  border-radius: 12px !important;
+  box-shadow:
+    0 5px 14px
+    rgba(41, 75, 45, 0.05);
+}
+
+body[data-manage-entity] .seg-btn {
+  min-height: 40px;
+  padding: 0 13px !important;
+  color: var(--entity-text);
+  font-size: 13px;
+  font-weight: 780;
+  cursor: pointer;
+  background: transparent !important;
+  border: 0 !important;
+  border-right:
+    1px solid
+    var(--entity-border) !important;
+  border-radius: 0 !important;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+body[data-manage-entity] .seg-btn:last-child {
+  border-right: 0 !important;
+}
+
+body[data-manage-entity] .seg-btn:hover:not(:disabled) {
+  color: var(--entity-accent-strong);
+  background:
+    var(--entity-accent-soft) !important;
+}
+
+body[data-manage-entity] :is(
+  .seg-btn.danger,
+  .rd-btn.danger
+) {
+  color:
+    var(--entity-danger) !important;
+}
+
+body[data-manage-entity] :is(
+  .seg-btn.danger,
+  .rd-btn.danger
+):hover:not(:disabled) {
+  color: #bd2f2f !important;
+  background:
+    var(--entity-danger-soft) !important;
+}
+
+/* ===== 상세 정보 ===== */
+
+body[data-manage-entity] .mgr-detail-area {
+  padding: 22px !important;
+}
+
+body[data-manage-entity] .mgr-detail-empty,
+body[data-manage-entity] .mgr-empty,
+body[data-manage-entity] .empty-state {
+  display: grid;
+  min-height: 240px;
+  place-items: center;
+  box-sizing: border-box;
+  padding: 28px;
+  color: var(--entity-muted);
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  background:
+    color-mix(
+      in srgb,
+      var(--entity-panel-soft) 78%,
+      transparent
+    );
+  border:
+    1px dashed
+    var(--entity-border-strong);
+  border-radius: 16px;
+}
+
+body[data-manage-entity] .mgr-pill-row {
+  display: grid !important;
+  grid-template-columns:
+    minmax(104px, 0.32fr)
+    minmax(0, 1fr);
+  min-height: 46px;
+  align-items: stretch;
+  box-sizing: border-box;
+  margin: 0 0 9px !important;
+  overflow: hidden;
+  background:
+    rgba(255, 255, 255, 0.82) !important;
+  border:
+    1px solid
+    var(--entity-border) !important;
+  border-radius: 12px !important;
+  box-shadow:
+    0 4px 12px
+    rgba(41, 75, 45, 0.035);
+}
+
+body[data-manage-entity] .mgr-pill-label {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px !important;
+  color:
+    var(--entity-accent-strong) !important;
+  font-size: 12px !important;
+  font-weight: 820 !important;
+  background:
+    color-mix(
+      in srgb,
+      var(--entity-accent-soft) 72%,
+      white
+    ) !important;
+  border-right:
+    1px solid
+    var(--entity-border);
+}
+
+body[data-manage-entity] .mgr-pill-value {
+  min-width: 0;
+  padding: 10px 13px !important;
+  color: var(--entity-text) !important;
+  font-size: 13px !important;
+  font-weight: 650;
+  line-height: 1.55;
+  background: transparent !important;
+}
+
+body[data-manage-entity] :is(
+  .tag-seg,
+  .seg-choice
+) {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 5px;
+  box-sizing: border-box;
+  padding: 0 10px !important;
+  color: var(--entity-muted);
+  font-size: 12px;
+  font-weight: 760;
+  cursor: pointer;
+  background: white !important;
+  border:
+    1px solid
+    var(--entity-border) !important;
+  border-radius: 999px !important;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+body[data-manage-entity] :is(
+  .tag-seg,
+  .seg-choice
+):hover,
+body[data-manage-entity] :is(
+  .tag-seg.active,
+  .tag-seg.selected,
+  .seg-choice.active,
+  .seg-choice.selected
+) {
+  color: var(--entity-accent-strong) !important;
+  background:
+    var(--entity-accent-soft) !important;
+  border-color:
+    color-mix(
+      in srgb,
+      var(--entity-accent) 45%,
+      var(--entity-border)
+    ) !important;
+}
+
+/* ===== 기존 연결 모달 ===== */
+
+body[data-manage-entity] :is(
+  .rd-modal-backdrop,
+  .modal-backdrop,
+  .image-select-backdrop,
+  .image-modal-backdrop
+) {
+  background:
+    rgba(18, 31, 20, 0.42) !important;
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+body[data-manage-entity] :is(
+  [role='dialog'],
+  .rd-modal-card,
+  .rd-modal-panel,
+  .rd-modal,
+  .modal-content,
+  .image-select-modal,
+  .image-modal-card
+) {
+  color: var(--entity-text);
+}
+
+body[data-manage-entity] :is(
+  [role='dialog'].rd-modal-card,
+  [role='dialog'].rd-modal,
+  .rd-modal-card,
+  .rd-modal-panel,
+  .modal-content,
+  .image-select-modal,
+  .image-modal-card
+) {
+  overflow: hidden;
+  background:
+    linear-gradient(
+      180deg,
+      #ffffff,
+      #fbfdf9
+    ) !important;
+  border:
+    1px solid
+    var(--entity-border-strong) !important;
+  border-radius: 20px !important;
+  box-shadow:
+    0 30px 80px
+    rgba(25, 48, 29, 0.22),
+    0 8px 24px
+    rgba(25, 48, 29, 0.1) !important;
+}
+
+body[data-manage-entity] :is(
+  .rd-modal-header,
+  .modal-header,
+  .image-modal-header
+) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  box-sizing: border-box;
+  padding: 18px 20px !important;
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(
+        in srgb,
+        var(--entity-accent-soft) 86%,
+        white
+      ),
+      white
+    ) !important;
+  border-bottom:
+    1px solid
+    var(--entity-border) !important;
+}
+
+body[data-manage-entity] :is(
+  .rd-modal-title,
+  .modal-title,
+  .image-modal-title
+) {
+  margin: 0 !important;
+  color: var(--entity-text) !important;
+  font-family:
+    'NanumSquareNeo',
+    'NanumSquareRound',
+    system-ui,
+    sans-serif;
+  font-size: 20px !important;
+  font-weight: 850 !important;
+  letter-spacing: -0.035em;
+}
+
+body[data-manage-entity] :is(
+  .rd-modal-body,
+  .modal-body,
+  .image-modal-body
+) {
+  box-sizing: border-box;
+  padding: 20px !important;
+}
+
+body[data-manage-entity] :is(
+  .rd-modal-footer,
+  .rd-modal-actions,
+  .modal-footer,
+  .modal-actions
+) {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  box-sizing: border-box;
+  padding: 15px 20px 19px !important;
+  background:
+    color-mix(
+      in srgb,
+      var(--entity-panel-soft) 72%,
+      white
+    ) !important;
+  border-top:
+    1px solid
+    var(--entity-border) !important;
+}
+
+body[data-manage-entity] .rd-field {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 14px !important;
+}
+
+body[data-manage-entity] .rd-label {
+  color: var(--entity-text) !important;
+  font-size: 12px !important;
+  font-weight: 820 !important;
+}
+
+body[data-manage-entity] :is(
+  .rd-input,
+  .rd-textarea,
+  .rw-input,
+  .rd-num
+) {
+  width: 100%;
+  box-sizing: border-box;
+  color: var(--entity-text) !important;
+  font: inherit;
+  background:
+    rgba(255, 255, 255, 0.96) !important;
+  border:
+    1px solid
+    var(--entity-border-strong) !important;
+  border-radius: 11px !important;
+  outline: none;
+  box-shadow:
+    inset 0 1px 2px
+    rgba(30, 58, 34, 0.025);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
+}
+
+body[data-manage-entity] .rd-input,
+body[data-manage-entity] .rw-input,
+body[data-manage-entity] .rd-num {
+  min-height: 42px;
+  padding: 9px 11px !important;
+}
+
+body[data-manage-entity] .rd-textarea {
+  min-height: 112px;
+  padding: 11px 12px !important;
+  resize: vertical;
+}
+
+body[data-manage-entity] :is(
+  .rd-input,
+  .rd-textarea,
+  .rw-input,
+  .rd-num
+):focus {
+  background: white !important;
+  border-color:
+    var(--entity-accent) !important;
+  box-shadow:
+    0 0 0 3px
+    color-mix(
+      in srgb,
+      var(--entity-accent) 16%,
+      transparent
+    ) !important;
+}
+
+body[data-manage-entity] .rd-btn {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  box-sizing: border-box;
+  padding: 0 14px !important;
+  color: var(--entity-text);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  background: white !important;
+  border:
+    1px solid
+    var(--entity-border-strong) !important;
+  border-radius: 11px !important;
+  box-shadow:
+    0 4px 12px
+    rgba(41, 75, 45, 0.045);
+  transition:
+    transform 0.15s ease,
+    color 0.15s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+body[data-manage-entity] .rd-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  color: var(--entity-accent-strong);
+  background:
+    var(--entity-accent-soft) !important;
+  border-color:
+    color-mix(
+      in srgb,
+      var(--entity-accent) 42%,
+      var(--entity-border)
+    ) !important;
+}
+
+body[data-manage-entity] .rd-btn.primary {
+  color: white !important;
+  background:
+    var(--entity-accent) !important;
+  border-color:
+    var(--entity-accent) !important;
+}
+
+body[data-manage-entity] .rd-btn.primary:hover:not(:disabled) {
+  color: white !important;
+  background:
+    var(--entity-accent-strong) !important;
+  border-color:
+    var(--entity-accent-strong) !important;
+}
+
+body[data-manage-entity] :is(
+  .mgr-icon-field,
+  .mgr-icon-inputs,
+  .rd-coord-row,
+  .rw-row
+) {
+  gap: 10px !important;
+}
+
+body[data-manage-entity] :is(
+  .mgr-icon-preview,
+  .rd-preview
+) {
+  overflow: hidden;
+  background:
+    var(--entity-panel-soft) !important;
+  border:
+    1px solid
+    var(--entity-border) !important;
+  border-radius: 12px !important;
+}
+
+body[data-manage-entity] .rd-coord-item {
+  min-width: 0;
+  padding: 10px !important;
+  background:
+    var(--entity-panel-soft) !important;
+  border:
+    1px solid
+    var(--entity-border) !important;
+  border-radius: 12px !important;
+}
+
+body[data-manage-entity] .rd-thumb-grid {
+  gap: 10px !important;
+}
+
+body[data-manage-entity] .rd-thumb {
+  overflow: hidden;
+  background:
+    var(--entity-panel-soft) !important;
+  border:
+    1px solid
+    var(--entity-border) !important;
+  border-radius: 12px !important;
+  box-shadow:
+    0 5px 14px
+    rgba(41, 75, 45, 0.05);
+}
+
+body[data-manage-entity] .rd-thumb-x,
+body[data-manage-entity] .rw-del-btn {
+  color: var(--entity-danger) !important;
+  background:
+    rgba(255, 255, 255, 0.92) !important;
+  border:
+    1px solid
+    #f1caca !important;
+  border-radius: 9px !important;
+}
+
+body[data-manage-entity] .rw-list {
+  display: grid;
+  gap: 9px;
+}
+
+body[data-manage-entity] .rw-row {
+  align-items: center;
+  box-sizing: border-box;
+  padding: 10px !important;
+  background:
+    var(--entity-panel-soft) !important;
+  border:
+    1px solid
+    var(--entity-border) !important;
+  border-radius: 12px !important;
+}
+
+body[data-manage-entity] .rw-add-btn {
+  min-height: 40px;
+  color: var(--entity-accent-strong) !important;
+  font-weight: 800;
+  background:
+    var(--entity-accent-soft) !important;
+  border:
+    1px dashed
+    color-mix(
+      in srgb,
+      var(--entity-accent) 52%,
+      var(--entity-border)
+    ) !important;
+  border-radius: 11px !important;
+}
+
+/* ===== 삭제 비밀번호 모달 ===== */
+
+.manage-delete-guard-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  padding: 18px;
+  background:
+    rgba(18, 28, 20, 0.52);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  animation:
+    manage-delete-backdrop-in
+    0.16s ease both;
+}
+
+.manage-delete-guard-dialog {
+  width: min(430px, 100%);
+  box-sizing: border-box;
+  padding: 24px;
+  color: #18211a;
+  background:
+    radial-gradient(
+      circle at 100% 0,
+      rgba(255, 226, 226, 0.62),
+      transparent 38%
+    ),
+    linear-gradient(
+      180deg,
+      #ffffff,
+      #fdfbf9
+    );
+  border:
+    1px solid
+    #ead7d7;
+  border-radius: 22px;
+  box-shadow:
+    0 34px 92px
+    rgba(31, 25, 25, 0.28),
+    0 9px 28px
+    rgba(31, 25, 25, 0.13);
+  animation:
+    manage-delete-dialog-in
+    0.18s cubic-bezier(
+      0.2,
+      0.8,
+      0.2,
+      1
+    ) both;
+}
+
+.manage-delete-guard-icon {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 16px;
+  place-items: center;
+  color: #d74242;
+  background: #fff0f0;
+  border:
+    1px solid
+    #f3caca;
+  border-radius: 16px;
+  box-shadow:
+    0 8px 20px
+    rgba(215, 66, 66, 0.1);
+}
+
+.manage-delete-guard-icon svg {
+  width: 27px;
+  height: 27px;
+}
+
+.manage-delete-guard-heading {
+  margin-bottom: 18px;
+}
+
+.manage-delete-guard-eyebrow {
+  display: inline-flex;
+  margin-bottom: 7px;
+  color: #c33a3a;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+}
+
+.manage-delete-guard-heading h2 {
+  margin: 0 0 8px;
+  color: #1f2420;
+  font-family:
+    'NanumSquareNeo',
+    'NanumSquareRound',
+    system-ui,
+    sans-serif;
+  font-size: 21px;
+  font-weight: 900;
+  line-height: 1.3;
+  letter-spacing: -0.04em;
+}
+
+.manage-delete-guard-heading p {
+  margin: 0;
+  color: #727974;
+  font-size: 13px;
+  font-weight: 620;
+  line-height: 1.6;
+}
+
+.manage-delete-guard-form {
+  display: grid;
+  gap: 8px;
+}
+
+.manage-delete-guard-label {
+  color: #2f3731;
+  font-size: 12px;
+  font-weight: 830;
+}
+
+.manage-delete-guard-input {
+  width: 100%;
+  min-height: 46px;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  color: #18211a;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 720;
+  background: #fff;
+  border:
+    1px solid
+    #d9dfda;
+  border-radius: 12px;
+  outline: none;
+  box-shadow:
+    inset 0 1px 2px
+    rgba(34, 45, 36, 0.035);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.manage-delete-guard-input:focus {
+  border-color: #df5b5b;
+  box-shadow:
+    0 0 0 3px
+    rgba(223, 91, 91, 0.13);
+}
+
+.manage-delete-guard-input.is-error {
+  border-color: #dc4545;
+  box-shadow:
+    0 0 0 3px
+    rgba(220, 69, 69, 0.12);
+}
+
+.manage-delete-guard-message {
+  min-height: 18px;
+  color: #8a918b;
+  font-size: 11px;
+  font-weight: 680;
+  line-height: 1.5;
+}
+
+.manage-delete-guard-input.is-error +
+.manage-delete-guard-message {
+  color: #cf3e3e;
+}
+
+.manage-delete-guard-actions {
+  display: grid;
+  grid-template-columns:
+    1fr
+    1.25fr;
+  gap: 9px;
+  margin-top: 8px;
+}
+
+.manage-delete-guard-button {
+  min-height: 43px;
+  box-sizing: border-box;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 830;
+  cursor: pointer;
+  border-radius: 12px;
+  transition:
+    transform 0.15s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.manage-delete-guard-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.manage-delete-guard-button.is-cancel {
+  color: #58605a;
+  background: #fff;
+  border:
+    1px solid
+    #dce2dc;
+}
+
+.manage-delete-guard-button.is-cancel:hover {
+  background: #f5f7f5;
+  border-color: #cbd4cc;
+}
+
+.manage-delete-guard-button.is-delete {
+  color: white;
+  background:
+    linear-gradient(
+      180deg,
+      #e75656,
+      #d64040
+    );
+  border:
+    1px solid
+    #ca3838;
+  box-shadow:
+    0 8px 18px
+    rgba(215, 64, 64, 0.2);
+}
+
+.manage-delete-guard-button.is-delete:hover:not(:disabled) {
+  background:
+    linear-gradient(
+      180deg,
+      #df4a4a,
+      #c93636
+    );
+}
+
+.manage-delete-guard-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+  box-shadow: none;
+}
+
+@keyframes manage-delete-backdrop-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes manage-delete-dialog-in {
+  from {
+    opacity: 0;
+    transform:
+      translateY(8px)
+      scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform:
+      translateY(0)
+      scale(1);
+  }
+}
+
+/* ===== 반응형 ===== */
+
+@media (max-width: 1250px) {
+  body[data-manage-entity] .mgr-container {
+    grid-template-columns:
+      minmax(205px, 0.75fr)
+      minmax(270px, 0.95fr)
+      minmax(380px, 1.7fr) !important;
+    gap: 12px !important;
+    padding: 13px !important;
+  }
+
+  body[data-manage-entity] :is(
+    .mgr-sidebar,
+    .mgr-list-area,
+    .mgr-detail-area
+  ) {
+    padding: 14px !important;
+    border-radius: 17px !important;
+  }
+}
+
+@media (max-width: 980px) {
+  body[data-manage-entity] .mgr-container {
+    grid-template-columns:
+      minmax(220px, 0.8fr)
+      minmax(0, 1.4fr) !important;
+    grid-template-rows:
+      minmax(300px, 0.9fr)
+      minmax(360px, 1.1fr);
+    height: auto !important;
+    min-height:
+      calc(100dvh - 70px);
+    overflow: visible !important;
+  }
+
+  body[data-manage-entity] .mgr-detail-area {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 720px) {
+  body[data-manage-entity] .mgr-container {
+    display: flex !important;
+    width: 100% !important;
+    min-height:
+      calc(100dvh - 64px);
+    flex-direction: column;
+    gap: 11px !important;
+    padding: 10px !important;
+  }
+
+  body[data-manage-entity] :is(
+    .mgr-sidebar,
+    .mgr-list-area,
+    .mgr-detail-area
+  ) {
+    width: 100%;
+    max-height: none;
+    padding: 13px !important;
+    overflow: visible;
+    border-radius: 16px !important;
+  }
+
+  body[data-manage-entity] .mgr-sidebar {
+    max-height: 330px;
+    overflow: auto;
+  }
+
+  body[data-manage-entity] .mgr-list-area {
+    max-height: 390px;
+    overflow: auto;
+  }
+
+  body[data-manage-entity] .mgr-pill-row {
+    grid-template-columns: 1fr;
+  }
+
+  body[data-manage-entity] .mgr-pill-label {
+    padding-bottom: 7px !important;
+    border-right: 0;
+    border-bottom:
+      1px solid
+      var(--entity-border);
+  }
+
+  .manage-delete-guard-dialog {
+    padding: 20px;
+    border-radius: 18px;
+  }
+
+  .manage-delete-guard-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===== 다크모드 ===== */
+
+:is(
+  html[data-theme='dark'],
+  body[data-theme='dark'],
+  html.dark,
+  body.dark
+) body[data-manage-entity],
+:is(
+  html[data-theme='dark'],
+  body[data-theme='dark'],
+  html.dark,
+  body.dark
+)[data-manage-entity] {
+  --entity-panel:
+    rgba(20, 29, 22, 0.96);
+  --entity-panel-soft:
+    #18231a;
+  --entity-border:
+    #2c3d2f;
+  --entity-border-strong:
+    #3a5140;
+  --entity-text:
+    #edf5ed;
+  --entity-muted:
+    #9aab9d;
+  --entity-accent-soft:
+    #1d3422;
+  --entity-cream:
+    #121a14;
+
+  background:
+    radial-gradient(
+      circle at 0 0,
+      rgba(72, 125, 79, 0.18),
+      transparent 32%
+    ),
+    #101712;
+}
+
+:is(
+  html[data-theme='dark'],
+  body[data-theme='dark'],
+  html.dark,
+  body.dark
+) body[data-manage-entity] :is(
+  .mgr-sidebar,
+  .mgr-list-area,
+  .mgr-detail-area
+),
+:is(
+  html[data-theme='dark'],
+  body[data-theme='dark'],
+  html.dark,
+  body.dark
+)[data-manage-entity] :is(
+  .mgr-sidebar,
+  .mgr-list-area,
+  .mgr-detail-area
+) {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(22, 32, 24, 0.98),
+      rgba(16, 25, 18, 0.98)
+    ) !important;
+}
+
+:is(
+  html[data-theme='dark'],
+  body[data-theme='dark'],
+  html.dark,
+  body.dark
+) body[data-manage-entity] :is(
+  .npc-village-item,
+  .mgr-list-item,
+  .mgr-pill-row,
+  .toolbar-seg,
+  .seg-group,
+  .rd-btn,
+  .rd-input,
+  .rd-textarea,
+  .rw-input,
+  .rd-num
+),
+:is(
+  html[data-theme='dark'],
+  body[data-theme='dark'],
+  html.dark,
+  body.dark
+)[data-manage-entity] :is(
+  .npc-village-item,
+  .mgr-list-item,
+  .mgr-pill-row,
+  .toolbar-seg,
+  .seg-group,
+  .rd-btn,
+  .rd-input,
+  .rd-textarea,
+  .rw-input,
+  .rd-num
+) {
+  color: var(--entity-text) !important;
+  background:
+    rgba(19, 28, 21, 0.94) !important;
+}
