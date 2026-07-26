@@ -1335,9 +1335,10 @@ export default function WikiPageInner({ user }: Props) {
   const openDefaultWikiDocById = async (docId: number) => {
     const hideChrome = shouldHideDocChrome(docId);
     const inList = allDocuments.find(d => d.id === docId);
+    const inListPath = inList?.fullPath;
     const initialPath =
-      Array.isArray(inList?.fullPath) && inList.fullPath.length > 0
-        ? [...inList.fullPath]
+      Array.isArray(inListPath) && inListPath.length > 0
+        ? [...inListPath]
         : categoryIdToPathMap[DEFAULT_WIKI_DOCUMENT_PATH_ID] ??
           [DEFAULT_WIKI_DOCUMENT_PATH_ID];
 
