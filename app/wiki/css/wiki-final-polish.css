@@ -1519,3 +1519,125 @@ span[style*='border-radius: 999'] {
   background: rgba(61, 118, 72, 0.36) !important;
   border-color: rgba(135, 202, 148, 0.24) !important;
 }
+
+/* =============================================
+   내부 링크 미리보기 정확한 선택자 보정
+
+   기존 보정은 inline style 문자열의 z-index를 기준으로 선택해서
+   브라우저가 style 속성을 직렬화하는 방식에 따라 적용되지 않았다.
+
+   InlineWikiLinkRead가 생성하는 고유 ID:
+   wiki-inline-preview-*
+   를 직접 사용해 Portal 카드에 다크모드 변수를 공급한다.
+   ============================================= */
+
+/* Portal 루트에 다크모드 색상 변수를 직접 공급 */
+:root[data-theme='dark']
+body
+> [id^='wiki-inline-preview-'] {
+  --foreground: #edf5ef !important;
+  --muted: #aabbb1 !important;
+  --muted-2: #8fa196 !important;
+  --accent: #92d99e !important;
+  --accent-soft: rgba(67, 123, 77, 0.36) !important;
+  --surface: #101a14 !important;
+  --surface-soft: #132219 !important;
+  --surface-elevated: #16241b !important;
+  --border: rgba(139, 194, 150, 0.24) !important;
+  --border-strong: rgba(145, 207, 157, 0.34) !important;
+  --shadow-lg:
+    0 20px 48px rgba(0, 0, 0, 0.44),
+    0 5px 16px rgba(0, 0, 0, 0.25) !important;
+
+  color: #edf5ef !important;
+  background: #16241b !important;
+  border-color: rgba(139, 194, 150, 0.24) !important;
+}
+
+/* 카테고리 경로 */
+:root[data-theme='dark']
+body
+> [id^='wiki-inline-preview-']
+div[style*='color: var(--muted)'] {
+  color: #aabbb1 !important;
+}
+
+/* 문서 제목 */
+:root[data-theme='dark']
+body
+> [id^='wiki-inline-preview-']
+div[style*='color: var(--foreground)'] {
+  color: #edf5ef !important;
+}
+
+/* 로딩·오류 문구 */
+:root[data-theme='dark']
+body
+> [id^='wiki-inline-preview-']
+div[style*='color: var(--muted)'] {
+  color: #aabbb1 !important;
+}
+
+/* 아이콘 배경 */
+:root[data-theme='dark']
+body
+> [id^='wiki-inline-preview-']
+div[style*='background: var(--accent-soft)'] {
+  background: rgba(67, 123, 77, 0.36) !important;
+}
+
+/* 태그 */
+:root[data-theme='dark']
+body
+> [id^='wiki-inline-preview-']
+span[style*='border-radius: 999'] {
+  color: #92d99e !important;
+  background: rgba(61, 118, 72, 0.38) !important;
+  border-color: rgba(135, 202, 148, 0.26) !important;
+}
+
+/* 말풍선 화살표 */
+:root[data-theme='dark']
+body
+> [id^='wiki-inline-preview-']
+> span[aria-hidden] {
+  background: #16241b !important;
+  border-right-color: rgba(139, 194, 150, 0.24) !important;
+  border-bottom-color: rgba(139, 194, 150, 0.24) !important;
+}
+
+/* 혹시 body에 테마 속성이 적용되는 환경도 함께 대응 */
+body[data-theme='dark']
+> [id^='wiki-inline-preview-'],
+body.dark
+> [id^='wiki-inline-preview-'] {
+  --foreground: #edf5ef !important;
+  --muted: #aabbb1 !important;
+  --accent: #92d99e !important;
+  --accent-soft: rgba(67, 123, 77, 0.36) !important;
+  --surface-elevated: #16241b !important;
+  --border: rgba(139, 194, 150, 0.24) !important;
+  --shadow-lg:
+    0 20px 48px rgba(0, 0, 0, 0.44),
+    0 5px 16px rgba(0, 0, 0, 0.25) !important;
+
+  color: #edf5ef !important;
+  background: #16241b !important;
+  border-color: rgba(139, 194, 150, 0.24) !important;
+}
+
+/*
+ * 사이트 다크모드를 수동으로 켰지만 data-theme가 Portal 조상에
+ * 반영되기 전인 짧은 구간도 OS 다크모드에서 안전하게 표시한다.
+ */
+@media (prefers-color-scheme: dark) {
+  body
+  > [id^='wiki-inline-preview-'] {
+    --foreground: #edf5ef;
+    --muted: #aabbb1;
+    --accent: #92d99e;
+    --accent-soft: rgba(67, 123, 77, 0.36);
+    --surface-elevated: #16241b;
+    --border: rgba(139, 194, 150, 0.24);
+  }
+}
