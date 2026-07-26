@@ -37,6 +37,10 @@ import {
   consumeNextDocViewSource,
   markNextDocViewSource,
 } from '@/wiki/lib/viewSource';
+import {
+  DEFAULT_WIKI_DOCUMENT_ID,
+  DEFAULT_WIKI_DOCUMENT_PATH_ID,
+} from '@/wiki/lib/defaultWikiDocument';
 
 type CategoryNode = {
   id: number;
@@ -88,16 +92,10 @@ const MODE_STORAGE = 'wiki:mode';
 const MODE_EVENT = 'wiki-mode-change';
 const MODE_WHITELIST = new Set(['RPG', '렌독런', '마인팜', '부엉이타운']);
 
-// ✅ 루트 대표 문서 ID 하드코딩
-const ROOT_FEATURED_DOC_ID = 73;
-
 function shouldHideDocChrome(
   docId?: number | null,
 ) {
-  return (
-    Number(docId) ===
-    ROOT_FEATURED_DOC_ID
-  );
+  return Number(docId) === DEFAULT_WIKI_DOCUMENT_ID;
 }
 
 function pathToStr(path: number[]) {
@@ -1328,65 +1326,33 @@ export default function WikiPageInner({ user }: Props) {
 
   const docReqIdRef = useRef(0);
 
-  // ----------------------------------------
-  // 유틸: 루트 대표 문서 찾기 & 열기
-  // ----------------------------------------
-  const findRootDoc = () => {
-    const roots = allDocuments.filter(
-      d =>
-        (Array.isArray(d.fullPath) && d.fullPath.length === 0) ||
-        Number(d.path) === 0,
-    );
-    // 대표 우선(is_featured) → 없으면 첫번째
-    return roots.find(d => d.is_featured) || roots[0];
-  };
-
   const findDocumentMetaById = (id?: number | null) => {
     if (id == null) return null;
     return allDocuments.find(d => d.id === id) ?? null;
   };
 
-  const openRootDoc = async () => {
-    const rootDoc = findRootDoc();
-    if (!rootDoc) return;
-
-    const hideChrome =
-      shouldHideDocChrome(
-        rootDoc.id,
-      );
-
-    setHideDocChrome(
-      hideChrome,
-    );
-    setSelectedDocId(rootDoc.id);
-    setSelectedDocTitle(rootDoc.title ?? null);
-    setSelectedDocPath([]); // 루트 경로는 []
-    setSelectedCategoryPath(null);
-
-    await fetchDocById(rootDoc.id, {
-      hideChrome,
-      ignoreCurrentLocationHash: true,
-    });
-  };
-
-  // ✅ 특정 ID로 루트 문서 열기(로고/초기 로딩용)
-  const openRootDocById = async (docId: number) => {
-    const hideChrome =
-      shouldHideDocChrome(
-        docId,
-      );
-
-    setHideDocChrome(
-      hideChrome,
-    );
-    setSelectedCategoryPath(null);
-    setSelectedDocPath([]); // 루트 경로 고정
-    setSelectedDocId(docId);
+  // 기본 안내 문서 열기. 문서 349는 루트가 아니라 카테고리 32에 속하므로 경로도 함께 복원한다.
+  const openDefaultWikiDocById = async (docId: number) => {
+    const hideChrome = shouldHideDocChrome(docId);
     const inList = allDocuments.find(d => d.id === docId);
-    setSelectedDocTitle(inList?.title ?? null); // 목록에 있으면 즉시 반영
+    const initialPath =
+      Array.isArray(inList?.fullPath) && inList.fullPath.length > 0
+        ? [...inList.fullPath]
+        : categoryIdToPathMap[DEFAULT_WIKI_DOCUMENT_PATH_ID] ??
+          [DEFAULT_WIKI_DOCUMENT_PATH_ID];
+
+    setHideDocChrome(hideChrome);
+    setSelectedCategoryPath(null);
+    setSelectedDocPath(initialPath);
+    setSelectedDocId(docId);
+    setSelectedDocTitle(inList?.title ?? null);
+    ensureOpenForDocPath(initialPath);
+
     await fetchDocById(docId, {
       hideChrome,
+      presetPath: initialPath,
       ignoreCurrentLocationHash: true,
+      history: 'replace',
     });
   };
 
@@ -1441,8 +1407,8 @@ export default function WikiPageInner({ user }: Props) {
         setAllDocuments(mapped);
 
         // 새로고침/직접 진입 시 URL에 특정 문서가 명시되어 있으면
-        // bootstrap featured(루트 문서)를 먼저 본문에 꽂지 않는다.
-        // 그렇지 않으면 실제 문서를 열기 전에 루트 문서(id 73)가 잠깐 보인다.
+        // bootstrap 기본 안내 문서를 먼저 본문에 꽂지 않는다.
+        // 그렇지 않으면 실제 문서를 열기 전에 기본 문서가 잠깐 보일 수 있다.
         const initialSearch =
           typeof window !== 'undefined'
             ? new URLSearchParams(window.location.search)
@@ -1459,6 +1425,13 @@ export default function WikiPageInner({ user }: Props) {
         // 최초 뷰를 bootstrap 응답 하나로 바로 렌더
         // 단, URL로 특정 문서에 직접 들어온 경우에는 featured 선렌더 금지
         if (!hasExplicitInitialTarget && featured?.id) {
+          const featuredPathId = Number(featured.path);
+          const featuredPath =
+            featuredPathId === 0
+              ? []
+              : idToPath[featuredPathId] ??
+                (Number.isFinite(featuredPathId) ? [featuredPathId] : []);
+
           setHideDocChrome(
             shouldHideDocChrome(
               featured.id,
@@ -1466,8 +1439,9 @@ export default function WikiPageInner({ user }: Props) {
           );
           setSelectedDocId(featured.id);
           setSelectedDocTitle(featured.title ?? null);
-          setSelectedDocPath([]);
+          setSelectedDocPath(featuredPath);
           setSelectedCategoryPath(null);
+          ensureOpenForDocPath(featuredPath);
 
           const initialContent: Descendant[] = Array.isArray(featured.content)
             ? featured.content
@@ -2591,7 +2565,7 @@ export default function WikiPageInner({ user }: Props) {
     }
   };
 
-  // ✅ 초기 자동 오픈: 카테고리/문서 세팅 완료 후 "ID=73"
+  // 초기 자동 오픈: 카테고리/문서 세팅 완료 후 기본 안내 문서
   useEffect(() => {
     if (!bootstrapReady) return;
     if (!firstLoadRef.current) return;
@@ -2611,7 +2585,7 @@ export default function WikiPageInner({ user }: Props) {
     if (hasUrl) return; // 딥링크 우선
 
     // ✅ bootstrap에서 이미 대표 문서가 세팅됐으면 추가 fetch 금지
-    if (selectedDocId === ROOT_FEATURED_DOC_ID && docContent) {
+    if (selectedDocId === DEFAULT_WIKI_DOCUMENT_ID && docContent) {
       firstLoadRef.current = false;
       return;
     }
@@ -2620,18 +2594,18 @@ export default function WikiPageInner({ user }: Props) {
 
     const id1 = requestAnimationFrame(() => {
       const id2 = requestAnimationFrame(() => {
-        openRootDocById(ROOT_FEATURED_DOC_ID);
+        void openDefaultWikiDocById(DEFAULT_WIKI_DOCUMENT_ID);
       });
-      (window as any).__wiki_root_open_cleanup = () =>
+      (window as any).__wiki_default_open_cleanup = () =>
         cancelAnimationFrame(id2);
     });
 
     return () => {
       cancelAnimationFrame(id1);
-      const c = (window as any).__wiki_root_open_cleanup;
+      const c = (window as any).__wiki_default_open_cleanup;
       if (typeof c === 'function') {
         c();
-        delete (window as any).__wiki_root_open_cleanup;
+        delete (window as any).__wiki_default_open_cleanup;
       }
     };
   }, [bootstrapReady, categories, allDocuments, selectedDocId, docContent, searchParams]);

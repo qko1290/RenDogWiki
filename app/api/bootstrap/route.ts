@@ -2,7 +2,7 @@
 // File: app/api/bootstrap/route.ts
 // (전체 코드)
 // - 위키 초기 bootstrap 데이터
-// - 대표 문서는 다시 "본문 포함"으로 한 번에 내려줌
+// - 기본 안내 문서는 다시 "본문 포함"으로 한 번에 내려줌
 // - 첫 화면 DB 요청을 bootstrap 1회로 줄이는 것이 목적
 // - 로컬 TTL 캐시 + stale-on-error 사용
 // =============================================
@@ -10,12 +10,11 @@
 import { NextResponse } from 'next/server';
 import { sql, runDbRead, isTransientDbError } from '@/wiki/lib/db';
 import { cached } from '@/wiki/lib/cache';
+import { DEFAULT_WIKI_DOCUMENT_ID } from '@/wiki/lib/defaultWikiDocument';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-
-const FEATURED_ID = 73;
 
 type BootstrapDocument = {
   id: number;
@@ -27,7 +26,6 @@ type BootstrapDocument = {
   order: number;
   updated_at?: string | null;
 };
-
 type BootstrapFeatured = {
   id: number;
   title: string;
@@ -47,7 +45,6 @@ type BootstrapPayload = {
   degraded?: boolean;
   stale?: boolean;
 };
-
 function noStoreHeaders() {
   return {
     'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
@@ -62,7 +59,6 @@ function emptyBootstrapPayload(extra?: Partial<BootstrapPayload>): BootstrapPayl
     ...extra,
   };
 }
-
 function toContentArray(raw: unknown): any[] {
   if (Array.isArray(raw)) return raw;
   if (typeof raw === 'string') {
@@ -75,14 +71,18 @@ function toContentArray(raw: unknown): any[] {
   }
   return [];
 }
-
 export async function GET() {
   try {
     const data = await cached<BootstrapPayload>(
-      'bootstrap:v5',
+      'bootstrap:v6',
       {
         ttlSec: 600,
-        tags: ['category:list', 'category:tree', 'doc:list', `doc:${FEATURED_ID}`],
+        tags: [
+          'category:list',
+          'category:tree',
+          'doc:list',
+          `doc:${DEFAULT_WIKI_DOCUMENT_ID}`,
+        ],
       },
       async () => {
         const categories = await runDbRead(
@@ -103,7 +103,6 @@ export async function GET() {
           },
           0
         );
-
         const docs = await runDbRead(
           'bootstrap:documents',
           async () => {
@@ -122,7 +121,6 @@ export async function GET() {
           },
           0
         );
-
         const featuredRows = await runDbRead(
           'bootstrap:featured',
           async () => {
@@ -140,13 +138,12 @@ export async function GET() {
               FROM documents d
               LEFT JOIN document_contents dc
                 ON dc.document_id = d.id
-              WHERE d.id = ${FEATURED_ID}
+              WHERE d.id = ${DEFAULT_WIKI_DOCUMENT_ID}
               LIMIT 1
             `;
           },
           0
         );
-
         const featuredRow = (featuredRows?.[0] ?? null) as
           | {
               id: number;
@@ -160,7 +157,6 @@ export async function GET() {
               content?: unknown;
             }
           | null;
-
         const featured: BootstrapFeatured = featuredRow
           ? {
               id: featuredRow.id,
@@ -174,7 +170,6 @@ export async function GET() {
               content: toContentArray(featuredRow.content),
             }
           : null;
-
         return {
           categories,
           documents: (docs ?? []).map((r: any) => ({
@@ -191,7 +186,6 @@ export async function GET() {
         };
       }
     );
-
     return NextResponse.json(data, {
       status: 200,
       headers: {
@@ -212,7 +206,6 @@ export async function GET() {
         }
       );
     }
-
     return NextResponse.json(
       { error: 'Server error' },
       {
