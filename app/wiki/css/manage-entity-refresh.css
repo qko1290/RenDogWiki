@@ -1851,3 +1851,874 @@ body[data-manage-entity] .seg-btn {
     text-align: left;
   }
 }
+
+/* =============================================
+   NPC·퀘스트·머리찾기 관리 페이지 다크모드 최종 보정
+
+   적용 범위:
+   - /manage/npc
+   - /manage/quest
+   - /manage/head
+   - 각 페이지에서 여는 기존 연결 모달 및 삭제 확인 모달
+
+   크기·배치·기능은 변경하지 않고 색상만 보정한다.
+   ============================================= */
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity],
+body[data-theme='dark'][data-manage-entity],
+body.dark[data-manage-entity] {
+  --entity-panel: rgba(18, 30, 22, 0.98);
+  --entity-panel-soft: #15241a;
+  --entity-border: rgba(137, 190, 147, 0.2);
+  --entity-border-strong: rgba(144, 205, 156, 0.34);
+  --entity-text: #eef6ef;
+  --entity-muted: #a7b8ad;
+  --entity-accent-soft: rgba(65, 119, 75, 0.35);
+  --entity-cream: #101b14;
+  --entity-danger: #ff7d83;
+  --entity-danger-soft: rgba(131, 40, 47, 0.27);
+  --entity-shadow:
+    0 20px 48px rgba(0, 0, 0, 0.3);
+  --entity-shadow-soft:
+    0 9px 24px rgba(0, 0, 0, 0.24);
+
+  color: var(--entity-text);
+  background:
+    radial-gradient(
+      circle at 0 0,
+      rgba(72, 126, 80, 0.17),
+      transparent 32%
+    ),
+    linear-gradient(
+      180deg,
+      #101b14,
+      #0b140e
+    );
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .mgr-sidebar,
+  .mgr-list-area,
+  .mgr-detail-area
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .mgr-sidebar,
+  .mgr-list-area,
+  .mgr-detail-area
+),
+body.dark[data-manage-entity] :is(
+  .mgr-sidebar,
+  .mgr-list-area,
+  .mgr-detail-area
+) {
+  color: var(--entity-text);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(20, 34, 25, 0.99),
+      rgba(13, 23, 17, 0.99)
+    ) !important;
+  border-color: var(--entity-border) !important;
+  box-shadow: var(--entity-shadow) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .mgr-sidebar,
+  .mgr-list-area,
+  .mgr-detail-area
+)::before,
+body[data-theme='dark'][data-manage-entity] :is(
+  .mgr-sidebar,
+  .mgr-list-area,
+  .mgr-detail-area
+)::before,
+body.dark[data-manage-entity] :is(
+  .mgr-sidebar,
+  .mgr-list-area,
+  .mgr-detail-area
+)::before {
+  background:
+    radial-gradient(
+      circle at 100% 0,
+      rgba(67, 116, 76, 0.14),
+      transparent 36%
+    );
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .mgr-section-header,
+  .section-header,
+  .mgr-detail-header,
+  .mgr-list-header,
+  .mgr-sidebar-header
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .mgr-section-header,
+  .section-header,
+  .mgr-detail-header,
+  .mgr-list-header,
+  .mgr-sidebar-header
+),
+body.dark[data-manage-entity] :is(
+  .mgr-section-header,
+  .section-header,
+  .mgr-detail-header,
+  .mgr-list-header,
+  .mgr-sidebar-header
+) {
+  border-bottom-color: var(--entity-border) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .mgr-section-title,
+  .section-title,
+  .mgr-title,
+  .mgr-detail-title,
+  .mgr-detail-area h1,
+  .mgr-detail-area h2,
+  .mgr-detail-area h3,
+  .mgr-name,
+  .npc-village-name
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .mgr-section-title,
+  .section-title,
+  .mgr-title,
+  .mgr-detail-title,
+  .mgr-detail-area h1,
+  .mgr-detail-area h2,
+  .mgr-detail-area h3,
+  .mgr-name,
+  .npc-village-name
+),
+body.dark[data-manage-entity] :is(
+  .mgr-section-title,
+  .section-title,
+  .mgr-title,
+  .mgr-detail-title,
+  .mgr-detail-area h1,
+  .mgr-detail-area h2,
+  .mgr-detail-area h3,
+  .mgr-name,
+  .npc-village-name
+) {
+  color: var(--entity-text) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .npc-village-item,
+  .mgr-list-item
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .npc-village-item,
+  .mgr-list-item
+),
+body.dark[data-manage-entity] :is(
+  .npc-village-item,
+  .mgr-list-item
+) {
+  color: var(--entity-text) !important;
+  background: rgba(18, 31, 23, 0.82) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .npc-village-item,
+  .mgr-list-item
+):hover,
+body[data-theme='dark'][data-manage-entity] :is(
+  .npc-village-item,
+  .mgr-list-item
+):hover,
+body.dark[data-manage-entity] :is(
+  .npc-village-item,
+  .mgr-list-item
+):hover {
+  color: #eff8f1 !important;
+  background: rgba(42, 74, 50, 0.52) !important;
+  border-color: rgba(137, 198, 149, 0.23) !important;
+  box-shadow:
+    0 7px 18px rgba(0, 0, 0, 0.16) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .npc-village-item.active,
+  .npc-village-item.selected,
+  .npc-village-item.is-selected,
+  .mgr-list-item.active,
+  .mgr-list-item.selected,
+  .mgr-list-item.is-selected,
+  .mgr-list-item[aria-selected='true']
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .npc-village-item.active,
+  .npc-village-item.selected,
+  .npc-village-item.is-selected,
+  .mgr-list-item.active,
+  .mgr-list-item.selected,
+  .mgr-list-item.is-selected,
+  .mgr-list-item[aria-selected='true']
+),
+body.dark[data-manage-entity] :is(
+  .npc-village-item.active,
+  .npc-village-item.selected,
+  .npc-village-item.is-selected,
+  .mgr-list-item.active,
+  .mgr-list-item.selected,
+  .mgr-list-item.is-selected,
+  .mgr-list-item[aria-selected='true']
+) {
+  color: #b8ebc0 !important;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(53, 99, 63, 0.66),
+      rgba(23, 43, 28, 0.76)
+    ) !important;
+  border-color: rgba(143, 210, 156, 0.4) !important;
+  box-shadow:
+    inset 4px 0 0 #78ca84,
+    0 8px 20px rgba(0, 0, 0, 0.17) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .npc-village-icon,
+  .mgr-icon-cell,
+  .mgr-order,
+  .mgr-icon-preview,
+  .rd-preview,
+  .rd-coord-item,
+  .rd-thumb,
+  .rw-row
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .npc-village-icon,
+  .mgr-icon-cell,
+  .mgr-order,
+  .mgr-icon-preview,
+  .rd-preview,
+  .rd-coord-item,
+  .rd-thumb,
+  .rw-row
+),
+body.dark[data-manage-entity] :is(
+  .npc-village-icon,
+  .mgr-icon-cell,
+  .mgr-order,
+  .mgr-icon-preview,
+  .rd-preview,
+  .rd-coord-item,
+  .rd-thumb,
+  .rw-row
+) {
+  color: var(--entity-text-soft, var(--entity-muted)) !important;
+  background: #16261c !important;
+  border-color: var(--entity-border) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .mgr-village-menu-btn,
+  .mgr-order
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .mgr-village-menu-btn,
+  .mgr-order
+),
+body.dark[data-manage-entity] :is(
+  .mgr-village-menu-btn,
+  .mgr-order
+) {
+  color: #9dafA3 !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] .mgr-village-menu-btn:hover,
+body[data-theme='dark'][data-manage-entity] .mgr-village-menu-btn:hover,
+body.dark[data-manage-entity] .mgr-village-menu-btn:hover {
+  color: #a8e2b2 !important;
+  background: rgba(50, 91, 59, 0.4) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .mgr-pill-row,
+  .toolbar-seg,
+  .seg-group
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .mgr-pill-row,
+  .toolbar-seg,
+  .seg-group
+),
+body.dark[data-manage-entity] :is(
+  .mgr-pill-row,
+  .toolbar-seg,
+  .seg-group
+) {
+  color: var(--entity-text) !important;
+  background: rgba(17, 29, 21, 0.94) !important;
+  border-color: var(--entity-border) !important;
+  box-shadow: none !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] .mgr-pill-label,
+body[data-theme='dark'][data-manage-entity] .mgr-pill-label,
+body.dark[data-manage-entity] .mgr-pill-label {
+  color: #9adca5 !important;
+  background: rgba(52, 96, 61, 0.44) !important;
+  border-color: var(--entity-border) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] .mgr-pill-value,
+body[data-theme='dark'][data-manage-entity] .mgr-pill-value,
+body.dark[data-manage-entity] .mgr-pill-value {
+  color: #eef6ef !important;
+  background: transparent !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .tag-seg,
+  .seg-choice
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .tag-seg,
+  .seg-choice
+),
+body.dark[data-manage-entity] :is(
+  .tag-seg,
+  .seg-choice
+) {
+  color: #b0c0b5 !important;
+  background: #17271d !important;
+  border-color: var(--entity-border) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .tag-seg,
+  .seg-choice
+):hover,
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .tag-seg.active,
+  .tag-seg.selected,
+  .seg-choice.active,
+  .seg-choice.selected
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .tag-seg,
+  .seg-choice
+):hover,
+body[data-theme='dark'][data-manage-entity] :is(
+  .tag-seg.active,
+  .tag-seg.selected,
+  .seg-choice.active,
+  .seg-choice.selected
+),
+body.dark[data-manage-entity] :is(
+  .tag-seg,
+  .seg-choice
+):hover,
+body.dark[data-manage-entity] :is(
+  .tag-seg.active,
+  .tag-seg.selected,
+  .seg-choice.active,
+  .seg-choice.selected
+) {
+  color: #a6e1b0 !important;
+  background: rgba(53, 98, 62, 0.45) !important;
+  border-color: rgba(141, 207, 154, 0.36) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .seg-btn,
+  .rd-btn
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .seg-btn,
+  .rd-btn
+),
+body.dark[data-manage-entity] :is(
+  .seg-btn,
+  .rd-btn
+) {
+  color: #dce9df !important;
+  background: #18291e !important;
+  border-color: var(--entity-border) !important;
+  box-shadow: none !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .seg-btn,
+  .rd-btn
+):hover:not(:disabled),
+body[data-theme='dark'][data-manage-entity] :is(
+  .seg-btn,
+  .rd-btn
+):hover:not(:disabled),
+body.dark[data-manage-entity] :is(
+  .seg-btn,
+  .rd-btn
+):hover:not(:disabled) {
+  color: #aae4b4 !important;
+  background: rgba(55, 99, 64, 0.45) !important;
+  border-color: var(--entity-border-strong) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .mgr-add-btn,
+  .rd-btn.primary
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .mgr-add-btn,
+  .rd-btn.primary
+),
+body.dark[data-manage-entity] :is(
+  .mgr-add-btn,
+  .rd-btn.primary
+) {
+  color: #f8fff9 !important;
+  background:
+    linear-gradient(
+      180deg,
+      #4b9f56,
+      #397f44
+    ) !important;
+  border-color: #559e5e !important;
+  box-shadow:
+    0 8px 18px rgba(37, 108, 49, 0.22) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .seg-btn.danger,
+  .rd-btn.danger
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .seg-btn.danger,
+  .rd-btn.danger
+),
+body.dark[data-manage-entity] :is(
+  .seg-btn.danger,
+  .rd-btn.danger
+) {
+  color: #ff858b !important;
+  background: rgba(91, 30, 36, 0.26) !important;
+  border-color: rgba(230, 97, 104, 0.3) !important;
+  box-shadow: none !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .seg-btn.danger,
+  .rd-btn.danger
+):hover:not(:disabled),
+body[data-theme='dark'][data-manage-entity] :is(
+  .seg-btn.danger,
+  .rd-btn.danger
+):hover:not(:disabled),
+body.dark[data-manage-entity] :is(
+  .seg-btn.danger,
+  .rd-btn.danger
+):hover:not(:disabled) {
+  color: #ff9aa0 !important;
+  background: rgba(128, 39, 47, 0.34) !important;
+  border-color: rgba(241, 112, 119, 0.4) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .mgr-detail-empty,
+  .mgr-empty,
+  .empty-state
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .mgr-detail-empty,
+  .mgr-empty,
+  .empty-state
+),
+body.dark[data-manage-entity] :is(
+  .mgr-detail-empty,
+  .mgr-empty,
+  .empty-state
+) {
+  color: #9eafa4 !important;
+  background: rgba(18, 31, 23, 0.52) !important;
+  border-color: rgba(139, 192, 149, 0.26) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .rd-modal-backdrop,
+  .modal-backdrop,
+  .image-select-backdrop,
+  .image-modal-backdrop
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .rd-modal-backdrop,
+  .modal-backdrop,
+  .image-select-backdrop,
+  .image-modal-backdrop
+),
+body.dark[data-manage-entity] :is(
+  .rd-modal-backdrop,
+  .modal-backdrop,
+  .image-select-backdrop,
+  .image-modal-backdrop
+) {
+  background: rgba(3, 9, 5, 0.72) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  [role='dialog'].rd-modal-card,
+  [role='dialog'].rd-modal,
+  .rd-modal-card,
+  .rd-modal-panel,
+  .modal-content,
+  .image-select-modal,
+  .image-modal-card
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  [role='dialog'].rd-modal-card,
+  [role='dialog'].rd-modal,
+  .rd-modal-card,
+  .rd-modal-panel,
+  .modal-content,
+  .image-select-modal,
+  .image-modal-card
+),
+body.dark[data-manage-entity] :is(
+  [role='dialog'].rd-modal-card,
+  [role='dialog'].rd-modal,
+  .rd-modal-card,
+  .rd-modal-panel,
+  .modal-content,
+  .image-select-modal,
+  .image-modal-card
+) {
+  color: #eef6ef !important;
+  background:
+    linear-gradient(
+      180deg,
+      #192a1f,
+      #101b14
+    ) !important;
+  border-color: rgba(143, 199, 154, 0.26) !important;
+  box-shadow:
+    0 32px 84px rgba(0, 0, 0, 0.5) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .rd-modal-header,
+  .modal-header,
+  .image-modal-header
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .rd-modal-header,
+  .modal-header,
+  .image-modal-header
+),
+body.dark[data-manage-entity] :is(
+  .rd-modal-header,
+  .modal-header,
+  .image-modal-header
+) {
+  background:
+    linear-gradient(
+      135deg,
+      rgba(51, 93, 60, 0.48),
+      rgba(20, 35, 25, 0.74)
+    ) !important;
+  border-bottom-color: var(--entity-border) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .rd-modal-title,
+  .modal-title,
+  .image-modal-title,
+  .rd-label,
+  .rd-field,
+  .rd-modal-body,
+  .modal-body,
+  .image-modal-body
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .rd-modal-title,
+  .modal-title,
+  .image-modal-title,
+  .rd-label,
+  .rd-field,
+  .rd-modal-body,
+  .modal-body,
+  .image-modal-body
+),
+body.dark[data-manage-entity] :is(
+  .rd-modal-title,
+  .modal-title,
+  .image-modal-title,
+  .rd-label,
+  .rd-field,
+  .rd-modal-body,
+  .modal-body,
+  .image-modal-body
+) {
+  color: #eef6ef !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .rd-modal-footer,
+  .rd-modal-actions,
+  .modal-footer,
+  .modal-actions
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .rd-modal-footer,
+  .rd-modal-actions,
+  .modal-footer,
+  .modal-actions
+),
+body.dark[data-manage-entity] :is(
+  .rd-modal-footer,
+  .rd-modal-actions,
+  .modal-footer,
+  .modal-actions
+) {
+  background: #132219 !important;
+  border-top-color: var(--entity-border) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .rd-input,
+  .rd-textarea,
+  .rw-input,
+  .rd-num
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .rd-input,
+  .rd-textarea,
+  .rw-input,
+  .rd-num
+),
+body.dark[data-manage-entity] :is(
+  .rd-input,
+  .rd-textarea,
+  .rw-input,
+  .rd-num
+) {
+  color: #edf6ef !important;
+  background: #132219 !important;
+  border-color: var(--entity-border) !important;
+  caret-color: #9bdda6;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .rd-input,
+  .rd-textarea,
+  .rw-input,
+  .rd-num
+):focus,
+body[data-theme='dark'][data-manage-entity] :is(
+  .rd-input,
+  .rd-textarea,
+  .rw-input,
+  .rd-num
+):focus,
+body.dark[data-manage-entity] :is(
+  .rd-input,
+  .rd-textarea,
+  .rw-input,
+  .rd-num
+):focus {
+  color: #f5fff6 !important;
+  background: #172a1e !important;
+  border-color: rgba(128, 210, 143, 0.58) !important;
+  box-shadow:
+    0 0 0 3px rgba(94, 177, 109, 0.13) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] .rw-add-btn,
+body[data-theme='dark'][data-manage-entity] .rw-add-btn,
+body.dark[data-manage-entity] .rw-add-btn {
+  color: #a7e2b1 !important;
+  background: rgba(51, 95, 60, 0.4) !important;
+  border-color: rgba(138, 205, 151, 0.36) !important;
+}
+
+/* 삭제 비밀번호 모달 */
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] .manage-delete-guard-backdrop,
+body[data-theme='dark'][data-manage-entity] .manage-delete-guard-backdrop,
+body.dark[data-manage-entity] .manage-delete-guard-backdrop {
+  background: rgba(3, 8, 5, 0.74);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] .manage-delete-guard-dialog,
+body[data-theme='dark'][data-manage-entity] .manage-delete-guard-dialog,
+body.dark[data-manage-entity] .manage-delete-guard-dialog {
+  color: #eef6ef;
+  background:
+    radial-gradient(
+      circle at 100% 0,
+      rgba(120, 45, 51, 0.22),
+      transparent 40%
+    ),
+    linear-gradient(
+      180deg,
+      #19281e,
+      #101a14
+    );
+  border-color: rgba(220, 104, 111, 0.28);
+  box-shadow:
+    0 34px 92px rgba(0, 0, 0, 0.54);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] .manage-delete-guard-heading h2,
+body[data-theme='dark'][data-manage-entity] .manage-delete-guard-heading h2,
+body.dark[data-manage-entity] .manage-delete-guard-heading h2 {
+  color: #f3f8f4;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .manage-delete-guard-heading p,
+  .manage-delete-guard-message
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .manage-delete-guard-heading p,
+  .manage-delete-guard-message
+),
+body.dark[data-manage-entity] :is(
+  .manage-delete-guard-heading p,
+  .manage-delete-guard-message
+) {
+  color: #a5b5aa;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] .manage-delete-guard-label,
+body[data-theme='dark'][data-manage-entity] .manage-delete-guard-label,
+body.dark[data-manage-entity] .manage-delete-guard-label {
+  color: #e8f1ea;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] .manage-delete-guard-input,
+body[data-theme='dark'][data-manage-entity] .manage-delete-guard-input,
+body.dark[data-manage-entity] .manage-delete-guard-input {
+  color: #f0f7f1;
+  background: #132119;
+  border-color: rgba(144, 195, 153, 0.26);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] .manage-delete-guard-button.is-cancel,
+body[data-theme='dark'][data-manage-entity]
+.manage-delete-guard-button.is-cancel,
+body.dark[data-manage-entity]
+.manage-delete-guard-button.is-cancel {
+  color: #d9e6dc;
+  background: #192a1f;
+  border-color: rgba(141, 194, 151, 0.24);
+}

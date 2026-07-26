@@ -1577,3 +1577,900 @@
     width: min(220px, calc(100vw - 24px));
   }
 }
+
+/* =============================================
+   이미지 관리 페이지 다크모드
+
+   적용 범위:
+   - /manage/image 내부 UI
+   - 해당 페이지의 컨텍스트 메뉴 및 연결 모달
+
+   레이아웃과 기능은 변경하지 않고 색상만 보정한다.
+   ============================================= */
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page {
+  --image-page-bg: #0d1711;
+  --image-panel: rgba(17, 29, 21, 0.98);
+  --image-panel-soft: #14231a;
+  --image-panel-muted: #182a1e;
+  --image-border: rgba(139, 193, 149, 0.2);
+  --image-border-strong: rgba(145, 207, 157, 0.34);
+  --image-text: #eef6ef;
+  --image-text-soft: #b2c2b6;
+  --image-text-faint: #85978b;
+  --image-green: #78c984;
+  --image-green-strong: #a0e3aa;
+  --image-green-soft: rgba(67, 123, 77, 0.35);
+  --image-mint: rgba(63, 116, 73, 0.34);
+  --image-danger: #ff7e84;
+  --image-danger-soft: rgba(139, 46, 53, 0.25);
+  --image-shadow:
+    0 18px 46px rgba(0, 0, 0, 0.3);
+  --image-shadow-soft:
+    0 9px 24px rgba(0, 0, 0, 0.24);
+
+  color: var(--image-text);
+  background:
+    radial-gradient(
+      circle at 8% 4%,
+      rgba(74, 126, 80, 0.18),
+      transparent 27%
+    ),
+    radial-gradient(
+      circle at 92% 90%,
+      rgba(57, 101, 68, 0.14),
+      transparent 30%
+    ),
+    linear-gradient(
+      180deg,
+      #101b14 0%,
+      var(--image-page-bg) 100%
+    );
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page :is(
+  .favorite-folder-rail,
+  .image-explorer-sidebar,
+  .image-explorer-content
+) {
+  color: var(--image-text);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(19, 32, 23, 0.99),
+      rgba(13, 23, 17, 0.99)
+    );
+  border-color: var(--image-border);
+  box-shadow: var(--image-shadow);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .favorite-folder-rail {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(20, 34, 25, 0.99),
+      rgba(13, 23, 17, 0.99)
+    );
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .favorite-folder-rail-title {
+  color: #f1c85a;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(118, 91, 26, 0.36),
+      rgba(74, 58, 22, 0.42)
+    );
+  border-color: rgba(233, 193, 85, 0.25);
+  box-shadow: none;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .favorite-folder-empty {
+  color: #83958a;
+  border-color: rgba(137, 183, 145, 0.18);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .favorite-folder-badge {
+  color: var(--image-text-soft);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .favorite-folder-badge:hover {
+  color: var(--image-green-strong);
+  background: rgba(50, 88, 58, 0.38);
+  border-color: rgba(133, 199, 145, 0.24);
+  box-shadow: none;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .favorite-folder-badge.active {
+  color: #b4e9bc;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(55, 101, 64, 0.52),
+      rgba(30, 56, 37, 0.58)
+    );
+  border-color: rgba(143, 207, 155, 0.34);
+  box-shadow:
+    inset 0 0 0 1px rgba(160, 224, 171, 0.04);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page :is(
+  .folder-sidebar-header,
+  .image-explorer-header-bar
+) {
+  color: var(--image-text);
+  background:
+    linear-gradient(
+      120deg,
+      rgba(22, 38, 27, 0.99),
+      rgba(14, 25, 18, 0.98)
+    );
+  border-color: var(--image-border);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page :is(
+  .folder-sidebar-header h2,
+  .image-explorer-title,
+  .image-explorer-empty strong
+) {
+  color: var(--image-text);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page :is(
+  .folder-sidebar-kicker,
+  .image-explorer-kicker
+) {
+  color: #77c982;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page :is(
+  .folder-tree-tools button,
+  .seg-btn,
+  .seg-input,
+  .folder-edit-input
+) {
+  color: var(--image-text-soft);
+  background: rgba(22, 37, 27, 0.96);
+  border-color: var(--image-border);
+  box-shadow: none;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page :is(
+  .folder-tree-tools button:hover,
+  .seg-btn:hover:not(:disabled)
+) {
+  color: var(--image-green-strong);
+  background: rgba(54, 97, 63, 0.36);
+  border-color: var(--image-border-strong);
+  box-shadow: none;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .folder-list .folder-list::before {
+  background: rgba(132, 185, 142, 0.18);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .folder-row:hover {
+  background: rgba(39, 70, 47, 0.34);
+  border-color: rgba(135, 195, 146, 0.16);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .folder-row.is-drop-target {
+  background: rgba(51, 105, 61, 0.48);
+  border-color: rgba(124, 205, 139, 0.56);
+  box-shadow:
+    inset 0 0 0 1px rgba(142, 221, 156, 0.08);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .folder-root-row {
+  border-bottom-color: rgba(139, 193, 149, 0.16);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .folder-btn {
+  color: var(--image-text-soft);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .folder-btn:hover {
+  color: var(--image-green-strong);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .folder-btn.active {
+  color: #b7ebbf;
+  background:
+    linear-gradient(
+      105deg,
+      rgba(55, 102, 65, 0.54),
+      rgba(25, 46, 31, 0.58)
+    );
+  border-color: rgba(142, 207, 154, 0.34);
+  box-shadow:
+    inset 3px 0 0 #78ca84;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page
+.folder-row.is-favorite:not(.folder-root-row)
+.folder-btn:not(.active) {
+  background: rgba(100, 78, 24, 0.14);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .folder-tree-arrowbtn {
+  color: #9baca1;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .folder-tree-arrowbtn:hover {
+  color: #a9e2b2;
+  background: rgba(52, 94, 61, 0.38);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .image-explorer-heading-icon {
+  background:
+    linear-gradient(
+      145deg,
+      rgba(51, 94, 59, 0.46),
+      rgba(23, 43, 28, 0.52)
+    );
+  border-color: rgba(137, 199, 149, 0.22);
+  box-shadow: none;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page :is(
+  .seg-input-field,
+  .folder-edit-input
+) {
+  color: var(--image-text);
+  caret-color: #93d99f;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .seg-input-field::placeholder {
+  color: #7f9186;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .seg-input:focus-within {
+  background: rgba(24, 42, 30, 0.98);
+  border-color: rgba(127, 203, 141, 0.52);
+  box-shadow:
+    0 0 0 4px rgba(91, 172, 106, 0.12);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .seg-btn.primary {
+  color: #f7fff8;
+  background:
+    linear-gradient(
+      135deg,
+      #4a9e55,
+      #387f44
+    );
+  border-color: #519c5a;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .seg-btn.danger {
+  color: #ff858b;
+  background: rgba(92, 31, 37, 0.24);
+  border-color: rgba(230, 97, 104, 0.28);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .seg-btn.danger:hover:not(:disabled) {
+  color: #ff9ba0;
+  background: rgba(128, 39, 47, 0.32);
+  border-color: rgba(242, 112, 119, 0.4);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .image-explorer-filelist-outer {
+  color: var(--image-text);
+  background:
+    radial-gradient(
+      circle at 50% 0,
+      rgba(51, 84, 58, 0.09),
+      transparent 32%
+    ),
+    #101b14;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .image-explorer-filelist-outer.dragover {
+  background: rgba(40, 79, 48, 0.42);
+  box-shadow:
+    inset 0 0 0 2px rgba(120, 204, 136, 0.4);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .image-explorer-thumbnail {
+  color: var(--image-text);
+  background: rgba(20, 34, 25, 0.92);
+  border-color: rgba(138, 190, 148, 0.16);
+  box-shadow: none;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .image-explorer-thumbnail:hover {
+  background: rgba(27, 47, 34, 0.98);
+  border-color: rgba(145, 208, 157, 0.3);
+  box-shadow:
+    0 9px 22px rgba(0, 0, 0, 0.2);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .image-explorer-thumbnail.selected {
+  background: rgba(39, 76, 47, 0.66);
+  border-color: rgba(136, 214, 151, 0.5);
+  box-shadow:
+    0 0 0 3px rgba(101, 184, 116, 0.12);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .image-explorer-thumbbox {
+  border-color: rgba(139, 189, 148, 0.18);
+  background:
+    linear-gradient(
+      45deg,
+      #19271e 25%,
+      transparent 25%
+    ),
+    linear-gradient(
+      -45deg,
+      #19271e 25%,
+      transparent 25%
+    ),
+    linear-gradient(
+      45deg,
+      transparent 75%,
+      #19271e 75%
+    ),
+    linear-gradient(
+      -45deg,
+      transparent 75%,
+      #19271e 75%
+    ),
+    #111c15;
+  background-position:
+    0 0,
+    0 6px,
+    6px -6px,
+    -6px 0;
+  background-size: 12px 12px;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .image-explorer-thumbimg {
+  background: rgba(14, 24, 17, 0.72);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .thumbnail-label {
+  color: var(--image-text);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page :is(
+  .image-explorer-empty,
+  .image-explorer-heading p
+) {
+  color: var(--image-text-soft);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark,
+  #rdwiki-page[data-theme='dark'],
+  #rdwiki-page.dark
+) .image-manager-page .image-explorer-empty-icon {
+  background: rgba(50, 91, 59, 0.38);
+  border-color: rgba(140, 201, 151, 0.2);
+}
+
+/* 컨텍스트 메뉴와 모달은 body Portal일 수 있으므로
+   이미지 관리 페이지가 존재하는 동안 body의 테마도 함께 사용한다. */
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark
+) body:has(.image-manager-page) .rd-context-menu {
+  color: #eef6ef;
+  background: rgba(19, 31, 23, 0.98);
+  border-color: rgba(141, 197, 151, 0.24);
+  box-shadow:
+    0 24px 54px rgba(0, 0, 0, 0.46);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark
+) body:has(.image-manager-page) .rd-context-menu-header {
+  border-bottom-color: rgba(140, 194, 150, 0.16);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark
+) body:has(.image-manager-page)
+:is(
+  .rd-context-menu-header strong,
+  .rd-context-menu-item
+) {
+  color: #eaf3ec;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark
+) body:has(.image-manager-page) .rd-context-menu-header small {
+  color: #93a59a;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark
+) body:has(.image-manager-page) .rd-context-menu-header > span {
+  background: rgba(54, 96, 63, 0.42);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark
+) body:has(.image-manager-page) .rd-context-menu-item:hover {
+  color: #a7e3b1;
+  background: rgba(53, 94, 62, 0.42);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark
+) body:has(.image-manager-page) .rd-context-menu-item.favorite {
+  color: #e4bd58;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark
+) body:has(.image-manager-page) .rd-context-menu-item.favorite:hover {
+  color: #f0cb69;
+  background: rgba(100, 77, 23, 0.28);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark
+) body:has(.image-manager-page) .rd-context-menu-item.danger:hover {
+  color: #ff959b;
+  background: rgba(127, 39, 47, 0.3);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark
+) body:has(.image-manager-page) .rd-context-menu-separator {
+  background: rgba(139, 190, 148, 0.17);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark
+) body:has(.image-manager-page) .rd-overlay {
+  background: rgba(4, 10, 6, 0.7);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark
+) body:has(.image-manager-page) .rd-card {
+  color: #eef6ef;
+  background:
+    linear-gradient(
+      180deg,
+      #17271d,
+      #101b14
+    );
+  border-color: rgba(141, 198, 152, 0.24);
+  box-shadow:
+    0 28px 70px rgba(0, 0, 0, 0.48);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark
+) body:has(.image-manager-page) :is(
+  .rd-card-heading,
+  .rd-upload-file .name
+) {
+  color: #eef6ef;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark
+) body:has(.image-manager-page) :is(
+  .rd-card-description,
+  .rd-upload-file .size,
+  .custum-file-upload .text span
+) {
+  color: #aabbb0;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark
+) body:has(.image-manager-page) :is(
+  .rd-input,
+  .rd-textarea,
+  .rd-upload-file
+) {
+  color: #edf6ef;
+  background: #132119;
+  border-color: rgba(141, 197, 151, 0.24);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark
+) body:has(.image-manager-page) :is(
+  .rd-input,
+  .rd-textarea
+):focus {
+  background: #17291e;
+  border-color: rgba(130, 211, 145, 0.56);
+  box-shadow:
+    0 0 0 4px rgba(94, 177, 109, 0.12);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark
+) body:has(.image-manager-page) .rd-btn.secondary {
+  color: #dbe8de;
+  background: #1a2a20;
+  border-color: rgba(142, 193, 151, 0.24);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark
+) body:has(.image-manager-page) .rd-btn.secondary:hover:not(:disabled) {
+  background: #223729;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark
+) body:has(.image-manager-page) .rd-exit-btn:hover {
+  background: rgba(55, 96, 64, 0.4);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark
+) body:has(.image-manager-page) .rd-exit-btn svg {
+  fill: #a5b6aa;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark
+) body:has(.image-manager-page) .custum-file-upload {
+  color: #eaf4ec;
+  background: #13231a;
+  border-color: rgba(139, 205, 151, 0.34);
+  box-shadow:
+    inset 0 0 0 5px rgba(42, 75, 49, 0.26);
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark,
+  body[data-theme='dark'],
+  body.dark
+) body:has(.image-manager-page)
+:is(
+  .custum-file-upload:hover,
+  .custum-file-upload.dragover
+) {
+  background: #1b3223;
+  border-color: rgba(126, 215, 143, 0.6);
+}
