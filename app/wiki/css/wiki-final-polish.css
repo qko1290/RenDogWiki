@@ -1641,3 +1641,100 @@ body.dark
     --border: rgba(139, 194, 150, 0.24);
   }
 }
+
+/* =============================================
+   내부 링크 미리보기 런타임 테마 동기화
+
+   InlineWikiLinkRead가 링크가 실제로 놓인 위키 영역의 계산된 CSS 변수를
+   읽은 뒤 Portal 카드에 직접 색상을 전달한다.
+   아래 규칙은 구조·간격만 담당하며 테마 판별을 CSS 선택자에 의존하지 않는다.
+   ============================================= */
+
+body > .wiki-inline-preview {
+  box-sizing: border-box;
+  isolation: isolate;
+  overflow: visible;
+}
+
+body > .wiki-inline-preview .wiki-inline-preview-status {
+  color: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+body > .wiki-inline-preview .wiki-inline-preview-content {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+body > .wiki-inline-preview .wiki-inline-preview-icon {
+  display: inline-flex;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 12px;
+  box-shadow:
+    inset 0 1px 0
+    rgba(255, 255, 255, 0.04);
+}
+
+body > .wiki-inline-preview .wiki-inline-preview-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+body > .wiki-inline-preview .wiki-inline-preview-category {
+  margin-bottom: 5px;
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body > .wiki-inline-preview .wiki-inline-preview-title {
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.4;
+  letter-spacing: -0.1px;
+  overflow-wrap: break-word;
+  word-break: keep-all;
+}
+
+body > .wiki-inline-preview .wiki-inline-preview-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+body > .wiki-inline-preview .wiki-inline-preview-tag {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  border-style: solid;
+  border-width: 1px;
+  border-radius: 999px;
+}
+
+/* data-preview-theme는 컴포넌트가 실제 위키 영역을 읽어 결정한다. */
+body > .wiki-inline-preview[data-preview-theme='dark'] {
+  color-scheme: dark;
+}
+
+body > .wiki-inline-preview[data-preview-theme='light'] {
+  color-scheme: light;
+}
