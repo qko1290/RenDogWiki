@@ -37,6 +37,7 @@ import {
   consumeNextDocViewSource,
   markNextDocViewSource,
 } from '@/wiki/lib/viewSource';
+import '@/wiki/css/wiki-final-polish.css';
 import {
   DEFAULT_WIKI_DOCUMENT_ID,
   DEFAULT_WIKI_DOCUMENT_PATH_ID,
@@ -291,14 +292,32 @@ function useCanWrite(user: Props['user']) {
         }
 
         const data = await res.json();
-        const role = String(data?.role ?? '').toLowerCase();
-        const perms = Array.isArray(data?.permissions) ? data.permissions : [];
+        const role = String(
+          data?.role ??
+          data?.user?.role ??
+          '',
+        ).toLowerCase();
+
+        const rawPermissions =
+          data?.permissions ??
+          data?.roles ??
+          data?.user?.permissions ??
+          data?.user?.roles ??
+          [];
+
+        const perms = Array.isArray(rawPermissions)
+          ? rawPermissions.map((value: unknown) =>
+              String(value).toLowerCase(),
+            )
+          : [];
 
         const allowed =
           role === 'writer' ||
           role === 'admin' ||
+          role === 'manager' ||
           perms.includes('writer') ||
-          perms.includes('admin');
+          perms.includes('admin') ||
+          perms.includes('manager');
 
         if (!cancelled) setCan(allowed);
       } catch {
@@ -3032,7 +3051,7 @@ export default function WikiPageInner({ user }: Props) {
                     </h2>
                   </div>
 
-                  {isFaq && !!user && (
+                  {isFaq && canWrite && (
                     <FaqAddButton onClick={() => setShowNewFaq(true)} />
                   )}
                 </div>
@@ -3867,34 +3886,42 @@ function FaqAddButton({ onClick }: { onClick: () => void }) {
       <style jsx>{`
         .faq-add-group {
           display: inline-flex;
-          align-items: stretch;
-          background: var(--surface-elevated);
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          overflow: hidden;
-          box-shadow: var(--shadow-sm);
           flex: 0 0 auto;
+          align-items: stretch;
+          overflow: hidden;
+          background: linear-gradient(180deg, #66b968 0%, #51a75a 100%);
+          border: 1px solid rgba(46, 128, 57, 0.44);
+          border-radius: 13px;
+          box-shadow:
+            0 9px 20px rgba(68, 153, 78, 0.2),
+            inset 0 1px 0 rgba(255, 255, 255, 0.24);
         }
 
         .faq-add-seg {
           display: inline-flex;
+          height: 42px;
           align-items: center;
           gap: 8px;
-          padding: 8px 14px;
-          border: 0;
-          background: transparent;
-          cursor: pointer;
-          font-weight: 600;
-          font-size: 0.95rem;
-          color: var(--foreground);
+          padding: 0 15px;
+          color: #fff;
+          font-size: 13px;
+          font-weight: 800;
           line-height: 1;
           white-space: nowrap;
-          height: 38px;
-          transition: background 0.15s, color 0.15s;
+          cursor: pointer;
+          background: transparent;
+          border: 0;
+          transition:
+            transform 0.15s ease,
+            background-color 0.15s ease;
         }
 
         .faq-add-seg:hover {
-          background: var(--surface-soft);
+          background: rgba(255, 255, 255, 0.12);
+        }
+
+        .faq-add-seg:active {
+          transform: translateY(1px);
         }
 
         .faq-add-seg:focus-visible {
