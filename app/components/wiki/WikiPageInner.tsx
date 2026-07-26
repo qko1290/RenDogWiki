@@ -93,10 +93,11 @@ const MODE_STORAGE = 'wiki:mode';
 const MODE_EVENT = 'wiki-mode-change';
 const MODE_WHITELIST = new Set(['RPG', '렌독런', '마인팜', '부엉이타운']);
 
+// 기본 안내 문서도 일반 문서와 동일하게 제목·브레드크럼·모바일 탐색을 표시한다.
 function shouldHideDocChrome(
-  docId?: number | null,
+  _docId?: number | null,
 ) {
-  return Number(docId) === DEFAULT_WIKI_DOCUMENT_ID;
+  return false;
 }
 
 function pathToStr(path: number[]) {
@@ -539,7 +540,7 @@ export default function WikiPageInner({ user }: Props) {
   // 🔗 문서 링크 복사 상태 (✔ 표시용)
   const [copiedDocLink, setCopiedDocLink] = useState(false);
 
-  // ⭐ 루트 문서는 문서 크롬(제목/브레드크럼) 숨김
+  // 문서 크롬 표시 상태. 기본 안내 문서도 일반 문서와 동일하게 표시한다.
   const [hideDocChrome, setHideDocChrome] = useState(false);
   const [loadingDoc, setLoadingDoc] = useState(false);
   const [bootstrapReady, setBootstrapReady] = useState(false);
