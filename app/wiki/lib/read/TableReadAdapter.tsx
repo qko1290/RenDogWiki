@@ -10,9 +10,6 @@ import {
 import {
   tableElementBaseStyle,
 } from '@/components/wiki-render/table/tableLayout';
-import {
-  flexJustifyFromAlign,
-} from '../readRendererUtils';
 import type {
   ReadRenderEnv,
   ReadRenderNode,
@@ -24,26 +21,8 @@ type TableReadAdapterProps = {
 };
 
 export function TableReadAdapter({
-  node,
   children,
 }: TableReadAdapterProps) {
-  const align = node.align || 'left';
-  const justify =
-    flexJustifyFromAlign(align);
-  const widthPx =
-    typeof node.maxWidth === 'number'
-      ? node.maxWidth
-      : typeof node.maxWidth === 'string' &&
-          Number.isFinite(
-            Number(node.maxWidth),
-          )
-        ? Number(node.maxWidth)
-        : undefined;
-  const tableWidth = widthPx
-    ? `${widthPx}px`
-    : node.fullWidth
-      ? '100%'
-      : 'auto';
   const tableNode = (
     <table
       style={{
@@ -59,14 +38,10 @@ export function TableReadAdapter({
       mode="read"
       table={tableNode}
       containerStyle={{
-        display: 'flex',
-        justifyContent: justify,
+        width: '100%',
+        maxWidth: '100%',
         overflowX: 'auto',
         margin: '16px 0',
-      }}
-      tableInnerStyle={{
-        width: tableWidth,
-        maxWidth: '100%',
       }}
     />
   );

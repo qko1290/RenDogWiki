@@ -653,11 +653,6 @@
   background: var(--editor-accent-softer);
 }
 
-.editor-table-context-item.is-active {
-  color: var(--editor-accent-strong);
-  font-weight: 750;
-}
-
 .editor-table-context-item.is-danger {
   color: var(--editor-danger);
 }

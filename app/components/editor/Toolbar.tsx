@@ -753,8 +753,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           insertTable(editor, {
             rows,
             cols,
-            align: 'left',
-            maxWidth: 800,
           });
         }}
       />

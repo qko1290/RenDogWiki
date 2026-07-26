@@ -25,8 +25,6 @@ export function WikiTableRenderer({
   tableClassName,
   tableStyle,
   overlay,
-  editControls,
-  readControls,
   afterContent,
   scrollable = false,
   compact = false,
@@ -35,7 +33,6 @@ export function WikiTableRenderer({
   onMouseDownCapture,
   onMouseUpCapture,
 }: WikiTableRendererProps) {
-  const controls = mode === 'edit' ? editControls : readControls;
   const attrStyle = attributes?.style;
   const tableNode =
     table ?? (
@@ -55,7 +52,6 @@ export function WikiTableRenderer({
     <>
       {tableNode}
       {overlay}
-      {controls}
       {afterContent}
     </>
   );

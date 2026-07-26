@@ -36,6 +36,11 @@ import PriceTableContextMenu from './PriceTableContextMenu';
 import type { WikiRefKind } from './render/types';
 import { toProxyUrl } from '@lib/cdn';
 import { getDragRect } from './helpers/tableDrag';
+import {
+  buildTableRangeClipboardPayload,
+  buildTableRectClipboardPayload,
+  setTableClipboardData,
+} from './helpers/tableClipboard';
 import FootnoteEditModal from './FootnoteEditModal';
 import type { FootnoteElement } from '@/types/slate';
 
@@ -830,51 +835,47 @@ function SlateEditorContent({
     return !!cell;
   }, [editor]);
 
-  const buildTSVFromRect = useCallback(() => {
-    const rectInfo = getDragRect();
-    if (!rectInfo) return null;
-
-    const { tablePath, r0, c0, r1, c1 } = rectInfo;
-    try {
-      const rows: string[] = [];
-      for (let r = r0; r <= r1; r++) {
-        const cols: string[] = [];
-        for (let c = c0; c <= c1; c++) {
-          const cellPath = [...tablePath, r, c];
-          const cellNode = Node.get(editor, cellPath);
-          // table-cell 안의 텍스트만
-          cols.push(Node.string(cellNode).replace(/\r?\n/g, '\n'));
-        }
-        rows.push(cols.join('\t'));
-      }
-      return rows.join('\n');
-    } catch {
-      return null;
-    }
-  }, [editor]);
-
   const onCopyTableSafe = useCallback((e: React.ClipboardEvent) => {
-    // 1) 엑셀식 드래그(rect)가 남아있다면: 그 영역을 TSV로 복사
-    const tsv = buildTSVFromRect();
-    if (tsv != null) {
+    // 1) Shift 드래그 셀 선택: 셀 태그는 제외하고 내용만 복사한다.
+    // text/plain에는 실제 문자만, Slate 조각에는 인라인 이미지와 서식을 담는다.
+    const rect = getDragRect();
+    const rectPayload = rect
+      ? buildTableRectClipboardPayload(
+          editor,
+          rect,
+        )
+      : null;
+
+    if (rectPayload) {
       e.preventDefault();
       e.stopPropagation();
-      e.clipboardData.setData('text/plain', tsv);
-      // ✅ html은 일부러 안 넣음 (td 복사 방지)
+      setTableClipboardData(
+        e.clipboardData,
+        rectPayload,
+      );
       return;
     }
 
-    // 2) 일반 텍스트 드래그 선택인데 table-cell 내부라면: text/plain만
+    // 2) 한 셀 안의 일반 드래그 선택도 table-cell 블록을 제외한다.
     if (!isSelectionInsideTable()) return;
 
     const { selection } = editor;
     if (!selection) return;
 
-    const text = Editor.string(editor, selection);
+    const rangePayload =
+      buildTableRangeClipboardPayload(
+        editor,
+        selection,
+      );
+    if (!rangePayload) return;
+
     e.preventDefault();
     e.stopPropagation();
-    e.clipboardData.setData('text/plain', text);
-  }, [editor, buildTSVFromRect, isSelectionInsideTable]);
+    setTableClipboardData(
+      e.clipboardData,
+      rangePayload,
+    );
+  }, [editor, isSelectionInsideTable]);
 
   const onPasteTableSafe = useCallback((e: React.ClipboardEvent) => {
     if (!isSelectionInsideTable()) return;
