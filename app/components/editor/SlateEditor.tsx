@@ -1,7 +1,7 @@
 'use client';
 
 import React, {
-  useMemo, useState, useCallback, useEffect, useRef, useLayoutEffect
+  useMemo, useState, useCallback, useEffect, useRef
 } from 'react';
 import {
   createEditor, Descendant, Editor, Transforms, Range, Point,
@@ -21,7 +21,6 @@ import TableOfContents from './TableOfContents';
 import { extractHeadings } from './helpers/extractHeadings';
 import type { CustomElement } from '@/types/slate';
 import ImageSelectModal from '@/components/image/ImageSelectModal';
-import PriceTableEditModal from './PriceTableEditModal';
 import '@/wiki/css/editor.css';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faImage } from '@fortawesome/free-solid-svg-icons';
@@ -33,6 +32,7 @@ import LinkBlockContextMenu from './LinkBlockContextMenu';
 import DividerContextMenu from './DividerContextMenu';
 import InfoBoxContextMenu from './InfoBoxContextMenu';
 import ImageContextMenu from './ImageContextMenu';
+import PriceTableContextMenu from './PriceTableContextMenu';
 import type { WikiRefKind } from './render/types';
 import { toProxyUrl } from '@lib/cdn';
 import { getDragRect } from './helpers/tableDrag';
@@ -53,12 +53,6 @@ const EMPTY_INITIAL_VALUE: Descendant[] = [{ type: 'paragraph', children: [{ tex
 type Props = {
   initialDoc: DocState | null;
   isMain?: boolean;
-};
-
-type PriceTableEditState = {
-  blockPath: Path | null;
-  idx: number | null;
-  item: any | null;
 };
 
 type FootnoteEditState = {
@@ -168,9 +162,27 @@ function withWeaponBlocks(editor: Editor): Editor {
   return e;
 }
 
-export default function SlateEditor({ initialDoc, isMain = false }: Props) {
+export default function SlateEditor({
+  initialDoc,
+  isMain = false,
+}: Props) {
   if (!initialDoc) return <div>잘못된 접근입니다.</div>;
 
+  return (
+    <SlateEditorContent
+      initialDoc={initialDoc}
+      isMain={isMain}
+    />
+  );
+}
+
+function SlateEditorContent({
+  initialDoc,
+  isMain = false,
+}: {
+  initialDoc: DocState;
+  isMain?: boolean;
+}) {
   // ── 개발 중 스크롤 로깅(원하면 삭제) ──────────────────────────
   useEffect(() => {
     if (process.env.NODE_ENV === 'production') return;
@@ -329,7 +341,6 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
 
   // 상태
   const selectionRef = useRef<Range | null>(null);    // 최근 커서(에디터 onChange에서 갱신)
-  const savedSelectionRef = useRef<Range | null>(null); // 모달 열기 시점 커서 저장
   const [editorKey] = useState(0);
   const [isIconModalOpen, setIsIconModalOpen] = useState(false);
   const [iconEditTarget, setIconEditTarget] = useState<CustomElement | null>(null);
@@ -370,10 +381,6 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
     // 내부 경로(/...)나 data:는 그대로
     return s;
   };
-
-  const [priceTableEdit, setPriceTableEdit] = useState<PriceTableEditState>({
-    blockPath: null, idx: null, item: null,
-  });
 
   const [footnoteEdit, setFootnoteEdit] = useState<FootnoteEditState>({
     path: null,
@@ -450,7 +457,6 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
 
     try { Transforms.deselect(editor); } catch {}
     selectionRef.current = null;
-    savedSelectionRef.current = null;
     setMoveCursorPending(false);
     setLastLinkPath(null);
 
@@ -583,187 +589,6 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
 
   // ✳️ 에디터 스크롤 타겟(정확히 가운데 편집 영역)
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  // 실제 스크롤 컨테이너 탐지
-  const getScrollEl = useCallback((): HTMLDivElement | null => {
-    const fromRef = scrollRef.current;
-    if (fromRef) return fromRef;
-
-    const candidates = Array.from(document.querySelectorAll<HTMLDivElement>('.editor-content-scroll'));
-    const pick = candidates.find(el => {
-      const cs = getComputedStyle(el);
-      const isScrollable = /(auto|scroll)/.test(cs.overflowY);
-      return isScrollable && el.scrollHeight > el.clientHeight;
-    });
-    return pick ?? candidates[0] ?? null;
-  }, []);
-
-  // ── 가격 모달 전용 프리즈/복원 상태 ─────────────────────────
-  const lastYRef = useRef(0);
-  const freezeCleanupRef = useRef<(() => void) | null>(null);
-  const freezeActiveRef = useRef(false);
-
-  // (선택) 모달 열기 직전 명시적으로 Y 저장하고 싶을 때 사용
-  const captureScrollPrice = useCallback(() => {
-    const el = getScrollEl();
-    lastYRef.current = el?.scrollTop ?? 0;
-  }, [getScrollEl]);
-
-  useEffect(() => {
-    const handler = () => captureScrollPrice();
-    window.addEventListener('editor:capture-scroll:price', handler as EventListener);
-    return () => window.removeEventListener('editor:capture-scroll:price', handler as EventListener);
-  }, [captureScrollPrice]);
-
-  const startFreeze = useCallback(() => {
-    const el = getScrollEl();
-    if (!el) return;
-
-    // 프리즈 시작 플래그
-    freezeActiveRef.current = true;
-
-    // 커서 스냅샷 저장
-    try {
-      if (editor.selection) {
-        savedSelectionRef.current = Editor.unhangRange(editor, editor.selection);
-      } else {
-        savedSelectionRef.current = null;
-      }
-    } catch {
-      savedSelectionRef.current = editor.selection ?? null;
-    }
-
-    // 기준 Y 고정
-    lastYRef.current = el.scrollTop;
-    const y = lastYRef.current;
-
-    const prevScrollBehavior = el.style.scrollBehavior || '';
-    el.style.scrollBehavior = 'auto';
-    el.scrollTop = y;
-
-    const onElScroll = () => { if (el.scrollTop !== y) el.scrollTop = y; };
-    el.addEventListener('scroll', onElScroll, { capture: true });
-
-    let raf = 0;
-    const tick = () => {
-      if (el.scrollTop !== y) el.scrollTop = y;
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-
-    freezeCleanupRef.current = () => {
-      el.removeEventListener('scroll', onElScroll as any, { capture: true } as any);
-      cancelAnimationFrame(raf);
-      el.style.scrollBehavior = prevScrollBehavior;
-    };
-  }, [getScrollEl, editor]);
-
-  const stopFreeze = useCallback(() => {
-    if (!freezeActiveRef.current) return;
-    freezeCleanupRef.current?.();
-    freezeCleanupRef.current = null;
-    freezeActiveRef.current = false;
-  }, []);
-
-  // 가격 모달이 열렸을 때만 프리즈, 닫힐 때 해제
-  useLayoutEffect(() => {
-    if (!priceTableEdit.blockPath) return;
-    startFreeze();
-    return () => stopFreeze();
-  }, [priceTableEdit.blockPath, startFreeze, stopFreeze]);
-
-  const restoreScroll = () => {
-    const el = getScrollEl();
-    if (el) el.scrollTop = lastYRef.current;
-  };
-
-  const focusNoScroll = useCallback(() => {
-    try {
-      const dom = ReactEditor.toDOMNode(editor, editor);
-      (dom as HTMLElement)?.focus?.({ preventScroll: true } as any);
-    } catch {}
-  }, [editor]);
-
-  const restoreCaret = useCallback(() => {
-    const sel = savedSelectionRef.current;
-    let restored = false;
-
-    // ✅ 외부 인풋 진입 중에는 selection 복원하지 않고 바로 deselect
-    const active = document.activeElement as HTMLElement | null;
-    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
-      try { Transforms.deselect(editor); } catch {}
-      savedSelectionRef.current = null;
-      return;
-    }
-
-    if (sel) {
-      try {
-        Transforms.select(editor, sel);
-        focusNoScroll();   // ← preventScroll로 포커스
-        restored = true;
-      } catch {
-        restored = false;
-      }
-    }
-
-    if (!restored) {
-      const point = Editor.end(editor, []);
-      Transforms.select(editor, point);
-      focusNoScroll();     // ← preventScroll로 포커스
-    }
-
-    savedSelectionRef.current = null;
-  }, [editor, focusNoScroll]);
-
-  const handlePriceModalClose = () => {
-    setPriceTableEdit({ blockPath: null, idx: null, item: null });
-    stopFreeze();
-    requestAnimationFrame(() => {
-      restoreScroll();
-      restoreCaret();
-      const el = getScrollEl();
-      if (el) lastYRef.current = el.scrollTop;
-    });
-  };
-
-  const handlePriceModalSave = (data: { stages: string[]; prices: Array<string | number> }) => {
-    const { blockPath, idx } = priceTableEdit;
-
-    // 가격 값 정규화
-    const normalizePrices = (arr: Array<string | number>) =>
-      arr.map((v) => {
-        if (typeof v === 'number' && Number.isFinite(v)) return v;
-        const s = String(v ?? '').trim();
-        return /^-?\d+(?:\.\d+)?$/.test(s) ? Number(s) : s;
-      });
-
-    if (blockPath && typeof idx === 'number') {
-      Editor.withoutNormalizing(editor, () => {
-        const entry = Editor.node(editor, blockPath) as [any, Path] | undefined;
-        if (!entry) return;
-        const [cardNode] = entry;
-
-        if (cardNode && Array.isArray(cardNode.items)) {
-          const nextItems = cardNode.items.map((itm: any, i: number) =>
-            i === idx
-              ? { ...itm, stages: [...data.stages], prices: normalizePrices(data.prices) }
-              : itm
-          );
-          Transforms.setNodes(editor, { items: nextItems }, { at: blockPath });
-        }
-      });
-    }
-
-    setPriceTableEdit({ blockPath: null, idx: null, item: null });
-
-    stopFreeze();
-    requestAnimationFrame(() => {
-      restoreScroll();
-      restoreCaret();
-      const el = getScrollEl();
-      if (el) lastYRef.current = el.scrollTop;
-    });
-  };
 
   // 문서 초기값 반영
   useEffect(() => {
@@ -900,8 +725,6 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
         {...p}
         editor={editor}
         onIconClick={handleIconClick}
-        priceTableEdit={priceTableEdit}
-        setPriceTableEdit={setPriceTableEdit}
         openFootnoteEditor={handleFootnoteEditOpen}
         readOnly={false}
         onWikiRefClick={(refType: WikiRefKind, refId: number) => {
@@ -909,7 +732,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
         }}
       />
     ),
-    [editor, priceTableEdit, handleFootnoteEditOpen]
+    [editor, handleFootnoteEditOpen]
   );
 
   const handleSave = async () => {
@@ -1543,16 +1366,6 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
         </div>
       </div>
 
-      {/* ✅ 모달은 스크롤 컨테이너 밖에서 렌더 */}
-      {priceTableEdit.blockPath && typeof priceTableEdit.idx === 'number' && priceTableEdit.item && (
-        <PriceTableEditModal
-          open={true}
-          item={priceTableEdit.item}
-          onClose={handlePriceModalClose}
-          onSave={handlePriceModalSave}
-        />
-      )}
-
       {footnoteEdit.path && footnoteEdit.item && (
         <FootnoteEditModal
           open={true}
@@ -1563,6 +1376,7 @@ export default function SlateEditor({ initialDoc, isMain = false }: Props) {
         />
       )}
       
+      <PriceTableContextMenu editor={editor} />
       <InfoBoxContextMenu editor={editor} />
       <DividerContextMenu editor={editor} />
       <ImageContextMenu editor={editor} />

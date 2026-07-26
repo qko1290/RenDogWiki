@@ -846,7 +846,7 @@
   background: var(--editor-danger-soft);
 }
 
-/* ===== 링크 / 구분선 / 정보박스 / 이미지 우클릭 메뉴 ===== */
+/* ===== 링크 / 구분선 / 정보박스 / 이미지 / 시세표 우클릭 메뉴 ===== */
 
 .wiki-divider-edit {
   position: relative;
@@ -864,6 +864,7 @@
 .editor-link-context-menu,
 .editor-divider-context-menu,
 .editor-image-context-menu,
+.editor-price-table-context-menu,
 .editor-info-box-context-menu,
 .editor-info-box-context-submenu {
   position: fixed;
@@ -900,6 +901,7 @@
 .editor-link-context-item,
 .editor-divider-context-item,
 .editor-image-context-item,
+.editor-price-table-context-item,
 .editor-info-box-context-item,
 .editor-info-box-context-type {
   width: 100%;
@@ -923,6 +925,8 @@
 .editor-divider-context-item:focus-visible,
 .editor-image-context-item:hover,
 .editor-image-context-item:focus-visible,
+.editor-price-table-context-item:hover,
+.editor-price-table-context-item:focus-visible,
 .editor-info-box-context-item:hover,
 .editor-info-box-context-item:focus-visible,
 .editor-info-box-context-type:hover,
@@ -934,6 +938,7 @@
 .editor-link-context-item.is-danger,
 .editor-divider-context-item.is-danger,
 .editor-image-context-item.is-danger,
+.editor-price-table-context-item.is-danger,
 .editor-info-box-context-item.is-danger {
   color: var(--editor-danger);
 }
@@ -944,6 +949,8 @@
 .editor-divider-context-item.is-danger:focus-visible,
 .editor-image-context-item.is-danger:hover,
 .editor-image-context-item.is-danger:focus-visible,
+.editor-price-table-context-item.is-danger:hover,
+.editor-price-table-context-item.is-danger:focus-visible,
 .editor-info-box-context-item.is-danger:hover,
 .editor-info-box-context-item.is-danger:focus-visible {
   background: var(--editor-danger-soft);

@@ -236,10 +236,6 @@ type PriceTableCardProps = {
     PriceTableRendererProps[
       'onNameClick'
     ];
-  onPriceClick?:
-    PriceTableRendererProps[
-      'onPriceClick'
-    ];
   onCardContextMenu?:
     PriceTableRendererProps[
       'onCardContextMenu'
@@ -273,7 +269,6 @@ function PriceTableCard({
   onNextStage,
   onImageClick,
   onNameClick,
-  onPriceClick,
   onCardContextMenu,
   resolveImageSrc,
   renderImage,
@@ -620,38 +615,11 @@ function PriceTableCard({
       </div>
 
       <div
-        className={[
-          'price-table-card__price',
-          canEdit &&
-          onPriceClick
-            ? 'price-table-card__price--editable'
-            : '',
-        ]
-          .filter(Boolean)
-          .join(' ')}
+        className="price-table-card__price"
         style={{
           fontSize:
             priceFontSize,
         }}
-        title={
-          canEdit &&
-          onPriceClick
-            ? '가격 수정'
-            : undefined
-        }
-        onClick={
-          onPriceClick
-            ? (event) => {
-                event.stopPropagation();
-
-                onPriceClick(
-                  item,
-                  index,
-                  event,
-                );
-              }
-            : undefined
-        }
       >
         <ColoredCompressedText
           value={priceValue}
@@ -674,7 +642,6 @@ export default function PriceTableRenderer({
   onNextStage,
   onImageClick,
   onNameClick,
-  onPriceClick,
   onCardContextMenu,
   resolveImageSrc =
     defaultResolveImageSrc,
@@ -762,9 +729,6 @@ export default function PriceTableRenderer({
                 }
                 onNameClick={
                   onNameClick
-                }
-                onPriceClick={
-                  onPriceClick
                 }
                 onCardContextMenu={
                   onCardContextMenu

@@ -512,38 +512,6 @@
   border-radius: 8px;
 }
 
-.price-table-card__price--editable {
-  cursor: pointer;
-  transition:
-    background-color 0.14s ease,
-    border-color 0.14s ease;
-}
-
-.price-table-card__price--editable:hover {
-  background:
-    color-mix(
-      in srgb,
-      var(
-        --accent,
-        #5b80f5
-      ) 9%,
-      var(
-        --price-table-card-panel
-      )
-    );
-  border-color:
-    color-mix(
-      in srgb,
-      var(
-        --accent,
-        #5b80f5
-      ) 22%,
-      var(
-        --price-table-card-border
-      )
-    );
-}
-
 .ptc-price-text {
   display: inline;
   max-width: 100%;
@@ -691,8 +659,7 @@
   .price-table-card,
   .price-table-card__stage-button,
   .price-table-card__image--editable,
-  .price-table-card__name--editable,
-  .price-table-card__price--editable {
+  .price-table-card__name--editable {
     transition: none;
   }
 }

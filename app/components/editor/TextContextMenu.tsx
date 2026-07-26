@@ -476,10 +476,14 @@ export default function TextContextMenu({ editor }: Props) {
       const infoBoxElement = targetElement?.closest<HTMLElement>(
         '[data-info-box-mode="edit"]',
       );
+      const priceTableElement = targetElement?.closest<HTMLElement>(
+        '[data-price-table-mode="edit"]',
+      );
 
       if (
         dividerElement ||
         infoBoxElement ||
+        priceTableElement ||
         linkBlockElement ||
         (linkElement &&
           isSelectionInsideSlateElement(editor, safeSelection, linkElement)) ||

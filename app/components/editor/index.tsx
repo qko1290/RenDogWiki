@@ -48,13 +48,6 @@ import { extractHeadings } from './helpers/extractHeadings';
 
 import type { CustomElement } from '@/types/slate';
 
-/** 가격표(PriceTable) 인라인 편집을 위한 최소 상태 */
-type PriceTableEditState = {
-  blockPath: Path | null;
-  idx: number | null;
-  item: any | null;
-};
-
 export default function SlateEditor() {
   // 에디터 인스턴스 생성: link-block / divider를 void 처리
   const editor = useMemo(() => {
@@ -78,13 +71,6 @@ export default function SlateEditor() {
   ]);
   const [isIconModalOpen, setIsIconModalOpen] = useState(false);
   const [iconEditTarget, setIconEditTarget] = useState<CustomElement | null>(null);
-
-  // 가격표 인라인 편집 상태 (Element에서 setPriceTableEdit 호출)
-  const [priceTableEdit, setPriceTableEdit] = useState<PriceTableEditState>({
-    blockPath: null,
-    idx: null,
-    item: null,
-  });
 
   // 입력 포커스가 아닌 상태에서 Backspace가 브라우저 뒤로가기로 동작하는 것 방지
   useEffect(() => {
@@ -122,11 +108,9 @@ export default function SlateEditor() {
         {...props}
         editor={editor}
         onIconClick={handleIconClick}
-        priceTableEdit={priceTableEdit}
-        setPriceTableEdit={setPriceTableEdit}
       />
     ),
-    [editor, priceTableEdit]
+    [editor]
   );
 
   // 텍스트 마크 토글 유틸 (bold/italic/underline/strikethrough)
