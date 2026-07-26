@@ -43,14 +43,15 @@ type FormState = {
 function initialToForm(
   initial?: FaqInitial | null,
 ): FormState {
-  const tags = Array.isArray(
-    initial?.tags,
-  )
-    ? initial?.tags.join(', ')
-    : String(
-        initial?.tags ??
-        '',
-      );
+  const rawTags =
+    initial?.tags;
+
+  const tags =
+    Array.isArray(rawTags)
+      ? rawTags.join(', ')
+      : typeof rawTags === 'string'
+        ? rawTags
+        : '';
 
   return {
     title:
