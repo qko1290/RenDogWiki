@@ -5,6 +5,7 @@ import { sql, runDbRead, isTransientDbError } from '@/wiki/lib/db';
 import { logActivity, resolveCategoryName } from '@wiki/lib/activity';
 import { cached, cacheKey, invalidate } from '@wiki/lib/cache';
 import { requireRole } from '@/app/wiki/lib/requireRole';
+import { DEFAULT_WIKI_DOCUMENT_ID } from '@/wiki/lib/defaultWikiDocument';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,16 +30,47 @@ type DocumentRow = {
 };
 
 function toContentArray(raw: unknown): unknown[] {
-  if (Array.isArray(raw)) return raw;
-  if (typeof raw === 'string') {
-    try {
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
+  let value = raw;
+
+  for (let depth = 0; depth < 5; depth += 1) {
+    if (Array.isArray(value)) return value;
+
+    if (typeof value === 'string') {
+      const text = value.trim();
+      if (!text) return [];
+
+      try {
+        value = JSON.parse(text);
+        continue;
+      } catch {
+        return [];
+      }
     }
+
+    if (value && typeof value === 'object') {
+      const record = value as Record<string, unknown>;
+
+      for (const key of ['content', 'value', 'children', 'nodes', 'document']) {
+        if (key in record) {
+          value = record[key];
+          break;
+        }
+      }
+
+      if (value !== record) continue;
+
+      const keys = Object.keys(record);
+      if (keys.length > 0 && keys.every((key) => /^\d+$/.test(key))) {
+        return keys
+          .sort((a, b) => Number(a) - Number(b))
+          .map((key) => record[key]);
+      }
+    }
+
+    return [];
   }
-  return [];
+
+  return Array.isArray(value) ? value : [];
 }
 
 function splitTags(raw: unknown): string[] {
@@ -67,52 +99,54 @@ function transientDocUnavailable() {
   );
 }
 
+async function getDocByIdFresh(id: number) {
+  const rows = (await runDbRead(
+    'documents:getDocById',
+    async () => {
+      return await sql`
+        SELECT
+          d.id,
+          d.title,
+          d.path,
+          d.icon,
+          d.tags,
+          d.created_at,
+          d.updated_at,
+          d.special,
+          d."order",
+          dc.content
+        FROM documents d
+        LEFT JOIN document_contents dc
+          ON dc.document_id = d.id
+        WHERE d.id = ${id}
+        LIMIT 1
+      `;
+    },
+    0
+  )) as unknown as DocumentRow[];
+
+  const row = rows[0];
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    title: row.title,
+    path: row.path,
+    icon: row.icon,
+    tags: splitTags(row.tags),
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    special: row.special ?? null,
+    order: Number(row.order ?? 0),
+    content: toContentArray(row.content ?? []),
+  };
+}
+
 async function getDocByIdCached(id: number) {
   return cached(
     cacheKey('doc', id),
     { ttlSec: 3600, tags: [docTag(id)] },
-    async () => {
-      const rows = (await runDbRead(
-        'documents:getDocById',
-        async () => {
-          return await sql`
-            SELECT
-              d.id,
-              d.title,
-              d.path,
-              d.icon,
-              d.tags,
-              d.created_at,
-              d.updated_at,
-              d.special,
-              d."order",
-              dc.content
-            FROM documents d
-            LEFT JOIN document_contents dc
-              ON dc.document_id = d.id
-            WHERE d.id = ${id}
-            LIMIT 1
-          `;
-        },
-        0
-      )) as unknown as DocumentRow[];
-
-      const row = rows[0];
-      if (!row) return null;
-
-      return {
-        id: row.id,
-        title: row.title,
-        path: row.path,
-        icon: row.icon,
-        tags: splitTags(row.tags),
-        created_at: row.created_at,
-        updated_at: row.updated_at,
-        special: row.special ?? null,
-        order: Number(row.order ?? 0),
-        content: toContentArray(row.content ?? []),
-      };
-    }
+    () => getDocByIdFresh(id)
   );
 }
 
@@ -239,7 +273,12 @@ export async function GET(req: NextRequest) {
         );
       }
 
-      const data = await getDocByIdCached(id);
+      const forceFresh =
+        id === DEFAULT_WIKI_DOCUMENT_ID || searchParams.get('fresh') === '1';
+      const data = forceFresh
+        ? await getDocByIdFresh(id)
+        : await getDocByIdCached(id);
+
       if (!data) {
         return new NextResponse(null, {
           status: 204,
@@ -248,10 +287,12 @@ export async function GET(req: NextRequest) {
       }
 
       return NextResponse.json(data, {
-        headers: {
-          'Cache-Control':
-            'public, max-age=0, s-maxage=300, stale-while-revalidate=600',
-        },
+        headers: forceFresh
+          ? noStoreHeaders()
+          : {
+              'Cache-Control':
+                'public, max-age=0, s-maxage=300, stale-while-revalidate=600',
+            },
       });
     } catch (error) {
       console.error('[documents GET by id] error:', error);
@@ -375,10 +416,14 @@ export async function GET(req: NextRequest) {
           content: toContentArray(row.content ?? []),
         },
         {
-          headers: {
-            'Cache-Control':
-              'public, max-age=0, s-maxage=300, stale-while-revalidate=600',
-          },
+          headers:
+            Number(row.id) === DEFAULT_WIKI_DOCUMENT_ID ||
+            searchParams.get('fresh') === '1'
+              ? noStoreHeaders()
+              : {
+                  'Cache-Control':
+                    'public, max-age=0, s-maxage=300, stale-while-revalidate=600',
+                },
         }
       );
     }
@@ -404,7 +449,14 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const data = await getDocByIdCached(Number(documentId));
+    const numericDocumentId = Number(documentId);
+    const forceFresh =
+      numericDocumentId === DEFAULT_WIKI_DOCUMENT_ID ||
+      searchParams.get('fresh') === '1';
+    const data = forceFresh
+      ? await getDocByIdFresh(numericDocumentId)
+      : await getDocByIdCached(numericDocumentId);
+
     if (!data) {
       return new NextResponse(null, {
         status: 204,
@@ -413,10 +465,12 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json(data, {
-      headers: {
-        'Cache-Control':
-          'public, max-age=0, s-maxage=300, stale-while-revalidate=600',
-      },
+      headers: forceFresh
+        ? noStoreHeaders()
+        : {
+            'Cache-Control':
+              'public, max-age=0, s-maxage=300, stale-while-revalidate=600',
+          },
     });
   } catch (error) {
     console.error('[documents GET by path/title] error:', error);

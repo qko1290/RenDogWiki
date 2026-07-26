@@ -40,6 +40,7 @@ import {
 import {
   DEFAULT_WIKI_DOCUMENT_ID,
   DEFAULT_WIKI_DOCUMENT_PATH_ID,
+  DEFAULT_WIKI_DOCUMENT_TITLE,
 } from '@/wiki/lib/defaultWikiDocument';
 
 type CategoryNode = {
@@ -108,6 +109,51 @@ function decodeTitleFromUrlParam(v: string | null | undefined) {
 
 function encodeTitleForUrlParam(v: string | null | undefined) {
   return String(v ?? '').trim().replace(/\s+/g, '_');
+}
+
+
+function normalizeDocumentContent(raw: unknown): Descendant[] {
+  let value = raw;
+
+  for (let depth = 0; depth < 5; depth += 1) {
+    if (Array.isArray(value)) return value as Descendant[];
+
+    if (typeof value === 'string') {
+      const text = value.trim();
+      if (!text) return [];
+
+      try {
+        value = JSON.parse(text);
+        continue;
+      } catch {
+        return [];
+      }
+    }
+
+    if (value && typeof value === 'object') {
+      const record = value as Record<string, unknown>;
+
+      for (const key of ['content', 'value', 'children', 'nodes', 'document']) {
+        if (key in record) {
+          value = record[key];
+          break;
+        }
+      }
+
+      if (value !== record) continue;
+
+      const keys = Object.keys(record);
+      if (keys.length > 0 && keys.every((key) => /^\d+$/.test(key))) {
+        return keys
+          .sort((a, b) => Number(a) - Number(b))
+          .map((key) => record[key]) as Descendant[];
+      }
+    }
+
+    return [];
+  }
+
+  return Array.isArray(value) ? (value as Descendant[]) : [];
 }
 
 function formatDocUpdatedTooltip(value?: string | null) {
@@ -1366,8 +1412,7 @@ export default function WikiPageInner({ user }: Props) {
           '/api/bootstrap' +
           (mode ? `?m=${encodeURIComponent(mode)}` : '');
         const r = await fetch(withTs(url), NC);
-        const { categories: catData, documents: docsRaw, featured } =
-          await r.json();
+        const { categories: catData, documents: docsRaw } = await r.json();
 
         // 카테고리 트리 구성
         const mod = await import('@/wiki/lib/buildCategoryTree');
@@ -1407,63 +1452,18 @@ export default function WikiPageInner({ user }: Props) {
         if (cancelled || !mountedRef.current) return;
         setAllDocuments(mapped);
 
-        // 새로고침/직접 진입 시 URL에 특정 문서가 명시되어 있으면
-        // bootstrap 기본 안내 문서를 먼저 본문에 꽂지 않는다.
-        // 그렇지 않으면 실제 문서를 열기 전에 기본 문서가 잠깐 보일 수 있다.
-        const initialSearch =
-          typeof window !== 'undefined'
-            ? new URLSearchParams(window.location.search)
-            : null;
-
-        const initialId = initialSearch ? Number(initialSearch.get('id')) : NaN;
-        const initialPath = initialSearch?.get('path');
-        const initialTitle = initialSearch?.get('title');
-
-        const hasExplicitInitialTarget =
-          (Number.isFinite(initialId) && initialId > 0) ||
-          (!!initialPath && !!initialTitle);
-
-        // 최초 뷰를 bootstrap 응답 하나로 바로 렌더
-        // 단, URL로 특정 문서에 직접 들어온 경우에는 featured 선렌더 금지
-        if (!hasExplicitInitialTarget && featured?.id) {
-          const featuredPathId = Number(featured.path);
-          const featuredPath =
-            featuredPathId === 0
-              ? []
-              : idToPath[featuredPathId] ??
-                (Number.isFinite(featuredPathId) ? [featuredPathId] : []);
-
-          setHideDocChrome(
-            shouldHideDocChrome(
-              featured.id,
-            ),
-          );
-          setSelectedDocId(featured.id);
-          setSelectedDocTitle(featured.title ?? null);
-          setSelectedDocPath(featuredPath);
-          setSelectedCategoryPath(null);
-          ensureOpenForDocPath(featuredPath);
-
-          const initialContent: Descendant[] = Array.isArray(featured.content)
-            ? featured.content
-            : [];
-
-          setDocContent(initialContent);
-          setTableOfContents(extractHeadings(initialContent));
-        } else {
-          // ✅ 직접 진입이면 featured / 이전 문서 흔적을 아예 비움
-          setSelectedDocId(null);
-          setSelectedDocTitle(null);
-          setSelectedDocPath(null);
-          setSelectedCategoryPath(null);
-          setHideDocChrome(false);
-
-          setDocContent(null);
-          setTableOfContents([]);
-          setSpecialMeta(null);
-          setFaqQuery('');
-          setFaqTags([]);
-        }
+        // bootstrap은 카테고리와 문서 메타만 준비한다.
+        // 본문은 자동 진입과 카테고리 직접 클릭 모두 /api/documents 한 경로로 로드한다.
+        setSelectedDocId(null);
+        setSelectedDocTitle(null);
+        setSelectedDocPath(null);
+        setSelectedCategoryPath(null);
+        setHideDocChrome(false);
+        setDocContent(null);
+        setTableOfContents([]);
+        setSpecialMeta(null);
+        setFaqQuery('');
+        setFaqTags([]);
 
         setBootstrapReady(true);
       } catch (e) {
@@ -1877,10 +1877,7 @@ export default function WikiPageInner({ user }: Props) {
         }
         if (!mountedRef.current || reqId !== docReqIdRef.current) return;
 
-        const content: Descendant[] =
-          typeof data.content === 'string'
-            ? JSON.parse(data.content)
-            : data.content;
+        const content = normalizeDocumentContent(data.content);
 
         const docInList = allDocuments.find(d => d.id === data.id);
         const special = data.special ?? docInList?.special ?? null;
@@ -2009,13 +2006,38 @@ export default function WikiPageInner({ user }: Props) {
     docAbortRef.current = controller;
 
     try {
-      const data = await fetchDocJsonWithRetry(
-        `/api/documents?id=${docId}`,
-        controller.signal,
-      );
+      const isDefaultDocument = docId === DEFAULT_WIKI_DOCUMENT_ID;
+      const idUrl = `/api/documents?id=${docId}${
+        isDefaultDocument ? '&fresh=1' : ''
+      }`;
+
+      let data = await fetchDocJsonWithRetry(idUrl, controller.signal);
+      let content = normalizeDocumentContent(data?.content);
+
+      // 자동 진입과 카테고리 직접 클릭은 모두 이 단건 조회를 사용한다.
+      // 기본 문서의 단건 결과가 비어 있으면 경로/제목 조회로 한 번 더 복구한다.
+      if (isDefaultDocument && (!data || content.length === 0)) {
+        const fallbackUrl =
+          `/api/documents?path=${DEFAULT_WIKI_DOCUMENT_PATH_ID}` +
+          `&title=${encodeURIComponent(DEFAULT_WIKI_DOCUMENT_TITLE)}` +
+          '&fresh=1';
+        const fallbackData = await fetchDocJsonWithRetry(
+          fallbackUrl,
+          controller.signal,
+        );
+        const fallbackContent = normalizeDocumentContent(
+          fallbackData?.content,
+        );
+
+        if (fallbackData && fallbackContent.length > 0) {
+          data = fallbackData;
+          content = fallbackContent;
+        }
+      }
 
       if (!data) {
-        setDocContent(null);
+        setDocContent([]);
+        setTableOfContents([]);
         setSpecialMeta(null);
         setFaqQuery('');
         setFaqTags([]);
@@ -2023,11 +2045,6 @@ export default function WikiPageInner({ user }: Props) {
         return;
       }
       if (!mountedRef.current || reqId !== docReqIdRef.current) return;
-
-      const content: Descendant[] =
-        typeof data.content === 'string'
-          ? JSON.parse(data.content)
-          : data.content;
 
       const docInList = allDocuments.find(d => d.id === data.id);
       const special = data.special ?? docInList?.special ?? null;
@@ -2097,7 +2114,9 @@ export default function WikiPageInner({ user }: Props) {
       if (e?.name === 'AbortError') return;
       if (!mountedRef.current || reqId !== docReqIdRef.current) return;
 
-      setDocContent(null);
+      console.error('[fetchDocById] failed:', { docId, error: e });
+      setDocContent([]);
+      setTableOfContents([]);
       setSpecialMeta(null);
       setFaqQuery('');
       setFaqTags([]);
@@ -2584,12 +2603,6 @@ export default function WikiPageInner({ user }: Props) {
       !!searchParams.get('id') ||
       !!(searchParams.get('path') && searchParams.get('title'));
     if (hasUrl) return; // 딥링크 우선
-
-    // ✅ bootstrap에서 이미 대표 문서가 세팅됐으면 추가 fetch 금지
-    if (selectedDocId === DEFAULT_WIKI_DOCUMENT_ID && docContent) {
-      firstLoadRef.current = false;
-      return;
-    }
 
     firstLoadRef.current = false;
 

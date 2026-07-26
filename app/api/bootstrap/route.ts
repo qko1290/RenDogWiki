@@ -1,16 +1,14 @@
 // =============================================
 // File: app/api/bootstrap/route.ts
 // (전체 코드)
-// - 위키 초기 bootstrap 데이터
-// - 기본 안내 문서는 다시 "본문 포함"으로 한 번에 내려줌
-// - 첫 화면 DB 요청을 bootstrap 1회로 줄이는 것이 목적
-// - 로컬 TTL 캐시 + stale-on-error 사용
+// - 위키 초기 카테고리/문서 메타데이터만 제공
+// - 기본 문서 본문은 일반 문서 상세 API 한 경로로만 로드
+// - bootstrap 선렌더와 수동 문서 열기의 응답 차이를 제거
 // =============================================
 
 import { NextResponse } from 'next/server';
 import { sql, runDbRead, isTransientDbError } from '@/wiki/lib/db';
 import { cached } from '@/wiki/lib/cache';
-import { DEFAULT_WIKI_DOCUMENT_ID } from '@/wiki/lib/defaultWikiDocument';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,32 +24,24 @@ type BootstrapDocument = {
   order: number;
   updated_at?: string | null;
 };
-type BootstrapFeatured = {
-  id: number;
-  title: string;
-  path: string | number;
-  icon?: string | null;
-  tags?: string[] | string | null;
-  special?: string | null;
-  order?: number | null;
-  updated_at?: string | null;
-  content: any[];
-} | null;
 
 type BootstrapPayload = {
   categories: any[];
   documents: BootstrapDocument[];
-  featured: BootstrapFeatured;
+  featured: null;
   degraded?: boolean;
   stale?: boolean;
 };
+
 function noStoreHeaders() {
   return {
     'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
   };
 }
 
-function emptyBootstrapPayload(extra?: Partial<BootstrapPayload>): BootstrapPayload {
+function emptyBootstrapPayload(
+  extra?: Partial<BootstrapPayload>
+): BootstrapPayload {
   return {
     categories: [],
     documents: [],
@@ -59,30 +49,14 @@ function emptyBootstrapPayload(extra?: Partial<BootstrapPayload>): BootstrapPayl
     ...extra,
   };
 }
-function toContentArray(raw: unknown): any[] {
-  if (Array.isArray(raw)) return raw;
-  if (typeof raw === 'string') {
-    try {
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }
-  return [];
-}
+
 export async function GET() {
   try {
     const data = await cached<BootstrapPayload>(
-      'bootstrap:v6',
+      'bootstrap:v7',
       {
         ttlSec: 600,
-        tags: [
-          'category:list',
-          'category:tree',
-          'doc:list',
-          `doc:${DEFAULT_WIKI_DOCUMENT_ID}`,
-        ],
+        tags: ['category:list', 'category:tree', 'doc:list'],
       },
       async () => {
         const categories = await runDbRead(
@@ -103,6 +77,7 @@ export async function GET() {
           },
           0
         );
+
         const docs = await runDbRead(
           'bootstrap:documents',
           async () => {
@@ -121,91 +96,44 @@ export async function GET() {
           },
           0
         );
-        const featuredRows = await runDbRead(
-          'bootstrap:featured',
-          async () => {
-            return await sql`
-              SELECT
-                d.id,
-                d.title,
-                d.path,
-                d.icon,
-                d.tags,
-                d.special,
-                d."order",
-                d.updated_at,
-                dc.content
-              FROM documents d
-              LEFT JOIN document_contents dc
-                ON dc.document_id = d.id
-              WHERE d.id = ${DEFAULT_WIKI_DOCUMENT_ID}
-              LIMIT 1
-            `;
-          },
-          0
-        );
-        const featuredRow = (featuredRows?.[0] ?? null) as
-          | {
-              id: number;
-              title: string;
-              path: string | number;
-              icon?: string | null;
-              tags?: string[] | string | null;
-              special?: string | null;
-              order?: number | null;
-              updated_at?: string | null;
-              content?: unknown;
-            }
-          | null;
-        const featured: BootstrapFeatured = featuredRow
-          ? {
-              id: featuredRow.id,
-              title: featuredRow.title,
-              path: featuredRow.path,
-              icon: featuredRow.icon ?? null,
-              tags: featuredRow.tags ?? null,
-              special: featuredRow.special ?? null,
-              order: featuredRow.order ?? null,
-              updated_at: featuredRow.updated_at ?? null,
-              content: toContentArray(featuredRow.content),
-            }
-          : null;
+
         return {
           categories,
-          documents: (docs ?? []).map((r: any) => ({
-            id: r.id,
-            title: r.title,
-            path: r.path,
-            icon: r.icon,
-            is_featured: !!r.is_featured,
-            special: r.special ?? null,
-            order: Number(r.order ?? 0),
-            updated_at: r.updated_at,
+          documents: (docs ?? []).map((row: any) => ({
+            id: row.id,
+            title: row.title,
+            path: row.path,
+            icon: row.icon,
+            is_featured: Boolean(row.is_featured),
+            special: row.special ?? null,
+            order: Number(row.order ?? 0),
+            updated_at: row.updated_at,
           })),
-          featured,
+          featured: null,
         };
       }
     );
+
     return NextResponse.json(data, {
       status: 200,
       headers: {
-        'Cache-Control': 'public, max-age=0, s-maxage=300, stale-while-revalidate=600',
+        'Cache-Control':
+          'public, max-age=0, s-maxage=300, stale-while-revalidate=600',
       },
     });
-  } catch (e) {
-    console.error('[bootstrap] error', e);
+  } catch (error) {
+    console.error('[bootstrap] error', error);
 
-    if (isTransientDbError(e)) {
+    if (isTransientDbError(error)) {
       return NextResponse.json(
-        emptyBootstrapPayload({
-          degraded: true,
-        }),
+        emptyBootstrapPayload({ degraded: true }),
         {
           status: 200,
           headers: noStoreHeaders(),
         }
       );
     }
+
     return NextResponse.json(
       { error: 'Server error' },
       {
