@@ -68,9 +68,29 @@ function normalizeRoleList(
     return [];
   }
 
-  return value.map((item) =>
-    String(item).toLowerCase(),
-  );
+  return value
+    .map((item) => {
+      if (
+        item &&
+        typeof item === 'object'
+      ) {
+        const row =
+          item as Record<string, unknown>;
+
+        return String(
+          row.name ??
+          row.role ??
+          row.permission ??
+          row.key ??
+          '',
+        ).toLowerCase();
+      }
+
+      return String(
+        item ?? '',
+      ).toLowerCase();
+    })
+    .filter(Boolean);
 }
 
 function useAuthFlags(
@@ -128,10 +148,18 @@ function useAuthFlags(
         );
 
         const isAdmin =
+          Boolean(
+            data?.isAdmin ??
+            data?.user?.isAdmin,
+          ) ||
           role === 'admin' ||
           roles.includes('admin');
 
         const canWrite =
+          Boolean(
+            data?.canWrite ??
+            data?.user?.canWrite,
+          ) ||
           isAdmin ||
           role === 'writer' ||
           role === 'manager' ||

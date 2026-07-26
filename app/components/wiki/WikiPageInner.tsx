@@ -306,12 +306,40 @@ function useCanWrite(user: Props['user']) {
           [];
 
         const perms = Array.isArray(rawPermissions)
-          ? rawPermissions.map((value: unknown) =>
-              String(value).toLowerCase(),
-            )
+          ? rawPermissions
+              .map((value: unknown) => {
+                if (
+                  value &&
+                  typeof value === 'object'
+                ) {
+                  const row =
+                    value as Record<string, unknown>;
+
+                  return String(
+                    row.name ??
+                    row.role ??
+                    row.permission ??
+                    row.key ??
+                    '',
+                  ).toLowerCase();
+                }
+
+                return String(
+                  value ?? '',
+                ).toLowerCase();
+              })
+              .filter(Boolean)
           : [];
 
         const allowed =
+          Boolean(
+            data?.canWrite ??
+            data?.user?.canWrite,
+          ) ||
+          Boolean(
+            data?.isAdmin ??
+            data?.user?.isAdmin,
+          ) ||
           role === 'writer' ||
           role === 'admin' ||
           role === 'manager' ||

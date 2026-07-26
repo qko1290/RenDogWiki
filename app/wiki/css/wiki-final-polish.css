@@ -761,313 +761,486 @@ small {
 }
 
 /* =============================================
-   2026-07-26 FAQ 상세 모달 최종 보정
+   FAQ 상세 모달 단일 디자인
 
-   - FAQ 문서 안에서 여는 상세 모달은 Portal로 body에 렌더링
-   - 기존 FAQ 목록과 상세 카드 디자인은 유지
-   - 헤더 검색에서 여는 기존 인라인 모달도 같은 시각 체계로 통일
+   - FAQ 문서 목록에서 여는 Portal 모달
+   - 헤더 검색 결과에서 여는 기존 SearchBox 상세 모달
+   두 경로를 동일한 크기·색상·간격으로 표시한다.
    ============================================= */
 
-/* Portal 모달이 문서 스크롤 영역의 크기/overflow 영향을 받지 않도록
-   위치 관련 속성만 확실하게 고정한다. 카드 내부 색상과 형태는
-   기존 faq.css 규칙을 그대로 사용한다. */
+/* ===== FAQ 문서 영역에서 여는 상세 모달 ===== */
+
 body > .faq-modal-backdrop {
   position: fixed !important;
   inset: 0 !important;
   z-index: 10000 !important;
   display: grid !important;
-  place-items: center !important;
-  box-sizing: border-box;
   width: 100vw !important;
   height: 100dvh !important;
+  place-items: center !important;
+  box-sizing: border-box !important;
   margin: 0 !important;
-  padding: 18px !important;
+  padding: 16px !important;
   overflow: auto !important;
+  background: rgba(0, 0, 0, 0.45) !important;
 }
 
 body > .faq-modal-backdrop > .faq-modal {
   position: relative !important;
-  inset: auto !important;
   width: min(760px, 100%) !important;
   max-width: 760px !important;
-  max-height: calc(100dvh - 36px) !important;
+  max-height: calc(100dvh - 32px) !important;
+  box-sizing: border-box !important;
   margin: auto !important;
+  padding: 18px 18px 20px !important;
   overflow: auto !important;
+  color: var(--foreground, #0f172a) !important;
+  background: var(--surface-elevated, #fff) !important;
+  border: 1px solid var(--border, #e5e7eb) !important;
+  border-radius: 20px !important;
+  box-shadow: var(
+    --shadow-xl,
+    0 24px 80px rgba(0, 0, 0, 0.28)
+  ) !important;
 }
 
-/* ===== 헤더 검색 결과에서 열리는 FAQ 상세 모달 =====
-   SearchBox에 남아 있는 인라인 style보다 우선하도록 !important를 사용한다.
-   760px 카드와 z-index 10000 조합은 해당 FAQ 검색 모달에만 사용된다. */
-body div[style*='z-index: 10000']:has(
-  > div[style*='760px']
-) {
+body > .faq-modal-backdrop .faq-modal-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+  margin-bottom: 8px !important;
+}
+
+body > .faq-modal-backdrop .faq-modal-title {
+  display: inline-flex !important;
+  min-width: 0 !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+body > .faq-modal-backdrop .faq-modal-title h3 {
+  min-width: 0 !important;
+  margin: 0 !important;
+  color: var(--foreground, #0f172a) !important;
+  font-size: 20px !important;
+  font-weight: 800 !important;
+  line-height: 1.4 !important;
+  word-break: break-word !important;
+}
+
+body > .faq-modal-backdrop .faq-modal-close {
+  display: grid !important;
+  width: 36px !important;
+  height: 36px !important;
+  flex: 0 0 36px !important;
+  place-items: center !important;
+  box-sizing: border-box !important;
+  padding: 0 !important;
+  color: #ef4444 !important;
+  cursor: pointer !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  transition:
+    transform 0.12s ease,
+    background 0.12s ease !important;
+}
+
+body > .faq-modal-backdrop .faq-modal-close:hover {
+  background: var(--surface-soft, #f3f4f6) !important;
+  transform: scale(1.06) !important;
+}
+
+body > .faq-modal-backdrop .faq-modal-body {
+  display: grid !important;
+  gap: 10px !important;
+  margin-top: 6px !important;
+}
+
+body > .faq-modal-backdrop .faq-qa {
+  display: inline-flex !important;
+  width: 22px !important;
+  height: 22px !important;
+  flex: 0 0 22px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: inherit;
+  font-size: 13.5px !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  vertical-align: middle !important;
+  border-radius: 999px !important;
+  transform: translateY(-1px) !important;
+}
+
+body > .faq-modal-backdrop .faq-qa.q {
+  color: #1d4ed8 !important;
+  background: rgba(59, 130, 246, 0.12) !important;
+}
+
+body > .faq-modal-backdrop .faq-qa.a {
+  color: #dc2626 !important;
+  background: rgba(239, 68, 68, 0.12) !important;
+}
+
+body > .faq-modal-backdrop .qa-line {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 12px !important;
+  box-sizing: border-box !important;
+  padding: 12px 14px !important;
+  border-radius: 12px !important;
+}
+
+body > .faq-modal-backdrop .qa-line.a {
+  background: rgba(239, 68, 68, 0.06) !important;
+  border: 1px solid rgba(239, 68, 68, 0.14) !important;
+}
+
+body > .faq-modal-backdrop .qa-text {
+  min-width: 0 !important;
+  margin: 0 !important;
+  color: var(--foreground, #111827) !important;
+  font: inherit !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+  white-space: pre-wrap !important;
+  overflow-wrap: anywhere !important;
+}
+
+/* ===== 검색 결과에서 여는 기존 FAQ 상세 모달 =====
+   SearchBox의 inline style보다 우선하도록 구조와 !important를 사용한다. */
+
+body div[style*='z-index: 10000'][style*='position: fixed'],
+body div[style*='z-index:10000'][style*='position:fixed'] {
   position: fixed !important;
   inset: 0 !important;
   z-index: 10000 !important;
   display: grid !important;
-  place-items: center !important;
-  box-sizing: border-box !important;
   width: 100vw !important;
   height: 100dvh !important;
+  place-items: center !important;
+  box-sizing: border-box !important;
   margin: 0 !important;
-  padding: 18px !important;
+  padding: 16px !important;
   overflow: auto !important;
-  background: rgba(12, 22, 15, 0.58) !important;
-  backdrop-filter: blur(7px) !important;
-  -webkit-backdrop-filter: blur(7px) !important;
+  background: rgba(0, 0, 0, 0.45) !important;
 }
 
-body div[style*='z-index: 10000']:has(
-  > div[style*='760px']
-) > div[style*='760px'] {
+/* 검색 FAQ 모달의 최상위 카드 */
+body div[style*='z-index: 10000'][style*='position: fixed'] > div,
+body div[style*='z-index:10000'][style*='position:fixed'] > div {
   position: relative !important;
   width: min(760px, 100%) !important;
   max-width: 760px !important;
-  max-height: calc(100dvh - 36px) !important;
+  max-height: calc(100dvh - 32px) !important;
   box-sizing: border-box !important;
   margin: auto !important;
-  padding: 20px !important;
+  padding: 18px 18px 20px !important;
   overflow: auto !important;
-  color: var(--foreground) !important;
-  background:
-    radial-gradient(
-      circle at 100% 0,
-      color-mix(
-        in srgb,
-        var(--primary, #57a861) 14%,
-        transparent
-      ),
-      transparent 38%
-    ),
-    var(--surface-elevated, #fff) !important;
-  border: 1px solid var(--border, #dce7dc) !important;
+  color: var(--foreground, #0f172a) !important;
+  background: var(--surface-elevated, #fff) !important;
+  border: 1px solid var(--border, #e5e7eb) !important;
   border-radius: 20px !important;
-  box-shadow: var(--shadow-xl, 0 28px 70px rgba(18, 40, 22, 0.24)) !important;
+  box-shadow: var(
+    --shadow-xl,
+    0 24px 80px rgba(0, 0, 0, 0.28)
+  ) !important;
 }
 
-/* 검색 모달 헤더 */
-body div[style*='z-index: 10000']:has(
-  > div[style*='760px']
-) > div[style*='760px'] > :first-child {
+/* 검색 FAQ 모달 헤더 */
+body div[style*='z-index: 10000'][style*='position: fixed']
+  > div
+  > div:first-child,
+body div[style*='z-index:10000'][style*='position:fixed']
+  > div
+  > div:first-child {
   display: flex !important;
-  min-width: 0 !important;
   align-items: center !important;
   justify-content: space-between !important;
-  gap: 14px !important;
-  box-sizing: border-box !important;
-  margin: 0 0 14px !important;
-  padding: 0 0 14px !important;
-  border-bottom: 1px solid var(--border, #dce7dc) !important;
+  gap: 10px !important;
+  margin: 0 0 8px !important;
+  padding: 0 !important;
+  border: 0 !important;
 }
 
-body div[style*='z-index: 10000']:has(
-  > div[style*='760px']
-) > div[style*='760px'] > :first-child > :first-child {
-  display: flex !important;
+body div[style*='z-index: 10000'][style*='position: fixed']
+  > div
+  > div:first-child
+  > div:first-child,
+body div[style*='z-index:10000'][style*='position:fixed']
+  > div
+  > div:first-child
+  > div:first-child {
+  display: inline-flex !important;
   min-width: 0 !important;
   align-items: center !important;
-  gap: 11px !important;
+  gap: 12px !important;
 }
 
-body div[style*='z-index: 10000']:has(
-  > div[style*='760px']
-) > div[style*='760px'] > :first-child span:first-child {
-  display: grid !important;
-  width: 38px !important;
-  height: 38px !important;
-  flex: 0 0 38px !important;
-  place-items: center !important;
-  box-sizing: border-box !important;
-  color: #318247 !important;
-  font-size: 17px !important;
+body div[style*='z-index: 10000'][style*='position: fixed']
+  > div
+  > div:first-child
+  span:first-child,
+body div[style*='z-index:10000'][style*='position:fixed']
+  > div
+  > div:first-child
+  span:first-child {
+  display: inline-flex !important;
+  width: 22px !important;
+  height: 22px !important;
+  flex: 0 0 22px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #1d4ed8 !important;
+  font-size: 13.5px !important;
   font-weight: 900 !important;
   line-height: 1 !important;
-  background: #eff9ed !important;
-  border: 1px solid #d5ead2 !important;
-  border-radius: 10px !important;
-}
-
-body div[style*='z-index: 10000']:has(
-  > div[style*='760px']
-) > div[style*='760px'] h3 {
-  min-width: 0 !important;
-  margin: 0 !important;
-  color: var(--foreground) !important;
-  font-family:
-    'NanumSquareNeo',
-    'NanumSquareRound',
-    system-ui,
-    sans-serif !important;
-  font-size: 21px !important;
-  font-weight: 900 !important;
-  line-height: 1.35 !important;
-  letter-spacing: -0.035em !important;
-}
-
-body div[style*='z-index: 10000']:has(
-  > div[style*='760px']
-) > div[style*='760px'] > :first-child button {
-  display: grid !important;
-  width: 38px !important;
-  height: 38px !important;
-  flex: 0 0 38px !important;
-  place-items: center !important;
-  box-sizing: border-box !important;
-  padding: 0 !important;
-  color: var(--muted, #748078) !important;
-  cursor: pointer !important;
-  background: var(--surface, #fff) !important;
-  border: 1px solid var(--border, #dce7dc) !important;
-  border-radius: 11px !important;
-  transition:
-    color 0.15s ease,
-    background-color 0.15s ease,
-    border-color 0.15s ease,
-    transform 0.15s ease !important;
-}
-
-body div[style*='z-index: 10000']:has(
-  > div[style*='760px']
-) > div[style*='760px'] > :first-child button:hover {
-  color: #c53b3b !important;
-  background: #fff2f2 !important;
-  border-color: #efcaca !important;
+  background: rgba(59, 130, 246, 0.12) !important;
+  border: 0 !important;
+  border-radius: 999px !important;
   transform: translateY(-1px) !important;
 }
 
-/* 검색 모달 답변 영역 */
-body div[style*='z-index: 10000']:has(
-  > div[style*='760px']
-) > div[style*='760px'] > :nth-child(2) {
+body div[style*='z-index: 10000'][style*='position: fixed']
+  > div
+  > div:first-child
+  h3,
+body div[style*='z-index:10000'][style*='position:fixed']
+  > div
+  > div:first-child
+  h3 {
+  min-width: 0 !important;
+  margin: 0 !important;
+  color: var(--foreground, #0f172a) !important;
+  font-size: 20px !important;
+  font-weight: 800 !important;
+  line-height: 1.4 !important;
+  word-break: break-word !important;
+}
+
+body div[style*='z-index: 10000'][style*='position: fixed']
+  > div
+  > div:first-child
+  button,
+body div[style*='z-index:10000'][style*='position:fixed']
+  > div
+  > div:first-child
+  button {
+  display: grid !important;
+  width: 36px !important;
+  height: 36px !important;
+  flex: 0 0 36px !important;
+  place-items: center !important;
+  box-sizing: border-box !important;
+  padding: 0 !important;
+  color: #ef4444 !important;
+  cursor: pointer !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+}
+
+/* 검색 FAQ 모달의 두 번째 자식은 답변 래퍼이고,
+   그 안의 첫 번째 div가 실제 답변 카드다. */
+body div[style*='z-index: 10000'][style*='position: fixed']
+  > div
+  > div:nth-child(2),
+body div[style*='z-index:10000'][style*='position:fixed']
+  > div
+  > div:nth-child(2) {
+  display: block !important;
+  margin: 6px 0 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+
+body div[style*='z-index: 10000'][style*='position: fixed']
+  > div
+  > div:nth-child(2)
+  > div:first-child,
+body div[style*='z-index:10000'][style*='position:fixed']
+  > div
+  > div:nth-child(2)
+  > div:first-child {
   display: flex !important;
   align-items: flex-start !important;
   gap: 12px !important;
   box-sizing: border-box !important;
   margin: 0 !important;
-  padding: 16px !important;
-  color: var(--foreground) !important;
-  background:
-    color-mix(
-      in srgb,
-      var(--surface-soft, #f6faf5) 92%,
-      transparent
-    ) !important;
-  border: 1px solid var(--border, #dce7dc) !important;
-  border-radius: 14px !important;
+  padding: 12px 14px !important;
+  color: var(--foreground, #111827) !important;
+  background: rgba(239, 68, 68, 0.06) !important;
+  border: 1px solid rgba(239, 68, 68, 0.14) !important;
+  border-radius: 12px !important;
 }
 
-body div[style*='z-index: 10000']:has(
-  > div[style*='760px']
-) > div[style*='760px'] > :nth-child(2) > span:first-child {
-  display: grid !important;
-  width: 38px !important;
-  height: 38px !important;
-  flex: 0 0 38px !important;
-  place-items: center !important;
-  box-sizing: border-box !important;
-  color: #a66c00 !important;
-  font-size: 17px !important;
+body div[style*='z-index: 10000'][style*='position: fixed']
+  > div
+  > div:nth-child(2)
+  > div:first-child
+  > span:first-child,
+body div[style*='z-index:10000'][style*='position:fixed']
+  > div
+  > div:nth-child(2)
+  > div:first-child
+  > span:first-child {
+  display: inline-flex !important;
+  width: 22px !important;
+  height: 22px !important;
+  flex: 0 0 22px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #dc2626 !important;
+  font-size: 13.5px !important;
   font-weight: 900 !important;
   line-height: 1 !important;
-  background: #fff8e9 !important;
-  border: 1px solid #eed79d !important;
-  border-radius: 10px !important;
+  background: rgba(239, 68, 68, 0.12) !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  transform: translateY(-1px) !important;
 }
 
-body div[style*='z-index: 10000']:has(
-  > div[style*='760px']
-) > div[style*='760px'] > :nth-child(2) p {
+body div[style*='z-index: 10000'][style*='position: fixed']
+  > div
+  > div:nth-child(2)
+  > div:first-child
+  :is(pre, p),
+body div[style*='z-index:10000'][style*='position:fixed']
+  > div
+  > div:nth-child(2)
+  > div:first-child
+  :is(pre, p) {
   min-width: 0 !important;
   margin: 0 !important;
-  color: var(--foreground) !important;
+  color: var(--foreground, #111827) !important;
+  font: inherit !important;
   font-size: 14px !important;
-  font-weight: 630 !important;
-  line-height: 1.75 !important;
+  line-height: 1.6 !important;
   white-space: pre-wrap !important;
   overflow-wrap: anywhere !important;
 }
 
-/* 태그 행이 있는 경우 카드 하단에서 자연스럽게 정렬 */
-body div[style*='z-index: 10000']:has(
-  > div[style*='760px']
-) > div[style*='760px'] > :nth-child(n + 3) {
-  display: flex !important;
-  flex-wrap: wrap !important;
-  gap: 6px !important;
-  margin-top: 12px !important;
+/* FAQ 영역 상세 모달에는 태그 행이 없으므로 검색 모달도 동일하게 숨긴다. */
+body div[style*='z-index: 10000'][style*='position: fixed']
+  > div
+  > div:nth-child(2)
+  > div:nth-child(n + 2),
+body div[style*='z-index:10000'][style*='position:fixed']
+  > div
+  > div:nth-child(2)
+  > div:nth-child(n + 2) {
+  display: none !important;
+}
+
+[data-theme='dark'] body > .faq-modal-backdrop .faq-qa.q,
+[data-theme='dark']
+  body
+  div[style*='z-index: 10000'][style*='position: fixed']
+  > div
+  > div:first-child
+  span:first-child {
+  color: #93c5fd !important;
+  background: rgba(96, 165, 250, 0.18) !important;
+}
+
+[data-theme='dark'] body > .faq-modal-backdrop .faq-qa.a,
+[data-theme='dark']
+  body
+  div[style*='z-index: 10000'][style*='position: fixed']
+  > div
+  > div:nth-child(2)
+  > div:first-child
+  > span:first-child {
+  color: #fca5a5 !important;
+  background: rgba(248, 113, 113, 0.18) !important;
+}
+
+[data-theme='dark'] body > .faq-modal-backdrop .qa-line.a,
+[data-theme='dark']
+  body
+  div[style*='z-index: 10000'][style*='position: fixed']
+  > div
+  > div:nth-child(2)
+  > div:first-child {
+  background: rgba(248, 113, 113, 0.08) !important;
+  border-color: rgba(248, 113, 113, 0.18) !important;
 }
 
 @media (max-width: 768px) {
   body > .faq-modal-backdrop,
-  body div[style*='z-index: 10000']:has(
-    > div[style*='760px']
-  ) {
+  body div[style*='z-index: 10000'][style*='position: fixed'],
+  body div[style*='z-index:10000'][style*='position:fixed'] {
     padding: 10px !important;
   }
 
   body > .faq-modal-backdrop > .faq-modal,
-  body div[style*='z-index: 10000']:has(
-    > div[style*='760px']
-  ) > div[style*='760px'] {
+  body div[style*='z-index: 10000'][style*='position: fixed'] > div,
+  body div[style*='z-index:10000'][style*='position:fixed'] > div {
+    width: min(100%, 340px) !important;
     max-height: calc(100dvh - 20px) !important;
-    border-radius: 16px !important;
+    padding: 12px 12px 14px !important;
+    border-radius: 14px !important;
   }
 
-  body div[style*='z-index: 10000']:has(
-    > div[style*='760px']
-  ) > div[style*='760px'] {
-    padding: 16px !important;
+  body > .faq-modal-backdrop .faq-modal-title {
+    gap: 8px !important;
   }
 
-  body div[style*='z-index: 10000']:has(
-    > div[style*='760px']
-  ) > div[style*='760px'] h3 {
-    font-size: 18px !important;
+  body > .faq-modal-backdrop .faq-modal-title h3,
+  body div[style*='z-index: 10000'][style*='position: fixed']
+    > div
+    > div:first-child
+    h3 {
+    font-size: 12px !important;
+    line-height: 1.35 !important;
   }
-}
 
-:is(
-  html[data-theme='dark'],
-  body[data-theme='dark'],
-  html.dark,
-  body.dark
-)
-body div[style*='z-index: 10000']:has(
-  > div[style*='760px']
-) > div[style*='760px'] {
-  background:
-    radial-gradient(
-      circle at 100% 0,
-      rgba(66, 135, 78, 0.15),
-      transparent 38%
-    ),
-    var(--surface-elevated, #101b14) !important;
-}
+  body > .faq-modal-backdrop .faq-modal-close,
+  body div[style*='z-index: 10000'][style*='position: fixed']
+    > div
+    > div:first-child
+    button {
+    width: 30px !important;
+    height: 30px !important;
+    flex-basis: 30px !important;
+  }
 
-:is(
-  html[data-theme='dark'],
-  body[data-theme='dark'],
-  html.dark,
-  body.dark
-)
-body div[style*='z-index: 10000']:has(
-  > div[style*='760px']
-) > div[style*='760px'] > :first-child span:first-child {
-  color: #8bd39a !important;
-  background: rgba(65, 139, 78, 0.17) !important;
-  border-color: rgba(110, 183, 123, 0.25) !important;
-}
+  body > .faq-modal-backdrop .faq-qa,
+  body div[style*='z-index: 10000'][style*='position: fixed']
+    > div
+    > div:first-child
+    span:first-child,
+  body div[style*='z-index: 10000'][style*='position: fixed']
+    > div
+    > div:nth-child(2)
+    > div:first-child
+    > span:first-child {
+    width: 18px !important;
+    height: 18px !important;
+    flex-basis: 18px !important;
+    font-size: 10px !important;
+  }
 
-:is(
-  html[data-theme='dark'],
-  body[data-theme='dark'],
-  html.dark,
-  body.dark
-)
-body div[style*='z-index: 10000']:has(
-  > div[style*='760px']
-) > div[style*='760px'] > :nth-child(2) > span:first-child {
-  color: #efc66c !important;
-  background: rgba(174, 119, 19, 0.16) !important;
-  border-color: rgba(228, 179, 83, 0.24) !important;
+  body > .faq-modal-backdrop .qa-line,
+  body div[style*='z-index: 10000'][style*='position: fixed']
+    > div
+    > div:nth-child(2)
+    > div:first-child {
+    gap: 8px !important;
+    padding: 8px 9px !important;
+    border-radius: 10px !important;
+  }
+
+  body > .faq-modal-backdrop .qa-text,
+  body div[style*='z-index: 10000'][style*='position: fixed']
+    > div
+    > div:nth-child(2)
+    > div:first-child
+    :is(pre, p) {
+    font-size: 12px !important;
+    line-height: 1.5 !important;
+  }
 }
