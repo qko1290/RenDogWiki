@@ -1361,3 +1361,161 @@ body div[style*='z-index:10000'][style*='position:fixed']
     min-height: 30px !important;
   }
 }
+
+/* =============================================
+   다크모드 카테고리 화살표·내부 링크 미리보기 보정
+
+   - 카테고리 hover 시 펼침/접힘 버튼이 밝은 연두색으로 뜨는 현상 수정
+   - document.body Portal로 생성되는 내부 링크 미리보기에
+     다크모드 전용 CSS 변수를 직접 공급
+   ============================================= */
+
+/* ===== 카테고리 펼침·접힘 버튼 ===== */
+
+:root[data-theme='dark']
+#rdwiki-page
+#wiki-scroll-root
+.wiki-category-arrow,
+:root[data-theme='dark']
+#wiki-scroll-root
+.wiki-category-arrow {
+  color: #a9bbb0 !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme='dark']
+#rdwiki-page
+#wiki-scroll-root
+.wiki-nav-item:hover
+.wiki-category-arrow,
+:root[data-theme='dark']
+#wiki-scroll-root
+.wiki-nav-item:hover
+.wiki-category-arrow {
+  color: #a7dfb0 !important;
+  background: rgba(47, 88, 57, 0.42) !important;
+  border-color: rgba(135, 202, 148, 0.24) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035) !important;
+}
+
+:root[data-theme='dark']
+#rdwiki-page
+#wiki-scroll-root
+.wiki-nav-item.active
+.wiki-category-arrow,
+:root[data-theme='dark']
+#wiki-scroll-root
+.wiki-nav-item.active
+.wiki-category-arrow {
+  color: #b4e7bd !important;
+  background: rgba(58, 105, 68, 0.38) !important;
+  border-color: rgba(145, 211, 157, 0.2) !important;
+}
+
+/* 프로젝트가 body.dark 방식으로 다크모드를 표시하는 경우도 대응 */
+:is(
+  body[data-theme='dark'],
+  html.dark,
+  body.dark
+)
+#wiki-scroll-root
+.wiki-category-arrow {
+  color: #a9bbb0 !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+:is(
+  body[data-theme='dark'],
+  html.dark,
+  body.dark
+)
+#wiki-scroll-root
+.wiki-nav-item:hover
+.wiki-category-arrow {
+  color: #a7dfb0 !important;
+  background: rgba(47, 88, 57, 0.42) !important;
+  border-color: rgba(135, 202, 148, 0.24) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035) !important;
+}
+
+/* ===== 내부 문서 링크 hover 미리보기 ===== */
+
+/*
+ * InlineWikiLinkRead는 미리보기를 document.body 아래의 Portal로 만든다.
+ * 따라서 #wiki-scroll-root 내부의 다크모드 변수가 상속되지 않는다.
+ * role=tooltip과 고유 z-index 조합으로 해당 미리보기만 지정한다.
+ */
+:root[data-theme='dark']
+body
+> [role='tooltip'][style*='z-index: 9998'],
+:root[data-theme='dark']
+body
+> [role='tooltip'][style*='z-index:9998'],
+:is(
+  body[data-theme='dark'],
+  html.dark,
+  body.dark
+)
+body
+> [role='tooltip'][style*='z-index: 9998'],
+:is(
+  body[data-theme='dark'],
+  html.dark,
+  body.dark
+)
+body
+> [role='tooltip'][style*='z-index:9998'] {
+  --foreground: #edf5ef;
+  --muted: #a7b7ad;
+  --muted-2: #87998e;
+  --accent: #8ed69a;
+  --accent-soft: rgba(67, 123, 77, 0.34);
+  --surface: #111d17;
+  --surface-soft: #14241b;
+  --surface-elevated: #17271d;
+  --border: rgba(139, 194, 150, 0.2);
+  --border-strong: rgba(145, 207, 157, 0.3);
+  --shadow-lg:
+    0 20px 48px rgba(0, 0, 0, 0.42),
+    0 5px 16px rgba(0, 0, 0, 0.24);
+
+  color: var(--foreground) !important;
+  background: var(--surface-elevated) !important;
+  border-color: var(--border) !important;
+}
+
+/* 태그는 기존 보라색 잔색 대신 사이트의 초록 계열로 정리 */
+:root[data-theme='dark']
+body
+> [role='tooltip'][style*='z-index: 9998']
+span[style*='border-radius: 999'],
+:root[data-theme='dark']
+body
+> [role='tooltip'][style*='z-index:9998']
+span[style*='border-radius: 999'],
+:is(
+  body[data-theme='dark'],
+  html.dark,
+  body.dark
+)
+body
+> [role='tooltip'][style*='z-index: 9998']
+span[style*='border-radius: 999'],
+:is(
+  body[data-theme='dark'],
+  html.dark,
+  body.dark
+)
+body
+> [role='tooltip'][style*='z-index:9998']
+span[style*='border-radius: 999'] {
+  color: #95dca1 !important;
+  background: rgba(61, 118, 72, 0.36) !important;
+  border-color: rgba(135, 202, 148, 0.24) !important;
+}
