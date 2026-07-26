@@ -2,10 +2,11 @@
 // File: app/components/wiki/FaqList.tsx
 // 전체 코드
 //
-// - FAQ 목록 / 상세 보기 / 검색 / 페이징
-// - writer, manager, admin 권한에 편집 버튼 표시
-// - admin 권한에 삭제 버튼 표시
-// - 질문 편집은 FaqUpsertModal 재사용
+// - 기존 FAQ 문서 목록 디자인 복원
+// - 기존 FAQ 상세 모달 디자인 복원
+// - writer / manager / admin에게 항목별 편집 버튼만 추가
+// - admin 삭제 메뉴 유지
+// - 질문 추가·편집 모달은 FaqUpsertModal을 그대로 사용
 // =============================================
 
 'use client';
@@ -41,19 +42,28 @@ export type FaqItem = {
 type AuthFlags = {
   canWrite: boolean;
   isAdmin: boolean;
-  loading: boolean;
 };
 
-const EMPTY_FLAGS: AuthFlags = {
-  canWrite: false,
-  isAdmin: false,
-  loading: true,
+type MenuState = {
+  open: boolean;
+  id: number | null;
+  x: number;
+  y: number;
+};
+
+const CLOSED_MENU: MenuState = {
+  open: false,
+  id: null,
+  x: 0,
+  y: 0,
 };
 
 function normalizeRoleList(
   value: unknown,
 ) {
-  if (!Array.isArray(value)) return [];
+  if (!Array.isArray(value)) {
+    return [];
+  }
 
   return value.map((item) =>
     String(item).toLowerCase(),
@@ -66,9 +76,10 @@ function useAuthFlags(
   const [
     flags,
     setFlags,
-  ] = useState<AuthFlags>(
-    EMPTY_FLAGS,
-  );
+  ] = useState<AuthFlags>({
+    canWrite: false,
+    isAdmin: false,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -77,7 +88,6 @@ function useAuthFlags(
       setFlags({
         canWrite: false,
         isAdmin: false,
-        loading: false,
       });
       return;
     }
@@ -98,7 +108,8 @@ function useAuthFlags(
           );
         }
 
-        const data = await response.json();
+        const data =
+          await response.json();
 
         const role = String(
           data?.role ??
@@ -128,7 +139,6 @@ function useAuthFlags(
           setFlags({
             canWrite,
             isAdmin,
-            loading: false,
           });
         }
       } catch {
@@ -136,7 +146,6 @@ function useAuthFlags(
           setFlags({
             canWrite: false,
             isAdmin: false,
-            loading: false,
           });
         }
       }
@@ -160,34 +169,45 @@ function normalizeFaqItem(
     return null;
   }
 
-  const row = value as Record<string, unknown>;
-  const id = Number(row.id);
+  const row =
+    value as Record<string, unknown>;
+
+  const id =
+    Number(row.id);
 
   if (!Number.isFinite(id)) {
     return null;
   }
 
-  const rawTags = row.tags;
+  const rawTags =
+    row.tags;
 
   const tags = Array.isArray(rawTags)
     ? rawTags
-        .map((tag) => String(tag).trim())
+        .map((tag) =>
+          String(tag).trim(),
+        )
         .filter(Boolean)
     : String(rawTags ?? '')
         .split(',')
-        .map((tag) => tag.trim())
+        .map((tag) =>
+          tag.trim(),
+        )
         .filter(Boolean);
 
   return {
     id,
-    title: String(row.title ?? ''),
-    content: String(row.content ?? ''),
+    title:
+      String(row.title ?? ''),
+    content:
+      String(row.content ?? ''),
     tags,
-    uploader: String(
-      row.uploader ??
-      row.username ??
-      '',
-    ),
+    uploader:
+      String(
+        row.uploader ??
+        row.username ??
+        '',
+      ),
     created_at:
       row.created_at == null
         ? undefined
@@ -211,7 +231,9 @@ export async function fetchFaqDetail(
       },
     );
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      return null;
+    }
 
     return normalizeFaqItem(
       await response.json(),
@@ -221,32 +243,9 @@ export async function fetchFaqDetail(
       '[FAQ detail] failed',
       error,
     );
+
     return null;
   }
-}
-
-function formatFaqDate(
-  value?: string,
-) {
-  if (!value) return '';
-
-  const date = new Date(value);
-  if (
-    Number.isNaN(
-      date.getTime(),
-    )
-  ) {
-    return '';
-  }
-
-  return new Intl.DateTimeFormat(
-    'ko-KR',
-    {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    },
-  ).format(date);
 }
 
 export function FaqDetailModal({
@@ -257,32 +256,30 @@ export function FaqDetailModal({
   onClose: () => void;
 }) {
   useEffect(() => {
-    const onKeyDown = (
+    const handleKeyDown = (
       event: KeyboardEvent,
     ) => {
-      if (
-        event.key === 'Escape'
-      ) {
+      if (event.key === 'Escape') {
         onClose();
       }
     };
 
     window.addEventListener(
       'keydown',
-      onKeyDown,
+      handleKeyDown,
     );
 
     return () => {
       window.removeEventListener(
         'keydown',
-        onKeyDown,
+        handleKeyDown,
       );
     };
   }, [onClose]);
 
   return (
     <div
-      className="faq-detail-backdrop"
+      className="faq-modal-backdrop"
       role="presentation"
       onMouseDown={(event) => {
         if (
@@ -293,31 +290,33 @@ export function FaqDetailModal({
         }
       }}
     >
-      <article
-        className="faq-detail-dialog"
+      <div
+        className="faq-modal"
         role="dialog"
         aria-modal="true"
-        aria-labelledby={`faq-detail-title-${sel.id}`}
+        aria-labelledby={
+          `faq-detail-title-${sel.id}`
+        }
+        onMouseDown={(event) => {
+          event.stopPropagation();
+        }}
       >
-        <header className="faq-detail-header">
-          <div className="faq-detail-title-group">
+        <div className="faq-modal-header">
+          <div className="faq-modal-title">
             <span
-              className="faq-detail-q"
+              className="faq-qa q"
               aria-hidden="true"
             >
               Q
             </span>
 
-            <div>
-              <span className="faq-detail-eyebrow">
-                자주 묻는 질문
-              </span>
-              <h3
-                id={`faq-detail-title-${sel.id}`}
-              >
-                {sel.title}
-              </h3>
-            </div>
+            <h3
+              id={
+                `faq-detail-title-${sel.id}`
+              }
+            >
+              {sel.title}
+            </h3>
           </div>
 
           <button
@@ -326,66 +325,25 @@ export function FaqDetailModal({
             onClick={onClose}
             aria-label="질문 상세 닫기"
           >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path
-                d="m6 6 12 12M18 6 6 18"
-                strokeLinecap="round"
-              />
-            </svg>
+            ✕
           </button>
-        </header>
-
-        <div className="faq-detail-body">
-          <div
-            className="faq-detail-a"
-            aria-hidden="true"
-          >
-            A
-          </div>
-
-          <p>{sel.content}</p>
         </div>
 
-        {(sel.tags.length > 0 ||
-          sel.uploader ||
-          sel.updated_at ||
-          sel.created_at) && (
-          <footer className="faq-detail-footer">
-            {sel.tags.length > 0 && (
-              <div className="faq-detail-tags">
-                {sel.tags.map((tag) => (
-                  <span key={tag}>
-                    #{tag}
-                  </span>
-                ))}
-              </div>
-            )}
+        <div className="faq-modal-body">
+          <div className="qa-line a">
+            <span
+              className="faq-qa a"
+              aria-hidden="true"
+            >
+              A
+            </span>
 
-            <div className="faq-detail-meta">
-              {sel.uploader && (
-                <span>
-                  작성자 {sel.uploader}
-                </span>
-              )}
-
-              {(sel.updated_at ||
-                sel.created_at) && (
-                <span>
-                  {formatFaqDate(
-                    sel.updated_at ??
-                    sel.created_at,
-                  )}
-                </span>
-              )}
-            </div>
-          </footer>
-        )}
-      </article>
+            <p className="qa-text">
+              {sel.content}
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -406,7 +364,6 @@ export default function FaqList({
   const {
     canWrite,
     isAdmin,
-    loading: authLoading,
   } = useAuthFlags(user);
 
   const [
@@ -417,12 +374,7 @@ export default function FaqList({
   const [
     loading,
     setLoading,
-  ] = useState(true);
-
-  const [
-    error,
-    setError,
-  ] = useState('');
+  ] = useState(false);
 
   const [
     selected,
@@ -439,8 +391,15 @@ export default function FaqList({
   );
 
   const [
-    listSearch,
-    setListSearch,
+    menu,
+    setMenu,
+  ] = useState<MenuState>(
+    CLOSED_MENU,
+  );
+
+  const [
+    bottomSearch,
+    setBottomSearch,
   ] = useState('');
 
   const [
@@ -457,6 +416,11 @@ export default function FaqList({
     isMobile
       ? 10
       : 12;
+
+  const maxVisiblePageButtons =
+    isMobile
+      ? 5
+      : Number.MAX_SAFE_INTEGER;
 
   useEffect(() => {
     const media =
@@ -496,33 +460,33 @@ export default function FaqList({
     };
   }, []);
 
-  const requestQuery = useMemo(
-    () => {
-      const params =
-        new URLSearchParams();
+  const requestQuery =
+    useMemo(
+      () => {
+        const params =
+          new URLSearchParams();
 
-      if (query.trim()) {
-        params.set(
-          'q',
-          query.trim(),
-        );
-      }
+        if (query.trim()) {
+          params.set(
+            'q',
+            query.trim(),
+          );
+        }
 
-      if (tags.length > 0) {
-        params.set(
-          'tags',
-          tags.join(','),
-        );
-      }
+        if (tags.length > 0) {
+          params.set(
+            'tags',
+            tags.join(','),
+          );
+        }
 
-      return params.toString();
-    },
-    [query, tags],
-  );
+        return params.toString();
+      },
+      [query, tags],
+    );
 
   const refresh = async () => {
     setLoading(true);
-    setError('');
 
     try {
       const collected: FaqItem[] = [];
@@ -543,6 +507,7 @@ export default function FaqList({
           'limit',
           String(limit),
         );
+
         params.set(
           'offset',
           String(offset),
@@ -565,13 +530,12 @@ export default function FaqList({
         const data =
           await response.json();
 
-        const rows: unknown[] = Array.isArray(
-          data?.items,
-        )
-          ? data.items
-          : Array.isArray(data)
-            ? data
-            : [];
+        const rows: unknown[] =
+          Array.isArray(data?.items)
+            ? data.items
+            : Array.isArray(data)
+              ? data
+              : [];
 
         const chunk = rows
           .map(normalizeFaqItem)
@@ -596,17 +560,16 @@ export default function FaqList({
         offset += limit;
       }
 
-      setItems(collected);
-    } catch (requestError) {
+      setItems(
+        collected,
+      );
+    } catch (error) {
       console.error(
         '[FAQ list] failed',
-        requestError,
+        error,
       );
 
       setItems([]);
-      setError(
-        '질문 목록을 불러오지 못했습니다.',
-      );
     } finally {
       setLoading(false);
     }
@@ -628,8 +591,107 @@ export default function FaqList({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshSignal]);
 
+  useEffect(() => {
+    if (!menu.open) {
+      return;
+    }
+
+    const closeMenu = () => {
+      setMenu(
+        CLOSED_MENU,
+      );
+    };
+
+    const handlePointer = (
+      event: Event,
+    ) => {
+      const target =
+        event.target as HTMLElement | null;
+
+      if (
+        !target?.closest(
+          '.faq-popover',
+        ) &&
+        !target?.closest(
+          '.faq-menu-btn',
+        )
+      ) {
+        closeMenu();
+      }
+    };
+
+    const handleKeyDown = (
+      event: KeyboardEvent,
+    ) => {
+      if (event.key === 'Escape') {
+        closeMenu();
+      }
+    };
+
+    document.addEventListener(
+      'mousedown',
+      handlePointer,
+      true,
+    );
+
+    document.addEventListener(
+      'touchstart',
+      handlePointer,
+      true,
+    );
+
+    document.addEventListener(
+      'scroll',
+      handlePointer,
+      true,
+    );
+
+    window.addEventListener(
+      'resize',
+      closeMenu,
+      {
+        passive: true,
+      },
+    );
+
+    window.addEventListener(
+      'keydown',
+      handleKeyDown,
+    );
+
+    return () => {
+      document.removeEventListener(
+        'mousedown',
+        handlePointer,
+        true,
+      );
+
+      document.removeEventListener(
+        'touchstart',
+        handlePointer,
+        true,
+      );
+
+      document.removeEventListener(
+        'scroll',
+        handlePointer,
+        true,
+      );
+
+      window.removeEventListener(
+        'resize',
+        closeMenu,
+      );
+
+      window.removeEventListener(
+        'keydown',
+        handleKeyDown,
+      );
+    };
+  }, [menu.open]);
+
   const normalizedSearch =
-    listSearch
+    bottomSearch
       .trim()
       .toLowerCase();
 
@@ -663,13 +725,14 @@ export default function FaqList({
       ],
     );
 
-  const pageCount = Math.max(
-    1,
-    Math.ceil(
-      filteredItems.length /
-      pageSize,
-    ),
-  );
+  const pageCount =
+    Math.max(
+      1,
+      Math.ceil(
+        filteredItems.length /
+        pageSize,
+      ),
+    );
 
   useEffect(() => {
     setPage((current) =>
@@ -707,7 +770,8 @@ export default function FaqList({
       () => {
         if (
           !isMobile ||
-          pageCount <= 5
+          pageCount <=
+          maxVisiblePageButtons
         ) {
           return Array.from(
             {
@@ -718,27 +782,57 @@ export default function FaqList({
           );
         }
 
-        const start =
+        const half =
+          Math.floor(
+            maxVisiblePageButtons /
+            2,
+          );
+
+        let start =
           Math.max(
             0,
-            Math.min(
-              page - 2,
-              pageCount - 5,
-            ),
+            page - half,
           );
+
+        let end =
+          start +
+          maxVisiblePageButtons -
+          1;
+
+        if (
+          end >=
+          pageCount
+        ) {
+          end =
+            pageCount -
+            1;
+
+          start =
+            Math.max(
+              0,
+              end -
+              maxVisiblePageButtons +
+              1,
+            );
+        }
 
         return Array.from(
           {
-            length: 5,
+            length:
+              end -
+              start +
+              1,
           },
           (_, index) =>
-            start + index,
+            start +
+            index,
         );
       },
       [
         isMobile,
         page,
         pageCount,
+        maxVisiblePageButtons,
       ],
     );
 
@@ -775,75 +869,267 @@ export default function FaqList({
     );
   };
 
-  const deleteItem = async (
-    item: FaqItem,
+  const handleDelete = async (
+    id: number,
   ) => {
     if (
       !window.confirm(
-        `"${item.title}" 질문을 삭제할까요?`,
+        '정말 삭제할까요?',
       )
     ) {
       return;
     }
 
-    try {
-      const response = await fetch(
-        `/api/faq/${item.id}`,
-        {
-          method: 'DELETE',
-          credentials: 'include',
-        },
-      );
+    const response = await fetch(
+      `/api/faq/${id}`,
+      {
+        method: 'DELETE',
+        credentials: 'include',
+      },
+    );
 
-      if (!response.ok) {
-        const data =
-          await response
-            .json()
-            .catch(() => null);
-
-        throw new Error(
-          data?.error ??
-          '질문 삭제에 실패했습니다.',
-        );
-      }
-
+    if (response.ok) {
       if (
         selected?.id ===
-        item.id
+        id
       ) {
         setSelected(null);
       }
 
       await refresh();
-    } catch (deleteError) {
-      window.alert(
-        deleteError instanceof Error
-          ? deleteError.message
-          : '질문 삭제에 실패했습니다.',
-      );
     }
   };
 
   return (
-    <section className="faq-manager">
-      <div className="faq-manager-toolbar">
-        <div className="faq-manager-summary">
-          <span className="faq-manager-summary-icon">
-            Q
-          </span>
+    <div className="faq-wrap">
+      <div className="faq-list-card">
+        {loading ? (
+          <div className="faq-row muted">
+            불러오는 중…
+          </div>
+        ) : visibleItems.length === 0 ? (
+          <div className="faq-row muted">
+            {normalizedSearch
+              ? '검색 결과가 없습니다.'
+              : '등록된 질문이 없습니다.'}
+          </div>
+        ) : (
+          visibleItems.map(
+            (item) => (
+              <div
+                key={item.id}
+                className="faq-row"
+              >
+                <button
+                  type="button"
+                  className="faq-title"
+                  onClick={() => {
+                    void openDetail(
+                      item,
+                    );
+                  }}
+                  title={item.title}
+                >
+                  <span
+                    className="faq-q"
+                    aria-hidden="true"
+                  >
+                    Q
+                  </span>
 
-          <div>
-            <strong>
-              자주 묻는 질문
-            </strong>
-            <span>
-              총 {filteredItems.length}개
-            </span>
+                  <span className="faq-title-text">
+                    {item.title}
+                  </span>
+                </button>
+
+                {canWrite && (
+                  <div className="faq-row-actions">
+                    <button
+                      type="button"
+                      className="faq-inline-edit"
+                      onClick={(event) => {
+                        event.stopPropagation();
+
+                        void openEdit(
+                          item,
+                        );
+                      }}
+                      title="질문 편집"
+                      aria-label={
+                        `${item.title} 편집`
+                      }
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M12 20h9"
+                          strokeLinecap="round"
+                        />
+                        <path
+                          d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+
+                      <span>편집</span>
+                    </button>
+
+                    {isAdmin && (
+                      <div className="faq-menu">
+                        <button
+                          type="button"
+                          className="faq-menu-btn"
+                          aria-label={
+                            `${item.title} 관리 메뉴`
+                          }
+                          aria-expanded={
+                            menu.open &&
+                            menu.id ===
+                            item.id
+                          }
+                          onClick={(event) => {
+                            event.stopPropagation();
+
+                            const rect =
+                              event.currentTarget
+                                .getBoundingClientRect();
+
+                            const width = 104;
+
+                            const x =
+                              Math.min(
+                                window.innerWidth -
+                                width -
+                                8,
+                                Math.max(
+                                  8,
+                                  rect.right -
+                                  width,
+                                ),
+                              );
+
+                            const y =
+                              rect.bottom +
+                              6;
+
+                            setMenu((current) =>
+                              current.open &&
+                              current.id ===
+                              item.id
+                                ? CLOSED_MENU
+                                : {
+                                    open: true,
+                                    id: item.id,
+                                    x,
+                                    y,
+                                  },
+                            );
+                          }}
+                        >
+                          ⋯
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ),
+          )
+        )}
+      </div>
+
+      <div className="faq-between-spacer" />
+
+      {pageCount > 1 && (
+        <div className="faq-paging">
+          <div className="faq-paging-seg">
+            <button
+              type="button"
+              className="faq-page-btn"
+              onClick={() => {
+                setPage((current) =>
+                  Math.max(
+                    0,
+                    current -
+                    1,
+                  ),
+                );
+              }}
+              disabled={
+                page === 0
+              }
+              aria-label="이전 페이지"
+            >
+              ‹
+            </button>
+
+            <ol className="faq-pages">
+              {visiblePageNumbers.map(
+                (pageNumber) => (
+                  <li key={pageNumber}>
+                    <button
+                      type="button"
+                      className={
+                        pageNumber ===
+                        page
+                          ? 'faq-page active'
+                          : 'faq-page'
+                      }
+                      onClick={() => {
+                        setPage(
+                          pageNumber,
+                        );
+                      }}
+                      aria-current={
+                        pageNumber ===
+                        page
+                          ? 'page'
+                          : undefined
+                      }
+                    >
+                      {pageNumber + 1}
+                    </button>
+                  </li>
+                ),
+              )}
+            </ol>
+
+            <button
+              type="button"
+              className="faq-page-btn next"
+              onClick={() => {
+                setPage((current) =>
+                  Math.min(
+                    pageCount -
+                    1,
+                    current +
+                    1,
+                  ),
+                );
+              }}
+              disabled={
+                page ===
+                pageCount -
+                1
+              }
+              aria-label="다음 페이지"
+            >
+              ›
+            </button>
           </div>
         </div>
+      )}
 
-        <label className="faq-list-search">
+      <div className="faq-bottom-search">
+        <label className="faq-search-box">
           <svg
+            className="faq-search-ico"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -862,22 +1148,23 @@ export default function FaqList({
           </svg>
 
           <input
-            value={listSearch}
-            onChange={(event) =>
-              setListSearch(
+            value={bottomSearch}
+            onChange={(event) => {
+              setBottomSearch(
                 event.target.value,
-              )
-            }
+              );
+            }}
             placeholder="목록 내 검색"
             aria-label="FAQ 목록 내 검색"
           />
 
-          {listSearch && (
+          {bottomSearch && (
             <button
               type="button"
-              onClick={() =>
-                setListSearch('')
-              }
+              className="faq-search-clear"
+              onClick={() => {
+                setBottomSearch('');
+              }}
               aria-label="검색어 지우기"
             >
               ×
@@ -886,231 +1173,57 @@ export default function FaqList({
         </label>
       </div>
 
-      <div className="faq-list">
-        {loading ? (
-          <div className="faq-list-state">
-            <span className="faq-list-spinner" />
-            질문 목록을 불러오는 중입니다.
-          </div>
-        ) : error ? (
-          <div className="faq-list-state is-error">
-            <strong>{error}</strong>
-            <button
-              type="button"
-              onClick={() =>
-                void refresh()
-              }
-            >
-              다시 불러오기
-            </button>
-          </div>
-        ) : visibleItems.length === 0 ? (
-          <div className="faq-list-state">
-            {normalizedSearch
-              ? '검색 결과가 없습니다.'
-              : '등록된 질문이 없습니다.'}
-          </div>
-        ) : (
-          visibleItems.map(
-            (item) => (
-              <article
-                key={item.id}
-                className="faq-list-item"
-              >
-                <button
-                  type="button"
-                  className="faq-list-main"
-                  onClick={() =>
-                    void openDetail(
-                      item,
-                    )
-                  }
-                  title={item.title}
-                >
-                  <span
-                    className="faq-list-q"
-                    aria-hidden="true"
-                  >
-                    Q
-                  </span>
-
-                  <span className="faq-list-copy">
-                    <strong>
-                      {item.title}
-                    </strong>
-
-                    <span>
-                      {item.content}
-                    </span>
-                  </span>
-
-                  {item.tags.length > 0 && (
-                    <span className="faq-list-tags">
-                      {item.tags
-                        .slice(0, 2)
-                        .map((tag) => (
-                          <span
-                            key={tag}
-                          >
-                            #{tag}
-                          </span>
-                        ))}
-                    </span>
-                  )}
-                </button>
-
-                {!authLoading &&
-                  canWrite && (
-                  <div className="faq-list-actions">
-                    <button
-                      type="button"
-                      className="faq-item-edit"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        void openEdit(
-                          item,
-                        );
-                      }}
-                      aria-label={`${item.title} 편집`}
-                      title="질문 편집"
-                    >
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <path
-                          d="M12 20h9"
-                          strokeLinecap="round"
-                        />
-                        <path
-                          d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                      <span>편집</span>
-                    </button>
-
-                    {isAdmin && (
-                      <button
-                        type="button"
-                        className="faq-item-delete"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          void deleteItem(
-                            item,
-                          );
-                        }}
-                        aria-label={`${item.title} 삭제`}
-                        title="질문 삭제"
-                      >
-                        <svg
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                        >
-                          <path
-                            d="M3 6h18"
-                            strokeLinecap="round"
-                          />
-                          <path
-                            d="M8 6V4h8v2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                          <path
-                            d="m19 6-1 14H6L5 6"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                )}
-              </article>
-            ),
-          )
-        )}
-      </div>
-
-      {pageCount > 1 && (
-        <nav
-          className="faq-pagination"
-          aria-label="FAQ 페이지"
+      {menu.open && (
+        <div
+          className="faq-menu-pop faq-popover"
+          style={{
+            position: 'fixed',
+            left: menu.x,
+            top: menu.y,
+            zIndex: 2500,
+            width: 104,
+            padding: 4,
+          }}
         >
           <button
             type="button"
-            onClick={() =>
-              setPage((current) =>
-                Math.max(
-                  0,
-                  current - 1,
-                ),
-              )
-            }
-            disabled={page === 0}
-            aria-label="이전 페이지"
-          >
-            ‹
-          </button>
+            style={{
+              width: '100%',
+              minHeight: 34,
+              padding: '0 10px',
+              color: '#d24646',
+              textAlign: 'left',
+              cursor: 'pointer',
+              background: 'transparent',
+              border: 0,
+              borderRadius: 7,
+            }}
+            onClick={() => {
+              const id =
+                menu.id;
 
-          {visiblePageNumbers.map(
-            (pageNumber) => (
-              <button
-                key={pageNumber}
-                type="button"
-                className={
-                  pageNumber === page
-                    ? 'is-active'
-                    : ''
-                }
-                onClick={() =>
-                  setPage(
-                    pageNumber,
-                  )
-                }
-                aria-current={
-                  pageNumber === page
-                    ? 'page'
-                    : undefined
-                }
-              >
-                {pageNumber + 1}
-              </button>
-            ),
-          )}
+              setMenu(
+                CLOSED_MENU,
+              );
 
-          <button
-            type="button"
-            onClick={() =>
-              setPage((current) =>
-                Math.min(
-                  pageCount - 1,
-                  current + 1,
-                ),
-              )
-            }
-            disabled={
-              page ===
-              pageCount - 1
-            }
-            aria-label="다음 페이지"
+              if (id != null) {
+                void handleDelete(
+                  id,
+                );
+              }
+            }}
           >
-            ›
+            삭제
           </button>
-        </nav>
+        </div>
       )}
 
       {selected && (
         <FaqDetailModal
           sel={selected}
-          onClose={() =>
-            setSelected(null)
-          }
+          onClose={() => {
+            setSelected(null);
+          }}
         />
       )}
 
@@ -1119,14 +1232,15 @@ export default function FaqList({
           open
           mode="edit"
           initial={editTarget}
-          onClose={() =>
-            setEditTarget(null)
-          }
+          onClose={() => {
+            setEditTarget(null);
+          }}
           onSaved={async () => {
             const editedId =
               editTarget.id;
 
             setEditTarget(null);
+
             await refresh();
 
             if (
@@ -1147,6 +1261,6 @@ export default function FaqList({
           }}
         />
       )}
-    </section>
+    </div>
   );
 }
