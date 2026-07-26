@@ -22,6 +22,10 @@ import {
   type BaseRange,
 } from 'slate';
 import { ReactEditor } from 'slate-react';
+import {
+  buildTableRangeClipboardPayload,
+  writeTableClipboardData,
+} from './helpers/tableClipboard';
 
 type Props = {
   editor: Editor & ReactEditor;
@@ -570,9 +574,22 @@ export default function TextContextMenu({ editor }: Props) {
     }
 
     try {
-      const data = new DataTransfer();
-      ReactEditor.setFragmentData(editor, data, 'copy');
-      await writeFormattedData(data);
+      const tablePayload =
+        buildTableRangeClipboardPayload(
+          editor,
+          menu.selection,
+        );
+
+      if (tablePayload) {
+        await writeTableClipboardData(
+          tablePayload,
+        );
+      } else {
+        const data = new DataTransfer();
+        ReactEditor.setFragmentData(editor, data, 'copy');
+        await writeFormattedData(data);
+      }
+
       restoreSelection(menu.selection);
       setMenu(null);
     } catch (error) {

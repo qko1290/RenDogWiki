@@ -161,6 +161,32 @@ export default function TableContextMenu({ editor }: Props) {
     await writeTableClipboardData(payload);
   };
 
+  const insertParagraphBelowTable = () => {
+    try {
+      const insertPath = Path.next(tablePath);
+
+      Transforms.insertNodes(
+        editor,
+        {
+          type: 'paragraph',
+          children: [{ text: '' }],
+        } as any,
+        { at: insertPath },
+      );
+
+      Transforms.select(
+        editor,
+        Editor.start(editor, insertPath),
+      );
+      ReactEditor.focus(editor as any);
+    } catch (error) {
+      console.error(
+        'insertParagraphBelowTable failed',
+        error,
+      );
+    }
+  };
+
   return (
     <div
       ref={boxRef}
@@ -229,6 +255,9 @@ export default function TableContextMenu({ editor }: Props) {
 
       {/* 표 전체 삭제 */}
       <MenuDivider />
+      <MenuItem onClick={act(insertParagraphBelowTable)}>
+        표 아래에 빈 문단 생성
+      </MenuItem>
       <MenuItem
         danger
         onClick={act(() => {
