@@ -1244,3 +1244,120 @@ body div[style*='z-index:10000'][style*='position:fixed']
     line-height: 1.5 !important;
   }
 }
+
+/* =============================================
+   FAQ 한 줄 제목 세로 정렬 보정
+
+   - 한 줄 제목은 Q 아이콘·닫기 버튼과 정확히 수직 중앙 정렬
+   - 여러 줄 제목은 기존 줄바꿈 높이를 그대로 사용
+   - FAQ 문서 모달과 검색 결과 모달에 동일 적용
+   ============================================= */
+
+/* FAQ 문서 영역 상세 모달 */
+body > .faq-modal-backdrop
+.faq-modal-header {
+  min-height: 40px !important;
+}
+
+body > .faq-modal-backdrop
+.faq-modal-title {
+  min-height: 36px !important;
+  align-items: center !important;
+}
+
+body > .faq-modal-backdrop
+.faq-modal-title h3 {
+  display: flex !important;
+  min-height: 36px !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+}
+
+body > .faq-modal-backdrop
+.faq-modal-title
+.faq-qa.q {
+  transform: none !important;
+}
+
+/* 검색 영역 FAQ 상세 모달 */
+body div[style*='z-index: 10000'][style*='position: fixed']
+  > div
+  > div:first-child,
+body div[style*='z-index:10000'][style*='position:fixed']
+  > div
+  > div:first-child {
+  min-height: 40px !important;
+}
+
+body div[style*='z-index: 10000'][style*='position: fixed']
+  > div
+  > div:first-child
+  > div:first-child,
+body div[style*='z-index:10000'][style*='position:fixed']
+  > div
+  > div:first-child
+  > div:first-child {
+  min-height: 36px !important;
+  align-items: center !important;
+}
+
+body div[style*='z-index: 10000'][style*='position: fixed']
+  > div
+  > div:first-child
+  h3,
+body div[style*='z-index:10000'][style*='position:fixed']
+  > div
+  > div:first-child
+  h3 {
+  display: flex !important;
+  min-height: 36px !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+}
+
+body div[style*='z-index: 10000'][style*='position: fixed']
+  > div
+  > div:first-child
+  span:first-child,
+body div[style*='z-index:10000'][style*='position:fixed']
+  > div
+  > div:first-child
+  span:first-child {
+  transform: none !important;
+}
+
+@media (max-width: 768px) {
+  body > .faq-modal-backdrop
+  .faq-modal-header,
+  body div[style*='z-index: 10000'][style*='position: fixed']
+    > div
+    > div:first-child,
+  body div[style*='z-index:10000'][style*='position:fixed']
+    > div
+    > div:first-child {
+    min-height: 32px !important;
+  }
+
+  body > .faq-modal-backdrop
+  .faq-modal-title,
+  body > .faq-modal-backdrop
+  .faq-modal-title h3,
+  body div[style*='z-index: 10000'][style*='position: fixed']
+    > div
+    > div:first-child
+    > div:first-child,
+  body div[style*='z-index: 10000'][style*='position: fixed']
+    > div
+    > div:first-child
+    h3,
+  body div[style*='z-index:10000'][style*='position:fixed']
+    > div
+    > div:first-child
+    > div:first-child,
+  body div[style*='z-index:10000'][style*='position:fixed']
+    > div
+    > div:first-child
+    h3 {
+    min-height: 30px !important;
+  }
+}
