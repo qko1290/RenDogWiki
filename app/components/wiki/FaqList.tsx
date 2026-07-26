@@ -16,6 +16,9 @@ import {
   useMemo,
   useState,
 } from 'react';
+import {
+  createPortal,
+} from 'react-dom';
 
 import FaqUpsertModal from '@/components/wiki/FaqUpsertModal';
 import {
@@ -255,7 +258,18 @@ export function FaqDetailModal({
   sel: FaqItem;
   onClose: () => void;
 }) {
+  const [portalReady, setPortalReady] =
+    useState(false);
+
   useEffect(() => {
+    setPortalReady(true);
+
+    const previousOverflow =
+      document.body.style.overflow;
+
+    document.body.style.overflow =
+      'hidden';
+
     const handleKeyDown = (
       event: KeyboardEvent,
     ) => {
@@ -274,10 +288,20 @@ export function FaqDetailModal({
         'keydown',
         handleKeyDown,
       );
+
+      document.body.style.overflow =
+        previousOverflow;
     };
   }, [onClose]);
 
-  return (
+  if (
+    !portalReady ||
+    typeof document === 'undefined'
+  ) {
+    return null;
+  }
+
+  return createPortal(
     <div
       className="faq-modal-backdrop"
       role="presentation"
@@ -344,7 +368,8 @@ export function FaqDetailModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

@@ -759,3 +759,315 @@ small {
       scale(1);
   }
 }
+
+/* =============================================
+   2026-07-26 FAQ 상세 모달 최종 보정
+
+   - FAQ 문서 안에서 여는 상세 모달은 Portal로 body에 렌더링
+   - 기존 FAQ 목록과 상세 카드 디자인은 유지
+   - 헤더 검색에서 여는 기존 인라인 모달도 같은 시각 체계로 통일
+   ============================================= */
+
+/* Portal 모달이 문서 스크롤 영역의 크기/overflow 영향을 받지 않도록
+   위치 관련 속성만 확실하게 고정한다. 카드 내부 색상과 형태는
+   기존 faq.css 규칙을 그대로 사용한다. */
+body > .faq-modal-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 10000 !important;
+  display: grid !important;
+  place-items: center !important;
+  box-sizing: border-box;
+  width: 100vw !important;
+  height: 100dvh !important;
+  margin: 0 !important;
+  padding: 18px !important;
+  overflow: auto !important;
+}
+
+body > .faq-modal-backdrop > .faq-modal {
+  position: relative !important;
+  inset: auto !important;
+  width: min(760px, 100%) !important;
+  max-width: 760px !important;
+  max-height: calc(100dvh - 36px) !important;
+  margin: auto !important;
+  overflow: auto !important;
+}
+
+/* ===== 헤더 검색 결과에서 열리는 FAQ 상세 모달 =====
+   SearchBox에 남아 있는 인라인 style보다 우선하도록 !important를 사용한다.
+   760px 카드와 z-index 10000 조합은 해당 FAQ 검색 모달에만 사용된다. */
+body div[style*='z-index: 10000']:has(
+  > div[style*='760px']
+) {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 10000 !important;
+  display: grid !important;
+  place-items: center !important;
+  box-sizing: border-box !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  margin: 0 !important;
+  padding: 18px !important;
+  overflow: auto !important;
+  background: rgba(12, 22, 15, 0.58) !important;
+  backdrop-filter: blur(7px) !important;
+  -webkit-backdrop-filter: blur(7px) !important;
+}
+
+body div[style*='z-index: 10000']:has(
+  > div[style*='760px']
+) > div[style*='760px'] {
+  position: relative !important;
+  width: min(760px, 100%) !important;
+  max-width: 760px !important;
+  max-height: calc(100dvh - 36px) !important;
+  box-sizing: border-box !important;
+  margin: auto !important;
+  padding: 20px !important;
+  overflow: auto !important;
+  color: var(--foreground) !important;
+  background:
+    radial-gradient(
+      circle at 100% 0,
+      color-mix(
+        in srgb,
+        var(--primary, #57a861) 14%,
+        transparent
+      ),
+      transparent 38%
+    ),
+    var(--surface-elevated, #fff) !important;
+  border: 1px solid var(--border, #dce7dc) !important;
+  border-radius: 20px !important;
+  box-shadow: var(--shadow-xl, 0 28px 70px rgba(18, 40, 22, 0.24)) !important;
+}
+
+/* 검색 모달 헤더 */
+body div[style*='z-index: 10000']:has(
+  > div[style*='760px']
+) > div[style*='760px'] > :first-child {
+  display: flex !important;
+  min-width: 0 !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 14px !important;
+  box-sizing: border-box !important;
+  margin: 0 0 14px !important;
+  padding: 0 0 14px !important;
+  border-bottom: 1px solid var(--border, #dce7dc) !important;
+}
+
+body div[style*='z-index: 10000']:has(
+  > div[style*='760px']
+) > div[style*='760px'] > :first-child > :first-child {
+  display: flex !important;
+  min-width: 0 !important;
+  align-items: center !important;
+  gap: 11px !important;
+}
+
+body div[style*='z-index: 10000']:has(
+  > div[style*='760px']
+) > div[style*='760px'] > :first-child span:first-child {
+  display: grid !important;
+  width: 38px !important;
+  height: 38px !important;
+  flex: 0 0 38px !important;
+  place-items: center !important;
+  box-sizing: border-box !important;
+  color: #318247 !important;
+  font-size: 17px !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  background: #eff9ed !important;
+  border: 1px solid #d5ead2 !important;
+  border-radius: 10px !important;
+}
+
+body div[style*='z-index: 10000']:has(
+  > div[style*='760px']
+) > div[style*='760px'] h3 {
+  min-width: 0 !important;
+  margin: 0 !important;
+  color: var(--foreground) !important;
+  font-family:
+    'NanumSquareNeo',
+    'NanumSquareRound',
+    system-ui,
+    sans-serif !important;
+  font-size: 21px !important;
+  font-weight: 900 !important;
+  line-height: 1.35 !important;
+  letter-spacing: -0.035em !important;
+}
+
+body div[style*='z-index: 10000']:has(
+  > div[style*='760px']
+) > div[style*='760px'] > :first-child button {
+  display: grid !important;
+  width: 38px !important;
+  height: 38px !important;
+  flex: 0 0 38px !important;
+  place-items: center !important;
+  box-sizing: border-box !important;
+  padding: 0 !important;
+  color: var(--muted, #748078) !important;
+  cursor: pointer !important;
+  background: var(--surface, #fff) !important;
+  border: 1px solid var(--border, #dce7dc) !important;
+  border-radius: 11px !important;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease !important;
+}
+
+body div[style*='z-index: 10000']:has(
+  > div[style*='760px']
+) > div[style*='760px'] > :first-child button:hover {
+  color: #c53b3b !important;
+  background: #fff2f2 !important;
+  border-color: #efcaca !important;
+  transform: translateY(-1px) !important;
+}
+
+/* 검색 모달 답변 영역 */
+body div[style*='z-index: 10000']:has(
+  > div[style*='760px']
+) > div[style*='760px'] > :nth-child(2) {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 12px !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  padding: 16px !important;
+  color: var(--foreground) !important;
+  background:
+    color-mix(
+      in srgb,
+      var(--surface-soft, #f6faf5) 92%,
+      transparent
+    ) !important;
+  border: 1px solid var(--border, #dce7dc) !important;
+  border-radius: 14px !important;
+}
+
+body div[style*='z-index: 10000']:has(
+  > div[style*='760px']
+) > div[style*='760px'] > :nth-child(2) > span:first-child {
+  display: grid !important;
+  width: 38px !important;
+  height: 38px !important;
+  flex: 0 0 38px !important;
+  place-items: center !important;
+  box-sizing: border-box !important;
+  color: #a66c00 !important;
+  font-size: 17px !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  background: #fff8e9 !important;
+  border: 1px solid #eed79d !important;
+  border-radius: 10px !important;
+}
+
+body div[style*='z-index: 10000']:has(
+  > div[style*='760px']
+) > div[style*='760px'] > :nth-child(2) p {
+  min-width: 0 !important;
+  margin: 0 !important;
+  color: var(--foreground) !important;
+  font-size: 14px !important;
+  font-weight: 630 !important;
+  line-height: 1.75 !important;
+  white-space: pre-wrap !important;
+  overflow-wrap: anywhere !important;
+}
+
+/* 태그 행이 있는 경우 카드 하단에서 자연스럽게 정렬 */
+body div[style*='z-index: 10000']:has(
+  > div[style*='760px']
+) > div[style*='760px'] > :nth-child(n + 3) {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+  margin-top: 12px !important;
+}
+
+@media (max-width: 768px) {
+  body > .faq-modal-backdrop,
+  body div[style*='z-index: 10000']:has(
+    > div[style*='760px']
+  ) {
+    padding: 10px !important;
+  }
+
+  body > .faq-modal-backdrop > .faq-modal,
+  body div[style*='z-index: 10000']:has(
+    > div[style*='760px']
+  ) > div[style*='760px'] {
+    max-height: calc(100dvh - 20px) !important;
+    border-radius: 16px !important;
+  }
+
+  body div[style*='z-index: 10000']:has(
+    > div[style*='760px']
+  ) > div[style*='760px'] {
+    padding: 16px !important;
+  }
+
+  body div[style*='z-index: 10000']:has(
+    > div[style*='760px']
+  ) > div[style*='760px'] h3 {
+    font-size: 18px !important;
+  }
+}
+
+:is(
+  html[data-theme='dark'],
+  body[data-theme='dark'],
+  html.dark,
+  body.dark
+)
+body div[style*='z-index: 10000']:has(
+  > div[style*='760px']
+) > div[style*='760px'] {
+  background:
+    radial-gradient(
+      circle at 100% 0,
+      rgba(66, 135, 78, 0.15),
+      transparent 38%
+    ),
+    var(--surface-elevated, #101b14) !important;
+}
+
+:is(
+  html[data-theme='dark'],
+  body[data-theme='dark'],
+  html.dark,
+  body.dark
+)
+body div[style*='z-index: 10000']:has(
+  > div[style*='760px']
+) > div[style*='760px'] > :first-child span:first-child {
+  color: #8bd39a !important;
+  background: rgba(65, 139, 78, 0.17) !important;
+  border-color: rgba(110, 183, 123, 0.25) !important;
+}
+
+:is(
+  html[data-theme='dark'],
+  body[data-theme='dark'],
+  html.dark,
+  body.dark
+)
+body div[style*='z-index: 10000']:has(
+  > div[style*='760px']
+) > div[style*='760px'] > :nth-child(2) > span:first-child {
+  color: #efc66c !important;
+  background: rgba(174, 119, 19, 0.16) !important;
+  border-color: rgba(228, 179, 83, 0.24) !important;
+}
