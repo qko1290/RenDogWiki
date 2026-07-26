@@ -1467,3 +1467,387 @@ body[data-manage-entity] .rw-add-btn {
   background:
     rgba(19, 28, 21, 0.94) !important;
 }
+
+/* =============================================
+   2026-07-26 밀도·간격·삭제 버튼 보정
+
+   기존 색상과 카드 디자인은 유지하면서:
+   - 3개 패널 사이의 불필요한 빈 간격 제거
+   - 목록/상세 요소의 높이와 내부 여백 정리
+   - 상세 제목 크기 보정
+   - 우측 상단 삭제 버튼 줄바꿈 및 배치 수정
+   ============================================= */
+
+body[data-manage-entity] .mgr-container {
+  grid-template-columns:
+    minmax(240px, 280px)
+    minmax(310px, 350px)
+    minmax(0, 1fr) !important;
+  gap: 12px !important;
+  padding: 14px !important;
+}
+
+body[data-manage-entity] :is(
+  .mgr-sidebar,
+  .mgr-list-area,
+  .mgr-detail-area
+) {
+  width: 100% !important;
+  max-width: none !important;
+  padding: 16px !important;
+  border-radius: 18px !important;
+}
+
+/* 각 패널 상단 제목과 추가 버튼을 같은 기준선에 배치 */
+body[data-manage-entity] :is(
+  .mgr-section-header,
+  .section-header,
+  .mgr-detail-header,
+  .mgr-list-header,
+  .mgr-sidebar-header
+) {
+  min-height: 48px;
+  gap: 10px;
+  margin: 0 0 11px !important;
+  padding: 0 0 11px !important;
+}
+
+body[data-manage-entity] :is(
+  .mgr-section-title,
+  .section-title,
+  .mgr-title
+) {
+  font-size: 18px !important;
+  line-height: 1.25 !important;
+}
+
+body[data-manage-entity] :is(
+  .mgr-section-header,
+  .section-header,
+  .mgr-detail-header,
+  .mgr-list-header,
+  .mgr-sidebar-header
+) .mgr-add-btn {
+  min-height: 40px !important;
+  margin-top: 0 !important;
+  padding: 0 13px !important;
+  white-space: nowrap;
+}
+
+/* 좌측 마을 목록과 가운데 개체 목록의 행 높이 통일 */
+body[data-manage-entity] .npc-village-list,
+body[data-manage-entity] .mgr-list {
+  gap: 5px !important;
+}
+
+body[data-manage-entity] :is(
+  .npc-village-item,
+  .mgr-list-item
+) {
+  height: auto !important;
+  min-height: 50px !important;
+  gap: 8px !important;
+  padding: 7px 9px !important;
+  border-radius: 12px !important;
+}
+
+body[data-manage-entity] :is(
+  .npc-village-icon,
+  .mgr-icon-cell
+) {
+  width: 32px !important;
+  height: 32px !important;
+  flex-basis: 32px !important;
+  border-radius: 9px !important;
+}
+
+body[data-manage-entity] :is(
+  .npc-village-icon,
+  .mgr-icon-cell
+) img {
+  width: 23px !important;
+  height: 23px !important;
+}
+
+body[data-manage-entity] .mgr-order {
+  width: 28px;
+  height: 28px;
+  flex-basis: 28px;
+  border-radius: 9px;
+}
+
+body[data-manage-entity] :is(
+  .mgr-name,
+  .npc-village-name
+) {
+  font-size: 14px !important;
+  line-height: 1.3 !important;
+}
+
+body[data-manage-entity] .mgr-village-menu-btn {
+  width: 30px;
+  height: 30px;
+  flex-basis: 30px;
+}
+
+/* 상세 영역 제목이 지나치게 크거나 삭제 버튼과 겹치지 않게 보정 */
+body[data-manage-entity] .mgr-detail-area {
+  padding: 18px !important;
+}
+
+body[data-manage-entity] .mgr-detail-header {
+  min-height: 52px;
+  align-items: center;
+  padding-right: 0 !important;
+}
+
+body[data-manage-entity] .mgr-detail-header > :first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+body[data-manage-entity] .mgr-detail-area :is(
+  .mgr-detail-title,
+  h1
+) {
+  margin: 0 !important;
+  font-size: clamp(24px, 2vw, 30px) !important;
+  line-height: 1.18 !important;
+}
+
+body[data-manage-entity] .mgr-detail-area :is(
+  h2,
+  h3
+) {
+  line-height: 1.25 !important;
+}
+
+/* 상세 정보 행의 라벨 폭과 세로 여백을 줄여 밀도를 맞춤 */
+body[data-manage-entity] .mgr-pill-row {
+  grid-template-columns:
+    minmax(118px, 150px)
+    minmax(0, 1fr);
+  min-height: 54px;
+  margin-bottom: 8px !important;
+  border-radius: 11px !important;
+}
+
+body[data-manage-entity] .mgr-pill-label {
+  justify-content: center;
+  padding: 9px 11px !important;
+  text-align: center;
+}
+
+body[data-manage-entity] .mgr-pill-value {
+  display: flex;
+  min-height: 52px;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 9px 13px !important;
+  line-height: 1.45 !important;
+}
+
+/* ===== 우측 상단 삭제 버튼 ===== */
+
+body[data-manage-entity] .mgr-detail-header :is(
+  .toolbar-seg,
+  .seg-group
+) {
+  min-width: max-content;
+  flex: 0 0 auto;
+  margin-left: auto;
+  overflow: visible;
+}
+
+body[data-manage-entity] .mgr-detail-header :is(
+  .seg-btn.danger,
+  .rd-btn.danger
+),
+body[data-manage-entity] .mgr-detail-area > :is(
+  .seg-btn.danger,
+  .rd-btn.danger
+) {
+  display: inline-flex !important;
+  width: auto !important;
+  min-width: 76px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  flex: 0 0 auto !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  box-sizing: border-box;
+  padding: 0 13px !important;
+  color: var(--entity-danger) !important;
+  font-size: 13px !important;
+  font-weight: 820 !important;
+  line-height: 1 !important;
+  letter-spacing: -0.01em !important;
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  writing-mode: horizontal-tb !important;
+  background: #fffafa !important;
+  border: 1px solid #efcccc !important;
+  border-radius: 11px !important;
+  box-shadow:
+    0 4px 12px
+    rgba(190, 56, 56, 0.06) !important;
+}
+
+body[data-manage-entity] .mgr-detail-header :is(
+  .seg-btn.danger,
+  .rd-btn.danger
+) > *,
+body[data-manage-entity] .mgr-detail-area > :is(
+  .seg-btn.danger,
+  .rd-btn.danger
+) > * {
+  flex: 0 0 auto;
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+}
+
+body[data-manage-entity] .mgr-detail-header :is(
+  .seg-btn.danger,
+  .rd-btn.danger
+):hover:not(:disabled),
+body[data-manage-entity] .mgr-detail-area > :is(
+  .seg-btn.danger,
+  .rd-btn.danger
+):hover:not(:disabled) {
+  color: #bd3030 !important;
+  background: #fff0f0 !important;
+  border-color: #e8b4b4 !important;
+  transform: translateY(-1px);
+}
+
+/*
+ * 일부 페이지에서는 삭제 도구 모음이 상세 헤더 바깥의
+ * 직접 자식으로 배치되어 있다. 이 경우 카드 우측 상단에 고정한다.
+ */
+body[data-manage-entity] .mgr-detail-area > :is(
+  .toolbar-seg,
+  .seg-group
+):has(.danger) {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 5;
+  min-width: max-content;
+  overflow: visible;
+}
+
+body[data-manage-entity] .mgr-detail-area > :is(
+  h1,
+  h2,
+  h3,
+  .mgr-detail-title
+):first-child {
+  box-sizing: border-box;
+  padding-right: 104px;
+}
+
+/* 기존 툴바 버튼도 세로 크기를 삭제 버튼과 통일 */
+body[data-manage-entity] .seg-btn {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  line-height: 1;
+  white-space: nowrap;
+  word-break: keep-all;
+}
+
+/* 중간 화면에서도 패널이 트랙을 가득 채우게 유지 */
+@media (max-width: 1250px) {
+  body[data-manage-entity] .mgr-container {
+    grid-template-columns:
+      minmax(220px, 260px)
+      minmax(285px, 330px)
+      minmax(0, 1fr) !important;
+    gap: 10px !important;
+    padding: 11px !important;
+  }
+
+  body[data-manage-entity] :is(
+    .mgr-sidebar,
+    .mgr-list-area,
+    .mgr-detail-area
+  ) {
+    padding: 14px !important;
+    border-radius: 16px !important;
+  }
+
+  body[data-manage-entity] .mgr-detail-area > :is(
+    .toolbar-seg,
+    .seg-group
+  ):has(.danger) {
+    top: 14px;
+    right: 14px;
+  }
+}
+
+@media (max-width: 980px) {
+  body[data-manage-entity] .mgr-container {
+    grid-template-columns:
+      minmax(220px, 0.8fr)
+      minmax(0, 1.4fr) !important;
+  }
+
+  body[data-manage-entity] .mgr-detail-area > :is(
+    h1,
+    h2,
+    h3,
+    .mgr-detail-title
+  ):first-child {
+    padding-right: 94px;
+  }
+}
+
+@media (max-width: 720px) {
+  body[data-manage-entity] .mgr-detail-area :is(
+    .mgr-detail-title,
+    h1
+  ) {
+    font-size: 23px !important;
+  }
+
+  body[data-manage-entity] .mgr-detail-header {
+    flex-wrap: wrap;
+  }
+
+  body[data-manage-entity] .mgr-detail-header :is(
+    .toolbar-seg,
+    .seg-group
+  ) {
+    margin-left: 0;
+  }
+
+  body[data-manage-entity] .mgr-detail-area > :is(
+    .toolbar-seg,
+    .seg-group
+  ):has(.danger) {
+    position: static;
+    width: fit-content;
+    margin: 0 0 10px auto;
+  }
+
+  body[data-manage-entity] .mgr-detail-area > :is(
+    h1,
+    h2,
+    h3,
+    .mgr-detail-title
+  ):first-child {
+    padding-right: 0;
+  }
+
+  body[data-manage-entity] .mgr-pill-row {
+    grid-template-columns: 1fr;
+  }
+
+  body[data-manage-entity] .mgr-pill-label {
+    justify-content: flex-start;
+    text-align: left;
+  }
+}
