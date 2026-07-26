@@ -2722,3 +2722,590 @@ body.dark[data-manage-entity]
   background: #192a1f;
   border-color: rgba(141, 194, 151, 0.24);
 }
+
+/* =============================================
+   관리 상세 수정 모달·퀘스트 보상 다크모드 보정
+
+   적용 범위:
+   - /manage/quest 상세 보상 표시
+   - /manage/quest, /manage/npc, /manage/head에서 여는 ModalCard
+   - 보상 편집, 좌표 편집, 사진 관리 등 ModalCard 내부 요소
+
+   크기·배치·동작은 변경하지 않고 색상만 보정한다.
+   ============================================= */
+
+/* ===== ModalCard 실제 클래스: rd-overlay / rd-card ===== */
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] .rd-overlay,
+body[data-theme='dark'][data-manage-entity] .rd-overlay,
+body.dark[data-manage-entity] .rd-overlay {
+  background: rgba(3, 9, 5, 0.76) !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] .rd-card,
+body[data-theme='dark'][data-manage-entity] .rd-card,
+body.dark[data-manage-entity] .rd-card {
+  color: #edf6ef !important;
+  background:
+    radial-gradient(
+      circle at 100% 0,
+      rgba(66, 118, 75, 0.14),
+      transparent 36%
+    ),
+    linear-gradient(
+      180deg,
+      #192a1f 0%,
+      #101b14 100%
+    ) !important;
+  border-color: rgba(142, 200, 153, 0.27) !important;
+  box-shadow:
+    0 30px 78px rgba(0, 0, 0, 0.54),
+    0 8px 24px rgba(0, 0, 0, 0.24) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .rd-card-content,
+  .mgr-modal-body
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .rd-card-content,
+  .mgr-modal-body
+),
+body.dark[data-manage-entity] :is(
+  .rd-card-content,
+  .mgr-modal-body
+) {
+  color: #edf6ef !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .rd-card-heading,
+  .mgr-modal-title
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .rd-card-heading,
+  .mgr-modal-title
+),
+body.dark[data-manage-entity] :is(
+  .rd-card-heading,
+  .mgr-modal-title
+) {
+  color: #b8e9c0 !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .rd-card-description,
+  .rd-muted,
+  .mgr-icon-placeholder
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .rd-card-description,
+  .rd-muted,
+  .mgr-icon-placeholder
+),
+body.dark[data-manage-entity] :is(
+  .rd-card-description,
+  .rd-muted,
+  .mgr-icon-placeholder
+) {
+  color: #9eafa4 !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] .rd-exit-btn,
+body[data-theme='dark'][data-manage-entity] .rd-exit-btn,
+body.dark[data-manage-entity] .rd-exit-btn {
+  color: #a9b9ae !important;
+  background: transparent !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] .rd-exit-btn:hover,
+body[data-theme='dark'][data-manage-entity] .rd-exit-btn:hover,
+body.dark[data-manage-entity] .rd-exit-btn:hover {
+  color: #c5efd0 !important;
+  background: rgba(53, 96, 62, 0.42) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] .rd-exit-btn svg,
+body[data-theme='dark'][data-manage-entity] .rd-exit-btn svg,
+body.dark[data-manage-entity] .rd-exit-btn svg {
+  fill: #a9b9ae !important;
+  stroke: #a9b9ae !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] .rd-exit-btn:hover svg,
+body[data-theme='dark'][data-manage-entity] .rd-exit-btn:hover svg,
+body.dark[data-manage-entity] .rd-exit-btn:hover svg {
+  fill: #c5efd0 !important;
+  stroke: #c5efd0 !important;
+}
+
+/* ===== 모달 입력 항목 ===== */
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .rd-label,
+  .mgr-modal-label
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .rd-label,
+  .mgr-modal-label
+),
+body.dark[data-manage-entity] :is(
+  .rd-label,
+  .mgr-modal-label
+) {
+  color: #dce9df !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .rd-input,
+  .rd-textarea,
+  .rd-num,
+  .mgr-input,
+  .rw-input
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .rd-input,
+  .rd-textarea,
+  .rd-num,
+  .mgr-input,
+  .rw-input
+),
+body.dark[data-manage-entity] :is(
+  .rd-input,
+  .rd-textarea,
+  .rd-num,
+  .mgr-input,
+  .rw-input
+) {
+  color: #f0f7f1 !important;
+  background: #111f17 !important;
+  border-color: rgba(143, 199, 154, 0.26) !important;
+  caret-color: #9bdda6 !important;
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.22) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .rd-input,
+  .rd-textarea,
+  .rd-num,
+  .mgr-input,
+  .rw-input
+)::placeholder,
+body[data-theme='dark'][data-manage-entity] :is(
+  .rd-input,
+  .rd-textarea,
+  .rd-num,
+  .mgr-input,
+  .rw-input
+)::placeholder,
+body.dark[data-manage-entity] :is(
+  .rd-input,
+  .rd-textarea,
+  .rd-num,
+  .mgr-input,
+  .rw-input
+)::placeholder {
+  color: #7f9286 !important;
+  opacity: 1 !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .rd-input,
+  .rd-textarea,
+  .rd-num,
+  .mgr-input,
+  .rw-input
+):focus,
+body[data-theme='dark'][data-manage-entity] :is(
+  .rd-input,
+  .rd-textarea,
+  .rd-num,
+  .mgr-input,
+  .rw-input
+):focus,
+body.dark[data-manage-entity] :is(
+  .rd-input,
+  .rd-textarea,
+  .rd-num,
+  .mgr-input,
+  .rw-input
+):focus {
+  color: #f7fff8 !important;
+  background: #172a1e !important;
+  border-color: rgba(128, 210, 143, 0.6) !important;
+  box-shadow:
+    0 0 0 3px rgba(94, 177, 109, 0.14) !important;
+}
+
+/* 좌표 수정 모달 */
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .rd-coord-row,
+  .rd-coord-item
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .rd-coord-row,
+  .rd-coord-item
+),
+body.dark[data-manage-entity] :is(
+  .rd-coord-row,
+  .rd-coord-item
+) {
+  color: #e9f3eb !important;
+  background: #14251a !important;
+  border-color: rgba(140, 198, 151, 0.23) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] .rd-coord-item > span,
+body[data-theme='dark'][data-manage-entity] .rd-coord-item > span,
+body.dark[data-manage-entity] .rd-coord-item > span {
+  color: #9adca5 !important;
+  background: rgba(55, 101, 65, 0.4) !important;
+  border-color: rgba(141, 205, 154, 0.23) !important;
+}
+
+/* 사진 관리 모달 */
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .rd-thumb,
+  .mgr-icon-preview,
+  .rd-preview
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .rd-thumb,
+  .mgr-icon-preview,
+  .rd-preview
+),
+body.dark[data-manage-entity] :is(
+  .rd-thumb,
+  .mgr-icon-preview,
+  .rd-preview
+) {
+  background: #14241a !important;
+  border-color: rgba(140, 197, 151, 0.23) !important;
+  box-shadow: none !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .rd-thumb-x,
+  .rw-del-btn
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .rd-thumb-x,
+  .rw-del-btn
+),
+body.dark[data-manage-entity] :is(
+  .rd-thumb-x,
+  .rw-del-btn
+) {
+  color: #ff858b !important;
+  background: rgba(78, 26, 31, 0.82) !important;
+  border-color: rgba(229, 98, 105, 0.34) !important;
+}
+
+/* ===== 퀘스트 보상 편집 모달 ===== */
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] .rw-list,
+body[data-theme='dark'][data-manage-entity] .rw-list,
+body.dark[data-manage-entity] .rw-list {
+  color: #edf6ef !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] .rw-row,
+body[data-theme='dark'][data-manage-entity] .rw-row,
+body.dark[data-manage-entity] .rw-row {
+  color: #edf6ef !important;
+  background: #14251a !important;
+  border-color: rgba(140, 198, 151, 0.23) !important;
+  box-shadow: none !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .rw-icon-btn,
+  .rw-icon-placeholder,
+  .rw-add-iconwrap
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .rw-icon-btn,
+  .rw-icon-placeholder,
+  .rw-add-iconwrap
+),
+body.dark[data-manage-entity] :is(
+  .rw-icon-btn,
+  .rw-icon-placeholder,
+  .rw-add-iconwrap
+) {
+  color: #a8dcb0 !important;
+  background: rgba(50, 91, 59, 0.4) !important;
+  border-color: rgba(139, 199, 151, 0.24) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] .rw-icon-btn:hover,
+body[data-theme='dark'][data-manage-entity] .rw-icon-btn:hover,
+body.dark[data-manage-entity] .rw-icon-btn:hover {
+  color: #c2edc9 !important;
+  background: rgba(61, 112, 71, 0.52) !important;
+  border-color: rgba(146, 216, 160, 0.38) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] .rw-add-btn,
+body[data-theme='dark'][data-manage-entity] .rw-add-btn,
+body.dark[data-manage-entity] .rw-add-btn {
+  color: #aae4b4 !important;
+  background: rgba(50, 94, 59, 0.42) !important;
+  border-color: rgba(139, 207, 152, 0.36) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] .rw-add-btn:hover,
+body[data-theme='dark'][data-manage-entity] .rw-add-btn:hover,
+body.dark[data-manage-entity] .rw-add-btn:hover {
+  color: #c7f0ce !important;
+  background: rgba(61, 112, 71, 0.53) !important;
+  border-color: rgba(148, 219, 161, 0.44) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] :is(
+  .mgr-btn,
+  .mgr-btn-secondary
+),
+body[data-theme='dark'][data-manage-entity] :is(
+  .mgr-btn,
+  .mgr-btn-secondary
+),
+body.dark[data-manage-entity] :is(
+  .mgr-btn,
+  .mgr-btn-secondary
+) {
+  color: #dce9df !important;
+  background: #18291e !important;
+  border-color: rgba(141, 194, 151, 0.25) !important;
+  box-shadow: none !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] .mgr-btn-primary,
+body[data-theme='dark'][data-manage-entity] .mgr-btn-primary,
+body.dark[data-manage-entity] .mgr-btn-primary {
+  color: #f8fff9 !important;
+  background:
+    linear-gradient(
+      180deg,
+      #4c9f57,
+      #397f44
+    ) !important;
+  border-color: #559f5f !important;
+  box-shadow:
+    0 8px 18px rgba(37, 108, 49, 0.2) !important;
+}
+
+/* ===== 상세 영역의 보상 칩 =====
+   행에는 page.tsx에서 title/aria-label="보상 수정"이 지정되어 있다. */
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity]
+:is(
+  [title='보상 수정'],
+  [aria-label='보상 수정']
+)
+.mgr-pill-value
+> :is(span, div),
+body[data-theme='dark'][data-manage-entity]
+:is(
+  [title='보상 수정'],
+  [aria-label='보상 수정']
+)
+.mgr-pill-value
+> :is(span, div),
+body.dark[data-manage-entity]
+:is(
+  [title='보상 수정'],
+  [aria-label='보상 수정']
+)
+.mgr-pill-value
+> :is(span, div) {
+  color: #dff1e2 !important;
+  background: #182a1f !important;
+  border-color: rgba(141, 199, 152, 0.27) !important;
+  box-shadow: none !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity]
+:is(
+  [title='보상 수정'],
+  [aria-label='보상 수정']
+)
+.mgr-pill-value
+> :is(span, div)
+:is(:hover, :focus-visible),
+body[data-theme='dark'][data-manage-entity]
+:is(
+  [title='보상 수정'],
+  [aria-label='보상 수정']
+)
+.mgr-pill-value
+> :is(span, div)
+:is(:hover, :focus-visible),
+body.dark[data-manage-entity]
+:is(
+  [title='보상 수정'],
+  [aria-label='보상 수정']
+)
+.mgr-pill-value
+> :is(span, div)
+:is(:hover, :focus-visible) {
+  color: #eff9f1 !important;
+  background: #203a29 !important;
+  border-color: rgba(146, 215, 159, 0.38) !important;
+}
+
+/* 보상 칩이 중간 래퍼 안에 놓인 경우까지 대응 */
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity]
+:is(
+  [title='보상 수정'],
+  [aria-label='보상 수정']
+)
+.mgr-pill-value
+> div
+> span,
+body[data-theme='dark'][data-manage-entity]
+:is(
+  [title='보상 수정'],
+  [aria-label='보상 수정']
+)
+.mgr-pill-value
+> div
+> span,
+body.dark[data-manage-entity]
+:is(
+  [title='보상 수정'],
+  [aria-label='보상 수정']
+)
+.mgr-pill-value
+> div
+> span {
+  color: #dff1e2 !important;
+  background: #182a1f !important;
+  border-color: rgba(141, 199, 152, 0.27) !important;
+}
+
+/* ModalCard 하단 버튼 색상 보정 */
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] .rd-card-button-wrapper .rd-btn.secondary,
+body[data-theme='dark'][data-manage-entity]
+.rd-card-button-wrapper
+.rd-btn.secondary,
+body.dark[data-manage-entity]
+.rd-card-button-wrapper
+.rd-btn.secondary {
+  color: #dce9df !important;
+  background: #1a2b20 !important;
+  border-color: rgba(141, 194, 151, 0.25) !important;
+}
+
+:where(
+  :root[data-theme='dark'],
+  :root.dark
+) body[data-manage-entity] .rd-card-button-wrapper .rd-btn.primary,
+body[data-theme='dark'][data-manage-entity]
+.rd-card-button-wrapper
+.rd-btn.primary,
+body.dark[data-manage-entity]
+.rd-card-button-wrapper
+.rd-btn.primary {
+  color: #f8fff9 !important;
+  background:
+    linear-gradient(
+      180deg,
+      #4c9f57,
+      #397f44
+    ) !important;
+  border-color: #559f5f !important;
+}
