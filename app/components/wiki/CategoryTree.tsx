@@ -7,6 +7,7 @@ import React, { useRef, useLayoutEffect, useMemo, useEffect } from "react";
 import SmartImage from "../common/SmartImage"; // ✅ import 유지
 import { toProxyUrl } from "@lib/cdn";
 import { markNextDocViewSource } from '@/wiki/lib/viewSource';
+import styles from './CategoryTreeIconStability.module.css';
 
 type CategoryNode = {
   id: number;
@@ -665,21 +666,25 @@ const CategoryTree: React.FC<Props> = ({
                         opacity: interactionReady ? 1 : 0.6,
                       }}
                     >
-                      <span style={{ marginRight: "0.3em" }}>
+                      <span
+                        className="wiki-doc-icon-token"
+                        aria-hidden="true"
+                      >
                         {doc.icon?.startsWith("http") ? (
                           <img
                             src={toProxyUrl(doc.icon)}
                             alt=""
-                            aria-hidden="true"
+                            className="wiki-doc-icon-img"
                             loading="lazy"
                             decoding="async"
                             fetchPriority="low"
-                            width={20}
-                            height={20}
-                            style={{ width: 20, height: 20, objectFit: "contain" }}
+                            width={24}
+                            height={24}
                           />
                         ) : (
-                          <span aria-hidden="true">{doc.icon || "📄"}</span>
+                          <span className="wiki-doc-icon-emoji">
+                            {doc.icon || "📄"}
+                          </span>
                         )}
                       </span>
                       <span className="doc-title">{doc.title}</span>
@@ -696,7 +701,10 @@ const CategoryTree: React.FC<Props> = ({
     });
 
   return (
-    <div ref={navScrollRef} className="wiki-nav-scroll">
+    <div
+      ref={navScrollRef}
+      className={`wiki-nav-scroll ${styles.tree}`}
+    >
       <ul className="wiki-nav-list">
         {/* ✅ 여기서 filteredCategories 사용 */}
         {renderTree(filteredCategories)}
