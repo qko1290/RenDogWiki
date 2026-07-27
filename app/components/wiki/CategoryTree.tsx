@@ -304,23 +304,60 @@ const CategoryTree: React.FC<Props> = ({
       let target: HTMLElement | null = null;
 
       if (docId) {
-        target = host.querySelector(`[data-kind="doc"][data-docid="${docId}"]`) as HTMLElement | null;
+        target = host.querySelector(
+          `[data-kind="doc"][data-docid="${docId}"]`
+        ) as HTMLElement | null;
       }
 
       // 2) 문서가 없거나 못 찾으면 카테고리로
       if (!target && catKey) {
-        target = host.querySelector(`[data-kind="cat"][data-path="${CSS.escape(catKey)}"]`) as HTMLElement | null;
+        target = host.querySelector(
+          `[data-kind="cat"][data-path="${CSS.escape(catKey)}"]`
+        ) as HTMLElement | null;
       }
 
       if (!target) return;
 
-      // ✅ "가까우면 안 움직임" + "부드럽게"
+      /*
+       * 선택 항목 자동 스크롤은 세로축만 조정한다.
+       *
+       * 기존 전체축 자동 스크롤은 트리에 몇 px의 가로
+       * overflow가 있을 때 컨테이너의 scrollLeft도 함께 바꿀 수 있다.
+       * 그러면 실제 항목 위치는 그대로인데 트리 전체가 좌우로 들썩여 보인다.
+       */
+      if (host.scrollLeft !== 0) {
+        host.scrollLeft = 0;
+      }
+
+      const hostRect = host.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const topPadding = 12;
+      const bottomPadding = 12;
+
+      let nextTop = host.scrollTop;
+
+      if (targetRect.top < hostRect.top + topPadding) {
+        nextTop -= hostRect.top + topPadding - targetRect.top;
+      } else if (targetRect.bottom > hostRect.bottom - bottomPadding) {
+        nextTop += targetRect.bottom - (hostRect.bottom - bottomPadding);
+      }
+
+      nextTop = Math.max(0, nextTop);
+
+      // 이미 보이는 항목이면 스크롤 애니메이션 자체를 만들지 않는다.
+      if (Math.abs(nextTop - host.scrollTop) < 1) {
+        return;
+      }
+
       try {
-        target.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+        host.scrollTo({
+          top: nextTop,
+          left: 0,
+          behavior: "smooth",
+        });
       } catch {
-        // 구형 브라우저 fallback
-        const top = target.offsetTop;
-        host.scrollTop = Math.max(0, top - 80);
+        host.scrollTop = nextTop;
+        host.scrollLeft = 0;
       }
     };
 
